@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" style=""><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>디지털 성우 아바타 시스템 개발 계획서</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+      body {
+        font-family: 'Noto Sans KR', sans-serif;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px;
+        background-color: #ffffff;
+        color: #333;
+        line-height: 1.6;
+      }
+
+      /* 표지 스타일 */
+      .cover-page {
+        text-align: center;
+        padding: 60px 0;
+        margin-bottom: 60px;
+        border-bottom: 2px solid #1e3a5f;
+        background: linear-gradient(135deg, #1e3a5f 0%, #162a45 100%);
+        color: white;
+        border-radius: 8px;
+      }
+      .cover-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #ffffff;
+      }
+      .cover-subtitle {
+        font-size: 1.2rem;
+        font-weight: 400;
+        margin-bottom: 40px;
+        color: #e0e0e0;
+      }
+      .cover-info {
+        font-size: 0.9rem;
+        margin-top: 20px;
+        color: #cccccc;
+      }
+      .stack-badge {
+        display: inline-block;
+        background-color: rgba(255, 255, 255, 0.2);
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+      }
+
+      /* 섹션 헤더 */
+      h2 {
+        background-color: #1e3a5f;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-size: 1.5rem;
+        margin-top: 40px;
+        margin-bottom: 20px;
+        border-left: 5px solid #2e86de;
+      }
+      h3 {
+        color: #1e3a5f;
+        border-bottom: 2px solid #2e86de;
+        padding-bottom: 5px;
+        margin-top: 30px;
+        font-size: 1.2rem;
+      }
+      h4 {
+        color: #2e86de;
+        margin-top: 20px;
+        font-size: 1.1rem;
+      }
+
+      /* 테이블 스타일 */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 0.9rem;
+      }
+      th {
+        background-color: #1e3a5f;
+        color: white;
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #ddd;
+      }
+      td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        vertical-align: top;
+      }
+      tr:nth-child(even) {
+        background-color: #f0f4f8;
+      }
+
+      /* 다이어그램 및 박스 */
+      .process-flow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 30px 0;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .process-step {
+        background-color: #f8f9fa;
+        border: 1px solid #2e86de;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        flex: 1;
+        min-width: 120px;
+        font-weight: bold;
+        color: #1e3a5f;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .arrow {
+        font-size: 1.5rem;
+        color: #2e86de;
+        font-weight: bold;
+      }
+
+      .tech-stack-container {
+        display: flex;
+        gap: 20px;
+        margin: 20px 0;
+        flex-wrap: wrap;
+      }
+      .tech-card {
+        flex: 1;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        min-width: 250px;
+      }
+      .tech-card h4 {
+        margin-top: 0;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+      }
+
+      .roadmap-container {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        overflow-x: auto;
+      }
+      .phase-box {
+        flex: 1;
+        border: 2px solid #1e3a5f;
+        border-radius: 8px;
+        padding: 15px;
+        background-color: #fff;
+        min-width: 280px;
+      }
+      .phase-title {
+        background-color: #1e3a5f;
+        color: white;
+        padding: 5px 10px;
+        display: inline-block;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+      }
+
+      /* 리스크 배지 */
+      .risk-badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: bold;
+      }
+      .risk-high {
+        background-color: #e74c3c;
+      }
+      .risk-med {
+        background-color: #f39c12;
+      }
+      .risk-low {
+        background-color: #27ae60;
+      }
+
+      /* 시스템 구성도 */
+      .system-diagram {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px dashed #1e3a5f;
+        text-align: center;
+        font-family: monospace;
+        white-space: pre-wrap;
+        line-height: 1.4;
+      }
+      .diagram-box {
+        display: inline-block;
+        border: 2px solid #1e3a5f;
+        padding: 10px 20px;
+        margin: 10px 0;
+        background-color: white;
+        border-radius: 4px;
+        font-weight: bold;
+        width: 80%;
+      }
+
+      /* 푸터 */
+      footer {
+        margin-top: 60px;
+        border-top: 1px solid #ddd;
+        padding-top: 20px;
+        text-align: center;
+        font-size: 0.8rem;
+        color: #777;
+      }
+
+      /* 리스트 스타일 */
+      ul {
+        list-style-type: square;
+        padding-left: 20px;
+      }
+      li {
+        margin-bottom: 5px;
+      }
+
+      /* 목차 스타일 */
+      .toc-list {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+      .toc-list ol {
+        padding-left: 20px;
+      }
+      .toc-list li {
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body style="">
+    <!-- 표지 -->
+    <div class="cover-page">
+      <div class="cover-title">디지털 성우 아바타 시스템 개발 계획서</div>
+      <div class="cover-subtitle">보이스 라벨링 → 데이터셋 생성 → MVP 실행 → 실증 시스템 완성</div>
+
+      <div style="margin: 30px 0">
+        <span style="font-size: 14px;">CosyVoice2</span>
+        <span style="font-size: 14px;">EmoSteer-TTS</span>
+        <span style="font-size: 14px;">openSMILE</span>
+        <span style="font-size: 14px;">GPT-SoVITS v3</span>
+      </div>
+
+      <div class="cover-info">
+        <p><br></p>
+      </div>
+    </div>
+
+    <!-- 목차 -->
+    <div class="toc-list">
+      <h3><span style="font-size: 14px;">목차</span></h3>
+      <ol>
+        <li><span style="font-size: 14px;">개요 및 배경</span></li>
+        <li><span style="font-size: 14px;">프로젝트 목표</span></li>
+        <li><span style="font-size: 14px;">프로젝트 범위</span></li>
+        <li><span style="font-size: 14px;">데이터 수집 및 보이스 라벨링</span></li>
+        <li><span style="font-size: 14px;">메타데이터 스키마 및 데이터셋 구조</span></li>
+        <li><span style="font-size: 14px;">모델 아키텍처 및 기술 스택</span></li>
+        <li><span style="font-size: 14px;">시스템 구성도</span></li>
+        <li><span style="font-size: 14px;">단계별 개발 로드맵</span></li>
+        <li><span style="font-size: 14px;">인력 구성 및 역할</span></li>
+        <li><span style="font-size: 14px;">품질 평가 및 검증 방법</span></li>
+        <li><span style="font-size: 14px;">보안 및 라이선스 관리</span></li>
+        <li><span style="font-size: 14px;">리스크 및 대응 방안</span></li>
+        <li><span style="font-size: 14px;">실증 운영 시나리오</span></li>
+        <li><span style="font-size: 14px;">주요 산출물 목록</span></li>
+        <li><span style="font-size: 14px;">예산 및 인프라 고려사항</span></li>
+        <li><span style="font-size: 14px;">향후 고도화 방향</span></li>
+      </ol>
+    </div>
+
+    <!-- 1. 개요 및 배경 -->
+    <h2><span style="font-size: 14px;">1. 개요 및 배경</span></h2>
+    <ul>
+      <li>
+        <strong><span style="font-size: 14px;">디지털 성우 아바타 정의:</span></strong><span style="font-size: 14px;"> 단순한 텍스트 음성 변환(TTS)을 넘어, 실제 성우의 고유한 목소리 톤,
+        연기 스타일, 감정 표현을 딥러닝으로 학습하여 재현하는 AI 모델입니다.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">기술적 차별성:</span></strong><span style="font-size: 14px;"> 기존 TTS의 기계적인 억양을 탈피하고, </span><em><span style="font-size: 14px;">CosyVoice2</span></em><span style="font-size: 14px;">의 제로샷 복제 능력과
+        </span><em><span style="font-size: 14px;">openSMILE</span></em><span style="font-size: 14px;"> 기반의 정밀 감정 파라미터 추출 기술을 결합하여, 미세한 감정(떨림, 숨소리 등)까지 제어 가능한
+        시스템을 구축합니다.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">산업 적용 목표:</span></strong><span style="font-size: 14px;"> 급성장하는 한국어 콘텐츠 시장(웹툰 무빙툰, 오디오 드라마, 게임 캐릭터 보이스,
+        자동 더빙)에 고품질/저비용의 음성 솔루션을 제공하는 것을 목표로 합니다.
+      </span></li>
+    </ul>
+
+    <!-- 2. 프로젝트 목표 -->
+    <h2><span style="font-size: 14px;">2. 프로젝트 목표</span></h2>
+    <p>
+      <strong><span style="font-size: 14px;">최종 목표:</span></strong><span style="font-size: 14px;"> 실제 성우의 목소리와 감정 연기를 AI로 완벽하게 재현하여, 텍스트 입력만으로 고품질 연기
+      음성을 생성하는 시스템 구축
+    </span></p>
+
+    <div style="display: flex; gap: 15px; margin-top: 20px">
+      <div class="process-step" style="background: #eef2f7; border: none">
+        <h4><span style="font-size: 14px;">음성 복제 정확도</span></h4>
+        <p><span style="font-size: 14px;">화자 유사도 80% 이상</span><br><span style="font-size: 14px;">GPT-SoVITS v3 활용</span></p>
+      </div>
+      <div class="process-step" style="background: #eef2f7; border: none">
+        <h4><span style="font-size: 14px;">감정 제어 정밀도</span></h4>
+        <p><span style="font-size: 14px;">27개 세부 감정 구현</span><br><span style="font-size: 14px;">EmoSteer-TTS 적용</span></p>
+      </div>
+      <div class="process-step" style="background: #eef2f7; border: none">
+        <h4><span style="font-size: 14px;">데이터셋 표준화</span></h4>
+        <p><span style="font-size: 14px;">openSMILE 기반</span><br><span style="font-size: 14px;">4계층 파라미터 분리</span></p>
+      </div>
+      <div class="process-step" style="background: #eef2f7; border: none">
+        <h4><span style="font-size: 14px;">MVP 시스템 구동</span></h4>
+        <p><span style="font-size: 14px;">실증 더빙 파이프라인</span><br><span style="font-size: 14px;">자동화 완료</span></p>
+      </div>
+    </div>
+
+    <!-- 3. 프로젝트 범위 -->
+    <h2><span style="font-size: 14px;">3. 프로젝트 범위</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50%"><span style="font-size: 14px;">In-Scope (수행 범위)</span></th>
+          <th style="width: 50%"><span style="font-size: 14px;">Out-of-Scope (제외 범위)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <ul>
+              <li><span style="font-size: 14px;">성우 섭외, 계약 및 고품질 데이터 녹음</span></li>
+              <li><span style="font-size: 14px;">보이스 라벨링 및 표준화 데이터셋 구축 (JSON)</span></li>
+              <li><span style="font-size: 14px;">AI 모델 학습 (CosyVoice2, GPT-SoVITS v3) 및 튜닝</span></li>
+              <li><span style="font-size: 14px;">감정 제어 모듈 (EmoSteer, EmoKnob) 통합</span></li>
+              <li><span style="font-size: 14px;">MVP 더빙 생성 파이프라인 및 컨트롤러 UI 개발</span></li>
+              <li><span style="font-size: 14px;">품질 검증 및 실증 시나리오 테스트</span></li>
+            </ul>
+          </td>
+          <td>
+            <ul>
+              <li><span style="font-size: 14px;">일반 사용자용 상용 웹 서비스(SaaS) 개발 (MVP 이후)</span></li>
+              <li><span style="font-size: 14px;">실시간 스트리밍 음성 변환(VC) 서비스</span></li>
+              <li><span style="font-size: 14px;">타 언어(영어, 일어 등) 전용 모델 개발 (추후 고도화)</span></li>
+              <li><span style="font-size: 14px;">모바일 앱 클라이언트 개발</span></li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 4. 데이터 수집 및 보이스 라벨링 -->
+    <h2><span style="font-size: 14px;">4. 데이터 수집 및 보이스 라벨링</span></h2>
+
+    <h3><span style="font-size: 14px;">4.1 수집 전략</span></h3>
+    <ul>
+      <li><strong><span style="font-size: 14px;">성우 섭외:</span></strong><span style="font-size: 14px;"> 다양한 연기 폭을 가진 전문 성우(남/녀 각 2명 이상) 섭외.</span></li>
+      <li><strong><span style="font-size: 14px;">녹음 환경:</span></strong><span style="font-size: 14px;"> 전문 방음 스튜디오, 샘플 레이트 44.1kHz / 16bit 이상, Mono 채널.</span></li>
+      <li><strong><span style="font-size: 14px;">데이터량:</span></strong><span style="font-size: 14px;"> 성우당 최소 1시간 이상의 청정 음성 데이터 (감정별 밸런스 유지).</span></li>
+    </ul>
+
+    <h3><span style="font-size: 14px;">4.2 음성 클립 분류 체계</span></h3>
+    <p><span style="font-size: 14px;">체계적인 관리를 위해 다음과 같은 ID 구조를 사용합니다.</span></p>
+    <div style="background: #f4f4f4; padding: 15px; border-left: 4px solid #1e3a5f; font-family: monospace">
+      <strong><span style="font-size: 14px;">구조:</span></strong><span style="font-size: 14px;"> [프로젝트ID]_[캐릭터ID]_[씬번호]_[테이크번호]</span><br>
+      <strong><span style="font-size: 14px;">예시:</span></strong><span style="font-size: 14px;"> P01_C03_S05_T01 (프로젝트1, 캐릭터3, 씬5, 테이크1)
+    </span></div>
+
+    <h3><span style="font-size: 14px;">4.3 라벨링 워크플로우</span></h3>
+    <div class="process-flow">
+      <div class="process-step"><span style="font-size: 14px;">원본 녹음</span></div>
+      <div class="arrow"><span style="font-size: 14px;">→</span></div>
+      <div class="process-step"><span style="font-size: 14px;">QC 검수</span><br><small><span style="font-size: 14px;">(노이즈/발음)</span></small></div>
+      <div class="arrow"><span style="font-size: 14px;">→</span></div>
+      <div class="process-step"><span style="font-size: 14px;">openSMILE</span><br><small><span style="font-size: 14px;">파라미터 추출</span></small></div>
+      <div class="arrow"><span style="font-size: 14px;">→</span></div>
+      <div class="process-step"><span style="font-size: 14px;">감정 라벨링</span><br><small><span style="font-size: 14px;">(수동/자동)</span></small></div>
+      <div class="arrow"><span style="font-size: 14px;">→</span></div>
+      <div class="process-step"><span style="font-size: 14px;">스키마 병합</span><br><small><span style="font-size: 14px;">(JSON)</span></small></div>
+      <div class="arrow"><span style="font-size: 14px;">→</span></div>
+      <div class="process-step"><span style="font-size: 14px;">데이터셋 완성</span></div>
+    </div>
+
+    <h3><span style="font-size: 14px;">4.4 보이스 라벨링 분류체계 (Schema Overview)</span></h3>
+    <table>
+      <tbody><tr>
+        <th width="25%"><span style="font-size: 14px;">BLOCK</span></th>
+        <th><span style="font-size: 14px;">주요 내용 및 코드</span></th>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 1</span><br><span style="font-size: 14px;">콘텐츠/장르</span></strong>
+        </td>
+        <td><span style="font-size: 14px;">G01~G10: 로맨스, 판타지, 액션, 코미디, 드라마, 스릴러, 공포, SF, 무협, 일상</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 2</span><br><span style="font-size: 14px;">캐릭터 프로필</span></strong>
+        </td>
+        <td><span style="font-size: 14px;">ID, 성별(char_gender), 연령대(char_age_group), 성격(char_personality), 역할(char_role)</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 3</span><br><span style="font-size: 14px;">감정 라벨셋</span></strong>
+        </td>
+        <td>
+          <strong><span style="font-size: 14px;">27개 감정 클래스 (E01~E27):</span></strong><br><span style="font-size: 14px;">
+          기쁨, 웃음, 설렘, 사랑, 안도, 자신감, 호기심, 평온 (긍정/중립)</span><br><span style="font-size: 14px;">
+          불안, 두려움, 슬픔, 절망, 분노, 우울, 죄책감, 공포 (부정)</span><br><span style="font-size: 14px;">
+          혐오, 경멸, 격노, 공황, 흥분, 질투, 수치심, 놀람, 냉정, 그리움, 복합감정</span><br><span style="font-size: 14px;">
+          + </span><strong><span style="font-size: 14px;">수치:</span></strong><span style="font-size: 14px;"> Valence(-2~+2), Arousal(1~5), Intensity(1~5)
+        </span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 4</span><br><span style="font-size: 14px;">연기스타일</span></strong>
+        </td>
+        <td><span style="font-size: 14px;">ST01~ST14: 일상대화, 독백, 속삭임, 고함, 속사포, 느린발화, 로맨틱, 권위적, 냉소적 등</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 5</span><br><span style="font-size: 14px;">발화의도</span></strong>
+        </td>
+        <td><span style="font-size: 14px;">DI01~DI16: 설득, 비꼼, 명령, 위로, 도발, 간청, 경고, 조롱, 고백 등</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong><span style="font-size: 14px;">BLOCK 6</span><br><span style="font-size: 14px;">비언어이벤트</span></strong>
+        </td>
+        <td><span style="font-size: 14px;">NV01~NV20: 웃음, 한숨, 울먹임, 헐떡임, 기침, 비명, 헛기침 (타임스탬프 포함)</span></td>
+      </tr>
+    </tbody></table>
+
+    <!-- 5. 메타데이터 스키마 및 데이터셋 구조 -->
+    <h2><span style="font-size: 14px;">5. 메타데이터 스키마 및 데이터셋 구조</span></h2>
+
+    <h3><span style="font-size: 14px;">5.1 JSON 스키마 필드 정의</span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th><span style="font-size: 14px;">카테고리</span></th>
+          <th><span style="font-size: 14px;">필드명 (Key)</span></th>
+          <th><span style="font-size: 14px;">타입</span></th>
+          <th><span style="font-size: 14px;">필수</span></th>
+          <th><span style="font-size: 14px;">설명 및 예시</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="2"><span style="font-size: 14px;">기본식별</span></td>
+          <td><span style="font-size: 14px;">clip_id</span></td>
+          <td><span style="font-size: 14px;">String</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">P01_C03_S05_T01</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">audio_path</span></td>
+          <td><span style="font-size: 14px;">String</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">/raw/p01/c03/s05_t01.wav</span></td>
+        </tr>
+        <tr>
+          <td rowspan="2"><span style="font-size: 14px;">캐릭터</span></td>
+          <td><span style="font-size: 14px;">character_id</span></td>
+          <td><span style="font-size: 14px;">String</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">CH_MAIN_01 (주인공)</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">speech_style_enum</span></td>
+          <td><span style="font-size: 14px;">Enum</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">ST03 (속삭임)</span></td>
+        </tr>
+        <tr>
+          <td rowspan="3"><span style="font-size: 14px;">연기(감정)</span></td>
+          <td><span style="font-size: 14px;">primary_emotion</span></td>
+          <td><span style="font-size: 14px;">Enum</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">E11 (슬픔)</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">emotion_intensity</span></td>
+          <td><span style="font-size: 14px;">Int</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">4 (1~5 스케일)</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">nonverbal_events</span></td>
+          <td><span style="font-size: 14px;">List</span></td>
+          <td><span style="font-size: 14px;">N</span></td>
+          <td><span style="font-size: 14px;">[{"type": "sigh", "time": 0.5}]</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">기술/음향</span></td>
+          <td><span style="font-size: 14px;">sample_rate</span></td>
+          <td><span style="font-size: 14px;">Int</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">44100</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">라이선스</span></td>
+          <td><span style="font-size: 14px;">usage_rights</span></td>
+          <td><span style="font-size: 14px;">String</span></td>
+          <td><span style="font-size: 14px;">Y</span></td>
+          <td><span style="font-size: 14px;">Commercial-All (전체 상용)</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3><span style="font-size: 14px;">5.2 openSMILE eGeMAPS 파라미터 추출 항목</span></h3>
+    <ul>
+      <li><strong><span style="font-size: 14px;">Pitch (F0):</span></strong><span style="font-size: 14px;"> 목소리의 높낮이 변화. 억양과 강조점을 분석.</span></li>
+      <li><strong><span style="font-size: 14px;">Energy (RMS):</span></strong><span style="font-size: 14px;"> 음성의 크기 및 에너지 레벨. 감정의 강도(Intensity) 측정.</span></li>
+      <li>
+        <strong><span style="font-size: 14px;">Voice Quality (Jitter/Shimmer):</span></strong><span style="font-size: 14px;"> 성대의 불규칙한 진동. 떨림, 거친 소리 등 감정적 질감 분석.
+      </span></li>
+      <li><strong><span style="font-size: 14px;">Spectral (MFCC):</span></strong><span style="font-size: 14px;"> 음색(Timbre) 특성. 화자 고유의 소리 특징.</span></li>
+      <li><strong><span style="font-size: 14px;">Prosody:</span></strong><span style="font-size: 14px;"> 발화 속도, 포즈(쉼) 길이, 리듬감 등 운율적 특징.</span></li>
+    </ul>
+
+    <!-- 6. 모델 아키텍처 및 기술 스택 -->
+    <h2><span style="font-size: 14px;">6. 모델 아키텍처 및 기술 스택</span></h2>
+
+    <h3><span style="font-size: 14px;">6.1 3-레이어 핵심 스택</span></h3>
+    <div class="tech-stack-container">
+      <div class="tech-card" style="border-top: 4px solid #2e86de">
+        <h4><span style="font-size: 14px;">Layer 1: 생성 엔진</span></h4>
+        <p><strong><span style="font-size: 14px;">CosyVoice2</span></strong></p>
+        <p><span style="font-size: 14px;">- 다국어 Zero-shot 복제</span><br><span style="font-size: 14px;">- Instruct 모드 (자연어 프롬프트)</span><br><span style="font-size: 14px;">- 기본 음성 합성 담당</span></p>
+      </div>
+      <div class="tech-card" style="border-top: 4px solid #e74c3c">
+        <h4><span style="font-size: 14px;">Layer 2: 제어 엔진</span></h4>
+        <p><strong><span style="font-size: 14px;">EmoSteer-TTS</span></strong></p>
+        <p><span style="font-size: 14px;">- 모델 재학습 불필요</span><br><span style="font-size: 14px;">- 감정 벡터 조작 (Alpha Scale)</span><br><span style="font-size: 14px;">- 복합 감정 혼합 (슬픔+분노)</span></p>
+      </div>
+      <div class="tech-card" style="border-top: 4px solid #f39c12">
+        <h4><span style="font-size: 14px;">Layer 3: 분석 엔진</span></h4>
+        <p><strong><span style="font-size: 14px;">openSMILE</span></strong></p>
+        <p><span style="font-size: 14px;">- eGeMAPS 표준 파라미터</span><br><span style="font-size: 14px;">- 88개 음향 특징 추출</span><br><span style="font-size: 14px;">- 데이터 정량화 및 라벨링</span></p>
+      </div>
+    </div>
+
+    <h3><span style="font-size: 14px;">6.2 보완 전략 (Two-Track Strategy)</span></h3>
+    <ul>
+      <li>
+        <strong><span style="font-size: 14px;">Track A (고정밀 복제):</span></strong> <strong><span style="font-size: 14px;">GPT-SoVITS v3</span></strong><span style="font-size: 14px;"> 활용. 1분 내외의 데이터로 화자 유사도
+        극대화. 일반 대사 처리에 최적 (RTF 0.028).
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">Track B (감정 연기):</span></strong> <strong><span style="font-size: 14px;">CosyVoice2 Instruct + RVC</span></strong><span style="font-size: 14px;"> 활용. 복잡한 감정 연기는
+        CosyVoice2로 생성 후, RVC로 성우 본연의 음색 보정.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">보조 모델:</span></strong> <strong><span style="font-size: 14px;">F5-TTS</span></strong><span style="font-size: 14px;">. 격노, 극도의 공포 등 기존 모델이 표현하기 어려운 특수 감정
+        생성 시 활용.
+      </span></li>
+    </ul>
+
+    <h3><span style="font-size: 14px;">6.3 감정 제어 3단계 레이어</span></h3>
+    <ol>
+      <li><strong><span style="font-size: 14px;">Level 1 (자연어):</span></strong><span style="font-size: 14px;"> "슬프게 말해줘", "화난 목소리로" 등 텍스트 프롬프트 사용 (CosyVoice2).</span></li>
+      <li>
+        <strong><span style="font-size: 14px;">Level 2 (벡터 조작):</span></strong><span style="font-size: 14px;"> EmoSteer를 통해 감정 벡터의 강도 조절 및 감정 간 보간(Interpolation).
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">Level 3 (방향 제어):</span></strong><span style="font-size: 14px;"> EmoKnob을 사용하여 특정 성우의 중립/감정 쌍에서 추출한 방향 벡터 적용.
+      </span></li>
+    </ol>
+
+    <!-- 7. 시스템 구성도 -->
+    <h2><span style="font-size: 14px;">7. 시스템 구성도</span></h2>
+    <div class="system-diagram">
+      <div class="diagram-box" style="background: #eef"><span style="font-size: 14px;">[입력] 대본 텍스트 + 연기 지문</span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box"><span style="font-size: 14px;">[대본 파서] 감정 프롬프트 및 메타데이터 자동 추출</span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box" style="border-style: dashed"><span style="font-size: 14px;">
+        [모델 선택기 (Router)]</span><br><span style="font-size: 14px;">일반대사 → GPT-SoVITS v3 &nbsp;&nbsp;|&nbsp;&nbsp; 감정연기 → CosyVoice2
+      </span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box"><span style="font-size: 14px;">[감정 제어 레이어]</span><br><span style="font-size: 14px;">EmoSteer-TTS (벡터 조작) + EmoKnob (스타일 적용)</span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box"><span style="font-size: 14px;">[음성 변환 (옵션)] RVC (음색 보정 및 Identity 강화)</span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box"><span style="font-size: 14px;">[품질 검증] SER 자동 평가 + MOS 예측</span></div>
+      <div style="font-size: 20px"><span style="font-size: 14px;">↓</span></div>
+      <div class="diagram-box" style="background: #eef; border-color: #2e86de"><span style="font-size: 14px;">
+        [출력] 최종 디지털 성우 음성 파일 (WAV)
+      </span></div>
+    </div>
+
+    <!-- 8. 단계별 개발 로드맵 -->
+    <h2><span style="font-size: 14px;">8. 단계별 개발 로드맵</span></h2>
+
+    <div class="roadmap-container">
+      <div class="phase-box">
+        <div class="phase-title"><span style="font-size: 14px;">Phase 1: 기반 구축 (1~6주)</span></div>
+        <ul>
+          <li><strong><span style="font-size: 14px;">W1-2:</span></strong><span style="font-size: 14px;"> 성우 계약, 스튜디오 녹음 착수</span></li>
+          <li><strong><span style="font-size: 14px;">W3-4:</span></strong><span style="font-size: 14px;"> openSMILE 파이프라인 구축, 자동 파라미터 추출</span></li>
+          <li><strong><span style="font-size: 14px;">W5-6:</span></strong><span style="font-size: 14px;"> CosyVoice2 환경 셋업, Speaker Identity 등록, 기본 프롬프트 템플릿 완성</span></li>
+        </ul>
+        <p style="margin-top: 10px; font-size: 0.85rem; color: #666">
+          <strong><span style="font-size: 14px;">📌 산출물:</span></strong><span style="font-size: 14px;"> 성우별 음성 DB, eGeMAPS 리포트, 기본 템플릿
+        </span></p>
+      </div>
+      <div class="phase-box">
+        <div class="phase-title"><span style="font-size: 14px;">Phase 2: 고도화 (7~12주)</span></div>
+        <ul>
+          <li><strong><span style="font-size: 14px;">W7-8:</span></strong><span style="font-size: 14px;"> 라벨링 스키마 전체 적용, 통합 DB 구축</span></li>
+          <li><strong><span style="font-size: 14px;">W9-10:</span></strong><span style="font-size: 14px;"> EmoKnob 벡터 추출, EmoSteer 통합</span></li>
+          <li><strong><span style="font-size: 14px;">W11-12:</span></strong><span style="font-size: 14px;"> 27개 감정 매핑, 복합 감정 테스트, GPT-SoVITS 파인튜닝</span></li>
+        </ul>
+        <p style="margin-top: 10px; font-size: 0.85rem; color: #666">
+          <strong><span style="font-size: 14px;">📌 산출물:</span></strong><span style="font-size: 14px;"> 통합 메타데이터, 감정 벡터셋, 튜닝 모델
+        </span></p>
+      </div>
+      <div class="phase-box">
+        <div class="phase-title"><span style="font-size: 14px;">Phase 3: MVP 완성 (13~16주)</span></div>
+        <ul>
+          <li><strong><span style="font-size: 14px;">W13-14:</span></strong><span style="font-size: 14px;"> 대본 파서 및 컨트롤러 UI 개발</span></li>
+          <li><strong><span style="font-size: 14px;">W15-16:</span></strong><span style="font-size: 14px;"> SER 자동 평가, MOS 테스트, 실증 시연</span></li>
+        </ul>
+        <p style="margin-top: 10px; font-size: 0.85rem; color: #666">
+          <strong><span style="font-size: 14px;">📌 산출물:</span></strong><span style="font-size: 14px;"> MVP 시스템, 품질 리포트, 더빙 샘플
+        </span></p>
+      </div>
+    </div>
+
+    <!-- 9. 인력 구성 및 역할 -->
+    <h2><span style="font-size: 14px;">9. 인력 구성 및 역할</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th width="30%"><span style="font-size: 14px;">역할</span></th>
+          <th width="15%"><span style="font-size: 14px;">인원</span></th>
+          <th><span style="font-size: 14px;">주요 업무</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong><span style="font-size: 14px;">PM</span></strong></td>
+          <td><span style="font-size: 14px;">1명</span></td>
+          <td><span style="font-size: 14px;">전체 일정 관리, 이해관계자 커뮤니케이션, 리스크 관리</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">AI 모델 엔지니어</span></strong></td>
+          <td><span style="font-size: 14px;">2명</span></td>
+          <td><span style="font-size: 14px;">CosyVoice2/GPT-SoVITS 튜닝, EmoSteer-TTS 구현, 모델 서빙</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">데이터 엔지니어</span></strong></td>
+          <td><span style="font-size: 14px;">1명</span></td>
+          <td><span style="font-size: 14px;">openSMILE 파이프라인 구축, 데이터 전처리 및 DB 관리</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">백엔드 개발자</span></strong></td>
+          <td><span style="font-size: 14px;">1명</span></td>
+          <td><span style="font-size: 14px;">대본 파서 개발, API 서버 구축, 워크플로우 자동화</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">프론트엔드 개발자</span></strong></td>
+          <td><span style="font-size: 14px;">1명</span></td>
+          <td><span style="font-size: 14px;">PD용 컨트롤러 UI (감정 조절 슬라이더 등) 개발</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">성우 / 어노테이터</span></strong></td>
+          <td><span style="font-size: 14px;">2명</span></td>
+          <td><span style="font-size: 14px;">고품질 음성 데이터 녹음, 감정 라벨링 및 검수</span></td>
+        </tr>
+        <tr>
+          <td><strong><span style="font-size: 14px;">QA 엔지니어</span></strong></td>
+          <td><span style="font-size: 14px;">1명</span></td>
+          <td><span style="font-size: 14px;">품질 테스트, SER 평가 수행, 버그 리포팅</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 10. 품질 평가 및 검증 방법 -->
+    <h2><span style="font-size: 14px;">10. 품질 평가 및 검증 방법</span></h2>
+    <ul>
+      <li>
+        <strong><span style="font-size: 14px;">MOS (Mean Opinion Score):</span></strong><span style="font-size: 14px;"> 청취자 주관 평가 (5점 만점). 목표 4.5점 이상. (CosyVoice2 논문 기준
+        5.53 참조)
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">Speaker Similarity (화자 유사도):</span></strong><span style="font-size: 14px;"> 원본 성우 음성과 생성 음성의 유사도 측정. 목표 80% 이상.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">SER (Speech Emotion Recognition):</span></strong><span style="font-size: 14px;"> AI 모델을 통해 생성된 음성의 감정 분류 정확도 자동 평가.
+      </span></li>
+      <li><strong><span style="font-size: 14px;">WER (Word Error Rate):</span></strong><span style="font-size: 14px;"> 발음 정확도 측정. 대본과 생성 음성의 텍스트 일치율 검증.</span></li>
+    </ul>
+
+    <!-- 11. 보안 및 라이선스 관리 -->
+    <h2><span style="font-size: 14px;">11. 보안 및 라이선스 관리</span></h2>
+    <ul>
+      <li>
+        <strong><span style="font-size: 14px;">성우 권리 보호:</span></strong><span style="font-size: 14px;"> 성우 동의서(Consent Form) 필수 징구. 녹음 목적, 사용 범위(플랫폼, 기간), 2차
+        저작권 동의 버전을 체계적으로 관리합니다.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">라이선스 관리:</span></strong><span style="font-size: 14px;"> 오픈소스 모델(CosyVoice2 - Apache 2.0, GPT-SoVITS - MIT 등)의 라이선스 준수
+        여부를 확인하고, 상용화 가능 범위를 명확히 합니다.
+      </span></li>
+      <li>
+        <strong><span style="font-size: 14px;">데이터 보안:</span></strong><span style="font-size: 14px;"> 원본 음성 데이터는 암호화하여 저장하며, 인가된 인원만 접근 가능하도록 권한을
+        제어합니다.
+      </span></li>
+    </ul>
+
+    <!-- 12. 리스크 및 대응 방안 -->
+    <h2><span style="font-size: 14px;">12. 리스크 및 대응 방안</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th><span style="font-size: 14px;">리스크 항목</span></th>
+          <th><span style="font-size: 14px;">가능성</span></th>
+          <th><span style="font-size: 14px;">영향도</span></th>
+          <th><span style="font-size: 14px;">대응 방안</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span style="font-size: 14px;">R01. 특수 감정(격노 등) 재현 한계</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">상</span></td>
+          <td><span style="font-size: 14px;">Diffusion 기반 </span><strong><span style="font-size: 14px;">F5-TTS</span></strong><span style="font-size: 14px;">를 보조 모델로 병행 사용하여 표현력 보완</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">R02. 목소리 유사도 vs 감정 연기 충돌</span></td>
+          <td><span style="font-size: 14px;">상</span></td>
+          <td><span style="font-size: 14px;">상</span></td>
+          <td><strong><span style="font-size: 14px;">Two-Track 전략:</span></strong><span style="font-size: 14px;"> 일반 대사는 GPT-SoVITS, 연기는 CosyVoice2+RVC로 이원화</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">R03. 학습 데이터 부족</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><strong><span style="font-size: 14px;">Zero-shot</span></strong><span style="font-size: 14px;"> 및 </span><strong><span style="font-size: 14px;">Few-shot</span></strong><span style="font-size: 14px;"> 기법 적극 활용, 데이터 증강(Augmentation)</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">R04. 한국어 미세 뉘앙스 처리 미흡</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">성우 출신 전문 어노테이터의 정밀 검수 및 파인튜닝 피드백 반영</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">R05. 성우 초상권/계약 이슈</span></td>
+          <td><span style="font-size: 14px;">하</span></td>
+          <td><span style="font-size: 14px;">상</span></td>
+          <td><span style="font-size: 14px;">법무 검토 선행, 포괄적 동의서 징구, 워터마킹 기술 도입 고려</span></td>
+        </tr>
+        <tr>
+          <td><span style="font-size: 14px;">R06. 모델 추론 속도 지연</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">중</span></td>
+          <td><span style="font-size: 14px;">RTF 0.028의 </span><strong><span style="font-size: 14px;">GPT-SoVITS</span></strong> 활용, 고성능 GPU 최적화 및 배치 처리</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 13. 실증 운영 시나리오 -->
+    <h2>13. 실증 운영 시나리오</h2>
+
+    <h4>Scenario 1: 오디오 드라마 자동 더빙</h4>
+    <ul>
+      <li><strong>입력:</strong> 웹소설 대본 1화 분량 (약 300 문장).</li>
+      <li>
+        <strong>처리:</strong> 대본 파서가 지문 분석 → 감정 라벨 자동 태깅 → 최적 모델(Cosy/GPT) 라우팅 → 음성 생성.
+      </li>
+      <li><strong>출력:</strong> 전체 오디오 트랙 및 씬별 감정 정확도 리포트 생성.</li>
+    </ul>
+
+    <h4>Scenario 2: 게임 캐릭터 음성 대량 생성</h4>
+    <ul>
+      <li><strong>입력:</strong> RPG 게임 NPC 대사 데이터베이스 (500줄).</li>
+      <li><strong>처리:</strong> 캐릭터 프로필(성격, 역할) 매핑 → EmoKnob 벡터 일괄 적용 → 배치(Batch) 생성.</li>
+      <li><strong>출력:</strong> 캐릭터별 폴더링된 음성 패키지 (Asset).</li>
+    </ul>
+
+    <h4>Scenario 3: PD 실시간 피드백 루프</h4>
+    <ul>
+      <li><strong>입력:</strong> 연출 PD가 컨트롤러 UI 조작 (슬픔 강도 3 → 5로 조정).</li>
+      <li><strong>처리:</strong> 변경된 파라미터를 즉시 모델에 반영하여 재생성 (On-the-fly).</li>
+      <li><strong>출력:</strong> 실시간 미리듣기(Preview) 제공으로 빠른 의사결정 지원.</li>
+    </ul>
+
+    <!-- 14. 주요 산출물 목록 -->
+    <h2>14. 주요 산출물 목록</h2>
+    <ul>
+      <li>
+        <strong>데이터 레이어:</strong> 성우별 원본/가공 음성 DB, eGeMAPS 파라미터 리포트, 통합 메타데이터셋(JSON), 감정
+        방향 벡터셋, 라벨링 가이드.
+      </li>
+      <li>
+        <strong>모델 레이어:</strong> Speaker Identity 임베딩 파일, 감정 프롬프트 템플릿셋, EmoSteer 통합 추론 엔진,
+        GPT-SoVITS 파인튜닝 모델.
+      </li>
+      <li>
+        <strong>시스템 레이어:</strong> 대본 파서 엔진, PD용 컨트롤러 UI, SER 자동 평가 모듈, MVP 전체 파이프라인 코드.
+      </li>
+      <li>
+        <strong>문서 레이어:</strong> 시스템 설계서, API 명세서, 품질 평가 결과 보고서, 성우 계약서 및 동의서, 실증 시연
+        영상.
+      </li>
+    </ul>
+
+    <!-- 15. 예산 및 인프라 고려사항 -->
+    <h2>15. 예산 및 인프라 고려사항</h2>
+    <ul>
+      <li>
+        <strong>GPU 인프라:</strong> NVIDIA A100 또는 H100 (학습 및 고속 추론용). 초기에는 클라우드(AWS/GCP) 활용, 추후
+        온프레미스 전환 고려.
+      </li>
+      <li><strong>스토리지:</strong> 고음질 WAV 원본 및 버전별 모델 저장을 위한 대용량 스토리지 및 백업 시스템.</li>
+      <li><strong>개발 환경:</strong> Python 3.10+, CUDA 11.8+, Docker 기반 컨테이너 환경 구축.</li>
+      <li>
+        <strong>예산 항목:</strong> 인건비(개발/성우), GPU 클라우드 비용, 녹음 스튜디오 대관료, 소프트웨어 라이선스,
+        법무 자문료 등.
+      </li>
+    </ul>
+
+    <!-- 16. 향후 고도화 방향 -->
+    <h2>16. 향후 고도화 방향</h2>
+    <ul>
+      <li>
+        <strong>다국어 확장:</strong> CosyVoice2의 다국어 기능을 활용하여 일본어, 영어, 중국어 성우 아바타 개발 및
+        글로벌 진출.
+      </li>
+      <li>
+        <strong>실시간 서비스:</strong> 스트리밍 API 최적화를 통해 버츄얼 유튜버(VTuber), 메타버스 아바타의 실시간 음성
+        변환 서비스 제공.
+      </li>
+      <li>
+        <strong>감정 인식 연동:</strong> 영상이나 텍스트의 감정을 자동으로 인식하여 보이스 아바타가 즉각 반응하는
+        멀티모달 시스템 구축.
+      </li>
+      <li>
+        <strong>마켓플레이스:</strong> 다양한 디지털 성우 캐릭터를 거래하고 활용할 수 있는 성우 아바타 플랫폼 런칭.
+      </li>
+    </ul>
+
+    <footer>
+      <p>디지털 성우 아바타 시스템 개발 계획서 | Version 1.0 | 2026.03.22 | 대외비 (Confidential)</p>
+    </footer>
+  
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body></html>

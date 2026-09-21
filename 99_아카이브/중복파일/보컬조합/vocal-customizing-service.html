@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>보컬 조합 모바일 가로형 플로우</title>
+  <style>
+    :root {
+      --bg: #f2f3f7;
+      --card: #ffffff;
+      --phone: #fafbfe;
+      --panel: #ffffff;
+      --soft: #f4f5f9;
+      --line: #e0e2ea;
+      --line-strong: #cfd2dd;
+      --text: #15161c;
+      --muted: #666b7a;
+      --faint: #a9adba;
+      --purple: #7400ff;
+      --purple-2: #9a4cff;
+      --purple-soft: #efe3ff;
+      --cyan: #1fc6cc;
+      --green: #7bdc7f;
+      --orange: #ff7d4c;
+      --pink: #ff6092;
+      --shadow: 0 18px 34px rgba(28, 31, 42, 0.14);
+      --soft-shadow: 0 8px 22px rgba(28, 31, 42, 0.08);
+      --radius: 8px;
+      --font: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 var(--font);
+      letter-spacing: 0;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .page {
+      width: min(1640px, calc(100vw - 36px));
+      margin: 0 auto;
+      padding: 42px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 14px;
+      font-size: clamp(34px, 4.2vw, 64px);
+      line-height: 1.02;
+      font-weight: 900;
+    }
+
+    .flow-copy {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 16px;
+      align-items: center;
+      color: #272932;
+      font-size: clamp(18px, 2vw, 29px);
+      line-height: 1.25;
+    }
+
+    .flow-copy strong {
+      font-weight: 900;
+    }
+
+    .source-card {
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: var(--soft-shadow);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .source-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .stage-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 22px;
+      overflow-x: auto;
+      padding: 0 0 4px;
+    }
+
+    .stage-nav button {
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .stage-nav button[aria-pressed="true"] {
+      border-color: var(--purple);
+      background: var(--purple);
+      color: #fff;
+      font-weight: 800;
+      box-shadow: 0 10px 22px rgba(116, 0, 255, 0.24);
+    }
+
+    .screens {
+      display: flex;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 22px;
+      overflow-x: auto;
+      padding: 0 4px 16px;
+      scroll-snap-type: x mandatory;
+    }
+
+    .screens::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .screens::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: #c5c9d3;
+    }
+
+    .screen-card {
+      display: grid;
+      gap: 12px;
+      flex: 0 0 560px;
+      scroll-snap-align: start;
+    }
+
+    .screen-title {
+      min-height: 90px;
+      padding: 18px 18px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .screen-title h2 {
+      margin: 0 0 8px;
+      font-size: 25px;
+      line-height: 1.1;
+      font-weight: 900;
+    }
+
+    .screen-title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .phone {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1.95 / 1;
+      min-height: 320px;
+      overflow: hidden;
+      border: 3px solid #16171d;
+      border-radius: 12px;
+      background: var(--phone);
+      box-shadow: var(--shadow);
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      z-index: 20;
+      width: 19px;
+      height: 70px;
+      border-radius: 999px;
+      background: #000;
+      transform: translateY(-50%);
+    }
+
+    .home-bar {
+      position: absolute;
+      left: 50%;
+      bottom: 7px;
+      z-index: 22;
+      width: 128px;
+      height: 5px;
+      border-radius: 999px;
+      background: #000;
+      transform: translateX(-50%);
+    }
+
+    .phone-top {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) auto;
+      align-items: center;
+      height: 34px;
+      padding: 0 10px 0 60px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .phone-top.center-only {
+      grid-template-columns: 70px 1fr 70px;
+    }
+
+    .phone-title {
+      min-width: 0;
+      overflow: hidden;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #333640;
+      font-size: 10px;
+      font-weight: 800;
+      background: transparent;
+      white-space: nowrap;
+    }
+
+    .chev {
+      width: 10px;
+      height: 10px;
+      border-left: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg);
+    }
+
+    .top-icons {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+    }
+
+    .icon {
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+    }
+
+    .icon svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .pill-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--purple);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .phone-body {
+      position: relative;
+      height: calc(100% - 34px);
+      padding-left: 44px;
+    }
+
+    .combo-layout,
+    .edit-layout {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 96px;
+      height: 100%;
+      background: #fff;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      min-height: 0;
+      border-bottom: 1px solid var(--line);
+      background:
+        repeating-linear-gradient(90deg, transparent 0 18%, rgba(116, 0, 255, 0.08) 18% 18.3%),
+        #fafbfe;
+    }
+
+    .stem-labels {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      align-items: center;
+      padding: 18px 6px 12px;
+      border-right: 1px solid var(--line);
+      color: #b69be2;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .stem-labels b {
+      display: block;
+      color: #8f53e8;
+      font-size: 15px;
+      line-height: 1.05;
+    }
+
+    .lanes {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+      min-width: 0;
+      padding: 13px 9px 10px;
+      overflow: hidden;
+    }
+
+    .lane-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(70px, 1fr));
+      gap: 7px;
+      min-height: 0;
+    }
+
+    .stem-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 37px minmax(0, 1fr);
+      align-items: center;
+      overflow: hidden;
+      border: 1px solid #eadcf8;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .stem-card.ghost {
+      display: grid;
+      grid-template-columns: 1fr;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.52);
+      color: #dbd7e6;
+    }
+
+    .stem-card.locked {
+      opacity: 0.34;
+    }
+
+    .stem-card.selected {
+      outline: 2px solid rgba(116, 0, 255, 0.36);
+      outline-offset: -2px;
+      background: #f7f0ff;
+    }
+
+    .avatar {
+      position: relative;
+      width: 37px;
+      height: 37px;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.88) 0 9px, transparent 10px),
+        linear-gradient(135deg, #ffc5a8, var(--purple) 62%, #17001e);
+    }
+
+    .avatar.cyan {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.88) 0 9px, transparent 10px),
+        linear-gradient(135deg, #b6fff2, var(--cyan) 62%, #101f27);
+    }
+
+    .avatar.green {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.88) 0 9px, transparent 10px),
+        linear-gradient(135deg, #d9ffa8, var(--green) 62%, #102210);
+    }
+
+    .avatar.orange {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.88) 0 9px, transparent 10px),
+        linear-gradient(135deg, #ffd1a5, var(--orange) 62%, #2b0d08);
+    }
+
+    .avatar.pink {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.88) 0 9px, transparent 10px),
+        linear-gradient(135deg, #ffd3e2, var(--pink) 62%, #310718);
+    }
+
+    .num {
+      position: absolute;
+      left: 3px;
+      bottom: 3px;
+      display: grid;
+      place-items: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--purple);
+      color: #fff;
+      font-size: 8px;
+      font-weight: 900;
+    }
+
+    .num.green {
+      background: #a8e85e;
+      color: #254315;
+    }
+
+    .num.cyan {
+      background: #29ccd3;
+    }
+
+    .wave {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+      height: 34px;
+      padding: 0 7px;
+    }
+
+    .wave i {
+      display: block;
+      width: 2px;
+      border-radius: 999px;
+      background: #a948ea;
+    }
+
+    .wave i:nth-child(1) { height: 8px; }
+    .wave i:nth-child(2) { height: 14px; }
+    .wave i:nth-child(3) { height: 22px; }
+    .wave i:nth-child(4) { height: 27px; }
+    .wave i:nth-child(5) { height: 17px; }
+    .wave i:nth-child(6) { height: 10px; }
+    .wave i:nth-child(7) { height: 22px; }
+    .wave i:nth-child(8) { height: 15px; }
+
+    .ghost-dot {
+      width: 22px;
+      height: 22px;
+      border: 1px solid #e3deec;
+      border-radius: 50%;
+    }
+
+    .floating-tools {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      gap: 7px;
+      z-index: 8;
+    }
+
+    .tool {
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--soft-shadow);
+      color: #626675;
+    }
+
+    .tool svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .bottom-picker {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+      padding: 8px 12px 8px 76px;
+      background: #fff;
+    }
+
+    .picker-controls {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .ai {
+      min-height: 25px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--purple);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .lyric {
+      height: 25px;
+      border: 1px solid var(--purple-2);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .preview-small {
+      min-height: 25px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: #c68dff;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .members {
+      display: flex;
+      gap: 13px;
+      align-items: start;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .member {
+      display: grid;
+      justify-items: center;
+      min-width: 45px;
+      color: #555965;
+      font-size: 10px;
+    }
+
+    .portrait {
+      width: 39px;
+      height: 39px;
+      border-radius: 4px;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px),
+        linear-gradient(135deg, #ffc5a8, var(--purple) 62%, #17001e);
+    }
+
+    .member:nth-child(2) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #ffd1a5, var(--orange) 62%, #2b0d08); }
+    .member:nth-child(3) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #b8fff3, var(--cyan) 62%, #10212a); }
+    .member:nth-child(4) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #ffd2e2, var(--pink) 62%, #310718); }
+    .member:nth-child(5) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #d9ffa8, var(--green) 62%, #102210); }
+    .member:nth-child(6) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #d8c2ff, #6a29ec 62%, #17112d); }
+    .member:nth-child(7) .portrait { background: radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.86) 0 9px, transparent 10px), linear-gradient(135deg, #f7f7f7, #252934 62%, #000); }
+
+    .member strong {
+      color: var(--purple);
+      font-size: 14px;
+      line-height: 1.05;
+    }
+
+    .segment {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+    }
+
+    .segment button {
+      min-height: 25px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .segment button.active {
+      background: var(--purple);
+      color: #fff;
+    }
+
+    .edit-layout .timeline {
+      grid-template-columns: 80px minmax(0, 1fr);
+    }
+
+    .drag-chip {
+      position: absolute;
+      left: 42%;
+      top: 36%;
+      z-index: 12;
+      display: grid;
+      place-items: center;
+      width: 45px;
+      height: 45px;
+      border: 2px solid rgba(28, 31, 42, 0.35);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.9) 0 10px, transparent 11px),
+        linear-gradient(135deg, #ffc5a8, #15161c 62%);
+      box-shadow: 0 12px 28px rgba(28, 31, 42, 0.25);
+      transform: translate(-50%, -50%);
+    }
+
+    .drag-path {
+      position: absolute;
+      left: 33%;
+      top: 55%;
+      z-index: 10;
+      width: 108px;
+      height: 64px;
+      border-bottom: 2px dashed rgba(116, 0, 255, 0.35);
+      border-left: 2px dashed rgba(116, 0, 255, 0.35);
+      border-radius: 0 0 0 28px;
+      pointer-events: none;
+    }
+
+    .toast {
+      position: absolute;
+      left: 58px;
+      right: 16px;
+      bottom: 100px;
+      z-index: 14;
+      min-height: 30px;
+      padding: 8px 12px;
+      border: 1px solid rgba(116, 0, 255, 0.25);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--purple);
+      font-size: 10px;
+      font-weight: 900;
+      text-align: center;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .preview-layout {
+      display: grid;
+      grid-template-rows: 48px auto auto 1fr 44px;
+      gap: 7px;
+      height: 100%;
+      padding: 14px 16px 34px 58px;
+      background: #fafbfe;
+    }
+
+    .profile-wave {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+      padding: 8px 10px;
+      border: 1px solid #eadcff;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #f4efff, #e3c6ff);
+    }
+
+    .round-face {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+      border: 2px solid rgba(255, 255, 255, 0.76);
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffc6a8, var(--purple));
+    }
+
+    .round-face:nth-child(2n) {
+      background: linear-gradient(135deg, #b8fff3, var(--cyan));
+    }
+
+    .player-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      align-items: center;
+    }
+
+    .player-row .play {
+      grid-column: 4;
+      grid-row: 1;
+    }
+
+    .player-row .compare {
+      grid-column: 5;
+      grid-row: 1;
+    }
+
+    .assigned {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 5px;
+      align-items: center;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .assigned .mini {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #ffc6a8, var(--purple));
+    }
+
+    .assigned b {
+      display: block;
+      color: #30333d;
+      line-height: 1;
+    }
+
+    .play,
+    .compare {
+      min-height: 30px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .play {
+      padding: 0 16px;
+      background: var(--purple);
+      color: #fff;
+    }
+
+    .compare {
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #454956;
+    }
+
+    .mix-panel,
+    .checks,
+    .publish-meta,
+    .rights {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .mix-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px 16px;
+      padding: 11px 12px;
+    }
+
+    .panel-label {
+      grid-column: 1 / -1;
+      color: #c1a2e8;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .slider {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      color: #444753;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .bar {
+      position: relative;
+      height: 5px;
+      border-radius: 999px;
+      background: #eff0f4;
+    }
+
+    .bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--v, 50%);
+      border-radius: inherit;
+      background: var(--purple);
+    }
+
+    .bar::after {
+      content: "";
+      position: absolute;
+      left: var(--v, 50%);
+      top: 50%;
+      width: 15px;
+      height: 15px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: #ebedf2;
+      box-shadow: 0 1px 7px rgba(0, 0, 0, 0.15);
+      transform: translate(-50%, -50%);
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      padding: 10px 12px;
+      color: #454956;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .check-head {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #c1a2e8;
+      font-weight: 900;
+    }
+
+    .agree {
+      color: var(--purple);
+    }
+
+    .check {
+      display: grid;
+      grid-template-columns: 15px 1fr 15px;
+      gap: 5px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .ok {
+      display: grid;
+      place-items: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--purple);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .info {
+      display: grid;
+      place-items: center;
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+      color: var(--faint);
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .bottom-cta {
+      position: relative;
+      z-index: 12;
+      align-self: start;
+      min-height: 40px;
+      transform: translateY(-18px);
+      border-radius: 8px;
+      background: var(--purple);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      box-shadow: 0 12px 24px rgba(116, 0, 255, 0.24);
+    }
+
+    .publish-layout {
+      display: grid;
+      grid-template-rows: auto 1fr 44px;
+      gap: 10px;
+      height: 100%;
+      padding: 14px 16px 34px 58px;
+      background: #fafbfe;
+    }
+
+    .publish-meta {
+      display: grid;
+      grid-template-columns: 104px 1fr;
+      gap: 13px;
+      align-items: center;
+      padding: 12px 14px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .album {
+      display: grid;
+      grid-template-columns: 62px 40px;
+      align-items: center;
+      width: 102px;
+      height: 64px;
+    }
+
+    .cover {
+      position: relative;
+      z-index: 2;
+      width: 62px;
+      height: 62px;
+      overflow: hidden;
+      border-radius: 3px;
+      background:
+        linear-gradient(135deg, rgba(255, 0, 92, 0.65), transparent 42%),
+        repeating-linear-gradient(0deg, #1a1a20 0 9px, #292630 9px 18px);
+      box-shadow: 0 9px 18px rgba(0, 0, 0, 0.17);
+    }
+
+    .cover::before {
+      content: "DYNAMITE DYNAMITE DYNAMITE";
+      position: absolute;
+      inset: 7px;
+      color: rgba(255, 70, 94, 0.74);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1.05;
+      word-break: break-all;
+    }
+
+    .disc {
+      width: 54px;
+      height: 54px;
+      margin-left: -7px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f7f7f8 0 9px, #111 10px 20px, #2a2a30 21px 29px, #050505 30px);
+      box-shadow: 8px 6px 16px rgba(0, 0, 0, 0.16);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 16px;
+      min-width: 0;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 24px;
+      border-bottom: 1px solid #e8e2ef;
+      color: #565a66;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .meta-row b {
+      min-width: 0;
+      overflow: hidden;
+      color: #1e2028;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .purple-text {
+      color: var(--purple) !important;
+    }
+
+    .id {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      max-width: 100%;
+      min-height: 19px;
+      padding: 0 9px;
+      border: 2px solid var(--purple-2);
+      background: #f4e8ff;
+      color: var(--purple) !important;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .rights {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 14px;
+      align-content: center;
+      padding: 11px 14px;
+      color: #555965;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .rights-title {
+      grid-column: 1 / -1;
+      color: #c1a2e8;
+      font-weight: 900;
+    }
+
+    .right-row {
+      display: grid;
+      grid-template-columns: 15px 62px 1fr;
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .right-row span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .legend-card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .legend-card h3 {
+      margin: 0 0 12px;
+      font-size: 23px;
+      line-height: 1.1;
+      font-weight: 900;
+    }
+
+    .legend-card ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 18px;
+      color: #484c5a;
+      font-size: 13px;
+    }
+
+    .legend-card li::marker {
+      color: var(--purple);
+    }
+
+    .highlight {
+      outline: 4px solid rgba(116, 0, 255, 0.16);
+      outline-offset: 6px;
+    }
+
+    @media (max-width: 1280px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .page {
+        width: calc(100vw - 20px);
+        padding-top: 24px;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .flow-copy {
+        font-size: 17px;
+      }
+
+      .screens,
+      .legend {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        padding: 8px 8px 18px;
+        margin-left: -8px;
+        margin-right: -8px;
+        scroll-snap-type: x mandatory;
+      }
+
+      .screen-card,
+      .legend-card {
+        scroll-snap-align: start;
+      }
+
+      .screen-card {
+        flex-basis: 780px;
+      }
+
+      .legend-card {
+        flex-basis: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>보컬 조합 서비스</h1>
+        <div class="flow-copy">
+          <strong>Main Flow</strong>
+          <span>보컬 조합</span>
+          <span>&gt;</span>
+          <span>조합내용 수정</span>
+          <span>&gt;</span>
+          <span>프리뷰 및 믹싱</span>
+          <span>&gt;</span>
+          <span>발행</span>
+        </div>
+      </div>
+      <aside class="source-card">
+        <strong>스토리보드 기반 재구성</strong>
+        팬의 시선에서 곡·캠페인 선택, STEM/CUBE 조합, 개별 수정, 검증 체크, 권리 스냅샷, 최종 발행을 단계별 모바일 가로 화면으로 분리했습니다.
+      </aside>
+    </header>
+
+    <nav class="stage-nav" aria-label="단계 바로가기">
+      <button data-jump="combo" aria-pressed="true">01 보컬 조합</button>
+      <button data-jump="edit" aria-pressed="false">02 조합내용 수정</button>
+      <button data-jump="preview" aria-pressed="false">03 프리뷰 및 믹싱</button>
+      <button data-jump="publish" aria-pressed="false">04 발행</button>
+    </nav>
+
+    <section class="screens" aria-label="단계별 모바일 가로 화면">
+      <article class="screen-card" id="combo">
+        <div class="screen-title">
+          <h2>01. 보컬 조합</h2>
+          <p>곡·캠페인 확인 후 STEM/CUBE 방식으로 멤버와 보컬 파트를 조합합니다.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-top">
+            <span></span>
+            <div class="phone-title">보컬 조합 만들기</div>
+            <div class="top-icons">
+              <span class="icon"><svg viewBox="0 0 24 24"><path d="M5 4h12l2 2v16H5z"/><path d="M8 4v6h8V4"/></svg></span>
+              <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></span>
+              <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></span>
+              <button class="pill-cta">믹싱하기 &gt;</button>
+            </div>
+          </div>
+          <div class="phone-body combo-layout">
+            <div class="timeline">
+              <div class="stem-labels">
+                <span>Main<b>50 / 00</b></span>
+                <span>Harmony<b>00 / 00</b></span>
+                <span>Chorus<b>00 / 00</b></span>
+              </div>
+              <div class="lanes">
+                <div class="lane-row">
+                  <div class="stem-card"><span class="avatar"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card"><span class="avatar orange"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card"><span class="avatar"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card"><span class="avatar cyan"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                </div>
+                <div class="lane-row">
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card"><span class="avatar green"><span class="num green">2</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card locked"><span class="avatar green"><span class="num green">2</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                </div>
+                <div class="lane-row">
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card"><span class="avatar cyan"><span class="num cyan">3</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                </div>
+              </div>
+              <div class="floating-tools">
+                <button class="tool" aria-label="CUBE 보기"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></button>
+                <button class="tool" aria-label="되돌리기"><svg viewBox="0 0 24 24"><path d="M9 14 5 10l4-4"/><path d="M5 10h9a5 5 0 1 1 0 10h-2"/></svg></button>
+                <button class="tool" aria-label="다시 실행"><svg viewBox="0 0 24 24"><path d="m15 14 4-4-4-4"/><path d="M19 10h-9a5 5 0 1 0 0 10h2"/></svg></button>
+              </div>
+            </div>
+            <div class="bottom-picker">
+              <div class="picker-controls">
+                <button class="ai">AI Customize</button>
+                <input class="lyric" value="해당 Stem 가사" aria-label="해당 Stem 가사" />
+                <button class="preview-small">미리듣기</button>
+              </div>
+              <div class="members">
+                <span class="member"><span class="portrait"></span><span>뷔</span><strong>10%</strong></span>
+                <span class="member"><span class="portrait"></span><span>정국</span><strong>15%</strong></span>
+                <span class="member"><span class="portrait"></span><span>진</span><strong>15%</strong></span>
+                <span class="member"><span class="portrait"></span><span>제이홉</span><strong>30%</strong></span>
+                <span class="member"><span class="portrait"></span><span>슈가</span><strong>10%</strong></span>
+                <span class="member"><span class="portrait"></span><span>지민</span><strong>15%</strong></span>
+                <span class="member"><span class="portrait"></span><span>RM</span><strong>5%</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </article>
+
+      <article class="screen-card" id="edit">
+        <div class="screen-title">
+          <h2>02. 조합내용 수정</h2>
+          <p>Long-press로 아티스트를 집어 원하는 Stem/Cube 위치에 드롭하고 비율을 갱신합니다.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-top">
+            <button class="back"><span class="chev"></span>이전으로</button>
+            <div class="phone-title">보컬 조합 만들기</div>
+            <div class="top-icons">
+              <span class="icon"><svg viewBox="0 0 24 24"><path d="M5 4h12l2 2v16H5z"/></svg></span>
+              <button class="pill-cta">믹싱하기 &gt;</button>
+            </div>
+          </div>
+          <div class="phone-body edit-layout">
+            <div class="timeline">
+              <div class="stem-labels">
+                <span>Main<b>50 / 00</b></span>
+                <span>Harmony<b>00 / 00</b></span>
+                <span>Chorus<b>00 / 00</b></span>
+              </div>
+              <div class="lanes">
+                <div class="lane-row">
+                  <div class="stem-card selected"><span class="avatar"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card"><span class="avatar orange"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card"><span class="avatar"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                </div>
+                <div class="lane-row">
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card"><span class="avatar green"><span class="num green">2</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card selected"><span class="avatar pink"><span class="num">1</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                </div>
+                <div class="lane-row">
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card ghost"><span class="ghost-dot"></span></div>
+                  <div class="stem-card"><span class="avatar cyan"><span class="num cyan">3</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="stem-card locked"><span class="avatar green"><span class="num green">2</span></span><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                </div>
+              </div>
+              <div class="drag-path"></div>
+              <div class="drag-chip" aria-label="드래그 중인 아티스트"></div>
+              <div class="toast">교체 완료: Chorus 보컬이 갱신되고 기여 비율이 다시 계산되었습니다.</div>
+              <div class="floating-tools">
+                <button class="tool" aria-label="교체"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+                <button class="tool" aria-label="되돌리기"><svg viewBox="0 0 24 24"><path d="M9 14 5 10l4-4"/><path d="M5 10h9a5 5 0 1 1 0 10h-2"/></svg></button>
+              </div>
+            </div>
+            <div class="bottom-picker">
+              <div class="picker-controls">
+                <div class="segment" aria-label="제작 방식">
+                  <button class="active">STEM</button>
+                  <button>CUBE</button>
+                </div>
+                <input class="lyric" value="30초 소장 구간: 00:42 - 01:12" aria-label="30초 소장 구간" />
+                <button class="preview-small">프리뷰 보기</button>
+              </div>
+              <div class="members">
+                <span class="member"><span class="portrait"></span><span>뷔</span><strong>11%</strong></span>
+                <span class="member"><span class="portrait"></span><span>정국</span><strong>14%</strong></span>
+                <span class="member"><span class="portrait"></span><span>진</span><strong>15%</strong></span>
+                <span class="member"><span class="portrait"></span><span>제이홉</span><strong>30%</strong></span>
+                <span class="member"><span class="portrait"></span><span>슈가</span><strong>10%</strong></span>
+                <span class="member"><span class="portrait"></span><span>지민</span><strong>15%</strong></span>
+                <span class="member"><span class="portrait"></span><span>RM</span><strong>5%</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </article>
+
+      <article class="screen-card" id="preview">
+        <div class="screen-title">
+          <h2>03. 프리뷰 및 믹싱</h2>
+          <p>조합된 음원을 재생하고 원곡 비교, 구간 반복, 믹스 슬라이더, 4개 검증을 수행합니다.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-top center-only">
+            <button class="back"><span class="chev"></span>이전으로</button>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="phone-body preview-layout">
+            <div class="profile-wave">
+              <span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span><span class="round-face"></span>
+            </div>
+            <div class="player-row">
+              <div class="assigned"><span class="mini"></span><span>Main Vocal<b>뷔</b></span></div>
+              <div class="assigned"><span class="mini"></span><span>Harmony<b>정국</b></span></div>
+              <div class="assigned"><span class="mini"></span><span>Chorus<b>제이홉</b></span></div>
+              <button class="play">재생</button>
+              <button class="compare">현 구간 원곡듣기</button>
+            </div>
+            <section class="mix-panel" aria-label="믹스 컨트롤">
+              <div class="panel-label">믹스 컨트롤</div>
+              <div class="slider"><span>Main Vocal</span><span class="bar" style="--v:64%"></span></div>
+              <div class="slider"><span>Chorus</span><span class="bar" style="--v:78%"></span></div>
+              <div class="slider"><span>Harmony</span><span class="bar" style="--v:54%"></span></div>
+              <div class="slider"><span>FX</span><span class="bar" style="--v:25%"></span></div>
+            </section>
+            <section class="checks" aria-label="검증 체크리스트">
+              <div class="check-head"><span>검증 체크</span><span class="agree">약관에 동의합니다.</span></div>
+              <div class="check"><span class="ok">✓</span><span>멤버 수 파트 규칙</span><span class="info">i</span></div>
+              <div class="check"><span class="ok">✓</span><span>국가 기간 라이선스 확인</span><span class="info">i</span></div>
+              <div class="check"><span class="ok">✓</span><span>소장 이벤트 발행 가능</span><span class="info">i</span></div>
+              <div class="check"><span class="ok">✓</span><span>권리 스냅샷 생성</span><span class="info">i</span></div>
+            </section>
+            <button class="bottom-cta">발행하기</button>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </article>
+
+      <article class="screen-card" id="publish">
+        <div class="screen-title">
+          <h2>04. 발행</h2>
+          <p>조합 메타데이터와 권리 스냅샷을 확인하고 고유 ID가 있는 공식 디지털 자산으로 발행합니다.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-top center-only">
+            <button class="back"><span class="chev"></span>이전으로</button>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="phone-body publish-layout">
+            <section class="publish-meta" aria-label="조합 메타데이터">
+              <div class="album">
+                <span class="cover"></span>
+                <span class="disc"></span>
+              </div>
+              <div class="meta-grid">
+                <div class="meta-row"><span>조합 제목</span><b class="purple-text">Fan Chorus 01</b></div>
+                <div class="meta-row"><span>공개 범위</span><b>팬클럽 전용</b></div>
+                <div class="meta-row"><span>고유 ID</span><b class="id">VC-0000-0000</b></div>
+                <div class="meta-row"><span>소장 옵션</span><b>개인소장</b></div>
+                <div class="meta-row"><span>캠페인</span><b>컴백 주간 한정</b></div>
+                <div class="meta-row"><span>생성 일시</span><b>2026-05-17 09:45</b></div>
+              </div>
+            </section>
+            <section class="rights" aria-label="권리 스냅샷">
+              <div class="rights-title">권리 스냅샷</div>
+              <div class="right-row"><span class="ok">✓</span><b>원천 IP</b><span>Official Vocal Pack A/C/D</span></div>
+              <div class="right-row"><span class="ok">✓</span><b>허용 범위</b><span>소장·공유·팬멤버참가</span></div>
+              <div class="right-row"><span class="ok">✓</span><b>수익 배분</b><span>IP 권리자 70% / 플랫폼 20% / 팬 10%</span></div>
+              <div class="right-row"><span class="ok">✓</span><b>불가 범위</b><span>외부 상업 유통·타플랫폼 다운로드</span></div>
+              <div class="right-row"><span class="ok">✓</span><b>정산 연결</b><span>자동 연결 예정</span></div>
+              <div class="right-row"><span class="ok">✓</span><b>스냅샷</b><span>저장 완료</span></div>
+            </section>
+            <button class="bottom-cta">✓ 최종 발행</button>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="legend" aria-label="단계별 기능 정의">
+      <article class="legend-card">
+        <h3>보컬 조합</h3>
+        <ul>
+          <li>곡·캠페인 정보와 허용 Stem만 노출</li>
+          <li>STEM/CUBE 방식 선택 가능</li>
+          <li>멤버 선택 즉시 레인 배정과 비율 갱신</li>
+          <li>AI Customize 추천 조합 적용</li>
+        </ul>
+      </article>
+      <article class="legend-card">
+        <h3>조합내용 수정</h3>
+        <ul>
+          <li>Long-press 후 드래그 교체 플로우</li>
+          <li>Undo/Redo와 1줄 토스트 피드백</li>
+          <li>금지 파트와 허용 멤버 수 초과 차단</li>
+          <li>30초 소장 구간 저장</li>
+        </ul>
+      </article>
+      <article class="legend-card">
+        <h3>프리뷰 및 믹싱</h3>
+        <ul>
+          <li>선택 멤버 프로필과 담당 Stem 확인</li>
+          <li>재생, 구간 반복, 현 구간 원곡 비교</li>
+          <li>Main/Harmony/Chorus/FX 믹스 조절</li>
+          <li>4개 자동 검증과 약관 동의</li>
+        </ul>
+      </article>
+      <article class="legend-card">
+        <h3>발행</h3>
+        <ul>
+          <li>조합 제목, 고유 ID, 캠페인, 생성 일시 표시</li>
+          <li>공개 범위와 소장 옵션 확인</li>
+          <li>원천 IP, 허용 범위, 배분율 스냅샷 고지</li>
+          <li>최종 발행 후 소장함과 공유 링크 연결</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const navButtons = Array.from(document.querySelectorAll(".stage-nav button"));
+    const screenCards = Object.fromEntries(
+      Array.from(document.querySelectorAll(".screen-card")).map((card) => [card.id, card])
+    );
+
+    function jumpToStage(stage) {
+      navButtons.forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.jump === stage));
+      });
+      Object.values(screenCards).forEach((card) => card.classList.remove("highlight"));
+      screenCards[stage].classList.add("highlight");
+      screenCards[stage].scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      window.setTimeout(() => screenCards[stage].classList.remove("highlight"), 900);
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => jumpToStage(button.dataset.jump));
+    });
+  </script>
+</body>
+</html>

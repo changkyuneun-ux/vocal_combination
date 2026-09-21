@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>팬 참여 UX 시나리오 — 세로형 목업</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── CSS Variables ─── */
+    [data-theme="light"]{
+      --bg:#eeeae4;--page-bg:#eeeae4;
+      --surface:#ffffff;--surface-2:#f9f8f5;--surface-offset:#f0ede8;
+      --border:#d8d4cd;--divider:#e4e0d9;--text:#28251d;--muted:#6f6c66;--faint:#b0ada6;
+      --primary:#7b1cff;--primary-2:#8d2bff;--primary-soft:#ede0ff;
+      --primary-border:rgba(123,28,255,.22);
+      --success:#437a22;--success-soft:rgba(67,122,34,.09);--success-border:rgba(67,122,34,.22);
+      --blue:#006494;--blue-soft:rgba(0,100,148,.07);--blue-border:rgba(0,100,148,.2);
+      --warn:#c2600a;
+      --shadow-sm:0 1px 3px rgba(40,37,29,.07);
+      --shadow-md:0 6px 20px rgba(40,37,29,.1);
+      --shadow-lg:0 20px 60px rgba(40,37,29,.14);
+      --phone-bg:#f5f3ef;
+    }
+    [data-theme="dark"]{
+      --bg:#09090d;--page-bg:#09090d;
+      --surface:#111117;--surface-2:#15151d;--surface-offset:#1b1b25;
+      --border:#2a2a35;--divider:#23232d;--text:#f4f1fb;--muted:#aaa7b6;--faint:#6f6b7c;
+      --primary:#8d2bff;--primary-2:#d8b7ff;--primary-soft:rgba(141,43,255,.14);
+      --primary-border:rgba(141,43,255,.3);
+      --success:#6daa45;--success-soft:rgba(109,170,69,.12);--success-border:rgba(109,170,69,.28);
+      --blue:#6fa8d7;--blue-soft:rgba(111,168,215,.1);--blue-border:rgba(111,168,215,.28);
+      --warn:#f59e42;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.2);
+      --shadow-md:0 6px 20px rgba(0,0,0,.3);
+      --shadow-lg:0 20px 60px rgba(0,0,0,.5);
+      --phone-bg:#111117;
+    }
+
+    *,::before,::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'Satoshi',sans-serif;font-size:14px;background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh}
+    button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+
+    /* ─── Document container ─── */
+    .doc{max-width:780px;margin:0 auto;padding:52px 28px 80px}
+
+    /* ─── Doc header ─── */
+    .doc-header{margin-bottom:40px}
+    .brand{display:flex;align-items:center;gap:11px;margin-bottom:24px}
+    .brand svg{width:34px;height:34px;color:var(--primary)}
+    .brand-text h1{font-family:'Cabinet Grotesk','Satoshi',sans-serif;font-size:20px;line-height:1;color:var(--text)}
+    .brand-text p{font-size:11px;color:var(--muted);margin-top:3px}
+
+    .doc-title{font-family:'Cabinet Grotesk','Satoshi',sans-serif;font-size:32px;font-weight:700;line-height:1.1;margin-bottom:10px}
+    .doc-desc{font-size:13px;color:var(--muted);line-height:1.65;max-width:660px;margin-bottom:28px}
+
+    /* Theme toggle */
+    .doc-actions{display:flex;gap:8px;margin-bottom:0}
+    .tbtn{height:34px;padding:0 16px;border-radius:999px;font-size:12px;font-weight:500;
+      border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--muted);transition:.15s}
+    .tbtn:hover{color:var(--text)}
+    .tbtn-primary{background:linear-gradient(90deg,var(--primary),#5c1ab8);color:#fff;border-color:transparent}
+
+    /* ─── Flow bar ─── */
+    .flow-bar{display:flex;align-items:center;gap:0;margin-bottom:44px}
+    .fs{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;
+      font-size:13px;font-weight:600;border:1px solid var(--border);
+      background:var(--surface);cursor:default;color:var(--muted)}
+    .fs.s1{background:var(--primary-soft);border-color:var(--primary-border);color:var(--primary-2)}
+    .fs.s2{background:var(--blue-soft);border-color:var(--blue-border);color:var(--blue)}
+    .fs.s3{background:var(--success-soft);border-color:var(--success-border);color:var(--success)}
+    .fn{width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;
+      display:grid;place-items:center;flex-shrink:0}
+    .fs.s1 .fn{background:var(--primary);color:#fff}
+    .fs.s2 .fn{background:var(--blue);color:#fff}
+    .fs.s3 .fn{background:var(--success);color:#fff}
+    .farrow{flex:0 0 36px;height:1px;background:var(--border);position:relative;margin:0 -1px}
+    .farrow::after{content:"▸";position:absolute;right:-9px;top:-9px;font-size:11px;color:var(--faint)}
+
+    /* ─── Screen section (label + phone) ─── */
+    .screen-section{margin-bottom:20px}
+    .screen-label{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .step-badge{font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+    .sb1{background:var(--primary-soft);color:var(--primary-2);border:1px solid var(--primary-border)}
+    .sb2{background:var(--blue-soft);color:var(--blue);border:1px solid var(--blue-border)}
+    .sb3{background:var(--success-soft);color:var(--success);border:1px solid var(--success-border)}
+    .screen-label strong{font-size:14px;font-weight:700}
+    .screen-label span{font-size:12px;color:var(--muted)}
+
+    /* ─── Phone frame ─── */
+    .phone{
+      width:100%;height:390px;
+      background:var(--phone-bg);
+      border-radius:24px;
+      border:1.5px solid var(--border);
+      box-shadow:var(--shadow-lg);
+      overflow:hidden;
+      display:flex;flex-direction:column;
+    }
+    .sbar{height:26px;padding:0 20px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:space-between;
+      background:rgba(0,0,0,.04);border-bottom:1px solid var(--divider);
+      font-size:10px;font-weight:700;color:var(--text)}
+    .sbar-r{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+    .nbar{height:40px;padding:0 16px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:space-between;
+      background:rgba(0,0,0,.025);border-bottom:1px solid var(--divider)}
+    .nbar-back{font-size:11px;color:var(--primary-2);display:flex;align-items:center;gap:3px}
+    .nbar-title{font-size:13px;font-weight:700;font-family:'Cabinet Grotesk','Satoshi',sans-serif}
+    .nbar-dots{display:flex;gap:4px;align-items:center}
+    .ndot{width:22px;height:3px;border-radius:999px;background:var(--border)}
+    .ndot.done{background:var(--success)}
+    .ndot.a1{width:30px;background:var(--primary)}
+    .ndot.a2{width:30px;background:var(--blue)}
+    .ndot.a3{width:30px;background:var(--success)}
+    .pbody{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+    .pcta{height:52px;padding:0 16px;flex-shrink:0;
+      display:flex;align-items:center;gap:8px;
+      background:rgba(0,0,0,.03);border-top:1px solid var(--divider)}
+    .pcta-info{flex:1;min-width:0}
+    .pcta-info strong{display:block;font-size:11px;font-weight:700}
+    .pcta-info span{font-size:9px;color:var(--muted)}
+    .btn-s{height:34px;padding:0 14px;border-radius:999px;font-size:11px;font-weight:500;
+      border:1px solid var(--border);background:var(--surface-offset);color:var(--muted);white-space:nowrap}
+    .btn-m{height:34px;padding:0 18px;border-radius:999px;font-size:11px;font-weight:700;
+      border:none;color:#fff;white-space:nowrap;cursor:pointer}
+    .c1{background:linear-gradient(90deg,var(--primary),#5c1ab8)}
+    .c2{background:linear-gradient(90deg,var(--blue),#004975)}
+    .c3{background:linear-gradient(90deg,var(--success),#2a5811)}
+
+    /* ─── Annotation card ─── */
+    .ann{margin-bottom:44px;padding:18px 20px;background:var(--surface);
+      border:1px solid var(--border);border-radius:14px;border-left:3px solid var(--primary)}
+    .ann.a2{border-left-color:var(--blue)}
+    .ann.a3{border-left-color:var(--success)}
+    .ann h4{font-size:14px;font-weight:700;margin-bottom:7px}
+    .ann p{font-size:12px;color:var(--muted);line-height:1.65}
+    .ann-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+    .ann-tag{font-size:10px;padding:3px 9px;border-radius:999px;
+      background:var(--surface-offset);border:1px solid var(--border);color:var(--muted)}
+
+    /* ══════════════════════════════
+       PAGE 1 — VOCAL COMBINATION
+    ══════════════════════════════ */
+    .p1-body{flex:1;display:grid;grid-template-columns:162px 1fr;overflow:hidden;min-height:0}
+    .song-panel{border-right:1px solid var(--divider);padding:10px;
+      display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .sec-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.09em;
+      color:var(--muted);font-weight:700;margin-bottom:2px}
+    .song-card{padding:8px;background:var(--surface-2);border:1px solid var(--border);
+      border-radius:10px;cursor:pointer}
+    .song-card.on{border-color:var(--primary-border);background:var(--primary-soft)}
+    .sc-top{display:flex;gap:7px;align-items:center;margin-bottom:5px}
+    .sc-th{width:28px;height:28px;border-radius:7px;flex-shrink:0;
+      background:linear-gradient(135deg,#c8b8ee,var(--primary) 55%,#d4aaff)}
+    .sc-t{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px}
+    .sc-m{font-size:8px;color:var(--muted)}
+    .sc-tags{display:flex;flex-wrap:wrap;gap:3px}
+    .sc-tag{font-size:8px;padding:1px 5px;border-radius:999px;
+      background:var(--primary-soft);color:var(--primary-2);border:1px solid var(--primary-border)}
+    .rule-box{margin-top:auto;padding:8px;
+      background:var(--primary-soft);border:1px solid var(--primary-border);border-radius:9px}
+    .rule-box strong{display:block;font-size:8px;color:var(--primary-2);font-weight:700;margin-bottom:4px}
+    .rule-r{display:flex;align-items:center;gap:4px;font-size:8px;color:var(--muted);margin-bottom:2px}
+    .rdot{width:3px;height:3px;border-radius:50%;background:var(--primary-2);flex-shrink:0}
+
+    .combo-panel{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+    .tl-area{flex:1;padding:9px 11px 6px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+    .tl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+    .tl-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+    .tl-ctrls{display:flex;gap:3px}
+    .tl-ctrl{font-size:8px;padding:2px 7px;border-radius:999px;
+      border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+    .ruler{display:grid;grid-template-columns:60px 1fr;font-size:8px;color:var(--faint);margin-bottom:2px}
+    .ruler-ticks{display:flex;justify-content:space-between;padding-right:4px}
+    .stem-row{display:grid;grid-template-columns:60px 1fr;gap:5px;align-items:center}
+    .stem-lbl{font-size:9px;color:var(--muted);padding-left:2px}
+    .stem-lane{height:40px;border-radius:10px;border:1px solid var(--border);
+      background:rgba(0,0,0,.025);position:relative;overflow:hidden;
+      display:flex;align-items:center;padding:0 8px;gap:7px;transition:.2s}
+    .stem-lane.st-sel{border-color:var(--primary-border);
+      background:linear-gradient(90deg,rgba(123,28,255,.82),rgba(92,26,184,.82))}
+    .stem-lane.st-harm{border-color:var(--blue-border);background:var(--blue-soft)}
+    .stem-lane.st-dim{opacity:.5}
+    .ghost{width:26px;height:26px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,#d0c8e0,#9880b8);
+      border:1.5px solid rgba(255,255,255,.5);transition:.2s}
+    .ghost.lit{border-color:rgba(255,255,255,.85)}
+    .mwave{flex:1;display:flex;align-items:center;gap:2px;height:24px}
+    .mwave span{width:2.5px;border-radius:999px;transition:.2s}
+    .wc{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(220,200,255,.7))}
+    .wd{background:rgba(160,150,180,.28)}
+    .wb{background:linear-gradient(180deg,var(--blue),rgba(0,100,148,.5))}
+    .h1{height:5px}.h2{height:9px}.h3{height:14px}.h4{height:19px}.h5{height:24px}
+    .lane-tag{position:absolute;right:7px;bottom:4px;font-size:7px;color:rgba(255,255,255,.55)}
+    .lane-tag.dt{color:var(--faint)}
+
+    .vpick{border-top:1px solid var(--divider);padding:7px 11px 8px;
+      background:rgba(0,0,0,.025);flex-shrink:0}
+    .vpick-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+    .vpick-t{font-size:8px;font-weight:700;color:var(--muted)}
+    .vpick-c{font-size:8px;color:var(--faint)}
+    .vlist{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+    .vlist::-webkit-scrollbar{display:none}
+    .vitem{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;flex-shrink:0}
+    .vface{width:40px;height:40px;border-radius:11px;border:1.5px solid var(--border);
+      background:linear-gradient(135deg,#c8b8ee,var(--primary) 55%,#d4aaff);
+      position:relative;overflow:hidden;transition:.2s}
+    .vface::after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;
+      background:linear-gradient(135deg,#f3d5cc,#a07cff);border:1.5px solid rgba(255,255,255,.85);
+      top:6px;left:9px}
+    .vitem.act .vface{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+    .vitem.act2 .vface{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-soft)}
+    .vn{font-size:8px;color:var(--muted)}
+    .vp{font-size:8px;font-weight:700;color:var(--primary-2)}
+    .vitem.act2 .vp{color:var(--blue)}
+
+    /* ══════════════════════════════
+       PAGE 2 — PREVIEW
+    ══════════════════════════════ */
+    .p2-body{flex:1;padding:11px;display:flex;flex-direction:column;gap:8px;overflow:hidden;min-height:0}
+    .player-card{padding:10px;border-radius:12px;border:1px solid var(--primary-border);
+      background:linear-gradient(135deg,var(--primary-soft),rgba(123,28,255,.04));flex-shrink:0}
+    .player-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .player-name{font-size:12px;font-weight:700;font-family:'Cabinet Grotesk','Satoshi',sans-serif}
+    .time-pill{font-size:9px;padding:3px 9px;border-radius:999px;
+      background:var(--primary-soft);color:var(--primary-2);border:1px solid var(--primary-border)}
+    .wave-hero{height:36px;border-radius:8px;margin-bottom:8px;
+      background:repeating-linear-gradient(90deg,
+        color-mix(in oklab,var(--primary) 65%,white 35%) 0 3px,transparent 3px 9px);
+      opacity:.65}
+    .pb-row{display:flex;gap:5px}
+    .play-btn{height:26px;padding:0 12px;border-radius:999px;font-size:9px;font-weight:700;
+      background:var(--primary);color:#fff;border:none;cursor:pointer}
+    .pb-chip{height:26px;padding:0 9px;border-radius:999px;font-size:9px;
+      border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+    .pb-chip.on{background:var(--primary-soft);border-color:var(--primary-border);color:var(--primary-2)}
+    .p2-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0;overflow:hidden}
+    .mix-card,.check-card{background:var(--surface);border:1px solid var(--border);
+      border-radius:11px;padding:9px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+    .card-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.07em;
+      color:var(--muted);font-weight:700;margin-bottom:2px}
+    .mix-row{display:grid;grid-template-columns:56px 1fr 24px;gap:6px;align-items:center}
+    .mix-name{font-size:9px;color:var(--muted)}
+    .mix-slider{height:4px;border-radius:999px;background:var(--surface-offset);position:relative}
+    .mix-fill{position:absolute;left:0;top:0;height:100%;border-radius:999px;
+      background:linear-gradient(90deg,var(--primary),#b166ff)}
+    .mix-knob{position:absolute;top:50%;transform:translate(-50%,-50%);
+      width:11px;height:11px;border-radius:50%;background:var(--primary);
+      box-shadow:0 0 0 2.5px var(--primary-soft)}
+    .mix-val{font-size:8px;color:var(--faint);text-align:right}
+    .check-row{display:flex;align-items:flex-start;gap:6px;font-size:9px;line-height:1.5}
+    .ck{width:15px;height:15px;border-radius:50%;display:grid;place-items:center;
+      font-size:7px;font-weight:700;flex-shrink:0;margin-top:1px}
+    .ck-ok{background:var(--success);color:#fff}
+    .all-pass{margin-top:auto;padding:5px 7px;font-size:8px;font-weight:600;
+      background:var(--success-soft);border:1px solid var(--success-border);
+      border-radius:7px;color:var(--success)}
+
+    /* ══════════════════════════════
+       PAGE 3 — PUBLISH
+    ══════════════════════════════ */
+    .p3-body{flex:1;padding:11px;display:flex;flex-direction:column;gap:8px;overflow:hidden;min-height:0}
+    .p3-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0;overflow:hidden}
+    .meta-card,.rights-card{border-radius:11px;padding:9px;
+      display:flex;flex-direction:column;gap:0;overflow:hidden}
+    .meta-card{background:var(--surface);border:1px solid var(--border)}
+    .rights-card{background:linear-gradient(135deg,var(--primary-soft),rgba(123,28,255,.02));
+      border:1px solid var(--primary-border)}
+    .mf{display:flex;justify-content:space-between;align-items:center;
+      padding:4px 0;border-bottom:1px dashed var(--divider);font-size:9px}
+    .mf:last-child{border-bottom:none}
+    .mk{color:var(--muted)}
+    .mv{font-weight:700;font-size:9px}
+    .mv-e{display:flex;align-items:center;gap:3px;color:var(--primary-2);cursor:pointer}
+    .ei{font-size:8px;opacity:.5}
+    .id-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;
+      background:var(--primary-soft);border:1px solid var(--primary-border);
+      font-size:8px;color:var(--primary-2);font-family:monospace;letter-spacing:.02em}
+    .rf{display:flex;justify-content:space-between;align-items:flex-start;
+      padding:4px 0;border-bottom:1px solid rgba(123,28,255,.08);font-size:9px}
+    .rf:last-child{border-bottom:none}
+    .rk{color:var(--muted)}
+    .rv{font-weight:700;text-align:right;max-width:150px;font-size:9px}
+    .rv.ok{color:var(--success)}
+    .rv.no{color:var(--warn)}
+    .rv.au{color:var(--blue);font-size:8px}
+    .pub-row{flex-shrink:0;display:flex;gap:6px;padding:8px;
+      background:var(--surface);border:1px solid var(--border);border-radius:11px}
+    .pub-out{flex:1;height:32px;border-radius:8px;font-size:9px;font-weight:500;
+      border:1px solid var(--border);background:var(--surface-offset);color:var(--muted);cursor:pointer}
+    .pub-main{flex:2;height:32px;border-radius:8px;font-size:11px;font-weight:700;
+      border:none;background:linear-gradient(90deg,var(--primary),#5c1ab8);color:#fff;cursor:pointer}
+  </style>
+</head>
+<body>
+<div class="doc">
+
+  <!-- ═══ Doc Header ═══ -->
+  <div class="doc-header">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="8" y="8" width="48" height="48" rx="18" stroke="currentColor" stroke-width="4"/>
+        <path d="M22 37c5-12 15-18 25-16-7 2-12 7-14 14 4-3 9-4 13-2-9 8-20 10-24 4Z" fill="currentColor"/>
+      </svg>
+      <div class="brand-text">
+        <h1>SPACE</h1>
+        <p>Licensed Vocal Combo Studio</p>
+      </div>
+    </div>
+
+    <h2 class="doc-title">팬 참여 UX 시나리오 — 모바일 가로형 목업</h2>
+    <p class="doc-desc">보컬 조합 → 프리뷰 → 발행 3단계 흐름을 모바일 가로(Landscape) 화면으로 구성한 기획 검토용 목업. 각 단계의 핵심 UI 컴포넌트·기능 요소를 한 화면에서 동시에 확인할 수 있다.</p>
+
+    <div class="doc-actions">
+      <button class="tbtn" onclick="toggleTheme(this)">다크 모드</button>
+      <button class="tbtn">권리 조건 보기</button>
+      <button class="tbtn tbtn-primary">화면 정의서 저장</button>
+    </div>
+  </div>
+
+  <!-- ═══ Flow bar ═══ -->
+  <div class="flow-bar">
+    <div class="fs s1"><div class="fn">1</div>보컬 조합</div>
+    <div class="farrow"></div>
+    <div class="fs s2"><div class="fn">2</div>프리뷰</div>
+    <div class="farrow"></div>
+    <div class="fs s3"><div class="fn">3</div>발행</div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       STEP 1 — VOCAL COMBINATION
+  ══════════════════════════════════════ -->
+  <div class="screen-section">
+    <div class="screen-label">
+      <span class="step-badge sb1">STEP 1</span>
+      <strong>보컬 조합 화면</strong>
+      <span>· 곡 선택 → Stem 타임라인 → 보컬 선택</span>
+    </div>
+
+    <div class="phone">
+      <div class="sbar">
+        <span>9:41</span>
+        <div class="sbar-r"><span>▲▲▲</span><span>WiFi</span><span>████</span></div>
+      </div>
+      <div class="nbar">
+        <span class="nbar-back">‹ 캠페인 선택</span>
+        <span class="nbar-title">보컬 조합 만들기</span>
+        <div class="nbar-dots">
+          <div class="ndot a1"></div><div class="ndot"></div><div class="ndot"></div>
+        </div>
+      </div>
+      <div class="pbody">
+        <div class="p1-body">
+
+          <!-- Left: Song + Rules -->
+          <div class="song-panel">
+            <div class="sec-lbl">곡 선택</div>
+            <div class="song-card on">
+              <div class="sc-top">
+                <div class="sc-th"></div>
+                <div><div class="sc-t">Eternal Bloom</div><div class="sc-m">컴백 주간 한정</div></div>
+              </div>
+              <div class="sc-tags"><span class="sc-tag">3파트 허용</span><span class="sc-tag">팬클럽</span></div>
+            </div>
+            <div class="song-card">
+              <div class="sc-top">
+                <div class="sc-th" style="background:linear-gradient(135deg,#b8c8ee,#6fa8d7 55%,#c8deff)"></div>
+                <div><div class="sc-t">Midnight Signal</div><div class="sc-m">기념일 에디션</div></div>
+              </div>
+              <div class="sc-tags"><span class="sc-tag" style="background:var(--blue-soft);color:var(--blue);border-color:var(--blue-border)">2파트</span></div>
+            </div>
+            <div class="rule-box">
+              <strong>조합 규칙 안내</strong>
+              <div class="rule-r"><div class="rdot"></div>멤버 최대 3명 선택</div>
+              <div class="rule-r"><div class="rdot"></div>파트 중복 불가</div>
+              <div class="rule-r"><div class="rdot"></div>Adlib 선택 선택</div>
+              <div class="rule-r"><div class="rdot"></div>소장 · 이벤트 참여 허용</div>
+              <div class="rule-r"><div class="rdot"></div>외부 상업 유통 불가</div>
+            </div>
+          </div>
+
+          <!-- Right: Timeline + Picker -->
+          <div class="combo-panel">
+            <div class="tl-area">
+              <div class="tl-head">
+                <span class="tl-lbl">Stem 타임라인</span>
+                <div class="tl-ctrls">
+                  <span class="tl-ctrl">+1도</span>
+                  <span class="tl-ctrl">−1도</span>
+                  <span class="tl-ctrl">+2도</span>
+                </div>
+              </div>
+              <div class="ruler">
+                <div></div>
+                <div class="ruler-ticks">
+                  <span>0:05</span><span>0:10</span><span>0:15</span><span>0:20</span><span>0:25</span>
+                </div>
+              </div>
+
+              <!-- Main Vocal — selected -->
+              <div class="stem-row">
+                <div class="stem-lbl">Main Vocal</div>
+                <div class="stem-lane st-sel" id="sl-main">
+                  <div class="ghost lit" id="g-main" style="background:linear-gradient(135deg,#c8b8ee,var(--primary) 55%,#d4aaff)"></div>
+                  <div class="mwave">
+                    <span class="h2 wc"></span><span class="h3 wc"></span><span class="h5 wc"></span>
+                    <span class="h4 wc"></span><span class="h5 wc"></span><span class="h3 wc"></span>
+                    <span class="h4 wc"></span><span class="h5 wc"></span><span class="h3 wc"></span>
+                    <span class="h4 wc"></span><span class="h2 wc"></span><span class="h1 wc"></span>
+                  </div>
+                  <span class="lane-tag">Vocal A</span>
+                </div>
+              </div>
+
+              <!-- Harmony — dim -->
+              <div class="stem-row">
+                <div class="stem-lbl">Harmony</div>
+                <div class="stem-lane st-dim" id="sl-harm">
+                  <div class="ghost" id="g-harm"></div>
+                  <div class="mwave" id="w-harm">
+                    <span class="h1 wd"></span><span class="h2 wd"></span><span class="h3 wd"></span>
+                    <span class="h2 wd"></span><span class="h3 wd"></span><span class="h2 wd"></span>
+                    <span class="h3 wd"></span><span class="h2 wd"></span><span class="h3 wd"></span>
+                    <span class="h1 wd"></span><span class="h2 wd"></span><span class="h1 wd"></span>
+                  </div>
+                  <span class="lane-tag dt" id="lt-harm">보컬 선택 대기 중</span>
+                </div>
+              </div>
+
+              <!-- Adlib — dim -->
+              <div class="stem-row">
+                <div class="stem-lbl">Adlib</div>
+                <div class="stem-lane st-dim" id="sl-adlib">
+                  <div class="ghost" id="g-adlib"></div>
+                  <div class="mwave" id="w-adlib">
+                    <span class="h1 wd"></span><span class="h2 wd"></span><span class="h1 wd"></span>
+                    <span class="h2 wd"></span><span class="h3 wd"></span><span class="h1 wd"></span>
+                    <span class="h2 wd"></span><span class="h1 wd"></span><span class="h2 wd"></span>
+                    <span class="h3 wd"></span><span class="h1 wd"></span><span class="h2 wd"></span>
+                  </div>
+                  <span class="lane-tag dt" id="lt-adlib">Ghost 이미지 · Muted 파형</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vocal picker strip -->
+            <div class="vpick">
+              <div class="vpick-head">
+                <span class="vpick-t">보컬 선택 — 탭하면 해당 lane에 즉시 배정됨</span>
+                <span class="vpick-c" id="vpick-cnt">1 / 3 선택됨</span>
+              </div>
+              <div class="vlist" id="vlist">
+                <div class="vitem act" data-n="Vocal A" data-g="linear-gradient(135deg,#c8b8ee,var(--primary) 55%,#d4aaff)" data-l="main" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#c8b8ee,#7b1cff 55%,#d4aaff)"></div>
+                  <div class="vn">Vocal A</div><div class="vp">21%</div>
+                </div>
+                <div class="vitem" data-n="Vocal B" data-g="linear-gradient(135deg,#eec8b8,#ff7c56 55%,#ffd0ba)" data-l="harmony" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#eec8b8,#ff7c56 55%,#ffd0ba)"></div>
+                  <div class="vn">Vocal B</div><div class="vp">20%</div>
+                </div>
+                <div class="vitem" data-n="Vocal C" data-g="linear-gradient(135deg,#eecfb8,#ff9f67 55%,#ffdcb8)" data-l="harmony" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#eecfb8,#ff9f67 55%,#ffdcb8)"></div>
+                  <div class="vn">Vocal C</div><div class="vp">16%</div>
+                </div>
+                <div class="vitem" data-n="Vocal D" data-g="linear-gradient(135deg,#eeb8d8,#f56eb4 55%,#ffd0ee)" data-l="adlib" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#eeb8d8,#f56eb4 55%,#ffd0ee)"></div>
+                  <div class="vn">Vocal D</div><div class="vp">13%</div>
+                </div>
+                <div class="vitem" data-n="Vocal E" data-g="linear-gradient(135deg,#c8c8ee,#b58cff 55%,#efe0ff)" data-l="harmony" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#c8c8ee,#b58cff 55%,#efe0ff)"></div>
+                  <div class="vn">Vocal E</div><div class="vp">12%</div>
+                </div>
+                <div class="vitem" data-n="Vocal F" data-g="linear-gradient(135deg,#b8d8ee,#63b6ff 55%,#d6efff)" data-l="adlib" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#b8d8ee,#63b6ff 55%,#d6efff)"></div>
+                  <div class="vn">Vocal F</div><div class="vp">10%</div>
+                </div>
+                <div class="vitem" data-n="Vocal G" data-g="linear-gradient(135deg,#b8eec8,#6fdc8a 55%,#ddffe8)" data-l="harmony" onclick="pickV(this)">
+                  <div class="vface" style="background:linear-gradient(135deg,#b8eec8,#6fdc8a 55%,#ddffe8)"></div>
+                  <div class="vn">Vocal G</div><div class="vp">8%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="pcta">
+        <div class="pcta-info">
+          <strong>Eternal Bloom · A + ? + ?</strong>
+          <span id="cta1-sub">조합 진행 중 · 2개 파트 남음</span>
+        </div>
+        <button class="btn-s">초기화</button>
+        <button class="btn-m c1">프리뷰 듣기 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotation 1 -->
+  <div class="ann">
+    <h4>① 보컬 조합 화면 — 기능 정의</h4>
+    <p>허용된 곡·버전만 노출. 선택한 보컬을 탭하면 타겟 lane에 즉시 배정되고, 파형이 강조 상태로 전환됨. Ghost 이미지와 muted 파형으로 미배정 상태 시각화. 조합 규칙 엔진이 멤버 수·파트 중복·라이선스 조건을 백엔드에서 실시간 검증.</p>
+    <div class="ann-tags">
+      <span class="ann-tag">Stem 리스트</span>
+      <span class="ann-tag">Ghost 이미지</span>
+      <span class="ann-tag">보컬 선택 UI</span>
+      <span class="ann-tag">파형 강조</span>
+      <span class="ann-tag">조합 규칙 안내</span>
+      <span class="ann-tag">피치 컨트롤</span>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       STEP 2 — PREVIEW
+  ══════════════════════════════════════ -->
+  <div class="screen-section">
+    <div class="screen-label">
+      <span class="step-badge sb2">STEP 2</span>
+      <strong>프리뷰 화면</strong>
+      <span>· 실시간 재생 → 믹스 컨트롤 → 발행 전 검증</span>
+    </div>
+
+    <div class="phone">
+      <div class="sbar">
+        <span>9:43</span>
+        <div class="sbar-r"><span>▲▲▲</span><span>WiFi</span><span>████</span></div>
+      </div>
+      <div class="nbar">
+        <span class="nbar-back">‹ 보컬 조합</span>
+        <span class="nbar-title">프리뷰 &amp; 검증</span>
+        <div class="nbar-dots">
+          <div class="ndot done"></div><div class="ndot a2"></div><div class="ndot"></div>
+        </div>
+      </div>
+      <div class="pbody">
+        <div class="p2-body">
+
+          <!-- Player -->
+          <div class="player-card">
+            <div class="player-top">
+              <span class="player-name">A + C + D · Combo Mix v1</span>
+              <span class="time-pill">▶ 00:42</span>
+            </div>
+            <div class="wave-hero"></div>
+            <div class="pb-row">
+              <button class="play-btn">▶ 재생</button>
+              <button class="pb-chip on">구간 반복</button>
+              <button class="pb-chip">A/B 비교</button>
+              <button class="pb-chip">원곡 대비</button>
+            </div>
+          </div>
+
+          <!-- Mix + Checklist -->
+          <div class="p2-cols">
+            <div class="mix-card">
+              <div class="card-lbl">믹스 컨트롤</div>
+              <div class="mix-row">
+                <span class="mix-name">Main Vocal</span>
+                <div class="mix-slider"><div class="mix-fill" style="width:68%"></div><div class="mix-knob" style="left:68%"></div></div>
+                <span class="mix-val">68</span>
+              </div>
+              <div class="mix-row">
+                <span class="mix-name">Harmony</span>
+                <div class="mix-slider"><div class="mix-fill" style="width:56%"></div><div class="mix-knob" style="left:56%"></div></div>
+                <span class="mix-val">56</span>
+              </div>
+              <div class="mix-row">
+                <span class="mix-name">Adlib</span>
+                <div class="mix-slider"><div class="mix-fill" style="width:35%"></div><div class="mix-knob" style="left:35%"></div></div>
+                <span class="mix-val">35</span>
+              </div>
+              <div class="mix-row">
+                <span class="mix-name">FX</span>
+                <div class="mix-slider"><div class="mix-fill" style="width:22%"></div><div class="mix-knob" style="left:22%"></div></div>
+                <span class="mix-val">22</span>
+              </div>
+            </div>
+
+            <div class="check-card">
+              <div class="card-lbl">발행 전 검증 체크</div>
+              <div class="check-row"><div class="ck ck-ok">✓</div><span>멤버 수 · 파트 규칙 통과</span></div>
+              <div class="check-row"><div class="ck ck-ok">✓</div><span>국가 · 기간 라이선스 확인</span></div>
+              <div class="check-row"><div class="ck ck-ok">✓</div><span>소장 · 이벤트 발행 가능</span></div>
+              <div class="check-row"><div class="ck ck-ok">✓</div><span>권리 스냅샷 생성 완료</span></div>
+              <div class="all-pass">✅ 4/4 통과 · 발행 준비 완료</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="pcta">
+        <div class="pcta-info">
+          <strong>검증 완료 · 4/4 항목</strong>
+          <span>조합 저장 후 발행 단계로 이동</span>
+        </div>
+        <button class="btn-s">← 수정</button>
+        <button class="btn-m c2">발행 단계로 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotation 2 -->
+  <div class="ann a2">
+    <h4>② 프리뷰 화면 — 기능 정의</h4>
+    <p>오디오 엔진이 선택된 stem을 기준 버전에 얹어 실시간 프리뷰 생성. 볼륨·밸런스 슬라이더로 간단 튜닝 허용(복잡한 믹싱은 플랫폼 프리셋으로 처리). 발행 전 규칙·라이선스·권리 스냅샷 4개 항목 검증 체크리스트 자동 표시. 모두 통과 시 발행 단계로 진입.</p>
+    <div class="ann-tags">
+      <span class="ann-tag">실시간 재생</span>
+      <span class="ann-tag">A/B 원곡 비교</span>
+      <span class="ann-tag">믹스 슬라이더</span>
+      <span class="ann-tag">구간 반복</span>
+      <span class="ann-tag">검증 체크리스트</span>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       STEP 3 — PUBLISH
+  ══════════════════════════════════════ -->
+  <div class="screen-section">
+    <div class="screen-label">
+      <span class="step-badge sb3">STEP 3</span>
+      <strong>발행 화면</strong>
+      <span>· 메타데이터 → 권리 스냅샷 → 최종 발행 CTA</span>
+    </div>
+
+    <div class="phone">
+      <div class="sbar">
+        <span>9:45</span>
+        <div class="sbar-r"><span>▲▲▲</span><span>WiFi</span><span>████</span></div>
+      </div>
+      <div class="nbar">
+        <span class="nbar-back">‹ 프리뷰</span>
+        <span class="nbar-title">발행 확정</span>
+        <div class="nbar-dots">
+          <div class="ndot done"></div><div class="ndot done"></div><div class="ndot a3"></div>
+        </div>
+      </div>
+      <div class="pbody">
+        <div class="p3-body">
+          <div class="p3-cols">
+
+            <!-- Metadata -->
+            <div class="meta-card">
+              <div class="card-lbl" style="margin-bottom:5px">발행 메타데이터</div>
+              <div class="mf">
+                <span class="mk">조합 제목</span>
+                <span class="mv mv-e">Fan Chorus 01 <span class="ei">✏︎</span></span>
+              </div>
+              <div class="mf">
+                <span class="mk">고유 ID</span>
+                <span class="id-chip">VC-2026-0192</span>
+              </div>
+              <div class="mf">
+                <span class="mk">캠페인</span>
+                <span class="mv">컴백 주간 한정</span>
+              </div>
+              <div class="mf">
+                <span class="mk">공개 범위</span>
+                <span class="mv mv-e">팬클럽 전용 <span class="ei">▾</span></span>
+              </div>
+              <div class="mf">
+                <span class="mk">소장 옵션</span>
+                <span class="mv mv-e">개인 소장 <span class="ei">▾</span></span>
+              </div>
+              <div class="mf">
+                <span class="mk">생성 일시</span>
+                <span class="mv" style="font-size:8px;color:var(--muted)">2026-05-17 09:45</span>
+              </div>
+            </div>
+
+            <!-- Rights snapshot -->
+            <div class="rights-card">
+              <div class="card-lbl" style="margin-bottom:5px">권리 스냅샷</div>
+              <div class="rf">
+                <span class="rk">원천 IP</span>
+                <span class="rv" style="font-size:8px">Official Vocal Pack A / C / D</span>
+              </div>
+              <div class="rf">
+                <span class="rk">허용 범위</span>
+                <span class="rv ok" style="font-size:8px">소장 · 공유 링크 · 이벤트 참여</span>
+              </div>
+              <div class="rf">
+                <span class="rk">불가 범위</span>
+                <span class="rv no" style="font-size:8px">외부 상업 유통 · 다운로드</span>
+              </div>
+              <div class="rf">
+                <span class="rk">수익 배분</span>
+                <span class="rv" style="font-size:8px;color:var(--muted)">IP권리자 70% / 플랫폼 20% / 팬 10%</span>
+              </div>
+              <div class="rf">
+                <span class="rk">정산 연결</span>
+                <span class="rv au">자동 연결 예정</span>
+              </div>
+              <div class="rf">
+                <span class="rk">스냅샷</span>
+                <span class="rv ok" style="font-size:8px">저장 완료</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Publish CTA -->
+          <div class="pub-row">
+            <button class="pub-out">초안 저장</button>
+            <button class="pub-out">조건 재확인</button>
+            <button class="pub-main">🎵 최종 발행</button>
+          </div>
+        </div>
+      </div>
+      <div class="pcta">
+        <div class="pcta-info">
+          <strong>발행 완료 시</strong>
+          <span>공유 링크 생성 + 내 소장함 자동 등록</span>
+        </div>
+        <button class="btn-s">취소</button>
+        <button class="btn-m c3">발행 완료 ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotation 3 -->
+  <div class="ann a3">
+    <h4>③ 발행 화면 — 기능 정의</h4>
+    <p>조합 확정 시 고유 ID 자동 생성·권리 스냅샷 저장. 팬이 공개 범위·소장 음선을 선택 후 최종 발행. 발행 완료 시 공유 링크 생성 및 "내 소장함" 자동 등록. 정산 엔진이 조합 ID와 매출 이벤트를 자동 연결해 IP 권리자·플랫폼·팬 인센티브 비율로 배분.</p>
+    <div class="ann-tags">
+      <span class="ann-tag">메타데이터 입력</span>
+      <span class="ann-tag">권리 스냅샷</span>
+      <span class="ann-tag">공개 범위 설정</span>
+      <span class="ann-tag">최종 발행 CTA</span>
+      <span class="ann-tag">정산 자동 연결</span>
+      <span class="ann-tag">고유 ID 생성</span>
+    </div>
+  </div>
+
+</div><!-- /doc -->
+
+<script>
+/* ─── Theme toggle ─── */
+function toggleTheme(btn){
+  const root = document.documentElement;
+  const isLight = root.getAttribute('data-theme') === 'light';
+  root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+  btn.textContent = isLight ? '라이트 모드' : '다크 모드';
+}
+
+/* ─── Vocal picker ─── */
+let selCount = 1;
+
+function pickV(el){
+  const lane = el.dataset.l;
+  const grad = el.dataset.g;
+  const name = el.dataset.n;
+  if(lane === 'main') return;
+
+  const isHarm = lane === 'harmony';
+  const laneEl   = document.getElementById(isHarm ? 'sl-harm' : 'sl-adlib');
+  const ghostEl  = document.getElementById(isHarm ? 'g-harm'  : 'g-adlib');
+  const waveEl   = document.getElementById(isHarm ? 'w-harm'  : 'w-adlib');
+  const tagEl    = document.getElementById(isHarm ? 'lt-harm' : 'lt-adlib');
+  const cls      = isHarm ? 'act2' : 'act';
+  const laneCls  = isHarm ? 'st-harm' : 'st-sel';
+  const waveCls  = isHarm ? 'wb' : 'wc';
+
+  const already = el.classList.contains('act') || el.classList.contains('act2');
+
+  /* deselect others on same lane */
+  document.querySelectorAll('#vlist .vitem').forEach(v => {
+    if(v !== el && v.dataset.l === lane){
+      v.classList.remove('act','act2');
+    }
+  });
+
+  if(already){
+    el.classList.remove('act','act2');
+    laneEl.classList.remove('st-harm','st-sel');
+    laneEl.classList.add('st-dim');
+    ghostEl.style.background = '';
+    ghostEl.classList.remove('lit');
+    Array.from(waveEl.children).forEach(s=>{ s.classList.remove('wb','wc'); s.classList.add('wd'); });
+    tagEl.textContent = isHarm ? '보컬 선택 대기 중' : 'Ghost 이미지 · Muted 파형';
+    tagEl.className = 'lane-tag dt';
+    selCount = Math.max(1, selCount-1);
+  } else {
+    el.classList.add(cls);
+    laneEl.classList.remove('st-dim','st-harm','st-sel');
+    laneEl.classList.add(laneCls);
+    ghostEl.style.background = grad;
+    ghostEl.classList.add('lit');
+    Array.from(waveEl.children).forEach(s=>{ s.classList.remove('wd','wb','wc'); s.classList.add(waveCls); });
+    tagEl.textContent = name + ' 배정됨';
+    tagEl.className = 'lane-tag';
+    selCount = Math.min(3, selCount+1);
+  }
+
+  document.getElementById('vpick-cnt').textContent = selCount + ' / 3 선택됨';
+  const sub = document.getElementById('cta1-sub');
+  if(sub){
+    const rem = 3 - selCount;
+    sub.textContent = rem === 0 ? '조합 완성 · 프리뷰로 이동 가능' : '조합 진행 중 · ' + rem + '개 파트 남음';
+  }
+}
+</script>
+</body>
+</html>
