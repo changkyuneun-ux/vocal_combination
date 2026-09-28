@@ -13,8 +13,15 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
+/** 배열·객체 중첩 한도(최상위 = 1). 이를 넘으면 재귀하기 전에 CORE_TYPE_ERROR로 멈춘다(스택 오버플로 방지). */
+export const MAX_JSON_DEPTH = 256;
+
 /** RFC 8785 JCS. VCRL IR은 JSON number를 금지하므로 number는 오류로 처리한다. */
 export function canonicalize(value: unknown, path = "$"): string {
+  return canon(value, path, 0);
+}
+
+function canon(value: unknown, path: string, depth: number): string {
   if (value === null) return "null";
   switch (typeof value) {
     case "boolean":
@@ -24,13 +31,14 @@ export function canonicalize(value: unknown, path = "$"): string {
     case "number":
       return fail("CORE_NUMBER_IN_IR", path, String(value));
     case "object": {
+      if (depth >= MAX_JSON_DEPTH) return fail("CORE_TYPE_ERROR", path, "nesting too deep");
       if (Array.isArray(value)) {
-        return "[" + value.map((v, i) => canonicalize(v, `${path}[${i}]`)).join(",") + "]";
+        return "[" + value.map((v, i) => canon(v, `${path}[${i}]`, depth + 1)).join(",") + "]";
       }
       if (!isPlainObject(value)) return fail("CORE_TYPE_ERROR", path, "not a plain object");
       const obj = value;
       const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
-      return "{" + keys.map((k) => quote(k, `${path}.${k}`) + ":" + canonicalize(obj[k], `${path}.${k}`)).join(",") + "}";
+      return "{" + keys.map((k) => quote(k, `${path}.${k}`) + ":" + canon(obj[k], `${path}.${k}`, depth + 1)).join(",") + "}";
     }
     default:
       return fail("CORE_TYPE_ERROR", path, `unsupported type ${typeof value}`);

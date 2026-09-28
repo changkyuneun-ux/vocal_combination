@@ -498,4 +498,4 @@ manifest/
 44. **1-C 범위 밖**: legacy-v1 변환기(사용자 결정으로 연기), facts 텍스트 입력, `diff` 명령, 결과 IR의 JSON Schema·버전 태그, 설치형 배포(Node는 `node_modules` 안의 `.ts`를 실행하지 않으므로 배포 전 빌드 단계가 필요하다).
 45. **via_mandate 정규형**: IR의 `graph.via_mandate`는 `true`이거나 생략해야 한다. `false`는 생략과 의미가 같으므로 검증기와 스키마가 거부한다(같은 의미에 IR 형태가 하나여야 digest가 갈라지지 않고 텍스트 왕복이 성립한다).
 46. **입력 형태와 CLI 안전장치**: `projectVectors`는 객체가 아닌 usage를 `FACTS_USAGE_INVALID`(`$.usage`)로, `checkActivation`은 형태가 틀린 선언 청구권자를 `CORE_TYPE_ERROR`(`$.declared…`)로 돌려준다. CLI는 파일을 읽기 전에 명령별 필수 옵션을 모두 확인하고(종료 코드 2), 명령 이름은 소유 속성으로만 조회하며, `compile`은 `.vcrl` 파일만 받는다. 예상하지 못한 예외는 한 줄 진단 `CORE_TYPE_ERROR $ unexpected error: …`와 종료 코드 1로 바꾼다.
-47. **검증기와 파서의 공통 한도·의존 범위**: 벡터 식 중첩 깊이는 파서와 검증기가 같은 한도(64)를 쓰며, v1.0의 안분 정책은 facts에만 의존할 수 있다(grant·approval 의존은 해당 모듈 구현 시 문법 `uses <module> …`과 함께 연다). facts 텍스트 표시는 자유 텍스트의 제어·양방향 문자를 이스케이프한다.
+47. **검증기와 파서의 공통 한도·의존 범위**: 벡터 식 중첩 깊이는 파서와 검증기가 같은 한도(64)를 쓰며, v1.0의 안분 정책은 facts에만 의존할 수 있다(grant·approval 의존은 해당 모듈 구현 시 문법 `uses <module> …`과 함께 연다). facts 텍스트 표시는 자유 텍스트의 제어·양방향 문자를 이스케이프한다. JSON 중첩 깊이는 정규화 단계에서 256으로 제한한다(초과 시 CORE_TYPE_ERROR).

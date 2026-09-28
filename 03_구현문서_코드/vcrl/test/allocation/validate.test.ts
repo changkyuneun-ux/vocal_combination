@@ -184,3 +184,13 @@ test("allocation v1.0 may depend only on facts", () => {
     diag("CORE_TYPE_ERROR", "$.depends_on[2].ref", "allocation v1.0 may depend only on facts"),
   ]);
 });
+
+test("a 20,000-deep object under an unknown body key returns diagnostics", () => {
+  let junk: unknown = {};
+  for (let i = 0; i < 20_000; i++) junk = { x: junk };
+  const p = policy() as unknown as { body: Record<string, unknown> };
+  p.body.junk = junk;
+  const out = validateAllocation(p);
+  assert.ok(out.length > 0);
+  assert.ok(out.some((d) => d.code === "CORE_TYPE_ERROR" && /nesting too deep/.test(d.message)));
+});
