@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as resultModule from "../../src/facts/result.ts";
 import { projectToIr } from "../../src/facts/result.ts";
 import { publicFacts } from "../../src/facts/public.ts";
+import { validateFactsStructure, validatePublicFacts } from "../../src/facts/validate.ts";
 import { digestOf } from "../../src/core/digest.ts";
 import { openCommitment, type Commitment } from "../../src/core/commit.ts";
 import { claimOf, loadBasic, sortBody, type BasicInput } from "../helpers.ts";
@@ -68,4 +69,45 @@ test("u_digest is over the normalized usage, so scaled or zero-padded usage yiel
     assert.equal(ir.u_digest, irs[0]!.u_digest);
     assert.equal(ir.digest, irs[0]!.digest);
   }
+});
+
+test("public facts validate with validatePublicFacts but not as raw facts", () => {
+  const { doc } = publicFacts(loadBasic().facts, () => new Uint8Array(32).fill(3));
+  assert.deepEqual(validatePublicFacts(doc), []);
+  assert.deepEqual(
+    validateFactsStructure(doc).map((d) => [d.code, d.path]),
+    [
+      ["CORE_TYPE_ERROR", "$.body.claims[0].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[1].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[2].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[3].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[4].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[4].evidence"],
+      ["CORE_TYPE_ERROR", "$.body.claims[5].share"],
+      ["CORE_TYPE_ERROR", "$.body.claims[6].share"],
+      ["CORE_TYPE_ERROR", "$.body.mandates[0].share"],
+      ["CORE_TYPE_ERROR", "$.body.mandates[1].share"],
+    ],
+  );
+  const pub = doc as { body: { mandates: Record<string, unknown>[]; claims: Record<string, unknown>[] } };
+  pub.body.claims[0]!.share = "10001";
+  pub.body.mandates[0]!.share = { commit: "not-a-digest" };
+  assert.deepEqual(validatePublicFacts(pub).map((d) => d.path), ["$.body.claims[0].share", "$.body.mandates[0].share"]);
+});
+
+test("PRIVATE party keeps id and kind public and commits its ids", () => {
+  const i = loadBasic();
+  const label = i.facts.body.parties.find((p) => p.id === "pty_label_x")!;
+  label.visibility = "PRIVATE";
+  const salt = new Uint8Array(32).fill(9);
+  const paths: string[] = [];
+  const { doc } = publicFacts(i.facts, (p) => (paths.push(p), salt));
+  const parties = (doc as typeof i.facts).body.parties;
+  const pub = parties.find((p) => p.id === "pty_label_x")!;
+  assert.equal(pub.kind, "LABEL");
+  assert.equal(pub.visibility, "PRIVATE");
+  assert.equal(openCommitment(pub.ids as unknown as Commitment, { isni: "0000000123456789" }, salt), true);
+  assert.ok(paths.includes("$.body.parties.pty_label_x.ids"));
+  assert.deepEqual(parties.filter((p) => p.id !== "pty_label_x"), i.facts.body.parties.filter((p) => p.id !== "pty_label_x"));
+  assert.deepEqual(validatePublicFacts(doc), []);
 });

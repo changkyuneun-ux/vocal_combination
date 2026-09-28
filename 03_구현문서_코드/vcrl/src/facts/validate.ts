@@ -1,4 +1,5 @@
 import { parseBps } from "../core/bps.ts";
+import { isCommitment } from "../core/commit.ts";
 import { validateEnvelope } from "../core/envelope.ts";
 import { isEnumValue, type EnumName } from "../core/enums.ts";
 import { capture, diag, type Diagnostic } from "../core/errors.ts";
@@ -50,6 +51,18 @@ type Entity = Record<string, unknown>;
  * 같은 id가 연속하면 FACTS_DUPLICATE_ID만 보고하고 정렬 오류로 보지 않는다.
  */
 export function validateFactsStructure(doc: unknown): Diagnostic[] {
+  return validateStructure(doc, "raw");
+}
+
+/**
+ * 공개본(publicFacts 결과) 검증: 구조 규칙은 같고, claim.share·claim.evidence·mandate.share·party.ids는
+ * 원문 또는 커밋먼트를 허용한다. share 합·위임 불변식은 커밋된 값으로 검사할 수 없으므로 돌리지 않는다.
+ */
+export function validatePublicFacts(doc: unknown): Diagnostic[] {
+  return validateStructure(doc, "public");
+}
+
+function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
   const env = validateEnvelope(doc);
   if (env.length > 0) return env;
   const d = doc as { module: unknown; body: Record<string, unknown> };
@@ -79,6 +92,8 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
     if (!sorted) out.push(diag("CORE_TYPE_ERROR", `$.body.${key}`, "not sorted by id"));
   }
 
+  /** 공개본에서 커밋먼트로 치환될 수 있는 필드가 커밋먼트인가. */
+  const committed = (v: unknown): boolean => mode === "public" && isCommitment(v);
   const present = (v: unknown, path: string): boolean => {
     if (v === undefined) out.push(diag("CORE_TYPE_ERROR", path, "required"));
     return v !== undefined;
@@ -105,11 +120,13 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
   const text = (v: unknown, path: string, optional = false) => {
     if (!absent(v, path, optional) && typeof v !== "string") out.push(diag("CORE_TYPE_ERROR", path, "must be a string"));
   };
-  const idsField = (v: unknown, path: string) => {
-    if (v === undefined || (isPlainObject(v) && Object.values(v).every((x) => typeof x === "string"))) return;
+  const idsField = (v: unknown, path: string, sealable = false) => {
+    if (v === undefined || (sealable && committed(v)) || (isPlainObject(v) && Object.values(v).every((x) => typeof x === "string"))) return;
     out.push(diag("CORE_TYPE_ERROR", path, "must be an object of strings"));
   };
-  const bps = (v: unknown, path: string) => out.push(...capture(() => parseBps(v, path)));
+  const bps = (v: unknown, path: string) => {
+    if (!committed(v)) out.push(...capture(() => parseBps(v, path)));
+  };
   const record = (r: Entity, p: string) => {
     enumField("claim_status", r.status, `${p}.status`);
     if (isPlainObject(r.valid)) out.push(...unknownKeys(r.valid, "interval", `${p}.valid`));
@@ -125,7 +142,7 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
     const p = `$.body.parties[${i}]`;
     out.push(...unknownKeys(x, "party", p));
     enumField("party_kind", x.kind, `${p}.kind`);
-    idsField(x.ids, `${p}.ids`);
+    idsField(x.ids, `${p}.ids`, true);
     enumField("visibility", x.visibility, `${p}.visibility`, true);
   });
   body.works.forEach((x, i) => {
@@ -171,7 +188,7 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
       out.push(diag("CORE_TYPE_ERROR", `${p}.performer_role`, "only allowed on PERFORMED_BY"));
     }
     text(c.role_detail, `${p}.role_detail`, true);
-    text(c.evidence, `${p}.evidence`, true);
+    if (!committed(c.evidence)) text(c.evidence, `${p}.evidence`, true);
   });
 
   body.mandates.forEach((m, i) => {

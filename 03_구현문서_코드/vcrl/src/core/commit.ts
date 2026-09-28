@@ -1,6 +1,6 @@
 import { DIGEST_PREFIX, isDigest, sha256Hex } from "./digest.ts";
 import { fail } from "./errors.ts";
-import { canonicalize } from "./jcs.ts";
+import { canonicalize, isPlainObject } from "./jcs.ts";
 
 export type Commitment = { commit: string };
 export const SALT_BYTES = 32;
@@ -19,8 +19,5 @@ export function openCommitment(c: Commitment, value: unknown, salt: Uint8Array):
 }
 
 export function isCommitment(v: unknown): v is Commitment {
-  return (
-    typeof v === "object" && v !== null && !Array.isArray(v) &&
-    Object.keys(v).length === 1 && isDigest((v as Record<string, unknown>).commit)
-  );
+  return isPlainObject(v) && Object.keys(v).length === 1 && isDigest(v.commit);
 }

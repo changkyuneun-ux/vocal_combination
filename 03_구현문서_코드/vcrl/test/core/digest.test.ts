@@ -26,3 +26,10 @@ test("commitment (known vector) and opening", () => {
 test("salt must be 32 bytes", () => {
   assert.throws(() => commitValue("x", new Uint8Array(16)), VcrlError);
 });
+
+test("isCommitment accepts only plain objects", () => {
+  const { commit } = commitValue("x", new Uint8Array(32));
+  assert.equal(isCommitment(Object.assign(Object.create(null), { commit })), true);
+  assert.equal(isCommitment(Object.assign(Object.create({ inherited: "y" }), { commit })), false);
+  assert.equal(isCommitment(Object.assign(new Map(), { commit })), false);
+});
