@@ -68,7 +68,7 @@
       "oneOf": [
         {
           "type": "object", "additionalProperties": false, "required": ["fn", "role"],
-          "properties": { "fn": { "const": "graph" }, "role": { "$ref": "#/$defs/role" }, "via_mandate": { "type": "boolean" } }
+          "properties": { "fn": { "const": "graph" }, "role": { "$ref": "#/$defs/role" }, "via_mandate": { "const": true } }
         },
         {
           "type": "object", "additionalProperties": false, "required": ["fn", "party"],

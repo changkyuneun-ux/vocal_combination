@@ -18,6 +18,11 @@ const withVector = (v: unknown) => {
   p.body.tier2.split[1]!.vector = v as VectorExpr;
   return p;
 };
+const withMasterVector = (v: unknown) => {
+  const p = policy();
+  p.body.tier2.split[0]!.vector = v as VectorExpr;
+  return p;
+};
 
 test("basic policy is valid", () => {
   assert.deepEqual(validateAllocation(policy()), []);
@@ -65,6 +70,7 @@ test("performance_pool mode rules", () => {
 test("vector expressions", () => {
   assert.deepEqual(codes(withVector({ fn: "magic" })), ["CORE_ENUM_UNKNOWN"]);
   assert.deepEqual(codes(withVector({ fn: "graph", role: "PERFORMER_FEATURED", extra: "x" })), ["CORE_TYPE_ERROR"]);
+  assert.deepEqual(codes(withMasterVector({ fn: "graph", role: "MASTER_OWNER", via_mandate: false })), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(codes(withVector({ fn: "contract", party: "@hold" })), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(
     codes(withVector({ fn: "mix", parts: [
@@ -98,6 +104,7 @@ test("allocation JSON Schema agrees with the validator", () => {
   for (const bad of [
     withVector({ fn: "magic" }),
     withVector({ fn: "graph", role: "PERFORMER_FEATURED", extra: "x" }),
+    withMasterVector({ fn: "graph", role: "MASTER_OWNER", via_mandate: false }),
     withVector({ fn: "contract", party: "@hold" }),
   ]) {
     assert.equal(validate(bad), false);

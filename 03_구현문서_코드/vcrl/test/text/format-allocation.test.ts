@@ -54,6 +54,26 @@ test("non-facts dependencies cannot be written as text", () => {
   assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
 });
 
+test("every vector form and keyword-like bucket names round-trip", () => {
+  const doc = loadAllocationCase().policy;
+  doc.body.tier2.split = [
+    { name: "master_via", bps: "1000", role: "MASTER_OWNER", vector: { fn: "graph", role: "MASTER_OWNER", via_mandate: true } },
+    { name: "as", bps: "1000", role: "WORK_AUTHOR", vector: { fn: "graph", role: "WORK_AUTHOR" } },
+    { name: "agency", bps: "500", role: "AGENCY", vector: { fn: "contract", party: "10" } },
+    { name: "members", bps: "1000", role: "PERFORMER_FEATURED", vector: { fn: "member_pct" } },
+    { name: "via", bps: "1000", role: "PERFORMER_NON_FEATURED", vector: { fn: "performance_pool", mode: "FIXED" } },
+    { name: "usage_w", bps: "1000", role: "PERFORMER_FEATURED", vector: { fn: "performance_pool", mode: "USAGE_WEIGHTED", featured_weight: "7000" } },
+    { name: "mix", bps: "1000", role: "PERFORMER_FEATURED", vector: { fn: "performance_pool", mode: "HYBRID", fixed: "4000", usage: "6000", featured_weight: "7000" } },
+    { name: "member_mode", bps: "500", role: "PERFORMER_FEATURED", vector: { fn: "performance_pool", mode: "MEMBER_PCT" } },
+    { name: "mixed", bps: "1000", role: "CMO", vector: {
+      fn: "mix", parts: [{ weight: "5000", of: { fn: "graph", role: "CMO" } }, { weight: "5000", of: { fn: "contract", party: "pty_x" } }],
+    } },
+    { name: "capped", bps: "1000", role: "MASTER_OWNER", vector: { fn: "cap", max: "5000", of: { fn: "graph", role: "MASTER_OWNER" } } },
+    { name: "floored", bps: "1000", role: "PERFORMER_FEATURED", vector: { fn: "floor_guarantee", min: "300", of: { fn: "member_pct" } } },
+  ];
+  roundTrip(doc);
+});
+
 test("samples compile, round-trip and evaluate against the basic facts", () => {
   for (const name of ["VC-ALLOC-DEFAULT-V1", "VC-ALLOC-HYBRID-V2"]) {
     const compiled = compileAllocation(sample(name));

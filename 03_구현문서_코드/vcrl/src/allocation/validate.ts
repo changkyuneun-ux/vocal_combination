@@ -157,7 +157,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
     switch (v.fn) {
       case "graph":
         enumCheck("claimant_role", v.role, `${p}.role`);
-        if (v.via_mandate !== undefined && typeof v.via_mandate !== "boolean") out.push(diag("CORE_TYPE_ERROR", `${p}.via_mandate`));
+        if (v.via_mandate !== undefined && v.via_mandate !== true) out.push(diag("CORE_TYPE_ERROR", `${p}.via_mandate`, "must be true or omitted"));
         else if (v.via_mandate === true && isEnumValue("claimant_role", v.role) && ROLE_RIGHT[v.role] === undefined) {
           out.push(diag("CORE_TYPE_ERROR", `${p}.via_mandate`, `${v.role} has no mandate right`));
         }
