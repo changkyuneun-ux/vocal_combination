@@ -1,9 +1,9 @@
 import { diag, type Diagnostic } from "../core/errors.ts";
 import type { Instant } from "../core/time.ts";
-import { checkClaimantCoverage, deriveClaimants, type ClaimantEntry } from "./mandate.ts";
-import { HOLD, projectVectors, type Usage } from "./project.ts";
+import { checkClaimantCoverage, deriveClaimants, ROLE_RIGHT, type ClaimantEntry } from "./mandate.ts";
+import { HOLD, projectVectors, type PartyVector, type Usage } from "./project.ts";
 import { isEffective } from "./temporal.ts";
-import type { FactsDocument } from "./types.ts";
+import { MAX_MANDATE_HOPS, type ClaimantRole, type FactsDocument, type Mandate } from "./types.ts";
 
 export type ActivationInput = {
   facts: FactsDocument;
@@ -32,15 +32,35 @@ export function checkActivation(input: ActivationInput): Diagnostic[] {
 
   const out: Diagnostic[] = [];
   const derived = deriveClaimants(facts, projection.value, asOf, knownAt);
-  const involved = new Set([
-    ...Object.values(projection.value.vectors).flatMap((v) => Object.keys(v ?? {})),
-    ...(derived.ok ? derived.value.map((c) => c.party) : []),
-  ]);
-  const disputedMandates = facts.body.mandates
-    .filter((m) => m.status === "DISPUTED" && isEffective(m, asOf, knownAt) && involved.has(m.from))
-    .map((m) => m.id);
 
-  const ids = [...new Set([...disputedClaims, ...disputedMandates])].sort(byKey);
+  const disputedMandateIds = new Set<string>();
+  for (const [role, vec] of Object.entries(projection.value.vectors) as [ClaimantRole, PartyVector][]) {
+    const right = ROLE_RIGHT[role];
+    if (right === undefined) continue;
+    const byFrom = new Map<string, Mandate[]>();
+    for (const m of facts.body.mandates) {
+      if (m.right !== right || !isEffective(m, asOf, knownAt)) continue;
+      byFrom.set(m.from, [...(byFrom.get(m.from) ?? []), m]);
+    }
+    const visited = new Set<string>();
+    let frontier = Object.entries(vec ?? {})
+      .filter(([party, w]) => party !== HOLD && w.n !== 0n)
+      .map(([party]) => party);
+    for (let hop = 0; hop < MAX_MANDATE_HOPS && frontier.length > 0; hop++) {
+      const next: string[] = [];
+      for (const party of frontier) {
+        if (visited.has(party)) continue;
+        visited.add(party);
+        for (const m of byFrom.get(party) ?? []) {
+          if (m.status === "DISPUTED") disputedMandateIds.add(m.id);
+          next.push(m.to);
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  const ids = [...new Set([...disputedClaims, ...disputedMandateIds])].sort(byKey);
   if (ids.length > 0) out.push(diag("FACTS_DISPUTE_OPEN", "$.activation", ids.join(",")));
   if (!derived.ok) return [...out, ...derived.errors];
   return [...out, ...checkClaimantCoverage(derived.value, declared)];

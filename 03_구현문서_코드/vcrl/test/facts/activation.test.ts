@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkActivation } from "../../src/facts/activation.ts";
-import { loadBasic, loadFactsCase, mandateOf, type BasicInput } from "../helpers.ts";
+import { loadBasic, loadFactsCase, mandateOf, sortBody, type BasicInput } from "../helpers.ts";
 
 const input = (i: BasicInput) => ({ facts: i.facts, usage: i.usage, asOf: i.as_of, knownAt: i.known_at, declared: i.declared_claimants });
 
@@ -28,6 +28,46 @@ test("a disputed mandate blocks activation and breaks coverage", () => {
   const d = checkActivation(input(i));
   assert.deepEqual(d.map((x) => x.code).sort(), ["FACTS_DISPUTE_OPEN", "FACTS_UNCOVERED_CLAIMANT"]);
   assert.match(d.find((x) => x.code === "FACTS_DISPUTE_OPEN")!.message, /m1$/);
+});
+
+test("a disputed mandate in the middle of a chain blocks activation", () => {
+  const i = loadBasic();
+  i.facts.body.parties.push({ id: "pty_pub", kind: "PUBLISHER" });
+  mandateOf(i, "m1").to = "pty_pub";
+  i.facts.body.mandates.push({
+    id: "m3",
+    from: "pty_pub",
+    to: "pty_komca",
+    right: "WORK",
+    share: "10000",
+    status: "DISPUTED",
+    valid: { from: "2026-01-01T00:00:00.000Z" },
+    recorded_at: "2026-01-01T00:00:00.000Z",
+  });
+  sortBody(i);
+  const d = checkActivation(input(i));
+  const disputes = d.filter((x) => x.code === "FACTS_DISPUTE_OPEN");
+  assert.equal(disputes.length, 1);
+  assert.match(disputes[0]!.message, /m3$/);
+});
+
+test("control: a verified mandate in the middle of a chain does not block activation", () => {
+  const i = loadBasic();
+  i.facts.body.parties.push({ id: "pty_pub", kind: "PUBLISHER" });
+  mandateOf(i, "m1").to = "pty_pub";
+  i.facts.body.mandates.push({
+    id: "m3",
+    from: "pty_pub",
+    to: "pty_komca",
+    right: "WORK",
+    share: "10000",
+    status: "VERIFIED",
+    valid: { from: "2026-01-01T00:00:00.000Z" },
+    recorded_at: "2026-01-01T00:00:00.000Z",
+  });
+  sortBody(i);
+  const d = checkActivation(input(i));
+  assert.equal(d.filter((x) => x.code === "FACTS_DISPUTE_OPEN").length, 0);
 });
 
 test("projection errors are returned as-is", () => {
