@@ -242,3 +242,18 @@ test("projection instants and digests are validated", () => {
     if (!rj.ok) assert.deepEqual(rj.errors.map((e) => [e.code, e.path]), [["CORE_TYPE_ERROR", `$.projection.${field}`]], field);
   }
 });
+
+test("performer coverage is checked per party", () => {
+  const i = basic();
+  i.snapshot = { members: { pty_member_a: "1/1" } };
+  i.policy.body.tier2.split[1]!.vector = { fn: "performance_pool", mode: "MEMBER_PCT" };
+  const r = evaluate(i);
+  assert.equal(r.ok, false);
+  if (!r.ok) {
+    assert.deepEqual(r.errors.map((e) => [e.code, e.path]), [["ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split"]]);
+    assert.match(r.errors[0]!.message, /PERFORMER_FEATURED:pty_member_b/);
+  }
+  const j = basic();
+  j.snapshot = { members: { pty_member_a: "1/1" } };
+  assertConserved(run(j), j);
+});

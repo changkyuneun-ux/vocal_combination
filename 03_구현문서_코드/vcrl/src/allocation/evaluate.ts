@@ -81,7 +81,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   if (!vectors.ok) errors.push(...vectors.errors);
   if (!members.ok || !vectors.ok || errors.length > 0) return err(errors);
 
-  errors.push(...checkCoverage(body.tier2.split, vectors.value));
+  errors.push(...checkCoverage(body.tier2.split, vectors.value, members.value));
   const ctx: ExprContext = {
     facts, parties, vectors: vectors.value, members: members.value, asOf: projection.as_of, knownAt: projection.known_at,
   };
@@ -170,15 +170,27 @@ function parseProjectionVectors(projection: ProjectionIr): Vectors {
   return out;
 }
 
-/** 실제 권리자(`@hold`·가중치 0 제외)가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다. */
-function checkCoverage(split: readonly SplitBucket[], vectors: Vectors): Diagnostic[] {
+/** 실제 권리자(`@hold`·가중치 0 제외) 목록. */
+const claimantsOf = (vec: PartyVector | undefined): string[] =>
+  vec === undefined ? [] : sortedEntries(vec).filter(([k, w]) => k !== HOLD && w.n !== 0n).map(([k]) => k);
+
+/**
+ * 커버리지(스펙 12.33): 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 하고,
+ * 투영에서 지분이 있는 실연자는 스냅샷 멤버이거나 사용량 기반 실연 소스로 배분되어야 한다.
+ */
+function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members: PartyVector): Diagnostic[] {
   const covered = new Set<ClaimantRole>();
+  let usageBased = false;
   const visit = (e: VectorExpr): void => {
     switch (e.fn) {
       case "graph":
         covered.add(e.role);
+        if (PERFORMER_ROLES.includes(e.role)) usageBased = true;
         break;
       case "performance_pool":
+        if (e.mode === "USAGE_WEIGHTED" || e.mode === "HYBRID") usageBased = true;
+        for (const r of PERFORMER_ROLES) covered.add(r);
+        break;
       case "member_pct":
         for (const r of PERFORMER_ROLES) covered.add(r);
         break;
@@ -196,8 +208,17 @@ function checkCoverage(split: readonly SplitBucket[], vectors: Vectors): Diagnos
   for (const b of split) visit(b.vector);
   const out: Diagnostic[] = [];
   for (const [role, vec] of Object.entries(vectors) as [ClaimantRole, PartyVector][]) {
-    const real = Object.entries(vec).some(([k, w]) => k !== HOLD && w.n !== 0n);
-    if (real && !covered.has(role)) out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", role));
+    if (claimantsOf(vec).length > 0 && !covered.has(role)) out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", role));
+  }
+  if (usageBased) return out;
+  const seen = new Set<string>();
+  // 역할 자체가 다뤄지지 않으면 위에서 이미 보고했다.
+  for (const role of PERFORMER_ROLES.filter((r) => covered.has(r))) {
+    for (const party of claimantsOf(vectors[role])) {
+      if (seen.has(party) || Object.hasOwn(members, party)) continue;
+      seen.add(party);
+      out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", `${role}:${party}`));
+    }
   }
   return out;
 }
