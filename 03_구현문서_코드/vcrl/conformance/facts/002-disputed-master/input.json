@@ -223,10 +223,6 @@
       "party": "pty_komca"
     },
     {
-      "role": "MASTER_OWNER",
-      "party": "pty_label_x"
-    },
-    {
       "role": "PERFORMER_FEATURED",
       "party": "pty_member_a"
     },
