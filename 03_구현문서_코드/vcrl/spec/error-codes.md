@@ -33,6 +33,9 @@
 | `ALLOC_SCOPE_MISMATCH` | 이벤트 유형·통화가 정책 범위 밖 | `evaluate` |
 | `ALLOC_EMPTY_VECTOR` | 배분할 벡터가 비어 있음 | `parseVector`, `fixedVector`, `usageVector`, `evalVector`, `splitLrm` |
 | `ALLOC_ROUNDING_INVARIANT` | 층별 배분 합 ≠ 상위 금액 | `splitLrm` |
+| `PARSE_SYNTAX` | 텍스트 문법 오류(경로 `@줄:열`) | `tokenize`, `parseAllocation` |
+| `PARSE_ROLE_REQUIRED` | 버킷 역할 추론 불가, `as <ROLE>` 필요 | `parseAllocation` |
+| `PARSE_UNSUPPORTED` | 고정 의미와 다른 guard·exceptions 문장 | `parseAllocation` |
 
 ## 기존 코드 매핑
 

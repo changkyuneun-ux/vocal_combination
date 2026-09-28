@@ -28,6 +28,9 @@ export const ERROR_CODES = {
   ALLOC_SCOPE_MISMATCH: "매출 이벤트가 정책 범위(이벤트 유형·통화)를 벗어난다",
   ALLOC_EMPTY_VECTOR: "배분할 벡터가 비어 있다",
   ALLOC_ROUNDING_INVARIANT: "층별 배분 합이 상위 금액과 다르다(평가기 결함)",
+  PARSE_SYNTAX: "텍스트 문법 오류",
+  PARSE_ROLE_REQUIRED: "버킷 역할을 추론할 수 없어 `as <ROLE>` 표기가 필요하다",
+  PARSE_UNSUPPORTED: "엔진의 고정 의미와 다른 guard·exceptions 문장은 지원하지 않는다",
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CODES;
