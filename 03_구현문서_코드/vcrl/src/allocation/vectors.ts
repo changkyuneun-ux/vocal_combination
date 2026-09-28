@@ -17,6 +17,11 @@ export function collect(entries: Iterable<[string, Ratio]>): PartyVector {
   return out;
 }
 
+/** 벡터 항목을 키 코드 유닛 오름차순으로 돌려준다. 정수 모양 키("9", "10")도 JS 객체 열거 순서와 무관하게 정렬된다. */
+export function sortedEntries(vec: PartyVector): [string, Ratio][] {
+  return Object.keys(vec).sort(byKey).map((k): [string, Ratio] => [k, vec[k]!]);
+}
+
 /** `{ party: "n/d" }` 문자열 벡터를 파싱한다. 키는 party id 또는 `@hold`, 합은 정확히 1이어야 한다. */
 export function parseVector(v: unknown, path: string): PartyVector {
   if (typeof v !== "object" || v === null || Array.isArray(v)) fail("CORE_TYPE_ERROR", path, "vector must be an object");

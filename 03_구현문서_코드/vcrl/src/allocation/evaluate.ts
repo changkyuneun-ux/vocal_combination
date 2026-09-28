@@ -16,7 +16,7 @@ import type {
   RevenueEvent, Snapshot, SplitBucket, TraceEntry, VectorExpr,
 } from "./types.ts";
 import { validateAllocation } from "./validate.ts";
-import { parseVector } from "./vectors.ts";
+import { parseVector, sortedEntries } from "./vectors.ts";
 
 export type EvaluationInput = {
   policy: AllocationDocument;
@@ -223,7 +223,7 @@ function allocateEvent(
   const tier2 = level(out, ev.id, "tier2", rights, body.tier2.split.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
   tier2.forEach((bucketAmount, i) => {
     const bucket = body.tier2.split[i]!;
-    const shares = Object.entries(bucketVectors[i]!).map(([key, weight]) => ({ key, weight }));
+    const shares = sortedEntries(bucketVectors[i]!).map(([key, weight]) => ({ key, weight }));
     for (const p of level(out, ev.id, `bucket:${bucket.name}`, bucketAmount.amount, shares)) {
       if (p.amount === 0n) continue;
       if (p.key === HOLD) {

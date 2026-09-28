@@ -208,3 +208,17 @@ test("a party id named after an Object.prototype member evaluates end to end", (
   assertConserved(res2, j);
   assert.ok(res2.lines.some((l) => l.bucket === "work" && l.party === "constructor"));
 });
+
+test("line and trace order use code-unit key order, not JS integer-like key order", () => {
+  const i = withFacts((f) => {
+    for (const id of ["10", "9", "a"]) f.facts.body.parties.push({ id, kind: "PERFORMER" });
+    return f;
+  });
+  i.snapshot = { members: { "10": "1/5", "9": "1/5", a: "1/5", pty_member_a: "1/5", pty_member_b: "1/5" } };
+  i.policy.body.tier2.split[1]!.vector = { fn: "member_pct" };
+  const res = run(i);
+  const order = ["10", "9", "a", "pty_member_a", "pty_member_b"];
+  assert.deepEqual(res.lines.filter((l) => l.event_id === "ev_001" && l.bucket === "performer").map((l) => l.party), order);
+  const trace = res.trace.find((t) => t.event_id === "ev_001" && t.level === "bucket:performer")!;
+  assert.deepEqual(trace.parts.map((p) => p.key), order);
+});
