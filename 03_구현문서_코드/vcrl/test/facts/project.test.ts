@@ -1,0 +1,87 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { HOLD, projectVectors } from "../../src/facts/project.ts";
+import { ONE, ratio, sum } from "../../src/core/ratio.ts";
+import { claimOf, loadBasic, type BasicInput } from "../helpers.ts";
+
+const run = (i: BasicInput) => projectVectors(i.facts, i.usage, i.as_of, i.known_at);
+const errCodes = (i: BasicInput) => {
+  const r = run(i);
+  return r.ok ? [] : r.errors.map((e) => e.code).sort();
+};
+
+test("basic projection vectors", () => {
+  const r = run(loadBasic());
+  assert.ok(r.ok);
+  const v = r.value.vectors;
+  assert.deepEqual(v.MASTER_OWNER, { pty_label_x: ONE });
+  assert.deepEqual(v.WORK_AUTHOR, { pty_author_b: ratio(3n, 5n), pty_author_c: ratio(2n, 5n) });
+  assert.deepEqual(v.PERFORMER_FEATURED, { pty_member_a: ratio(2n, 3n), pty_member_b: ratio(1n, 3n) });
+  assert.equal(v.PERFORMER_NON_FEATURED, undefined);
+  assert.equal(r.value.paths.length, 11);
+});
+
+test("every vector sums to exactly 1", () => {
+  const r = run(loadBasic());
+  assert.ok(r.ok);
+  for (const vec of Object.values(r.value.vectors)) assert.deepEqual(sum(Object.values(vec!)), ONE);
+});
+
+test("disputed group goes to @hold without renormalization", () => {
+  const i = loadBasic();
+  claimOf(i, "c5").status = "DISPUTED";
+  const r = run(i);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.vectors.MASTER_OWNER, { [HOLD]: ONE });
+});
+
+test("AI voice contributes to AI_PROVIDER; duet splits the stem", () => {
+  const i = loadBasic();
+  const b = i.facts.body;
+  b.parties.push({ id: "pty_ai", kind: "AI_PROVIDER" });
+  b.voices.push({ id: "vo_ai", kind: "AI" });
+  claimOf(i, "c1").share = "5000";
+  b.claims.push({ ...claimOf(i, "c1"), id: "c1b", target: "vo_ai" });
+  b.claims.push({ ...claimOf(i, "c3"), id: "c_ai", source: "vo_ai", target: "pty_ai" });
+  const r = run(i);
+  assert.ok(r.ok, JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
+  assert.deepEqual(r.value.vectors.PERFORMER_FEATURED, { pty_member_a: ratio(1n, 2n), pty_member_b: ratio(1n, 2n) });
+  assert.deepEqual(r.value.vectors.AI_PROVIDER, { pty_ai: ONE });
+});
+
+test("missing required path", () => {
+  const i = loadBasic();
+  i.facts.body.claims = i.facts.body.claims.filter((c) => c.id !== "c5");
+  assert.deepEqual(errCodes(i), ["FACTS_PATH_MISSING", "FACTS_PATH_MISSING", "FACTS_PATH_MISSING"]);
+});
+
+test("as_of before validity breaks paths", () => {
+  const i = loadBasic();
+  i.as_of = "2025-12-01T00:00:00.000Z";
+  assert.ok(errCodes(i).includes("FACTS_PATH_MISSING"));
+});
+
+test("known_at before recording breaks paths", () => {
+  const i = loadBasic();
+  claimOf(i, "c5").recorded_at = "2026-03-01T00:00:00.000Z";
+  i.known_at = "2026-02-01T00:00:00.000Z";
+  assert.ok(errCodes(i).includes("FACTS_PATH_MISSING"));
+});
+
+test("usage validation", () => {
+  const invalidUsages: Record<string, string>[] = [{ stm_ghost: "1" }, { stm_v1: "1.5" }, { stm_v1: "0" }];
+  for (const usage of invalidUsages) {
+    const i = loadBasic();
+    i.usage = usage;
+    assert.deepEqual(errCodes(i), ["FACTS_USAGE_INVALID"], JSON.stringify(usage));
+  }
+  const i = loadBasic();
+  i.facts.body.stems[0]!.rights_bearing = false;
+  assert.deepEqual(errCodes(i), ["FACTS_USAGE_INVALID"]);
+});
+
+test("effective-time sum mismatch surfaces at projection", () => {
+  const i = loadBasic();
+  claimOf(i, "c7").share = "3000";
+  assert.deepEqual(errCodes(i), ["FACTS_SUM_MISMATCH"]);
+});
