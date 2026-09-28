@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
+import type { EvaluationInput } from "../src/allocation/evaluate.ts";
 import type { AllocationDocument, RevenueEvent, Snapshot } from "../src/allocation/types.ts";
+import { projectToIr } from "../src/facts/result.ts";
 import type { Claim, ClaimantRole, FactsDocument, Mandate } from "../src/facts/types.ts";
 
 export type BasicInput = {
@@ -50,4 +52,12 @@ export function loadAllocationCase(name = "001-basic"): AllocationCase {
 
 export function loadFactsCase(name: string): BasicInput {
   return JSON.parse(readFileSync(new URL(`../conformance/facts/${name}/input.json`, import.meta.url), "utf8"));
+}
+
+/** 할당 케이스의 facts 케이스로 투영 IR을 만들어 평가기 입력을 구성한다. */
+export function evaluationInput(c: AllocationCase): EvaluationInput {
+  const f = loadFactsCase(c.facts_case);
+  const p = projectToIr(f.facts, f.usage, f.as_of, f.known_at);
+  if (!p.ok) throw new Error(p.errors.map((e) => e.code).join(","));
+  return { policy: c.policy, facts: f.facts, projection: p.value, snapshot: c.snapshot, events: c.events, runId: c.run_id };
 }
