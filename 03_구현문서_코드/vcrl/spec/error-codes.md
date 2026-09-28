@@ -28,7 +28,7 @@
 | `ALLOC_WEIGHT_MISMATCH` | mix·HYBRID 가중치 합 ≠ 10000bps, 벡터 합 ≠ 1 | `validateAllocation`, `parseVector`, `splitLrm` |
 | `ALLOC_MODE_REQUIRED` | performance_pool의 mode·필수 가중치 누락 | `validateAllocation` |
 | `ALLOC_DUPLICATE_NAME` | 버킷 이름·배분 키 중복 | `validateAllocation`, `splitLrm` |
-| `ALLOC_UNCOVERED_CLAIMANT` | 투영 역할을 다루는 버킷 없음 | `evaluate` |
+| `ALLOC_UNCOVERED_CLAIMANT` | 투영 역할을 다루는 버킷 없음, 또는 실연자가 멤버·사용량 기반 소스 어디에도 없음 | `evaluate` |
 | `ALLOC_INFEASIBLE` | cap·floor_guarantee 불가능 | `validateAllocation`, `capVector`, `floorGuarantee` |
 | `ALLOC_SCOPE_MISMATCH` | 이벤트 유형·통화가 정책 범위 밖 | `evaluate` |
 | `ALLOC_EMPTY_VECTOR` | 배분할 벡터가 비어 있음 | `parseVector`, `fixedVector`, `usageVector`, `evalVector`, `splitLrm` |
