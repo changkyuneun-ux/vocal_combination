@@ -461,3 +461,11 @@ manifest/
 9. **정적 검증 시점**: share 합·위임 불변식은 현재 지식(미대체 레코드) 기준으로 모든 유효기간 경계 시점에서 검사한다.
 10. **알 수 없는 키**: 봉투와 facts의 모든 객체에서 JSON Schema가 `additionalProperties: false`로 막는 키는 코드 검증기도 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
 11. **facts 공개본의 기본 등급(3.4 명확화)**: claim·mandate에 `visibility`가 없으면 문서의 `visibility_default`와 무관하게 `share`·`evidence`는 `PARTIES`로 취급해 커밋먼트로 치환한다. 원문 공개는 항목별로 `visibility: PUBLIC`을 명시해야 한다. 문서 단위 설정 실수로 계약 지분이 노출되는 것을 막기 위한 결정이다.
+12. **증명 서명 대상**: 서명 메시지는 `JCS({ctx:"vcrl-attest/1", signer, role, over, alg})`의 UTF-8 바이트다. digest만 서명하면 역할·서명자 바꿔치기가 가능하므로 함께 묶는다. `alg`는 `Ed25519`, 공개키도 Ed25519여야 한다.
+13. **분쟁 그룹의 합 검사**: DISPUTED claim이 하나라도 있는 그룹은 10000bps 합 검사에서 제외한다(몫 전체가 `@hold`). 정적 검증과 투영이 같은 규칙을 쓴다.
+14. **정규형**: facts의 7개 엔티티 배열은 id 오름차순(코드 유닛 비교)이어야 하며 검증기가 강제한다(`CORE_TYPE_ERROR` "not sorted by id"). id와 참조 필드는 `^[A-Za-z0-9._-]+$`다. `u_digest`는 정규화된 u(스템별 `"n/d"`, 0 제외)에 대한 digest다.
+15. **투영 IR 생성**: 투영 IR은 `projectToIr` 하나로 생성한다(입력과 결과의 불일치 방지). `as_of`·`known_at`은 Instant 형식을 검증한다.
+16. **위임 수령인의 청구권자 역할**: CMO→`CMO`, AGENCY→`AGENCY`, 그 외 kind는 원래 역할(예: WORK_AUTHOR 몫을 받는 PUBLISHER는 `WORK_AUTHOR`). 가중치 0인 party와 `@hold`는 청구권자가 아니다. 위임인의 위임 합이 10000bps를 넘으면 라우팅은 `FACTS_SUM_MISMATCH`로 실패한다.
+17. **공개본 검증 `validatePublicFacts`**: 구조 규칙은 원문 검증과 같고, `claim.share`·`claim.evidence`·`mandate.share`·`party.ids`는 원문 또는 커밋먼트를 허용한다. 합 불변식은 검사하지 않는다. `PRIVATE` party는 id·kind만 공개하고 `ids`는 커밋먼트로 치환한다(salt 경로 `$.body.parties.<id>.ids`).
+18. **문자열 인코딩**: 모든 문자열(값과 키)은 올바른 UTF-16이어야 한다. 고립 서로게이트는 `CORE_TYPE_ERROR`로 거부한다.
+19. **투영의 빈 역할과 보수적 합 검사**: 경로가 없는 역할은 `vectors`에 키가 없다(빈 벡터로 취급). 사용량이 없는 스템이나 무관한 그룹의 합 불일치도 투영을 막는다(의도된 보수적 규칙).
