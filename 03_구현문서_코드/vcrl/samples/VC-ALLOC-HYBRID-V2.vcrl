@@ -1,0 +1,21 @@
+// 설계문서의 VC-DSL v1 예제 2(VC-ALLOC-HYBRID-V2)를 VCRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
+// 독식 방지 상한 50%를 실연 풀에 적용하고, 기획사 계약 몫을 별도 버킷으로 둔다.
+allocation "VC-ALLOC-HYBRID-V2" version 2 {
+  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  scope { pack: pak_nova_summer_02; events: [PRIMARY]; currency: KRW; }
+  bind { time: ISSUE_TIME; }
+  tier1 {
+    platform = 25%;
+    ops = 5%;
+    rights = 70%;
+  }
+  tier2 rights {
+    split {
+      master = graph(MASTER_OWNER) : 40%;
+      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) : 40%;
+      work = graph(WORK_AUTHOR) via mandate : 10%;
+      agency = contract(pty_agency_s) : 10% as AGENCY;
+    }
+  }
+  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }
+}

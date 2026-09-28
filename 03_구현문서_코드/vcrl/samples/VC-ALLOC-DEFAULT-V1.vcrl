@@ -1,0 +1,21 @@
+// 설계문서의 VC-DSL v1 예제 1(VC-ALLOC-DEFAULT-V1)을 VCRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
+// v1에는 Tier 1이 없어서 platform·ops·rights를 예시 값으로 채웠다.
+allocation "VC-ALLOC-DEFAULT-V1" version 1 {
+  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  scope { pack: pak_nova_debut_01; events: [PRIMARY]; currency: KRW; }
+  bind { time: ISSUE_TIME; }
+  tier1 {
+    platform = 25%;
+    ops = 5%;
+    rights = 70%;
+  }
+  tier2 rights {
+    split {
+      master = graph(MASTER_OWNER) : 40%;
+      performer = member_pct() : 50%;
+      copyright = graph(WORK_AUTHOR) via mandate : 10%;
+    }
+  }
+  guard { require covered(all_claimants); require sum(split) == 100%; }
+  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }
+}
