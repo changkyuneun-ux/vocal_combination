@@ -6,7 +6,7 @@ import { HOLD, type PartyVector } from "../facts/project.ts";
 const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** 벡터에서 k의 가중치(없으면 0). `constructor` 같은 상속 속성을 읽지 않도록 소유 속성만 본다. */
-export const weightOf = (vec: PartyVector, k: string): Ratio => (Object.hasOwn(vec, k) ? vec[k]! : ZERO);
+const weightOf = (vec: PartyVector, k: string): Ratio => (Object.hasOwn(vec, k) ? vec[k]! : ZERO);
 
 /** 같은 키는 더하고 키를 코드 유닛 오름차순으로 정렬한 벡터를 만든다. */
 export function collect(entries: Iterable<[string, Ratio]>): PartyVector {
