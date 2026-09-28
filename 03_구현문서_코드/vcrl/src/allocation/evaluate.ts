@@ -182,20 +182,23 @@ const claimantsOf = (vec: PartyVector | undefined): string[] =>
 
 /**
  * 커버리지(스펙 12.33): 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 하고,
- * 투영에서 지분이 있는 실연자는 스냅샷 멤버이거나 사용량 기반 실연 소스로 배분되어야 한다.
+ * 투영에서 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다.
  */
 function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members: PartyVector): Diagnostic[] {
   const covered = new Set<ClaimantRole>();
-  let usageBased = false;
+  /** 사용량 기반 실연 소스가 도달하는 실연 역할. 도달 판정은 구조적이며, 작성자가 명시한 0 가중치는 의도로 존중한다. */
+  const usageReached = new Set<ClaimantRole>();
   const visit = (e: VectorExpr): void => {
     switch (e.fn) {
       case "graph":
         covered.add(e.role);
-        if (PERFORMER_ROLES.includes(e.role)) usageBased = true;
+        if (PERFORMER_ROLES.includes(e.role)) usageReached.add(e.role);
         break;
       case "performance_pool":
-        if (e.mode === "USAGE_WEIGHTED" || e.mode === "HYBRID") usageBased = true;
-        for (const r of PERFORMER_ROLES) covered.add(r);
+        for (const r of PERFORMER_ROLES) {
+          covered.add(r);
+          if (e.mode === "USAGE_WEIGHTED" || e.mode === "HYBRID") usageReached.add(r);
+        }
         break;
       case "member_pct":
         for (const r of PERFORMER_ROLES) covered.add(r);
@@ -216,14 +219,10 @@ function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members:
   for (const [role, vec] of Object.entries(vectors) as [ClaimantRole, PartyVector][]) {
     if (claimantsOf(vec).length > 0 && !covered.has(role)) out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", role));
   }
-  if (usageBased) return out;
-  const seen = new Set<string>();
   // 역할 자체가 다뤄지지 않으면 위에서 이미 보고했다.
-  for (const role of PERFORMER_ROLES.filter((r) => covered.has(r))) {
+  for (const role of PERFORMER_ROLES.filter((r) => covered.has(r) && !usageReached.has(r))) {
     for (const party of claimantsOf(vectors[role])) {
-      if (seen.has(party) || Object.hasOwn(members, party)) continue;
-      seen.add(party);
-      out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", `${role}:${party}`));
+      if (!Object.hasOwn(members, party)) out.push(diag("ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split", `${role}:${party}`));
     }
   }
   return out;

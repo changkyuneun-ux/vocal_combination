@@ -334,3 +334,36 @@ test("diagnostics from nested inputs carry the input's path prefix", () => {
   assert.deepEqual(paths((i) => { (i.snapshot as unknown as Record<string, unknown>).extra = "x"; }), [["CORE_TYPE_ERROR", "$.snapshot.extra"]]);
   assert.deepEqual(paths((i) => { i.snapshot = { members: { pty_ghost: "1/1" } }; }), [["FACTS_UNKNOWN_PARTY", "$.snapshot.members.pty_ghost"]]);
 });
+
+test("performer coverage is judged per role: graph(PERFORMER_FEATURED) does not reach NON_FEATURED parties", () => {
+  const withGuest = (members: Record<string, string>) => {
+    const i = withFacts((f) => {
+      const b = f.facts.body;
+      const base = { status: "VERIFIED", valid: { from: "2026-01-01T00:00:00.000Z" }, recorded_at: "2026-01-01T00:00:00.000Z" } as const;
+      b.parties.push({ id: "pty_guest", kind: "PERFORMER" });
+      b.voices.push({ id: "vo_g", kind: "HUMAN" });
+      b.claims.push(
+        { id: "c8", source: "stm_v2", edge: "PERFORMED_BY", target: "vo_g", share: "10000", performer_role: "NON_FEATURED", ...base },
+        { id: "c9", source: "vo_g", edge: "OWNED_BY", target: "pty_guest", share: "10000", ...base },
+      );
+      return f;
+    });
+    i.snapshot = { members };
+    const [master, performer, work] = i.policy.body.tier2.split;
+    i.policy.body.tier2.split = [
+      master!,
+      { ...performer!, bps: "2500", vector: { fn: "performance_pool", mode: "FIXED" } },
+      { name: "performer_usage", bps: "2000", role: "PERFORMER_FEATURED", vector: { fn: "graph", role: "PERFORMER_FEATURED" } },
+      work!,
+    ];
+    return i;
+  };
+  const r = evaluate(withGuest({ pty_member_a: "1/2", pty_member_b: "1/2" }));
+  assert.equal(r.ok, false);
+  if (!r.ok) {
+    assert.deepEqual(r.errors.map((e) => [e.code, e.path]), [["ALLOC_UNCOVERED_CLAIMANT", "$.body.tier2.split"]]);
+    assert.match(r.errors[0]!.message, /PERFORMER_NON_FEATURED:pty_guest/);
+  }
+  const ok = withGuest({ pty_guest: "1/3", pty_member_a: "1/3", pty_member_b: "1/3" });
+  assertConserved(run(ok), ok);
+});
