@@ -1,0 +1,57 @@
+{
+  "facts": {
+    "vcrl": "1.0",
+    "module": "facts",
+    "id": "nova-debut-01",
+    "version": "1",
+    "depends_on": [],
+    "visibility_default": "PARTIES",
+    "body": {
+      "parties": [
+        { "id": "pty_agency_s", "kind": "AGENCY" },
+        { "id": "pty_author_b", "kind": "AUTHOR" },
+        { "id": "pty_author_c", "kind": "AUTHOR" },
+        { "id": "pty_komca", "kind": "CMO" },
+        { "id": "pty_label_x", "kind": "LABEL", "ids": { "isni": "0000000123456789" } },
+        { "id": "pty_member_a", "kind": "PERFORMER" },
+        { "id": "pty_member_b", "kind": "PERFORMER" }
+      ],
+      "works": [{ "id": "wrk_01", "ids": { "iswc": "T-123.456.789-0" } }],
+      "recordings": [{ "id": "rcd_01", "of": "wrk_01", "ids": { "isrc": "KRA012600001" } }],
+      "voices": [
+        { "id": "vo_a", "kind": "HUMAN" },
+        { "id": "vo_b", "kind": "HUMAN" }
+      ],
+      "stems": [
+        { "id": "stm_inst", "of": "rcd_01", "slot": "slt_inst", "rights_bearing": true },
+        { "id": "stm_v1", "of": "rcd_01", "slot": "slt_v1", "rights_bearing": true },
+        { "id": "stm_v2", "of": "rcd_01", "slot": "slt_v2", "rights_bearing": true }
+      ],
+      "claims": [
+        { "id": "c1", "source": "stm_v1", "edge": "PERFORMED_BY", "target": "vo_a", "share": "10000", "performer_role": "FEATURED", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "c2", "source": "stm_v2", "edge": "PERFORMED_BY", "target": "vo_b", "share": "10000", "performer_role": "FEATURED", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "c3", "source": "vo_a", "edge": "OWNED_BY", "target": "pty_member_a", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "c4", "source": "vo_b", "edge": "OWNED_BY", "target": "pty_member_b", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "c5", "source": "rcd_01", "edge": "CONTROLLED_BY", "target": "pty_label_x", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z", "evidence": "vcrl:sha256:0000000000000000000000000000000000000000000000000000000000000017" },
+        { "id": "c6", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_b", "share": "6000", "role_detail": "LYRICS", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "c7", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_c", "share": "4000", "role_detail": "COMPOSITION", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" }
+      ],
+      "mandates": [
+        { "id": "m1", "from": "pty_author_b", "to": "pty_komca", "right": "WORK", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
+        { "id": "m2", "from": "pty_member_a", "to": "pty_agency_s", "right": "PERFORMER", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" }
+      ]
+    }
+  },
+  "usage": { "stm_inst": "90000", "stm_v1": "60000", "stm_v2": "30000" },
+  "as_of": "2026-06-01T00:00:00.000Z",
+  "known_at": "2026-06-01T00:00:00.000Z",
+  "declared_claimants": [
+    { "role": "AGENCY", "party": "pty_agency_s" },
+    { "role": "CMO", "party": "pty_komca" },
+    { "role": "MASTER_OWNER", "party": "pty_label_x" },
+    { "role": "PERFORMER_FEATURED", "party": "pty_member_a" },
+    { "role": "PERFORMER_FEATURED", "party": "pty_member_b" },
+    { "role": "WORK_AUTHOR", "party": "pty_author_b" },
+    { "role": "WORK_AUTHOR", "party": "pty_author_c" }
+  ]
+}

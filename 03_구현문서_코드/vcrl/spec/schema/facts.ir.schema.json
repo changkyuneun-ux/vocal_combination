@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vcrl.invalid/1.0/facts.ir.schema.json",
+  "title": "VCRL facts IR document",
+  "type": "object",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "module": { "const": "facts" },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parties", "works", "recordings", "voices", "stems", "claims", "mandates"],
+      "properties": {
+        "parties": { "type": "array", "items": { "$ref": "#/$defs/party" } },
+        "works": { "type": "array", "items": { "$ref": "#/$defs/work" } },
+        "recordings": { "type": "array", "items": { "$ref": "#/$defs/recording" } },
+        "voices": { "type": "array", "items": { "$ref": "#/$defs/voice" } },
+        "stems": { "type": "array", "items": { "$ref": "#/$defs/stem" } },
+        "claims": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
+        "mandates": { "type": "array", "items": { "$ref": "#/$defs/mandate" } }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "bps": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,3}|10000)$" },
+    "commitment": {
+      "type": "object", "additionalProperties": false, "required": ["commit"],
+      "properties": { "commit": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" } }
+    },
+    "bpsOrCommit": { "oneOf": [{ "$ref": "#/$defs/bps" }, { "$ref": "#/$defs/commitment" }] },
+    "instant": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+    "interval": {
+      "type": "object", "additionalProperties": false, "required": ["from"],
+      "properties": { "from": { "$ref": "#/$defs/instant" }, "to": { "$ref": "#/$defs/instant" } }
+    },
+    "ids": { "type": "object", "additionalProperties": { "type": "string" } },
+    "visibility": { "enum": ["PUBLIC", "PARTIES", "PRIVATE"] },
+    "status": { "enum": ["ASSERTED", "VERIFIED", "DISPUTED", "SUPERSEDED"] },
+    "party": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["LABEL", "PERFORMER", "AUTHOR", "PUBLISHER", "CMO", "AGENCY", "AI_PROVIDER", "SESSION"] },
+        "ids": { "$ref": "#/$defs/ids" },
+        "visibility": { "$ref": "#/$defs/visibility" }
+      }
+    },
+    "work": {
+      "type": "object", "additionalProperties": false, "required": ["id"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "ids": { "$ref": "#/$defs/ids" } }
+    },
+    "recording": {
+      "type": "object", "additionalProperties": false, "required": ["id", "of"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "of": { "$ref": "#/$defs/id" }, "ids": { "$ref": "#/$defs/ids" } }
+    },
+    "voice": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "kind": { "enum": ["HUMAN", "AI"] } }
+    },
+    "stem": {
+      "type": "object", "additionalProperties": false, "required": ["id", "of", "slot", "rights_bearing"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "of": { "$ref": "#/$defs/id" },
+        "slot": { "type": "string" }, "rights_bearing": { "type": "boolean" }
+      }
+    },
+    "claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "source", "edge", "target", "share", "status", "valid", "recorded_at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/id" },
+        "edge": { "enum": ["PERFORMED_BY", "OWNED_BY", "CONTROLLED_BY", "WRITTEN_BY", "CONTRIBUTED_BY"] },
+        "target": { "$ref": "#/$defs/id" },
+        "share": { "$ref": "#/$defs/bpsOrCommit" },
+        "performer_role": { "enum": ["FEATURED", "NON_FEATURED"] },
+        "role_detail": { "type": "string" },
+        "status": { "$ref": "#/$defs/status" },
+        "valid": { "$ref": "#/$defs/interval" },
+        "recorded_at": { "$ref": "#/$defs/instant" },
+        "superseded_at": { "$ref": "#/$defs/instant" },
+        "evidence": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/commitment" }] },
+        "visibility": { "$ref": "#/$defs/visibility" }
+      }
+    },
+    "mandate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "from", "to", "right", "share", "status", "valid", "recorded_at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from": { "$ref": "#/$defs/id" },
+        "to": { "$ref": "#/$defs/id" },
+        "right": { "enum": ["MASTER", "WORK", "PERFORMER"] },
+        "share": { "$ref": "#/$defs/bpsOrCommit" },
+        "status": { "$ref": "#/$defs/status" },
+        "valid": { "$ref": "#/$defs/interval" },
+        "recorded_at": { "$ref": "#/$defs/instant" },
+        "superseded_at": { "$ref": "#/$defs/instant" },
+        "visibility": { "$ref": "#/$defs/visibility" }
+      }
+    }
+  }
+}
