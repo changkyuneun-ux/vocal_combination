@@ -1,0 +1,21 @@
+// conformance/allocation/001-basic의 정책을 텍스트로 쓴 것. 컴파일 결과는 그 IR과 같아야 한다.
+allocation "VC-ALLOC-NOVA-02" version 1 {
+  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  scope { pack: pak_nova_summer_02; events: [PRIMARY, RESALE]; currency: KRW; }
+  bind { time: ISSUE_TIME; }
+  tier1 {
+    platform = 25%;
+    ops = 500bps;
+    rights = 70%;
+  }
+  tier2 rights {
+    split {
+      master = graph(MASTER_OWNER) : 45%;
+      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) : 45%;
+      work = graph(WORK_AUTHOR) via mandate : 10%;
+    }
+  }
+  guard { require covered(all_claimants); require sum(split) == 100%; }
+  exceptions { on DISPUTED -> hold(DISPUTED_SHARE); on FRAUD_FLAG -> hold(RIGHTS_POOL); }
+  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }
+}

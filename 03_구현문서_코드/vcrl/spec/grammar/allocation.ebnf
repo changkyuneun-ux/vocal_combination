@@ -1,0 +1,26 @@
+(* VCRL allocation 텍스트 문법 v1.0 — IR은 스펙 12.21. 공백·줄바꿈 무시, // 주석. *)
+program     = "allocation" string "version" int "{" { block } "}" EOF ;
+block       = uses | visibility | scope | bind | tier1 | tier2 | guard | exceptions | rounding ;
+(* scope·bind·tier1·tier2·rounding은 정확히 한 번, visibility·guard·exceptions는 최대 한 번, uses는 0회 이상. 블록 순서는 자유. *)
+uses        = "uses" "facts" string "@" int "digest" string ";" ;
+visibility  = "visibility" ident ";" ;                         (* 생략 시 PARTIES *)
+scope       = "scope" "{" "pack" ":" id ";" "events" ":" "[" ident { "," ident } "]" ";" "currency" ":" ident ";" "}" ;
+bind        = "bind" "{" "time" ":" ident ";" "}" ;
+tier1       = "tier1" "{" { ident "=" ratio ";" } "}" ;
+tier2       = "tier2" ident "{" "split" "{" { bucket } "}" "}" ;  (* tier2 뒤 이름 = 권리자 풀이 되는 tier1 버킷 *)
+bucket      = ident "=" vector ":" ratio [ "as" ident ] ";" ;
+vector      = primary { "|>" ( "cap" "(" ratio ")" | "floor_guarantee" "(" ratio ")" ) } ;
+primary     = "graph" "(" ident ")" [ "via" "mandate" ]
+            | "contract" "(" id ")"
+            | "member_pct" "(" ")"
+            | "performance_pool" "(" ident { "," ident ":" ratio } ")"
+            | "mix" "(" ratio ":" vector { "," ratio ":" vector } ")" ;
+guard       = "guard" "{" { "require" ( "covered" "(" "all_claimants" ")" | "sum" "(" "split" ")" "==" ratio ) ";" } "}" ;
+exceptions  = "exceptions" "{" { "on" ident "->" "hold" "(" ident ")" ";" } "}" ;
+rounding    = "rounding" "{" "method" ":" ident ";" "tie" ":" ident ";" "}" ;
+id          = ident | string ;
+ratio       = number-with-% (소수 둘째 자리까지) | number-with-bps (정수) ;
+int         = 양의 정수(단위 없음) ;
+(* guard는 require covered(all_claimants)와 require sum(split) == 100%(=10000bps)만,
+   exceptions는 on DISPUTED -> hold(DISPUTED_SHARE)와 on FRAUD_FLAG -> hold(RIGHTS_POOL)만 허용(엔진 고정 의미, IR에 남지 않음).
+   그 밖의 문장은 PARSE_UNSUPPORTED. 역할 생략 시 inferRole로 추론, 추론 불가면 PARSE_ROLE_REQUIRED. *)
