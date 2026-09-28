@@ -470,3 +470,13 @@ manifest/
 18. **문자열 인코딩**: 모든 문자열(값과 키)은 올바른 UTF-16이어야 한다. 고립 서로게이트는 `CORE_TYPE_ERROR`로 거부한다.
 19. **투영의 빈 역할과 보수적 합 검사**: 경로가 없는 역할은 `vectors`에 키가 없다(빈 벡터로 취급). 사용량이 없는 스템이나 무관한 그룹의 합 불일치도 투영을 막는다(의도된 보수적 규칙).
 20. **권리 분쟁 중 팩 활성화 금지(사용자 결정, 2026-09-28)**: 팩이 사용하는 스템의 권리 경로에 `DISPUTED` claim 또는 mandate가 하나라도 유효하면 팩을 활성화할 수 없다. 현재(1-A)는 분쟁 당사자가 청구권자로 도출되지 않아 커버리지 검사(`FACTS_UNCOVERED_CLAIMANT`)로 간접 차단된다. 1-B에서는 활성화 판정에 전용 사유 코드(예: `FACTS_DISPUTE_OPEN`, 분쟁 claim·mandate id 목록 포함)를 추가해 차단 이유를 명시한다. 이미 발행된 조합의 정산은 기존대로 분쟁 몫을 `@hold`(`unallocated_holding`, `RIGHTS_DISPUTE`)로 보류한다.
+21. **allocation IR 형태(계획 1-B)**: `body = { scope{pack, events[], currency}, bind{time}, tier1{buckets[{name,bps}], rights}, tier2{split[{name,bps,role,vector}]}, rounding{method,tie} }`. 벡터 식은 `fn` 7종(`graph{role, via_mandate?}`, `contract{party}`, `member_pct`, `performance_pool{mode, fixed?, usage?, featured_weight?}`, `mix{parts[{weight, of}]}`, `cap{max, of}`, `floor_guarantee{min, of}`)이며 비율 인자는 bps 문자열이다. 스키마는 `spec/schema/allocation.ir.schema.json`. 텍스트 문법(5.2의 예시)은 1-C 파서가 이 IR로 변환한다.
+22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 투영의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
+23. **cap·floor_guarantee**: 반복 수위 채우기로 정확히 계산한다. `@hold`는 제한·보장·재분배 대상이 아니다. floor의 영역은 스냅샷 멤버와 벡터의 party 합집합이다. 조건을 만족하는 분배가 없으면 `ALLOC_INFEASIBLE`.
+24. **라인 역할과 순번**: line의 role은 party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role이다(12.16과 같은 규칙). `line_seq`는 `"1"`이며 역분개(REVERSAL)는 후속 계획에서 다룬다.
+25. **보류 규칙**: 벡터의 `@hold` 몫은 `holding(RIGHTS_DISPUTE)`. `integrity = FLAGGED` 이벤트는 tier1은 그대로 기록하고 권리자 풀 전액을 `holding(bucket = tier1.rights, FRAUD_REVIEW)`로 보낸다. pool_line은 0원도 기록하고, 0원 line·holding은 만들지 않는다(trace에는 남는다).
+26. **이벤트 정규형**: 이벤트 배열은 id 엄격 오름차순, amount는 양의 정수 문자열(최소 통화 단위), type과 currency는 정책 scope 안이어야 한다(`ALLOC_SCOPE_MISMATCH`).
+27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 투영 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 투영할지는 호출자가 그 규칙대로 `as_of`를 정한다.
+28. **안분 커버리지**: 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
+29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다. 분쟁 위임은 투영된 권리자에서 출발해 역할별 위임 체인을 최대 2홉까지 따라가며 찾으므로, 체인 중간의 분쟁도 활성화를 막는다.
+30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`), 역분개(`REVERSAL`), 다통화 정산, 섀도 시뮬레이션 리포트는 후속 계획에서 다룬다.

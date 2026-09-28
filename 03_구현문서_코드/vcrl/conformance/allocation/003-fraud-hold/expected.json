@@ -1,0 +1,21 @@
+{
+  "pool_lines": [
+    { "event_id": "ev_001", "bucket": "platform", "amount": "2500" },
+    { "event_id": "ev_001", "bucket": "ops", "amount": "500" },
+    { "event_id": "ev_001", "bucket": "rights", "amount": "7000" },
+    { "event_id": "ev_002", "bucket": "platform", "amount": "250" },
+    { "event_id": "ev_002", "bucket": "ops", "amount": "50" },
+    { "event_id": "ev_002", "bucket": "rights", "amount": "701" }
+  ],
+  "lines": [
+    { "event_id": "ev_002", "party": "pty_label_x", "role": "MASTER_OWNER", "bucket": "master", "line_seq": "1", "amount": "316" },
+    { "event_id": "ev_002", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "189" },
+    { "event_id": "ev_002", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "126" },
+    { "event_id": "ev_002", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "1", "amount": "28" },
+    { "event_id": "ev_002", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "1", "amount": "42" }
+  ],
+  "holdings": [
+    { "event_id": "ev_001", "bucket": "rights", "reason": "FRAUD_REVIEW", "amount": "7000" }
+  ],
+  "result_digest": "vcrl:sha256:27cbbf49bc0e75d0529ed3b7fc0265e2ffefd3de4b350d315cfe2ac90c893f02"
+}

@@ -1,0 +1,25 @@
+{
+  "pool_lines": [
+    { "event_id": "ev_001", "bucket": "platform", "amount": "2500" },
+    { "event_id": "ev_001", "bucket": "ops", "amount": "500" },
+    { "event_id": "ev_001", "bucket": "rights", "amount": "7000" },
+    { "event_id": "ev_002", "bucket": "platform", "amount": "250" },
+    { "event_id": "ev_002", "bucket": "ops", "amount": "50" },
+    { "event_id": "ev_002", "bucket": "rights", "amount": "701" }
+  ],
+  "lines": [
+    { "event_id": "ev_001", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "1890" },
+    { "event_id": "ev_001", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "1260" },
+    { "event_id": "ev_001", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "1", "amount": "280" },
+    { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "1", "amount": "420" },
+    { "event_id": "ev_002", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "189" },
+    { "event_id": "ev_002", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "1", "amount": "126" },
+    { "event_id": "ev_002", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "1", "amount": "28" },
+    { "event_id": "ev_002", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "1", "amount": "42" }
+  ],
+  "holdings": [
+    { "event_id": "ev_001", "bucket": "master", "reason": "RIGHTS_DISPUTE", "amount": "3150" },
+    { "event_id": "ev_002", "bucket": "master", "reason": "RIGHTS_DISPUTE", "amount": "316" }
+  ],
+  "result_digest": "vcrl:sha256:a531d251493d7f91e557ba1fe9b14a39225b875c36f94d04f28e873892f1638f"
+}
