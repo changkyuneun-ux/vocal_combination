@@ -9,6 +9,17 @@ import { claimOf, loadBasic } from "../helpers.ts";
 
 const codes = (doc: unknown) => validateFactsStructure(doc).map((d) => d.code);
 
+/** ajv 컴파일은 비용이 있으므로 파일 전체에서 하나의 검증기를 재사용한다. */
+function compileFactsAjv() {
+  const require = createRequire(import.meta.url);
+  const Ajv2020 = require("ajv/dist/2020") as typeof import("ajv/dist/2020.js").default;
+  const ajv = new Ajv2020({ allErrors: true, strictTypes: false });
+  const load = (f: string) => JSON.parse(readFileSync(new URL(`../../spec/schema/${f}`, import.meta.url), "utf8"));
+  ajv.addSchema(load("envelope.schema.json"));
+  return ajv.compile(load("facts.ir.schema.json"));
+}
+const validateFactsSchema = compileFactsAjv();
+
 test("claim edges are registered edge types", () => {
   for (const e of Object.keys(CLAIM_EDGE_KINDS)) assert.ok((ENUMS.edge_type as readonly string[]).includes(e), e);
 });
@@ -58,27 +69,14 @@ test("share, status, interval, recorded_at formats", () => {
 });
 
 test("facts JSON Schema agrees with validator", () => {
-  const require = createRequire(import.meta.url);
-  const Ajv2020 = require("ajv/dist/2020") as typeof import("ajv/dist/2020.js").default;
-  const ajv = new Ajv2020({ allErrors: true, strictTypes: false });
-  const load = (f: string) => JSON.parse(readFileSync(new URL(`../../spec/schema/${f}`, import.meta.url), "utf8"));
-  ajv.addSchema(load("envelope.schema.json"));
-  const validate = ajv.compile(load("facts.ir.schema.json"));
   const i = loadBasic();
-  assert.equal(validate(i.facts), true, JSON.stringify(validate.errors));
+  assert.equal(validateFactsSchema(i.facts), true, JSON.stringify(validateFactsSchema.errors));
   claimOf(i, "c5").share = 10000 as never;
-  assert.equal(validate(i.facts), false);
+  assert.equal(validateFactsSchema(i.facts), false);
   assert.ok(codes(i.facts).length > 0);
 });
 
 test("unknown keys are rejected like the JSON Schema does", () => {
-  const require = createRequire(import.meta.url);
-  const Ajv2020 = require("ajv/dist/2020") as typeof import("ajv/dist/2020.js").default;
-  const ajv = new Ajv2020({ allErrors: true, strictTypes: false });
-  const load = (f: string) => JSON.parse(readFileSync(new URL(`../../spec/schema/${f}`, import.meta.url), "utf8"));
-  ajv.addSchema(load("envelope.schema.json"));
-  const validate = ajv.compile(load("facts.ir.schema.json"));
-
   const i = loadBasic();
   (claimOf(i, "c1") as unknown as Record<string, unknown>).extra = "x";
   (claimOf(i, "c1").valid as unknown as Record<string, unknown>).extra = "x";
@@ -92,5 +90,28 @@ test("unknown keys are rejected like the JSON Schema does", () => {
       ["CORE_TYPE_ERROR", "$.body.extra"],
     ],
   );
-  assert.equal(validate(i.facts), false);
+  assert.equal(validateFactsSchema(i.facts), false);
+});
+
+test("unknown keys are rejected on every entity shape", () => {
+  const cases: { label: string; path: string; mutate: (i: ReturnType<typeof loadBasic>) => void }[] = [
+    { label: "party", path: "$.body.parties[0]", mutate: (i) => ((i.facts.body.parties[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "work", path: "$.body.works[0]", mutate: (i) => ((i.facts.body.works[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "recording", path: "$.body.recordings[0]", mutate: (i) => ((i.facts.body.recordings[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "voice", path: "$.body.voices[0]", mutate: (i) => ((i.facts.body.voices[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "stem", path: "$.body.stems[0]", mutate: (i) => ((i.facts.body.stems[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "mandate", path: "$.body.mandates[0]", mutate: (i) => ((i.facts.body.mandates[0] as unknown as Record<string, unknown>).extra = "x") },
+    { label: "mandate.valid", path: "$.body.mandates[0].valid", mutate: (i) => ((i.facts.body.mandates[0]!.valid as unknown as Record<string, unknown>).extra = "x") },
+  ];
+
+  for (const { label, path, mutate } of cases) {
+    const i = loadBasic();
+    mutate(i);
+    assert.deepEqual(
+      validateFactsStructure(i.facts).map((d) => [d.code, d.path]),
+      [["CORE_TYPE_ERROR", `${path}.extra`]],
+      label,
+    );
+    assert.equal(validateFactsSchema(i.facts), false, label);
+  }
 });
