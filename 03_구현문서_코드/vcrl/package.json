@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
+  "bin": { "vcrl": "./bin/vcrl.ts" },
   "exports": {
     "./core": "./src/core/index.ts",
     "./facts": "./src/facts/index.ts",
-    "./allocation": "./src/allocation/index.ts"
+    "./allocation": "./src/allocation/index.ts",
+    "./text": "./src/text/index.ts"
   },
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
