@@ -1,17 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { projectVectors } from "../../src/facts/project.ts";
-import { toProjectionIr } from "../../src/facts/result.ts";
+import * as resultModule from "../../src/facts/result.ts";
+import { projectToIr } from "../../src/facts/result.ts";
 import { publicFacts } from "../../src/facts/public.ts";
 import { digestOf } from "../../src/core/digest.ts";
 import { openCommitment, type Commitment } from "../../src/core/commit.ts";
-import { claimOf, loadBasic } from "../helpers.ts";
+import { claimOf, loadBasic, sortBody, type BasicInput } from "../helpers.ts";
 
-function build() {
-  const i = loadBasic();
-  const r = projectVectors(i.facts, i.usage, i.as_of, i.known_at);
+function build(i: BasicInput = loadBasic()) {
+  const r = projectToIr(i.facts, i.usage, i.as_of, i.known_at);
   assert.ok(r.ok);
-  return toProjectionIr(r.value, i.facts, i.usage, i.as_of, i.known_at);
+  return r.value;
 }
 
 test("projection IR is deterministic and self-digested", () => {
@@ -41,4 +40,32 @@ test("publicFacts commits shares and evidence; PUBLIC claims stay open", () => {
   assert.deepEqual((doc as typeof i.facts).body.parties, i.facts.body.parties);
   assert.notEqual(digest, digestOf(i.facts));
   assert.equal(digest, digestOf(doc));
+});
+
+test("projectToIr is the single IR entry point", () => {
+  assert.equal("toProjectionIr" in resultModule, false);
+  const i = loadBasic();
+  i.usage = { stm_ghost: "1" };
+  const r = projectToIr(i.facts, i.usage, i.as_of, i.known_at);
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.ok ? [] : r.errors.map((e) => e.code), ["FACTS_USAGE_INVALID"]);
+});
+
+test("u_digest is over the normalized usage, so scaled or zero-padded usage yields the same IR", () => {
+  const withV3 = () => {
+    const i = loadBasic();
+    i.facts.body.stems.push({ id: "stm_v3", of: "rcd_01", slot: "slt_v3", rights_bearing: true });
+    return sortBody(i);
+  };
+  const usages: Record<string, string>[] = [
+    { stm_inst: "9", stm_v1: "6", stm_v2: "3" },
+    { stm_inst: "90000", stm_v1: "60000", stm_v2: "30000" },
+    { stm_inst: "90000", stm_v1: "60000", stm_v2: "30000", stm_v3: "0" },
+  ];
+  const irs = usages.map((usage) => build({ ...withV3(), usage }));
+  assert.equal(irs[0]!.u_digest, digestOf({ stm_inst: "1/2", stm_v1: "1/3", stm_v2: "1/6" }));
+  for (const ir of irs) {
+    assert.equal(ir.u_digest, irs[0]!.u_digest);
+    assert.equal(ir.digest, irs[0]!.digest);
+  }
 });

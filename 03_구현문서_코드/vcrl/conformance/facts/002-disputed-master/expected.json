@@ -17,5 +17,5 @@
     { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_b", "weight": "3/5", "claims": ["c6"] },
     { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_c", "weight": "2/5", "claims": ["c7"] }
   ],
-  "digest": "vcrl:sha256:251f6ac2eb9ea600143bad5c8b47eff66226ec3b7b7761d7d4065370de21575f"
+  "digest": "vcrl:sha256:b55661d8861c4163ce47770b35bf0d3effaf3623cff13bd61bdf71c91ad7f01f"
 }

@@ -86,3 +86,13 @@ test("effective-time sum mismatch surfaces at projection", () => {
   claimOf(i, "c7").share = "3000";
   assert.deepEqual(errCodes(i), ["FACTS_SUM_MISMATCH"]);
 });
+
+test("as_of and known_at must be instants", () => {
+  const i = loadBasic();
+  const r = projectVectors(i.facts, i.usage, "2026-06-01", "2026-06-01T00:00:00Z");
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.ok ? [] : r.errors.map((e) => [e.code, e.path]), [
+    ["CORE_TYPE_ERROR", "$.as_of"],
+    ["CORE_TYPE_ERROR", "$.known_at"],
+  ]);
+});
