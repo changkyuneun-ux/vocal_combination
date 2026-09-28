@@ -1,0 +1,42 @@
+{
+  "facts_case": "001-basic",
+  "policy": {
+    "vcrl": "1.0",
+    "module": "allocation",
+    "id": "VC-ALLOC-NOVA-02",
+    "version": "1",
+    "depends_on": [
+      { "ref": "vc:facts/nova-debut-01@1", "digest": "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4" }
+    ],
+    "visibility_default": "PARTIES",
+    "body": {
+      "scope": { "pack": "pak_nova_summer_02", "events": ["PRIMARY", "RESALE"], "currency": "KRW" },
+      "bind": { "time": "ISSUE_TIME" },
+      "tier1": {
+        "buckets": [
+          { "name": "platform", "bps": "2500" },
+          { "name": "ops", "bps": "500" },
+          { "name": "rights", "bps": "7000" }
+        ],
+        "rights": "rights"
+      },
+      "tier2": {
+        "split": [
+          { "name": "master", "bps": "4500", "role": "MASTER_OWNER", "vector": { "fn": "graph", "role": "MASTER_OWNER" } },
+          {
+            "name": "performer", "bps": "4500", "role": "PERFORMER_FEATURED",
+            "vector": { "fn": "performance_pool", "mode": "HYBRID", "fixed": "4000", "usage": "6000", "featured_weight": "7000" }
+          },
+          { "name": "work", "bps": "1000", "role": "WORK_AUTHOR", "vector": { "fn": "graph", "role": "WORK_AUTHOR", "via_mandate": true } }
+        ]
+      },
+      "rounding": { "method": "HIERARCHICAL_LRM_V1", "tie": "party_id_asc" }
+    }
+  },
+  "snapshot": { "members": { "pty_member_a": "1/2", "pty_member_b": "1/2" } },
+  "events": [
+    { "id": "ev_001", "type": "PRIMARY", "amount": "10000", "currency": "KRW", "integrity": "CLEAR" },
+    { "id": "ev_002", "type": "PRIMARY", "amount": "1001", "currency": "KRW", "integrity": "CLEAR" }
+  ],
+  "run_id": "run_2026_06"
+}

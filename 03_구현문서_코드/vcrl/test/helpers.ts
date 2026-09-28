@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { AllocationDocument, RevenueEvent, Snapshot } from "../src/allocation/types.ts";
 import type { Claim, ClaimantRole, FactsDocument, Mandate } from "../src/facts/types.ts";
 
 export type BasicInput = {
@@ -33,4 +34,20 @@ export function sortBody(input: BasicInput): BasicInput {
   const body = input.facts.body as unknown as Record<string, { id: string }[]>;
   for (const k of BODY_ARRAYS) body[k]!.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return input;
+}
+
+export type AllocationCase = {
+  facts_case: string;
+  policy: AllocationDocument;
+  snapshot: Snapshot;
+  events: RevenueEvent[];
+  run_id: string;
+};
+
+export function loadAllocationCase(name = "001-basic"): AllocationCase {
+  return JSON.parse(readFileSync(new URL(`../conformance/allocation/${name}/input.json`, import.meta.url), "utf8"));
+}
+
+export function loadFactsCase(name: string): BasicInput {
+  return JSON.parse(readFileSync(new URL(`../conformance/facts/${name}/input.json`, import.meta.url), "utf8"));
 }

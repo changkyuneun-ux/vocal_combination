@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vcrl.invalid/1.0/allocation.ir.schema.json",
+  "title": "VCRL allocation IR document",
+  "type": "object",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "module": { "const": "allocation" },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "bind", "tier1", "tier2", "rounding"],
+      "properties": {
+        "scope": {
+          "type": "object", "additionalProperties": false, "required": ["pack", "events", "currency"],
+          "properties": {
+            "pack": { "$ref": "#/$defs/id" },
+            "events": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["PRIMARY", "RESALE", "TRAFFIC"] } },
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+          }
+        },
+        "bind": {
+          "type": "object", "additionalProperties": false, "required": ["time"],
+          "properties": { "time": { "enum": ["ISSUE_TIME", "USAGE_TIME", "SALE_TIME", "REPORT_PERIOD"] } }
+        },
+        "tier1": {
+          "type": "object", "additionalProperties": false, "required": ["buckets", "rights"],
+          "properties": {
+            "buckets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/tier1Bucket" } },
+            "rights": { "$ref": "#/$defs/name" }
+          }
+        },
+        "tier2": {
+          "type": "object", "additionalProperties": false, "required": ["split"],
+          "properties": { "split": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/splitBucket" } } }
+        },
+        "rounding": {
+          "type": "object", "additionalProperties": false, "required": ["method", "tie"],
+          "properties": { "method": { "enum": ["HIERARCHICAL_LRM_V1"] }, "tie": { "const": "party_id_asc" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "bps": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,3}|10000)$" },
+    "role": {
+      "enum": [
+        "MASTER_OWNER", "WORK_AUTHOR", "CMO", "PERFORMER_FEATURED",
+        "PERFORMER_NON_FEATURED", "AGENCY", "AI_PROVIDER", "RECORDING_CONTRIBUTOR"
+      ]
+    },
+    "tier1Bucket": {
+      "type": "object", "additionalProperties": false, "required": ["name", "bps"],
+      "properties": { "name": { "$ref": "#/$defs/name" }, "bps": { "$ref": "#/$defs/bps" } }
+    },
+    "splitBucket": {
+      "type": "object", "additionalProperties": false, "required": ["name", "bps", "role", "vector"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "bps": { "$ref": "#/$defs/bps" },
+        "role": { "$ref": "#/$defs/role" },
+        "vector": { "$ref": "#/$defs/vector" }
+      }
+    },
+    "vector": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "role"],
+          "properties": { "fn": { "const": "graph" }, "role": { "$ref": "#/$defs/role" }, "via_mandate": { "type": "boolean" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "party"],
+          "properties": { "fn": { "const": "contract" }, "party": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn"],
+          "properties": { "fn": { "const": "member_pct" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "mode"],
+          "properties": {
+            "fn": { "const": "performance_pool" },
+            "mode": { "enum": ["USAGE_WEIGHTED", "FIXED", "HYBRID", "MEMBER_PCT"] },
+            "fixed": { "$ref": "#/$defs/bps" },
+            "usage": { "$ref": "#/$defs/bps" },
+            "featured_weight": { "$ref": "#/$defs/bps" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "parts"],
+          "properties": {
+            "fn": { "const": "mix" },
+            "parts": {
+              "type": "array", "minItems": 1,
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["weight", "of"],
+                "properties": { "weight": { "$ref": "#/$defs/bps" }, "of": { "$ref": "#/$defs/vector" } }
+              }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "max", "of"],
+          "properties": { "fn": { "const": "cap" }, "max": { "$ref": "#/$defs/bps" }, "of": { "$ref": "#/$defs/vector" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["fn", "min", "of"],
+          "properties": { "fn": { "const": "floor_guarantee" }, "min": { "$ref": "#/$defs/bps" }, "of": { "$ref": "#/$defs/vector" } }
+        }
+      ]
+    }
+  }
+}
