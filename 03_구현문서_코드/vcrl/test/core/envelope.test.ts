@@ -38,6 +38,13 @@ test("dependencies: ok, digest mismatch, direction, unknown", () => {
   assert.deepEqual(checkDependencies([missing]).map((d) => d.code), ["CORE_UNKNOWN_REF"]);
 });
 
+test("unknown keys are rejected like the JSON Schema does", () => {
+  const extraTop = { ...doc("facts", "f"), notes: "x" };
+  assert.deepEqual(validateEnvelope(extraTop).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.notes"]]);
+  const extraDep = doc("allocation", "a", [{ ref: "vc:facts/f@1", digest: digestOf({}), extra: "y" } as Dependency]);
+  assert.deepEqual(validateEnvelope(extraDep).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.depends_on[0].extra"]]);
+});
+
 test("envelope JSON Schema agrees with validator", () => {
   const require = createRequire(import.meta.url);
   const Ajv2020 = require("ajv/dist/2020") as typeof import("ajv/dist/2020.js").default;
@@ -46,4 +53,5 @@ test("envelope JSON Schema agrees with validator", () => {
   const validate = ajv.compile(schema);
   assert.equal(validate(doc("facts", "f")), true);
   assert.equal(validate({ ...doc("facts", "f"), version: 1 }), false);
+  assert.equal(validate({ ...doc("facts", "f"), notes: "x" }), false);
 });

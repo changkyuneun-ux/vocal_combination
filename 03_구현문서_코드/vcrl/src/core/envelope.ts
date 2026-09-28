@@ -24,6 +24,8 @@ export const MODULE_RANK: Readonly<Record<EnumValue<"module">, number>> = {
 
 const ID_RE = /^[A-Za-z0-9._-]+$/;
 const VERSION_RE = /^[1-9]\d*$/;
+const ENVELOPE_KEYS = ["vcrl", "module", "id", "version", "depends_on", "visibility_default", "body"] as const;
+const DEPENDENCY_KEYS = ["ref", "digest"] as const;
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -51,7 +53,19 @@ export function validateEnvelope(doc: unknown): Diagnostic[] {
       }
       const ref = dep.ref;
       out.push(...capture(() => parseRef(ref, `${p}.ref`)));
+      // Check for unknown keys in dependency object (only if well-formed)
+      for (const k of Object.keys(dep)) {
+        if (!(DEPENDENCY_KEYS as readonly string[]).includes(k)) {
+          out.push(diag("CORE_TYPE_ERROR", `${p}.${k}`, "unknown key"));
+        }
+      }
     });
+  }
+  // Check for unknown keys at top level
+  for (const k of Object.keys(doc)) {
+    if (!(ENVELOPE_KEYS as readonly string[]).includes(k)) {
+      out.push(diag("CORE_TYPE_ERROR", `$.${k}`, "unknown key"));
+    }
   }
   return out;
 }
