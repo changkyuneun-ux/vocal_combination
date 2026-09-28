@@ -28,14 +28,13 @@ test("every vector sums to exactly 1", () => {
 });
 
 test("disputed group goes to @hold without renormalization", () => {
-  const i = loadBasic();
-  claimOf(i, "c5").status = "DISPUTED";
-  const r = run(i);
+  const r = run(disputedMaster());
   assert.ok(r.ok);
   assert.deepEqual(r.value.vectors.MASTER_OWNER, { [HOLD]: ONE });
 });
 
-test("AI voice contributes to AI_PROVIDER; duet splits the stem", () => {
+/** stm_v1 듀엣: vo_a 5000 + AI 보이스 vo_ai 5000. */
+function aiDuet(): BasicInput {
   const i = loadBasic();
   const b = i.facts.body;
   b.parties.push({ id: "pty_ai", kind: "AI_PROVIDER" });
@@ -43,7 +42,29 @@ test("AI voice contributes to AI_PROVIDER; duet splits the stem", () => {
   claimOf(i, "c1").share = "5000";
   b.claims.push({ ...claimOf(i, "c1"), id: "c1b", target: "vo_ai" });
   b.claims.push({ ...claimOf(i, "c3"), id: "c_ai", source: "vo_ai", target: "pty_ai" });
-  sortBody(i);
+  return sortBody(i);
+}
+
+/** stm_v1 듀엣: vo_a 5000 + vo_c 5000, vo_c의 소유(OWNED_BY)는 분쟁 중. */
+function disputedOwner(): BasicInput {
+  const i = loadBasic();
+  const b = i.facts.body;
+  b.parties.push({ id: "pty_member_c", kind: "PERFORMER" });
+  b.voices.push({ id: "vo_c", kind: "HUMAN" });
+  claimOf(i, "c1").share = "5000";
+  b.claims.push({ ...claimOf(i, "c1"), id: "c1b", target: "vo_c" });
+  b.claims.push({ ...claimOf(i, "c3"), id: "c3c", source: "vo_c", target: "pty_member_c", status: "DISPUTED" });
+  return sortBody(i);
+}
+
+function disputedMaster(): BasicInput {
+  const i = loadBasic();
+  claimOf(i, "c5").status = "DISPUTED";
+  return i;
+}
+
+test("AI voice contributes to AI_PROVIDER; duet splits the stem", () => {
+  const i = aiDuet();
   const r = run(i);
   assert.ok(r.ok, JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
   assert.deepEqual(r.value.vectors.PERFORMER_FEATURED, { pty_member_a: ratio(1n, 2n), pty_member_b: ratio(1n, 2n) });
@@ -95,4 +116,54 @@ test("as_of and known_at must be instants", () => {
     ["CORE_TYPE_ERROR", "$.as_of"],
     ["CORE_TYPE_ERROR", "$.known_at"],
   ]);
+});
+
+test("disputed OWNED_BY holds only that voice's portion", () => {
+  const r = run(disputedOwner());
+  assert.ok(r.ok);
+  // stm_v1 = 60000ms (vo_a 1/2 → a, vo_c 1/2 → @hold), stm_v2 = 30000ms (→ b); 분모 90000.
+  assert.deepEqual(r.value.vectors.PERFORMER_FEATURED, {
+    [HOLD]: ratio(1n, 3n),
+    pty_member_a: ratio(1n, 3n),
+    pty_member_b: ratio(1n, 3n),
+  });
+  const held = r.value.paths.filter((p) => p.party === HOLD);
+  assert.deepEqual(held, [{ stem: "stm_v1", role: "PERFORMER_FEATURED", party: HOLD, weight: ratio(1n, 2n), claims: ["c1b", "c3c"] }]);
+});
+
+test("CONTRIBUTED_BY yields a RECORDING_CONTRIBUTOR vector", () => {
+  const i = loadBasic();
+  i.facts.body.parties.push({ id: "pty_session", kind: "SESSION" });
+  i.facts.body.claims.push({ ...claimOf(i, "c5"), id: "c8", edge: "CONTRIBUTED_BY", target: "pty_session" });
+  sortBody(i);
+  const r = run(i);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.vectors.RECORDING_CONTRIBUTOR, { pty_session: ONE });
+});
+
+test("NON_FEATURED performance yields its own vector and leaves FEATURED unchanged", () => {
+  const i = loadBasic();
+  i.facts.body.claims.push({ ...claimOf(i, "c2"), id: "c8", target: "vo_a", performer_role: "NON_FEATURED" });
+  sortBody(i);
+  const r = run(i);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.vectors.PERFORMER_NON_FEATURED, { pty_member_a: ONE });
+  assert.deepEqual(r.value.vectors.PERFORMER_FEATURED, { pty_member_a: ratio(2n, 3n), pty_member_b: ratio(1n, 3n) });
+});
+
+test("zero-usage stems are ignored when other stems have usage", () => {
+  const i = loadBasic();
+  i.usage = { stm_inst: "0", stm_v1: "60000", stm_v2: "30000" };
+  const r = run(i);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.vectors.MASTER_OWNER, { pty_label_x: ONE });
+  assert.deepEqual([...new Set(r.value.paths.map((p) => p.stem))].sort(), ["stm_v1", "stm_v2"]);
+});
+
+test("every vector sums to exactly 1 in AI/duet and disputed scenarios", () => {
+  for (const [label, build] of [["aiDuet", aiDuet], ["disputedOwner", disputedOwner], ["disputedMaster", disputedMaster]] as const) {
+    const r = run(build());
+    assert.ok(r.ok, label);
+    for (const [role, vec] of Object.entries(r.value.vectors)) assert.deepEqual(sum(Object.values(vec!)), ONE, `${label} ${role}`);
+  }
 });
