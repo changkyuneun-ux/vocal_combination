@@ -6,3 +6,4 @@ export * from "./project.ts";
 export * from "./mandate.ts";
 export * from "./result.ts";
 export * from "./public.ts";
+export * from "./activation.ts";
