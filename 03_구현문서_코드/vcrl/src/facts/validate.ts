@@ -87,8 +87,8 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     if (!sorted) out.push(diag("CORE_TYPE_ERROR", `$.body.${key}`, "not sorted by id"));
   }
 
-  /** 공개본에서 커밋먼트로 치환될 수 있는 필드가 커밋먼트인가. */
-  const committed = (v: unknown): boolean => mode === "public" && isCommitment(v);
+  /** 공개본에서 커밋먼트로 치환될 수 있는 필드가 커밋먼트인가. PUBLIC 항목은 원문이어야 한다. */
+  const committed = (v: unknown, visibility?: unknown): boolean => mode === "public" && visibility !== "PUBLIC" && isCommitment(v);
   const present = (v: unknown, path: string): boolean => {
     if (v === undefined) out.push(diag("CORE_TYPE_ERROR", path, "required"));
     return v !== undefined;
@@ -116,11 +116,15 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     if (!absent(v, path, optional) && typeof v !== "string") out.push(diag("CORE_TYPE_ERROR", path, "must be a string"));
   };
   const idsField = (v: unknown, path: string, sealable = false) => {
-    if (v === undefined || (sealable && committed(v)) || (isPlainObject(v) && Object.values(v).every((x) => typeof x === "string"))) return;
-    out.push(diag("CORE_TYPE_ERROR", path, "must be an object of strings"));
+    if (v === undefined || (sealable && committed(v))) return;
+    if (!isPlainObject(v) || !Object.values(v).every((x) => typeof x === "string")) {
+      out.push(diag("CORE_TYPE_ERROR", path, "must be an object of strings"));
+    } else if (Object.hasOwn(v, "commit")) {
+      out.push(diag("CORE_TYPE_ERROR", `${path}.commit`, "reserved key (commitment marker)"));
+    }
   };
-  const bps = (v: unknown, path: string) => {
-    if (!committed(v)) out.push(...capture(() => parseBps(v, path)));
+  const bps = (v: unknown, path: string, visibility?: unknown) => {
+    if (!committed(v, visibility)) out.push(...capture(() => parseBps(v, path)));
   };
   const record = (r: Entity, p: string) => {
     enumField("claim_status", r.status, `${p}.status`);
@@ -137,7 +141,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     const p = `$.body.parties[${i}]`;
     out.push(...unknownKeys(x, "party", p));
     enumField("party_kind", x.kind, `${p}.kind`);
-    idsField(x.ids, `${p}.ids`, true);
+    idsField(x.ids, `${p}.ids`, x.visibility === "PRIVATE");
     enumField("visibility", x.visibility, `${p}.visibility`, true);
   });
   body.works.forEach((x, i) => {
@@ -173,7 +177,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     if (kindsFor === undefined && present(c.edge, `${p}.edge`)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.edge`, String(c.edge)));
     ref(c.source, kindsFor?.[0], `${p}.source`);
     ref(c.target, kindsFor?.[1], `${p}.target`);
-    bps(c.share, `${p}.share`);
+    bps(c.share, `${p}.share`, c.visibility);
     record(c, p);
     if (c.edge === "PERFORMED_BY") {
       if (!isEnumValue("performer_role", c.performer_role)) {
@@ -183,7 +187,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
       out.push(diag("CORE_TYPE_ERROR", `${p}.performer_role`, "only allowed on PERFORMED_BY"));
     }
     text(c.role_detail, `${p}.role_detail`, true);
-    if (!committed(c.evidence)) text(c.evidence, `${p}.evidence`, true);
+    if (!committed(c.evidence, c.visibility)) text(c.evidence, `${p}.evidence`, true);
   });
 
   body.mandates.forEach((m, i) => {
@@ -192,7 +196,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     ref(m.from, "party", `${p}.from`);
     ref(m.to, "party", `${p}.to`);
     enumField("mandate_right", m.right, `${p}.right`);
-    bps(m.share, `${p}.share`);
+    bps(m.share, `${p}.share`, m.visibility);
     record(m, p);
   });
 

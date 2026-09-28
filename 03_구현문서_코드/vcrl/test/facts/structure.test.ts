@@ -205,3 +205,9 @@ test("validator matches the JSON Schema on element, id, required, ids, text and 
     assert.equal(validateFactsSchema(i.facts), false, label);
   }
 });
+
+test("party ids reserve the key `commit`", () => {
+  const i = loadBasic();
+  i.facts.body.parties.find((p) => p.id === "pty_label_x")!.ids = { commit: "x", isni: "1" };
+  assert.deepEqual(validateFactsStructure(i.facts).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.body.parties[4].ids.commit"]]);
+});

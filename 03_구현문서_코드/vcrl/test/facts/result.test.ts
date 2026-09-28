@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as resultModule from "../../src/facts/result.ts";
-import { projectToIr } from "../../src/facts/result.ts";
+import { projectToIr, verifyProjection } from "../../src/facts/result.ts";
 import { publicFacts } from "../../src/facts/public.ts";
 import { validateFactsStructure, validatePublicFacts } from "../../src/facts/validate.ts";
 import { digestOf } from "../../src/core/digest.ts";
-import { openCommitment, type Commitment } from "../../src/core/commit.ts";
+import { commitValue, openCommitment, type Commitment } from "../../src/core/commit.ts";
 import { claimOf, loadBasic, sortBody, type BasicInput } from "../helpers.ts";
 
 function build(i: BasicInput = loadBasic()) {
@@ -110,4 +110,33 @@ test("PRIVATE party keeps id and kind public and commits its ids", () => {
   assert.ok(paths.includes("$.body.parties.pty_label_x.ids"));
   assert.deepEqual(parties.filter((p) => p.id !== "pty_label_x"), i.facts.body.parties.filter((p) => p.id !== "pty_label_x"));
   assert.deepEqual(validatePublicFacts(doc), []);
+});
+
+test("verifyProjection recomputes instead of trusting the supplied projection", () => {
+  const i = loadBasic();
+  const p = projectToIr(i.facts, i.usage, i.as_of, i.known_at);
+  assert.ok(p.ok);
+  assert.deepEqual(verifyProjection(i.facts, i.usage, i.as_of, i.known_at, p.value), []);
+  const forged = { ...p.value, vectors: { MASTER_OWNER: { pty_komca: "1/1" } } };
+  const forgedIr = { ...forged, digest: digestOf({ ...forged, digest: undefined }) };
+  assert.deepEqual(verifyProjection(i.facts, i.usage, i.as_of, i.known_at, forgedIr).map((d) => [d.code, d.path]), [
+    ["CORE_DIGEST_MISMATCH", "$.projection.digest"],
+  ]);
+  assert.deepEqual(verifyProjection(i.facts, { stm_ghost: "1" }, i.as_of, i.known_at, p.value).map((d) => d.code), ["FACTS_USAGE_INVALID"]);
+  assert.deepEqual(verifyProjection(i.facts, i.usage, i.as_of, i.known_at, null).map((d) => d.code), ["CORE_DIGEST_MISMATCH"]);
+});
+
+test("public validation: PUBLIC items must stay raw, only PRIVATE party ids may be committed", () => {
+  const salt = new Uint8Array(32).fill(3);
+  const i = loadBasic();
+  claimOf(i, "c6").visibility = "PUBLIC";
+  const pub = publicFacts(i.facts, () => salt).doc as typeof i.facts;
+  assert.deepEqual(validatePublicFacts(pub), []);
+  const c6 = pub.body.claims.find((c) => c.id === "c6")!;
+  (c6 as unknown as { share: unknown }).share = commitValue("6000", salt);
+  assert.deepEqual(validatePublicFacts(pub).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.body.claims[5].share"]]);
+  const pub2 = publicFacts(loadBasic().facts, () => salt).doc as typeof i.facts;
+  const label = pub2.body.parties.find((p) => p.id === "pty_label_x")!;
+  (label as unknown as { ids: unknown }).ids = commitValue({ isni: "0000000123456789" }, salt);
+  assert.deepEqual(validatePublicFacts(pub2).map((d) => d.code), ["CORE_TYPE_ERROR"]);
 });

@@ -1,5 +1,6 @@
 import { digestOf } from "../core/digest.ts";
-import { err, ok, type Result } from "../core/errors.ts";
+import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
+import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, ratio } from "../core/ratio.ts";
 import type { Instant } from "../core/time.ts";
 import { projectVectors, type Projection, type Usage } from "./project.ts";
@@ -42,4 +43,14 @@ function toProjectionIr(p: Projection, facts: FactsDocument, usage: Usage, asOf:
       byKey(a.stem, b.stem) || byKey(a.role, b.role) || byKey(a.party, b.party) || byKey(a.claims.join(","), b.claims.join(",")));
   const body = { facts_digest: digestOf(facts), as_of: asOf, known_at: knownAt, u_digest: digestOf(normalizedUsage(usage)), vectors, paths };
   return { ...body, digest: digestOf(body) };
+}
+
+/** 제공된 투영을 신뢰하지 않고 입력으로 다시 계산해 digest를 대조한다. */
+export function verifyProjection(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant, projection: unknown): Diagnostic[] {
+  const recomputed = projectToIr(doc, usage, asOf, knownAt);
+  if (!recomputed.ok) return recomputed.errors;
+  const given = isPlainObject(projection) ? projection.digest : undefined;
+  return given === recomputed.value.digest
+    ? []
+    : [diag("CORE_DIGEST_MISMATCH", "$.projection.digest", `${String(given)} != ${recomputed.value.digest}`)];
 }
