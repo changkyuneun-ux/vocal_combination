@@ -54,8 +54,8 @@ const REQUIRED: Readonly<Partial<Record<string, readonly (keyof typeof OPTIONS)[
 };
 
 function requireOptions(o: Opts, cmd: string): void {
-  const names = REQUIRED[cmd];
-  if (names === undefined) return;
+  if (!Object.hasOwn(REQUIRED, cmd)) return;
+  const names = REQUIRED[cmd]!;
   const missing = names.filter((n) => o[n] === undefined);
   if (missing.length > 0) throw new UsageError(`다음 옵션이 필요합니다: ${missing.map((n) => `--${n}`).join(", ")}`);
 }
@@ -85,7 +85,7 @@ export function run(argv: readonly string[], io: Io): number {
       return 1;
     }
     // 안전망: 라이브러리 경계에서 잡히지 않은 예외도 진단 형식으로 stderr 한 줄에 보고한다(스택은 노출하지 않는다).
-    const message = e instanceof Error ? e.message : String(e);
+    const message = (e instanceof Error ? e.message : String(e)).replace(/\r?\n/g, " ");
     io.err(`CORE_TYPE_ERROR $ unexpected error: ${message}\n`);
     return 1;
   }
@@ -95,7 +95,9 @@ function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): numb
   if (cmd !== undefined) requireOptions(o, cmd);
   switch (cmd) {
     case "compile": {
-      printJson(io, loadPolicy(io, onePositional(pos)));
+      const path = onePositional(pos);
+      if (!path.endsWith(".vcrl")) throw new UsageError("compile은 .vcrl 파일만 받습니다");
+      printJson(io, loadPolicy(io, path));
       return 0;
     }
     case "fmt": {

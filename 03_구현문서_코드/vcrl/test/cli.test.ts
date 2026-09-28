@@ -155,3 +155,17 @@ test("evaluate and verify accept a JSON policy (not just .vcrl text)", () => {
   assert.equal(v.code, 0, v.err);
   assert.equal(v.out, `OK ${expectedDigest()}\n`);
 });
+
+test("prototype-property command names are unknown commands, not internal errors", () => {
+  for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+    const r = cli([name]);
+    assert.equal(r.code, 2, `${name}: ${r.err}`);
+    assert.match(r.err, /알 수 없는 명령/);
+  }
+});
+
+test("compile only accepts a .vcrl file", () => {
+  const r = cli(["compile", "policy.json"]);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /compile은 \.vcrl 파일만 받습니다/);
+});
