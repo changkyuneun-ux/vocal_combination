@@ -1,10 +1,11 @@
 import { parseBps } from "../core/bps.ts";
-import { digestOf } from "../core/digest.ts";
+import { digestOf, isDigest } from "../core/digest.ts";
 import { isEnumValue } from "../core/enums.ts";
 import { attempt, diag, err, ok, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
+import { isInstant } from "../core/time.ts";
 import { HOLD, type PartyVector } from "../facts/project.ts";
 import type { ProjectionIr } from "../facts/result.ts";
 import type { ClaimantRole, FactsDocument } from "../facts/types.ts";
@@ -33,6 +34,9 @@ type Vectors = Partial<Record<ClaimantRole, PartyVector>>;
 const AMOUNT_RE = /^[1-9]\d*$/;
 const EVENT_KEYS = ["id", "type", "amount", "currency", "integrity"] as const;
 const PERFORMER_ROLES: readonly ClaimantRole[] = ["PERFORMER_FEATURED", "PERFORMER_NON_FEATURED"];
+const PROJECTION_FIELDS: readonly [string, (v: unknown) => boolean][] = [
+  ["as_of", isInstant], ["known_at", isInstant], ["digest", isDigest], ["facts_digest", isDigest], ["u_digest", isDigest],
+];
 
 /** attempt()로 감싼 진단 목록 계산. 성공이면 그 값을, 예외로 실패하면 그 진단을 돌려준다(둘 다 던지지 않는다). */
 function collectDiag(fn: () => Diagnostic[]): Diagnostic[] {
@@ -45,8 +49,14 @@ function checkInputShapes(facts: unknown, snapshot: unknown, projection: unknown
   const out: Diagnostic[] = [...validateFactsStructure(facts)];
   if (!isPlainObject(snapshot)) out.push(diag("CORE_TYPE_ERROR", "$.snapshot", "must be an object"));
   else out.push(...rejectUnknownKeys(snapshot, ["members"], "$.snapshot"));
-  if (!isPlainObject(projection)) out.push(diag("CORE_TYPE_ERROR", "$.projection", "must be an object"));
-  else if (!isPlainObject(projection.vectors)) out.push(diag("CORE_TYPE_ERROR", "$.projection.vectors", "must be an object"));
+  if (!isPlainObject(projection)) {
+    out.push(diag("CORE_TYPE_ERROR", "$.projection", "must be an object"));
+    return out;
+  }
+  for (const [k, valid] of PROJECTION_FIELDS) {
+    if (!valid(projection[k])) out.push(diag("CORE_TYPE_ERROR", `$.projection.${k}`, String(projection[k])));
+  }
+  if (!isPlainObject(projection.vectors)) out.push(diag("CORE_TYPE_ERROR", "$.projection.vectors", "must be an object"));
   return out;
 }
 
