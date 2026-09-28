@@ -469,3 +469,4 @@ manifest/
 17. **공개본 검증 `validatePublicFacts`**: 구조 규칙은 원문 검증과 같고, `claim.share`·`claim.evidence`·`mandate.share`·`party.ids`는 원문 또는 커밋먼트를 허용한다. 합 불변식은 검사하지 않는다. `PRIVATE` party는 id·kind만 공개하고 `ids`는 커밋먼트로 치환한다(salt 경로 `$.body.parties.<id>.ids`).
 18. **문자열 인코딩**: 모든 문자열(값과 키)은 올바른 UTF-16이어야 한다. 고립 서로게이트는 `CORE_TYPE_ERROR`로 거부한다.
 19. **투영의 빈 역할과 보수적 합 검사**: 경로가 없는 역할은 `vectors`에 키가 없다(빈 벡터로 취급). 사용량이 없는 스템이나 무관한 그룹의 합 불일치도 투영을 막는다(의도된 보수적 규칙).
+20. **권리 분쟁 중 팩 활성화 금지(사용자 결정, 2026-09-28)**: 팩이 사용하는 스템의 권리 경로에 `DISPUTED` claim 또는 mandate가 하나라도 유효하면 팩을 활성화할 수 없다. 현재(1-A)는 분쟁 당사자가 청구권자로 도출되지 않아 커버리지 검사(`FACTS_UNCOVERED_CLAIMANT`)로 간접 차단된다. 1-B에서는 활성화 판정에 전용 사유 코드(예: `FACTS_DISPUTE_OPEN`, 분쟁 claim·mandate id 목록 포함)를 추가해 차단 이유를 명시한다. 이미 발행된 조합의 정산은 기존대로 분쟁 몫을 `@hold`(`unallocated_holding`, `RIGHTS_DISPUTE`)로 보류한다.
