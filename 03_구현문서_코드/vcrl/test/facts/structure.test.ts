@@ -77,6 +77,18 @@ test("facts JSON Schema agrees with validator", () => {
   assert.ok(codes(i.facts).length > 0);
 });
 
+test("party id __proto__ is rejected by both ajv and validateFactsStructure", () => {
+  // loadBasic()은 JSON.parse로 읽으므로 id는 진짜 own property다(객체 리터럴 `{__proto__: ...}`와
+  // 달리 프로토타입 접근자를 건드리지 않는다). __proto__를 party id 값으로 넣어도 여전히 거부되어야 한다.
+  const i = loadBasic();
+  i.facts.body.parties[0]!.id = "__proto__";
+  sortBody(i);
+  // 이 party를 참조하던 claim들은 더 이상 대상을 찾지 못해 FACTS_UNKNOWN_PARTY도 함께 나온다;
+  // 여기서 확인할 것은 id 자체가 CORE_TYPE_ERROR로 거부된다는 점이다.
+  assert.deepEqual(codes(i.facts).sort(), ["CORE_TYPE_ERROR", "FACTS_UNKNOWN_PARTY"]);
+  assert.equal(validateFactsSchema(i.facts), false);
+});
+
 test("unknown keys are rejected like the JSON Schema does", () => {
   const i = loadBasic();
   (claimOf(i, "c1") as unknown as Record<string, unknown>).extra = "x";

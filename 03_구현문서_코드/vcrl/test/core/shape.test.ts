@@ -4,7 +4,7 @@ import { isId, rejectUnknownKeys } from "../../src/core/shape.ts";
 
 test("isId accepts the VCRL id alphabet only", () => {
   for (const ok of ["pty_a", "VC-ALLOC.1", "a"]) assert.equal(isId(ok), true, ok);
-  for (const bad of ["@hold", "a|b", "a,b", "", "한글", 1]) assert.equal(isId(bad), false, String(bad));
+  for (const bad of ["@hold", "a|b", "a,b", "", "한글", 1, "__proto__"]) assert.equal(isId(bad), false, String(bad));
 });
 
 test("rejectUnknownKeys reports each extra key with its path", () => {

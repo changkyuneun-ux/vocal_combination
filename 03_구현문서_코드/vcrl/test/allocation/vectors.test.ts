@@ -19,6 +19,10 @@ test("parseVector parses ratios, sorts keys and requires sum 1", () => {
   assert.throws(() => parseVector({ a: "2/4" }, "$.v"), code("CORE_TYPE_ERROR"));
   assert.throws(() => parseVector({ a: 1 }, "$.v"), code("CORE_TYPE_ERROR"));
   assert.throws(() => parseVector({ a: "3/2", b: "-1/2" }, "$.v"), code("CORE_TYPE_ERROR"));
+  assert.throws(
+    () => parseVector(JSON.parse('{"__proto__":"1/2","a":"1/2"}'), "$.v"),
+    code("CORE_TYPE_ERROR"),
+  );
 });
 
 test("mixVectors merges keys with weights", () => {
@@ -53,6 +57,12 @@ test("capVector redistributes the excess proportionally", () => {
     "@hold": r(1n, 5n), a: r(1n, 2n), b: r(3n, 10n),
   });
   assert.throws(() => capVector({ a: ONE }, r(1n, 2n), "$"), code("ALLOC_INFEASIBLE"));
+  // 다단계 수위 채우기: 1회차에 a만 걸리고, 2회차 재분배 후에는 아무도 걸리지 않는다.
+  // round 1: scale=1, a=9/20=0.45 > 2/5 → capped. round 2: remaining=3/5, free b+c=11/20,
+  // scale=12/11 → b=7/20*12/11=21/55≈0.3818, c=1/5*12/11=12/55≈0.2182, 둘 다 max 이하.
+  assert.deepEqual(capVector({ a: r(9n, 20n), b: r(7n, 20n), c: r(1n, 5n) }, r(2n, 5n), "$"), {
+    a: r(2n, 5n), b: r(21n, 55n), c: r(12n, 55n),
+  });
 });
 
 test("floorGuarantee raises unselected members and scales the rest", () => {
