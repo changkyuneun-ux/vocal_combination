@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatFacts } from "../../src/text/format-facts.ts";
+import { displayText, formatFacts } from "../../src/text/format-facts.ts";
 import { loadBasic } from "../helpers.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
@@ -50,4 +50,9 @@ test("free-text fields cannot forge lines or hide bidi overrides", () => {
   ));
   assert.ok(lines.includes('  party pty_label_x { kind: LABEL; ids: { isni: "a\\nb\\u2069" }; }'));
   assert.doesNotMatch(text, /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/);
+});
+
+test("displayText escapes line/paragraph separators and bidi marks", () => {
+  const raw = ["a", "\u2028", "b", "\u2029", "c", "\u200E", "\u200F", "\u061C"].join("");
+  assert.equal(displayText(raw), String.raw`"a\u2028b\u2029c\u200E\u200F\u061C"`);
 });

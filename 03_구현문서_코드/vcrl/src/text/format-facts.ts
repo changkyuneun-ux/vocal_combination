@@ -6,10 +6,10 @@ const SHORT_ESCAPES: Readonly<Record<string, string>> = { '"': '\\"', "\\": "\\\
 
 /**
  * 검토용 표시 전용 따옴표 문자열(파싱하지 않는다). 자유 텍스트가 줄을 위조하거나 표시 순서를 뒤집지 못하도록
- * `"`·`\\`, C0·C1 제어 문자, 양방향 제어 문자(U+202A–U+202E, U+2066–U+2069)를 이스케이프한다.
+ * `"`·`\\`, C0·C1 제어 문자, 줄·문단 구분자(U+2028, U+2029), 양방향 제어·표시 문자(U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069)를 이스케이프한다.
  */
 export function displayText(s: string): string {
-  const body = s.replace(/["\\\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g, (ch) =>
+  const body = s.replace(/["\\\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069]/g, (ch) =>
     SHORT_ESCAPES[ch] ?? `\\u${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`,
   );
   return `"${body}"`;
