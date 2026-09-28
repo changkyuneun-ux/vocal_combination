@@ -1,13 +1,14 @@
 import { parseBps } from "../core/bps.ts";
 import { digestOf } from "../core/digest.ts";
 import { isEnumValue } from "../core/enums.ts";
-import { attempt, diag, err, fail, ok, type Diagnostic, type Result } from "../core/errors.ts";
+import { attempt, diag, err, ok, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { HOLD, type PartyVector } from "../facts/project.ts";
 import type { ProjectionIr } from "../facts/result.ts";
 import type { ClaimantRole, FactsDocument } from "../facts/types.ts";
+import { validateFactsStructure } from "../facts/validate.ts";
 import { evalVector, type ExprContext } from "./expr.ts";
 import { splitLrm, type Allotment, type Share } from "./lrm.ts";
 import type {
@@ -33,18 +34,37 @@ const AMOUNT_RE = /^[1-9]\d*$/;
 const EVENT_KEYS = ["id", "type", "amount", "currency", "integrity"] as const;
 const PERFORMER_ROLES: readonly ClaimantRole[] = ["PERFORMER_FEATURED", "PERFORMER_NON_FEATURED"];
 
+/** attempt()로 감싼 진단 목록 계산. 성공이면 그 값을, 예외로 실패하면 그 진단을 돌려준다(둘 다 던지지 않는다). */
+function collectDiag(fn: () => Diagnostic[]): Diagnostic[] {
+  const r = attempt(fn);
+  return r.ok ? r.value : r.errors;
+}
+
+/** evaluate 본문이 facts·snapshot·projection을 역참조하기 전에, 그것들이 최소한의 모양을 갖췄는지 본다. */
+function checkInputShapes(facts: unknown, snapshot: unknown, projection: unknown): Diagnostic[] {
+  const out: Diagnostic[] = [...validateFactsStructure(facts)];
+  if (!isPlainObject(snapshot)) out.push(diag("CORE_TYPE_ERROR", "$.snapshot", "must be an object"));
+  else out.push(...rejectUnknownKeys(snapshot, ["members"], "$.snapshot"));
+  if (!isPlainObject(projection)) out.push(diag("CORE_TYPE_ERROR", "$.projection", "must be an object"));
+  else if (!isPlainObject(projection.vectors)) out.push(diag("CORE_TYPE_ERROR", "$.projection.vectors", "must be an object"));
+  return out;
+}
+
 /** 결정적 안분 평가기(스펙 5.6). 같은 입력은 같은 result_digest를 낸다. */
 export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   const { policy, facts, projection, snapshot, events, runId } = input;
   const policyErrors = validateAllocation(policy);
   if (policyErrors.length > 0) return err(policyErrors);
+  const shapeErrors = checkInputShapes(facts, snapshot, projection);
+  if (shapeErrors.length > 0) return err(shapeErrors);
+
   const body = policy.body;
   const parties = new Set(facts.body.parties.map((p) => p.id));
   const kinds = new Map(facts.body.parties.map((p) => [p.id, p.kind]));
 
   const errors: Diagnostic[] = [];
   if (!isId(runId)) errors.push(diag("CORE_TYPE_ERROR", "$.run_id", String(runId)));
-  errors.push(...checkDigests(policy, facts, projection), ...checkEvents(events, body));
+  errors.push(...collectDiag(() => checkDigests(policy, facts, projection)), ...checkEvents(events, body));
   const members = attempt(() => parseVector(snapshot.members, "$.snapshot.members"));
   if (!members.ok) errors.push(...members.errors);
   else for (const k of Object.keys(members.value)) if (!parties.has(k)) errors.push(diag("FACTS_UNKNOWN_PARTY", `$.snapshot.members.${k}`, k));
@@ -97,6 +117,7 @@ function checkEvents(events: unknown, body: AllocationBody): Diagnostic[] {
   if (!Array.isArray(events) || events.length === 0) return [diag("CORE_TYPE_ERROR", "$.events", "non-empty array required")];
   const out: Diagnostic[] = [];
   let prev: string | undefined;
+  let orderReported = false;
   events.forEach((e: unknown, i: number) => {
     const p = `$.events[${i}]`;
     if (!isPlainObject(e)) {
@@ -107,13 +128,17 @@ function checkEvents(events: unknown, body: AllocationBody): Diagnostic[] {
     if (!isId(e.id)) {
       out.push(diag("CORE_TYPE_ERROR", `${p}.id`, String(e.id)));
     } else {
-      if (prev !== undefined && prev >= e.id) out.push(diag("CORE_TYPE_ERROR", "$.events", "not sorted by id"));
+      if (!orderReported && prev !== undefined && prev >= e.id) {
+        out.push(diag("CORE_TYPE_ERROR", "$.events", "not sorted by id"));
+        orderReported = true;
+      }
       prev = e.id;
     }
     if (!isEnumValue("event_type", e.type)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.type`, String(e.type)));
     else if (!body.scope.events.includes(e.type)) out.push(diag("ALLOC_SCOPE_MISMATCH", `${p}.type`, e.type));
     if (typeof e.amount !== "string" || !AMOUNT_RE.test(e.amount)) out.push(diag("CORE_TYPE_ERROR", `${p}.amount`, String(e.amount)));
-    if (e.currency !== body.scope.currency) out.push(diag("ALLOC_SCOPE_MISMATCH", `${p}.currency`, String(e.currency)));
+    if (typeof e.currency !== "string") out.push(diag("CORE_TYPE_ERROR", `${p}.currency`, String(e.currency)));
+    else if (e.currency !== body.scope.currency) out.push(diag("ALLOC_SCOPE_MISMATCH", `${p}.currency`, e.currency));
     if (!isEnumValue("integrity_status", e.integrity)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.integrity`, String(e.integrity)));
   });
   return out;
@@ -121,11 +146,18 @@ function checkEvents(events: unknown, body: AllocationBody): Diagnostic[] {
 
 function parseProjectionVectors(projection: ProjectionIr): Vectors {
   const out: Vectors = {};
+  const errors: Diagnostic[] = [];
   for (const [role, vec] of Object.entries(projection.vectors)) {
     const p = `$.projection.vectors.${role}`;
-    if (!isEnumValue("claimant_role", role)) fail("CORE_ENUM_UNKNOWN", p, role);
-    out[role] = parseVector(vec, p);
+    if (!isEnumValue("claimant_role", role)) {
+      errors.push(diag("CORE_ENUM_UNKNOWN", p, role));
+      continue;
+    }
+    const r = attempt(() => parseVector(vec, p));
+    if (r.ok) out[role] = r.value;
+    else errors.push(...r.errors);
   }
+  if (errors.length > 0) throw new VcrlError(errors);
   return out;
 }
 

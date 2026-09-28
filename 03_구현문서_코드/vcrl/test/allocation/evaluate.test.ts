@@ -129,3 +129,50 @@ test("invalid policy short-circuits", () => {
   i.policy.body.tier1.buckets[0]!.bps = "2600";
   assert.deepEqual(codes(i), ["ALLOC_SUM_MISMATCH"]);
 });
+
+test("malformed inputs return diagnostics instead of throwing", () => {
+  const cases: [string, (i: EvaluationInput) => void, string][] = [
+    ["snapshot undefined", (i) => { (i as { snapshot: unknown }).snapshot = undefined; }, "CORE_TYPE_ERROR"],
+    ["snapshot with extra key", (i) => { (i.snapshot as unknown as Record<string, unknown>).extra = 1; }, "CORE_TYPE_ERROR"],
+    ["projection.vectors undefined", (i) => { i.projection = { ...i.projection, vectors: undefined as never }; }, "CORE_TYPE_ERROR"],
+    ["projection as_of number", (i) => { i.projection = { ...i.projection, as_of: 5 as never }; }, "CORE_NUMBER_IN_IR"],
+    ["facts null", (i) => { (i as { facts: unknown }).facts = null; }, "CORE_TYPE_ERROR"],
+    ["currency number", (i) => { i.events[0]!.currency = 5 as unknown as string; }, "CORE_TYPE_ERROR"],
+  ];
+  for (const [name, mutate, expected] of cases) {
+    const i = basic();
+    mutate(i);
+    const r = evaluate(i);
+    assert.equal(r.ok, false, name);
+    if (!r.ok) assert.ok(r.errors.some((e) => e.code === expected), `${name}: expected ${expected}, got ${r.errors.map((e) => e.code).join(",")}`);
+  }
+});
+
+test("events out of order report one CORE_TYPE_ERROR, not one per adjacent pair", () => {
+  const i = basic();
+  i.events = [
+    { ...i.events[0]!, id: "ev_003" },
+    { ...i.events[0]!, id: "ev_002" },
+    { ...i.events[0]!, id: "ev_001" },
+  ];
+  assert.deepEqual(codes(i), ["CORE_TYPE_ERROR"]);
+});
+
+test("trace records tier1, tier2 and bucket levels in order for ev_001", () => {
+  const res = run(basic());
+  const trace = res.trace.filter((t) => t.event_id === "ev_001");
+  assert.deepEqual(trace.map((t) => t.level), ["tier1", "tier2", "bucket:master", "bucket:performer", "bucket:work"]);
+  const tier1 = trace.find((t) => t.level === "tier1")!;
+  assert.equal(tier1.total, "10000");
+  assert.deepEqual(tier1.parts, [
+    { key: "platform", weight: "1/4", amount: "2500" },
+    { key: "ops", weight: "1/20", amount: "500" },
+    { key: "rights", weight: "7/10", amount: "7000" },
+  ]);
+});
+
+test("result carries bind_time and events_digest", () => {
+  const res = run(basic());
+  assert.equal(res.bind_time, "ISSUE_TIME");
+  assert.equal(res.events_digest, digestOf(basic().events));
+});
