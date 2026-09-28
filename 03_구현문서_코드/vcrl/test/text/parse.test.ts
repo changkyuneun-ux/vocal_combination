@@ -153,3 +153,19 @@ test("block order is free", () => {
   assert.ok(r.ok, JSON.stringify(r));
   assert.deepEqual(r.value, loadAllocationCase().policy);
 });
+
+test("a mix of the two performer graphs infers PERFORMER_FEATURED (spec 12.38)", () => {
+  const v: VectorExpr = { fn: "mix", parts: [
+    { weight: "5000", of: { fn: "graph", role: "PERFORMER_FEATURED" } },
+    { weight: "5000", of: { fn: "graph", role: "PERFORMER_NON_FEATURED" } },
+  ] };
+  assert.equal(inferRole(v), "PERFORMER_FEATURED");
+  const src = withSplit([
+    "      master = graph(MASTER_OWNER) : 45%;",
+    "      performer = mix(50%: graph(PERFORMER_FEATURED), 50%: graph(PERFORMER_NON_FEATURED)) : 45%;",
+    "      agency = contract(pty_agency_s) : 10% as AGENCY;",
+  ].join("\n"));
+  const r = parseAllocation(src);
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual(r.value.body.tier2.split[1], { name: "performer", bps: "4500", role: "PERFORMER_FEATURED", vector: v });
+});

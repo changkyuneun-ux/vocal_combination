@@ -16,7 +16,8 @@ export function at(pos: { line: number; col: number }): string {
 
 export function tokenize(src: string): Token[] {
   const out: Token[] = [];
-  let i = 0;
+  /** 맨 앞 BOM(U+FEFF)은 건너뛴다. 위치는 그 뒤에서 1:1부터 센다. */
+  let i = src.charCodeAt(0) === 0xfeff ? 1 : 0;
   let line = 1;
   let col = 1;
   const advance = (n: number) => {

@@ -42,3 +42,10 @@ test("lexical errors", () => {
   failsAt("10abc", "PARSE_SYNTAX", "@1:1");
   failsAt("a # b", "PARSE_SYNTAX", "@1:3");
 });
+
+test("a leading BOM is skipped and positions start at 1:1 after it", () => {
+  const BOM = String.fromCharCode(0xfeff);
+  const toks = tokenize(`${BOM}ab\n  cd`);
+  assert.deepEqual(toks.map((t) => [t.text, t.line, t.col]), [["ab", 1, 1], ["cd", 2, 3], ["", 2, 5]]);
+  failsAt(`ab ${BOM}`, "PARSE_SYNTAX", "@1:4");
+});

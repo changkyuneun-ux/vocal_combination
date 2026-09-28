@@ -24,3 +24,18 @@ int         = 양의 정수(단위 없음) ;
 (* guard는 require covered(all_claimants)와 require sum(split) == 100%(=10000bps)만,
    exceptions는 on DISPUTED -> hold(DISPUTED_SHARE)와 on FRAUD_FLAG -> hold(RIGHTS_POOL)만 허용(엔진 고정 의미, IR에 남지 않음).
    그 밖의 문장은 PARSE_UNSUPPORTED. 역할 생략 시 inferRole로 추론, 추론 불가면 PARSE_ROLE_REQUIRED. *)
+
+(* ---- 어휘 규칙(lexer.ts) ---- *)
+(* 입력 맨 앞의 BOM(U+FEFF) 하나는 건너뛰고, 위치(@줄:열)는 그 뒤에서 1:1부터 센다. 그 밖의 위치의 BOM은 PARSE_SYNTAX. *)
+whitespace  = " " | TAB | CR | LF ;                           (* 토큰 사이에서 무시 *)
+comment     = "//" { 줄바꿈이 아닌 문자 } ;                    (* 줄 끝까지 무시 *)
+ident       = letter { letter | digit } { ( "." | "-" ) ( letter | digit ) { letter | digit } } ;
+              (* 정규식 [A-Za-z_][A-Za-z0-9_]*(?:[.-][A-Za-z0-9_]+)* — "."·"-"는 안쪽 구분자로만, "-"로 끝날 수 없다 *)
+letter      = "A".."Z" | "a".."z" | "_" ;
+digit       = "0".."9" ;
+string      = '"' { 따옴표·역슬래시·줄바꿈이 아닌 문자 | '\"' | '\\' } '"' ;
+              (* 한 줄 안에서 끝나야 하며, 이스케이프는 \" 와 \\ 만 허용 *)
+number      = digit { digit } [ "." digit { digit } ] [ "%" | "bps" ] ;
+              (* 정규식 \d+(\.\d+)?(%|bps)? — 바로 뒤에 식별자 문자([A-Za-z0-9_])가 오면 PARSE_SYNTAX(숫자로 시작하는 id는 따옴표로 쓴다) *)
+punct       = "|>" | "->" | "==" | "{" | "}" | "(" | ")" | "[" | "]" | ";" | ":" | "," | "=" | "@" ;
+              (* 두 글자 기호를 먼저 본다 *)
