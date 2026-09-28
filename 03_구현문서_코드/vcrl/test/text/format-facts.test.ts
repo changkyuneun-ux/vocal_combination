@@ -33,3 +33,21 @@ test("optional fields render when present", () => {
   assert.match(text, /valid \[2026-01-01T00:00:00\.000Z, 2031-01-01T00:00:00\.000Z\) recorded [^ ]+ superseded 2026-03-01T00:00:00\.000Z evidence "[^"]+" visibility PUBLIC;/);
   assert.match(text, /party pty_agency_s \{ kind: AGENCY; visibility: PRIVATE; \}/);
 });
+
+test("free-text fields cannot forge lines or hide bidi overrides", () => {
+  const i = loadBasic();
+  const c6 = i.facts.body.claims.find((c) => c.id === "c6")!;
+  c6.role_detail = 'x";\n  claim c_zz_forged: wrk_01 WRITTEN_BY pty_author_b share 100%\r\t\u0000\u0085 \\';
+  c6.evidence = "ev\u202Egnp.exe\u2066";
+  i.facts.body.parties.find((p) => p.id === "pty_label_x")!.ids = { isni: "a\nb\u2069" };
+  const text = formatFacts(i.facts);
+  const lines = text.split("\n");
+  assert.equal(lines.filter((l) => l.startsWith("  claim c6")).length, 1);
+  assert.equal(lines.filter((l) => l.startsWith("  claim c_zz_forged")).length, 0);
+  assert.ok(lines.includes(
+    `  claim c6: wrk_01 WRITTEN_BY pty_author_b share 60% detail "x\\";\\n  claim c_zz_forged: wrk_01 WRITTEN_BY pty_author_b share 100%\\r\\t\\u0000\\u0085 \\\\"` +
+      ` status VERIFIED valid [${T0}, ) recorded ${T0} evidence "ev\\u202Egnp.exe\\u2066";`,
+  ));
+  assert.ok(lines.includes('  party pty_label_x { kind: LABEL; ids: { isni: "a\\nb\\u2069" }; }'));
+  assert.doesNotMatch(text, /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/);
+});

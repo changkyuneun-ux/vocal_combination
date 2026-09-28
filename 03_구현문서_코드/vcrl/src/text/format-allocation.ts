@@ -9,9 +9,9 @@ export function quoteText(s: string): string {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-/** 식별자 형태면 그대로, 아니면 따옴표 문자열로 쓴다. */
-export function idText(s: string): string {
-  return BARE_ID.test(s) ? s : quoteText(s);
+/** 식별자 형태면 그대로, 아니면 `quote`로 따옴표 문자열을 쓴다(안분 텍스트는 렉서가 읽는 quoteText). */
+export function idText(s: string, quote: (s: string) => string = quoteText): string {
+  return BARE_ID.test(s) ? s : quote(s);
 }
 
 /** bps 문자열을 `%` 표기로 바꾼다(정수 연산, 소수 둘째 자리까지). */
