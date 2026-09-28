@@ -94,3 +94,49 @@ test("compile runs the IR validator after parsing", () => {
   assert.deepEqual(e.map((x) => x[0]), ["ALLOC_SUM_MISMATCH"]);
   assert.equal(parseAllocation(basicText().replace("rights = 70%", "rights = 60%")).ok, true);
 });
+
+test("truncated input never throws; it returns PARSE_SYNTAX", () => {
+  for (const src of [
+    'allocation "x" version 1 { exceptions { on',
+    'allocation "x" version 1 { exceptions { on DISPUTED -> hold (',
+    basicText().slice(0, basicText().indexOf("split {") + "split {".length),
+  ]) {
+    const r = compileAllocation(src);
+    assert.equal(r.ok, false);
+    assert.equal((r as { ok: false; errors: { code: string }[] }).errors[0]!.code, "PARSE_SYNTAX");
+  }
+});
+
+test("exceptions require ident tokens; quoted hold target is PARSE_SYNTAX", () => {
+  assert.equal(errs(basicText().replace('hold(DISPUTED_SHARE)', 'hold("DISPUTED_SHARE")'))[0]![0], "PARSE_SYNTAX");
+});
+
+test("guard rejects a non-ident all_claimants target as PARSE_SYNTAX, a different ident as PARSE_UNSUPPORTED", () => {
+  assert.equal(errs(basicText().replace("covered(all_claimants)", 'covered("all_claimants")'))[0]![0], "PARSE_SYNTAX");
+  assert.equal(errs(basicText().replace("covered(all_claimants)", "covered(some)"))[0]![0], "PARSE_UNSUPPORTED");
+});
+
+test("__proto__ is not a valid performance_pool argument name", () => {
+  const src = basicText().replace("featured_weight: 70%)", "featured_weight: 70%, __proto__: 10%)");
+  assert.equal(errs(src)[0]![0], "PARSE_SYNTAX");
+});
+
+test("deeply nested mix() fails with PARSE_SYNTAX instead of a RangeError", () => {
+  const nested = "mix(100%: ".repeat(100) + "graph(MASTER_OWNER)" + ")".repeat(100);
+  const src = withSplit(`      master = ${nested} : 45% as MASTER_OWNER;\n      performer = member_pct() : 45%;\n      agency = contract(pty_agency_s) : 10% as AGENCY;`);
+  const r = parseAllocation(src);
+  assert.equal(r.ok, false);
+  assert.equal((r as { ok: false; errors: { code: string }[] }).errors[0]!.code, "PARSE_SYNTAX");
+});
+
+test("block order is free", () => {
+  const scopeLine = '  scope { pack: pak_nova_summer_02; events: [PRIMARY, RESALE]; currency: KRW; }\n';
+  const roundingLine = '  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n';
+  const withoutScope = basicText().replace(scopeLine, "");
+  const withoutRounding = withoutScope.replace(roundingLine, "");
+  const reordered = withoutRounding.replace("  bind { time: ISSUE_TIME; }\n", `${roundingLine}${scopeLine}  bind { time: ISSUE_TIME; }\n`);
+  assert.notEqual(reordered, basicText());
+  const r = compileAllocation(reordered);
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual(r.value, loadAllocationCase().policy);
+});

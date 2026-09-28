@@ -27,7 +27,12 @@ export function compileAllocation(src: string): Result<AllocationDocument> {
 function parseProgram(toks: readonly Token[]): AllocationDocument {
   let k = 0;
   const peek = () => toks[k]!;
-  const next = () => toks[k++]!;
+  /** eof 토큰을 넘어가지 않는다: 잘린 입력에서도 반복 호출이 eof 위치의 진단을 안전하게 낸다. */
+  const next = () => {
+    const t = toks[k]!;
+    if (t.kind !== "eof") k++;
+    return t;
+  };
   const describe = (t: Token) => (t.kind === "eof" ? "end of input" : `${t.kind} ${JSON.stringify(t.text)}`);
   const isP = (t: Token, s: string) => t.kind === "punct" && t.text === s;
   const isW = (t: Token, s: string) => t.kind === "ident" && t.text === s;
@@ -112,6 +117,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
           next();
           const key = next();
           if (key.kind !== "ident") fail("PARSE_SYNTAX", at(key), `expected an argument name, found ${describe(key)}`);
+          if (key.text === "__proto__") fail("PARSE_SYNTAX", at(key), "__proto__ is not a valid argument name");
           if (Object.hasOwn(e, key.text)) fail("PARSE_SYNTAX", at(key), `duplicate argument ${key.text}`);
           expectP(":");
           e[key.text] = ratio();
@@ -133,26 +139,34 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
         return fail("PARSE_SYNTAX", at(t), `unknown vector function ${t.text}`);
     }
   };
+  const MAX_VECTOR_DEPTH = 64;
+  let vectorDepth = 0;
   const vector = (): VectorExpr => {
-    let v = primary();
-    while (isP(peek(), "|>")) {
-      next();
-      const t = next();
-      if (isW(t, "cap")) {
-        expectP("(");
-        const max = ratio();
-        expectP(")");
-        v = { fn: "cap", max, of: v };
-      } else if (isW(t, "floor_guarantee")) {
-        expectP("(");
-        const min = ratio();
-        expectP(")");
-        v = { fn: "floor_guarantee", min, of: v };
-      } else {
-        fail("PARSE_SYNTAX", at(t), `expected cap or floor_guarantee after |>, found ${describe(t)}`);
+    vectorDepth++;
+    if (vectorDepth > MAX_VECTOR_DEPTH) fail("PARSE_SYNTAX", at(peek()), "vector nesting too deep");
+    try {
+      let v = primary();
+      while (isP(peek(), "|>")) {
+        next();
+        const t = next();
+        if (isW(t, "cap")) {
+          expectP("(");
+          const max = ratio();
+          expectP(")");
+          v = { fn: "cap", max, of: v };
+        } else if (isW(t, "floor_guarantee")) {
+          expectP("(");
+          const min = ratio();
+          expectP(")");
+          v = { fn: "floor_guarantee", min, of: v };
+        } else {
+          fail("PARSE_SYNTAX", at(t), `expected cap or floor_guarantee after |>, found ${describe(t)}`);
+        }
       }
+      return v;
+    } finally {
+      vectorDepth--;
     }
-    return v;
   };
 
   const tier1Buckets = (): Tier1Bucket[] => {
@@ -199,7 +213,8 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
       if (isW(t, "covered")) {
         expectP("(");
         const what = next();
-        if (!isW(what, "all_claimants")) fail("PARSE_UNSUPPORTED", at(what), "only covered(all_claimants) is supported");
+        if (what.kind !== "ident") fail("PARSE_SYNTAX", at(what), `expected all_claimants, found ${describe(what)}`);
+        if (what.text !== "all_claimants") fail("PARSE_UNSUPPORTED", at(what), "only covered(all_claimants) is supported");
         expectP(")");
       } else if (isW(t, "sum")) {
         expectP("(");
@@ -219,15 +234,16 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
     expectP("{");
     while (!isP(peek(), "}")) {
       expectW("on");
-      const on = next();
+      const onTok = peek();
+      const on = ident("exception name");
       expectP("->");
       expectW("hold");
       expectP("(");
-      const target = next();
+      const target = ident("hold target");
       expectP(")");
       expectP(";");
-      if (on.kind !== "ident" || !Object.hasOwn(FIXED_EXCEPTIONS, on.text) || FIXED_EXCEPTIONS[on.text] !== target.text) {
-        fail("PARSE_UNSUPPORTED", at(on), "exceptions are fixed: on DISPUTED -> hold(DISPUTED_SHARE); on FRAUD_FLAG -> hold(RIGHTS_POOL)");
+      if (!Object.hasOwn(FIXED_EXCEPTIONS, on) || FIXED_EXCEPTIONS[on] !== target) {
+        fail("PARSE_UNSUPPORTED", at(onTok), "exceptions are fixed: on DISPUTED -> hold(DISPUTED_SHARE); on FRAUD_FLAG -> hold(RIGHTS_POOL)");
       }
     }
     expectP("}");
