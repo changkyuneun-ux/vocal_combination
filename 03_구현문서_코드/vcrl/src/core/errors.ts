@@ -18,6 +18,16 @@ export const ERROR_CODES = {
   FACTS_USAGE_INVALID: "사용량 벡터가 잘못되었다",
   FACTS_UNCOVERED_CLAIMANT: "선언된 청구권자가 그래프에서 도출되지 않는다",
   FACTS_CLAIMANT_DRIFT: "그래프에서 도출된 청구권자가 선언 목록에 없다",
+  FACTS_DISPUTE_OPEN: "팩이 사용하는 권리 경로에 분쟁 중인 claim·mandate가 있어 활성화할 수 없다",
+  ALLOC_SUM_MISMATCH: "버킷 bps 합이 10000이 아니다",
+  ALLOC_WEIGHT_MISMATCH: "가중치 합이 10000bps(또는 1)가 아니다",
+  ALLOC_MODE_REQUIRED: "performance_pool의 mode와 모드별 필수 가중치를 명시해야 한다",
+  ALLOC_DUPLICATE_NAME: "버킷 이름 또는 배분 키가 중복된다",
+  ALLOC_UNCOVERED_CLAIMANT: "투영에서 도출된 청구권자 역할을 어느 버킷도 다루지 않는다",
+  ALLOC_INFEASIBLE: "cap·floor_guarantee 조건을 만족하는 분배가 없다",
+  ALLOC_SCOPE_MISMATCH: "매출 이벤트가 정책 범위(이벤트 유형·통화)를 벗어난다",
+  ALLOC_EMPTY_VECTOR: "배분할 벡터가 비어 있다",
+  ALLOC_ROUNDING_INVARIANT: "층별 배분 합이 상위 금액과 다르다(평가기 결함)",
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CODES;
@@ -59,7 +69,17 @@ export function err<T>(errors: Diagnostic[]): Result<T> {
   return { ok: false, errors };
 }
 
-/** 기존 설계 문서의 오류 코드 → VCRL 코드. DSL_* 안분 코드는 계획 1-B에서 추가한다. */
+/** fail()이 던진 VcrlError를 실패 Result로 바꾼다. 그 밖의 예외는 그대로 던진다. */
+export function attempt<T>(fn: () => T): Result<T> {
+  try {
+    return ok(fn());
+  } catch (e) {
+    if (e instanceof VcrlError) return err(e.diagnostics);
+    throw e;
+  }
+}
+
+/** 기존 설계 문서의 오류 코드 → VCRL 코드. */
 export const LEGACY_ERROR_MAP: Readonly<Record<string, ErrorCode>> = {
   DSL_TYPE_ERROR: "CORE_TYPE_ERROR",
   DSL_UNKNOWN_REF: "CORE_UNKNOWN_REF",
@@ -67,4 +87,7 @@ export const LEGACY_ERROR_MAP: Readonly<Record<string, ErrorCode>> = {
   GRAPH_PATH_MISSING: "FACTS_PATH_MISSING",
   GRAPH_UNKNOWN_PARTY: "FACTS_UNKNOWN_PARTY",
   CLAIMANT_DRIFT: "FACTS_CLAIMANT_DRIFT",
+  DSL_SUM_MISMATCH: "ALLOC_SUM_MISMATCH",
+  DSL_WEIGHT_MISMATCH: "ALLOC_WEIGHT_MISMATCH",
+  DSL_UNCOVERED_CLAIMANT: "ALLOC_UNCOVERED_CLAIMANT",
 };

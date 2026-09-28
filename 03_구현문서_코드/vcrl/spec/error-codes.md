@@ -23,6 +23,16 @@
 | `FACTS_USAGE_INVALID` | 사용량 벡터 오류 | `projectVectors` |
 | `FACTS_UNCOVERED_CLAIMANT` | 선언 청구권자가 도출되지 않음 | `checkClaimantCoverage` |
 | `FACTS_CLAIMANT_DRIFT` | 도출 청구권자가 선언 목록에 없음 | `checkClaimantCoverage` |
+| `FACTS_DISPUTE_OPEN` | 분쟁 중인 claim·mandate가 있어 팩 활성화 불가 | `checkActivation` |
+| `ALLOC_SUM_MISMATCH` | tier1·tier2 버킷 bps 합 ≠ 10000 | `validateAllocation` |
+| `ALLOC_WEIGHT_MISMATCH` | mix·HYBRID 가중치 합 ≠ 10000bps, 벡터 합 ≠ 1 | `validateAllocation`, `parseVector`, `splitLrm` |
+| `ALLOC_MODE_REQUIRED` | performance_pool의 mode·필수 가중치 누락 | `validateAllocation` |
+| `ALLOC_DUPLICATE_NAME` | 버킷 이름·배분 키 중복 | `validateAllocation`, `splitLrm` |
+| `ALLOC_UNCOVERED_CLAIMANT` | 투영 역할을 다루는 버킷 없음 | `evaluate` |
+| `ALLOC_INFEASIBLE` | cap·floor_guarantee 불가능 | `validateAllocation`, `capVector`, `floorGuarantee` |
+| `ALLOC_SCOPE_MISMATCH` | 이벤트 유형·통화가 정책 범위 밖 | `evaluate` |
+| `ALLOC_EMPTY_VECTOR` | 배분할 벡터가 비어 있음 | `parseVector`, `fixedVector`, `usageVector`, `evalVector`, `splitLrm` |
+| `ALLOC_ROUNDING_INVARIANT` | 층별 배분 합 ≠ 상위 금액 | `splitLrm` |
 
 ## 기존 코드 매핑
 
@@ -34,3 +44,6 @@
 | GRAPH_PATH_MISSING | `FACTS_PATH_MISSING` |
 | GRAPH_UNKNOWN_PARTY | `FACTS_UNKNOWN_PARTY` |
 | CLAIMANT_DRIFT | `FACTS_CLAIMANT_DRIFT` |
+| DSL_SUM_MISMATCH | `ALLOC_SUM_MISMATCH` |
+| DSL_WEIGHT_MISMATCH | `ALLOC_WEIGHT_MISMATCH` |
+| DSL_UNCOVERED_CLAIMANT | `ALLOC_UNCOVERED_CLAIMANT` |

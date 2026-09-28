@@ -30,6 +30,9 @@ export const ENUMS = {
   rounding_method: ["HIERARCHICAL_LRM_V1"],
   visibility: ["PUBLIC", "PARTIES", "PRIVATE"],
   vc_status: ["DRAFT", "VALIDATED", "RESERVED", "SUBMITTED", "ISSUED", "FLAGGED", "HIDDEN", "VOID"],
+  holding_reason: ["RIGHTS_DISPUTE", "FRAUD_REVIEW"],
+  integrity_status: ["CLEAR", "FLAGGED"],
+  vector_fn: ["graph", "contract", "member_pct", "performance_pool", "mix", "cap", "floor_guarantee"],
 } as const;
 
 export type EnumName = keyof typeof ENUMS;

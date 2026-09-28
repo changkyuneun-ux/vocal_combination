@@ -4,6 +4,7 @@ import { validateEnvelope } from "../core/envelope.ts";
 import { isEnumValue, type EnumName } from "../core/enums.ts";
 import { capture, diag, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
+import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { checkInterval, isInstant } from "../core/time.ts";
 import { checkClaimSums, checkMandates } from "./invariants.ts";
 import { CLAIM_EDGE_KINDS, type ClaimEdge, type EntityType, type FactsDocument } from "./types.ts";
@@ -35,14 +36,8 @@ const ALLOWED_KEYS = {
 
 /** JSON Schema의 `additionalProperties: false`와 동일하게, 허용되지 않은 키를 CORE_TYPE_ERROR로 보고한다. */
 function unknownKeys(obj: object, kind: keyof typeof ALLOWED_KEYS, path: string): Diagnostic[] {
-  const allowed = ALLOWED_KEYS[kind] as readonly string[];
-  return Object.keys(obj)
-    .filter((k) => !allowed.includes(k))
-    .map((k) => diag("CORE_TYPE_ERROR", `${path}.${k}`, "unknown key"));
+  return rejectUnknownKeys(obj, ALLOWED_KEYS[kind], path);
 }
-
-const ID_RE = /^[A-Za-z0-9._-]+$/;
-const isId = (v: unknown): v is string => typeof v === "string" && ID_RE.test(v);
 
 type Entity = Record<string, unknown>;
 

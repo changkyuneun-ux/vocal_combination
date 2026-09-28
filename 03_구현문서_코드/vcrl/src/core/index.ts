@@ -9,3 +9,4 @@ export * from "./time.ts";
 export * from "./ref.ts";
 export * from "./envelope.ts";
 export * from "./attest.ts";
+export * from "./shape.ts";

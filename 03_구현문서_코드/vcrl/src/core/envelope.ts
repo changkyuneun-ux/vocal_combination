@@ -3,6 +3,7 @@ import { isEnumValue, type EnumValue } from "./enums.ts";
 import { capture, diag, type Diagnostic } from "./errors.ts";
 import { canonicalize } from "./jcs.ts";
 import { parseRef } from "./ref.ts";
+import { isId, rejectUnknownKeys } from "./shape.ts";
 
 export const LANGUAGE_VERSION = "1.0";
 
@@ -22,7 +23,6 @@ export const MODULE_RANK: Readonly<Record<EnumValue<"module">, number>> = {
   core: 0, facts: 1, constraint: 2, grant: 2, approval: 3, allocation: 4,
 };
 
-const ID_RE = /^[A-Za-z0-9._-]+$/;
 const VERSION_RE = /^[1-9]\d*$/;
 const ENVELOPE_KEYS = ["vcrl", "module", "id", "version", "depends_on", "visibility_default", "body"] as const;
 const DEPENDENCY_KEYS = ["ref", "digest"] as const;
@@ -36,7 +36,7 @@ export function validateEnvelope(doc: unknown): Diagnostic[] {
   const out: Diagnostic[] = [...capture(() => canonicalize(doc))];
   if (doc.vcrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.vcrl", `expected "${LANGUAGE_VERSION}"`));
   if (!isEnumValue("module", doc.module)) out.push(diag("CORE_ENUM_UNKNOWN", "$.module", String(doc.module)));
-  if (typeof doc.id !== "string" || !ID_RE.test(doc.id)) out.push(diag("CORE_TYPE_ERROR", "$.id"));
+  if (!isId(doc.id)) out.push(diag("CORE_TYPE_ERROR", "$.id"));
   if (typeof doc.version !== "string" || !VERSION_RE.test(doc.version)) out.push(diag("CORE_TYPE_ERROR", "$.version"));
   if (!isEnumValue("visibility", doc.visibility_default)) {
     out.push(diag("CORE_ENUM_UNKNOWN", "$.visibility_default", String(doc.visibility_default)));
@@ -53,20 +53,10 @@ export function validateEnvelope(doc: unknown): Diagnostic[] {
       }
       const ref = dep.ref;
       out.push(...capture(() => parseRef(ref, `${p}.ref`)));
-      // Check for unknown keys in dependency object (only if well-formed)
-      for (const k of Object.keys(dep)) {
-        if (!(DEPENDENCY_KEYS as readonly string[]).includes(k)) {
-          out.push(diag("CORE_TYPE_ERROR", `${p}.${k}`, "unknown key"));
-        }
-      }
+      out.push(...rejectUnknownKeys(dep, DEPENDENCY_KEYS, p));
     });
   }
-  // Check for unknown keys at top level
-  for (const k of Object.keys(doc)) {
-    if (!(ENVELOPE_KEYS as readonly string[]).includes(k)) {
-      out.push(diag("CORE_TYPE_ERROR", `$.${k}`, "unknown key"));
-    }
-  }
+  out.push(...rejectUnknownKeys(doc, ENVELOPE_KEYS, "$"));
   return out;
 }
 

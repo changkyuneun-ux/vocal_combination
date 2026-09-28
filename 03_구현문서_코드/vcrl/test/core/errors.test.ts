@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, capture, diag, fail } from "../../src/core/errors.ts";
+import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, attempt, capture, diag, fail } from "../../src/core/errors.ts";
 
 test("diag composes message from registry", () => {
   assert.deepEqual(diag("FACTS_CYCLE", "$.body.mandates", "m1"), {
@@ -33,4 +33,12 @@ test("spec/error-codes.md lists exactly the registry", () => {
   const md = readFileSync(new URL("../../spec/error-codes.md", import.meta.url), "utf8");
   const listed = [...md.matchAll(/^\| `([A-Z]+_[A-Z_]+)` \|/gm)].map((m) => m[1]);
   assert.deepEqual([...listed].sort(), Object.keys(ERROR_CODES).sort());
+});
+
+test("attempt turns VcrlError into a failed Result and passes values through", () => {
+  assert.deepEqual(attempt(() => 7), { ok: true, value: 7 });
+  const r = attempt(() => fail("ALLOC_INFEASIBLE", "$.v"));
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.ok ? [] : r.errors.map((d) => d.code), ["ALLOC_INFEASIBLE"]);
+  assert.throws(() => attempt(() => { throw new TypeError("boom"); }), TypeError);
 });
