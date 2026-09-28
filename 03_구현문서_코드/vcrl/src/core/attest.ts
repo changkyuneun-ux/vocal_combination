@@ -1,20 +1,33 @@
 import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import { isEnumValue, type EnumValue } from "./enums.ts";
 import { diag, type Diagnostic } from "./errors.ts";
+import { canonicalize } from "./jcs.ts";
 
 export type AttestationRole = EnumValue<"attestation_role">;
 export type Attestation = { signer: string; role: AttestationRole; over: string; alg: "Ed25519"; sig: string };
 export type KeyRegistry = Readonly<Record<string, string>>;
 
-/** 서명 대상 메시지는 digest 문자열의 UTF-8 바이트다. */
+export const ATTEST_CONTEXT = "vcrl-attest/1";
+
+/** 서명 대상 메시지: JCS({ ctx, signer, role, over, alg })의 UTF-8 바이트. 서명자·역할·알고리즘을 digest와 함께 묶는다. */
+export function attestationMessage(att: Omit<Attestation, "sig">): Uint8Array {
+  return new TextEncoder().encode(
+    canonicalize({ ctx: ATTEST_CONTEXT, signer: att.signer, role: att.role, over: att.over, alg: att.alg }),
+  );
+}
+
 export function signAttestation(p: { signer: string; role: AttestationRole; over: string; privateKeyPem: string }): Attestation {
-  const sig = sign(null, Buffer.from(p.over, "utf8"), createPrivateKey(p.privateKeyPem)).toString("base64url");
-  return { signer: p.signer, role: p.role, over: p.over, alg: "Ed25519", sig };
+  const unsigned = { signer: p.signer, role: p.role, over: p.over, alg: "Ed25519" as const };
+  const sig = sign(null, attestationMessage(unsigned), createPrivateKey(p.privateKeyPem)).toString("base64url");
+  return { ...unsigned, sig };
 }
 
 export function verifyAttestation(att: Attestation, publicKeyPem: string): boolean {
   try {
-    return verify(null, Buffer.from(att.over, "utf8"), createPublicKey(publicKeyPem), Buffer.from(att.sig, "base64url"));
+    if (att.alg !== "Ed25519") return false;
+    const key = createPublicKey(publicKeyPem);
+    if (key.asymmetricKeyType !== "ed25519") return false;
+    return verify(null, attestationMessage(att), key, Buffer.from(att.sig, "base64url"));
   } catch {
     return false;
   }

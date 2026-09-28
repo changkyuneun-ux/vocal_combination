@@ -26,3 +26,11 @@ test("non-plain objects rejected", () => {
 test("keys sorted by UTF-16 code units", () => {
   assert.equal(canonicalize({ "é": "x", z: "y", A: "w" }), '{"A":"w","z":"y","é":"x"}');
 });
+
+test("lone surrogates are rejected in values and keys", () => {
+  const isTypeError = (path: string) => (e: unknown) =>
+    e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR" && e.diagnostics[0]?.path === path;
+  assert.throws(() => canonicalize({ a: "x\ud800" }), isTypeError("$.a"));
+  assert.throws(() => canonicalize({ "\ud800": "x" }), isTypeError("$.\ud800"));
+  assert.equal(canonicalize({ a: "😀" }), '{"a":"😀"}');
+});

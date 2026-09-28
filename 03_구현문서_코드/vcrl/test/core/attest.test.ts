@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { checkAttestations, checkSod, signAttestation, verifyAttestation, type Attestation } from "../../src/core/attest.ts";
+import { attestationMessage, checkAttestations, checkSod, signAttestation, verifyAttestation, type Attestation } from "../../src/core/attest.ts";
 import { digestOf } from "../../src/core/digest.ts";
 
 function keypair() {
@@ -43,4 +43,28 @@ test("built-in SoD: editor != activator, ops != settle", () => {
   assert.deepEqual(checkSod([a("p1", "EDITOR"), a("p2", "ACTIVATOR")]), []);
   assert.deepEqual(checkSod([a("p1", "EDITOR"), a("p1", "ACTIVATOR")]).map((d) => d.code), ["CORE_SOD_VIOLATION"]);
   assert.deepEqual(checkSod([a("p9", "SPACE_OPS"), a("p9", "SPACE_SETTLE")]).map((d) => d.code), ["CORE_SOD_VIOLATION"]);
+});
+
+test("signature binds signer, role and alg, not only the digest", () => {
+  const keys = { pty_alice: alice.pub };
+  const good = signAttestation({ signer: "pty_alice", role: "EDITOR", over: D, privateKeyPem: alice.priv });
+  const promoted: Attestation = { ...good, role: "APPROVER" };
+  assert.deepEqual(checkAttestations([promoted], D, keys).map((d) => d.code), ["CORE_SIGNATURE_INVALID"]);
+  assert.equal(verifyAttestation({ ...good, alg: "RS256" as never }, alice.pub), false);
+});
+
+test("attestation message is JCS of the context-tagged payload", () => {
+  const msg = attestationMessage({ signer: "pty_alice", role: "EDITOR", over: D, alg: "Ed25519" });
+  assert.equal(
+    new TextDecoder().decode(msg),
+    `{"alg":"Ed25519","ctx":"vcrl-attest/1","over":"${D}","role":"EDITOR","signer":"pty_alice"}`,
+  );
+});
+
+test("non-Ed25519 public keys never verify", () => {
+  const good = signAttestation({ signer: "pty_alice", role: "EDITOR", over: D, privateKeyPem: alice.priv });
+  const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ type: "spki", format: "pem" }).toString();
+  const ec = generateKeyPairSync("ec", { namedCurve: "P-256" }).publicKey.export({ type: "spki", format: "pem" }).toString();
+  assert.equal(verifyAttestation(good, rsa), false);
+  assert.equal(verifyAttestation(good, ec), false);
 });
