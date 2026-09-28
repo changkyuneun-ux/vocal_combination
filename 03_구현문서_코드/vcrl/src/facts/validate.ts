@@ -3,6 +3,7 @@ import { validateEnvelope } from "../core/envelope.ts";
 import { isEnumValue, type EnumName } from "../core/enums.ts";
 import { capture, diag, type Diagnostic } from "../core/errors.ts";
 import { checkInterval, isInstant } from "../core/time.ts";
+import { checkClaimSums, checkMandates } from "./invariants.ts";
 import { CLAIM_EDGE_KINDS, type EntityType, type FactsBody, type FactsDocument } from "./types.ts";
 
 const ARRAYS = ["parties", "works", "recordings", "voices", "stems", "claims", "mandates"] as const;
@@ -127,4 +128,12 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
   out.push(...unknownKeys(body, "body", "$.body"));
 
   return out;
+}
+
+/** 구조 검증 → (통과 시) share 합 불변식 → 위임 합·순환·깊이. */
+export function validateFacts(doc: unknown): Diagnostic[] {
+  const structural = validateFactsStructure(doc);
+  if (structural.length > 0) return structural;
+  const body = (doc as FactsDocument).body;
+  return [...checkClaimSums(body), ...checkMandates(body)];
 }
