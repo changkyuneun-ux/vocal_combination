@@ -280,3 +280,38 @@ test("performer line role comes from the party's role in the projection", () => 
     ["pty_member_c", "PERFORMER_NON_FEATURED"],
   ]);
 });
+
+test("zero-amount parts produce no line but stay in the trace", () => {
+  const i = basic();
+  i.events = [{ ...i.events[0]!, amount: "1" }];
+  const res = run(i);
+  assert.equal(res.lines.some((l) => l.amount === "0"), false);
+  // rights 1 → tier2 동률(9/20)에서 master가 key 순으로 1을 받는다
+  assert.deepEqual(linesOf(res, "ev_001"), [["master", "pty_label_x", "MASTER_OWNER", "1"]]);
+  const performer = res.trace.find((t) => t.level === "bucket:performer")!;
+  assert.deepEqual(performer.parts.map((p) => [p.key, p.amount]), [["pty_member_a", "0"], ["pty_member_b", "0"]]);
+});
+
+test("an AGENCY party in a non-performer bucket gets the AGENCY line role", () => {
+  const i = basic();
+  i.policy.body.tier2.split[0]!.vector = { fn: "mix", parts: [
+    { weight: "5000", of: { fn: "graph", role: "MASTER_OWNER" } },
+    { weight: "5000", of: { fn: "contract", party: "pty_agency_s" } },
+  ] };
+  const res = run(i);
+  assert.deepEqual(linesOf(res, "ev_001").filter((l) => l[0] === "master"), [
+    ["master", "pty_agency_s", "AGENCY", "1575"],
+    ["master", "pty_label_x", "MASTER_OWNER", "1575"],
+  ]);
+});
+
+test("duplicate event ids are rejected as not strictly sorted", () => {
+  const i = basic();
+  i.events[1]!.id = i.events[0]!.id;
+  const r = evaluate(i);
+  assert.equal(r.ok, false);
+  if (!r.ok) {
+    assert.deepEqual(r.errors.map((e) => [e.code, e.path]), [["CORE_TYPE_ERROR", "$.events"]]);
+    assert.match(r.errors[0]!.message, /not sorted by id/);
+  }
+});

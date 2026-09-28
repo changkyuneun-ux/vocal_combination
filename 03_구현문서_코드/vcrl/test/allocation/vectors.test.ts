@@ -88,3 +88,12 @@ test("Object.prototype member names are ordinary party ids", () => {
     constructor: r(1n, 2n), valueOf: r(1n, 2n),
   });
 });
+
+test("floorGuarantee leaves @hold untouched and lifts zero-weight entries", () => {
+  // available = 4/5. c(0) floored; round 1: a,b scale 7/10 ÷ 4/5 = 7/8 → b = 7/80 < 1/10 floored;
+  // round 2: remaining 3/5, a scale 6/7 → a = 3/5.
+  assert.deepEqual(floorGuarantee({ "@hold": r(1n, 5n), a: r(7n, 10n), b: r(1n, 10n) }, ["c"], r(1n, 10n), "$"), {
+    "@hold": r(1n, 5n), a: r(3n, 5n), b: r(1n, 10n), c: r(1n, 10n),
+  });
+  assert.deepEqual(floorGuarantee({ a: ONE, z: r(0n, 1n) }, [], r(1n, 4n), "$"), { a: r(3n, 4n), z: r(1n, 4n) });
+});
