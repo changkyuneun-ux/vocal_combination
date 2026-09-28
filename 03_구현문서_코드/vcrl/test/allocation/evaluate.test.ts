@@ -257,3 +257,26 @@ test("performer coverage is checked per party", () => {
   j.snapshot = { members: { pty_member_a: "1/1" } };
   assertConserved(run(j), j);
 });
+
+test("performer line role comes from the party's role in the projection", () => {
+  const i = withFacts((f) => {
+    const b = f.facts.body;
+    const base = { status: "VERIFIED", valid: { from: "2026-01-01T00:00:00.000Z" }, recorded_at: "2026-01-01T00:00:00.000Z" } as const;
+    b.parties.push({ id: "pty_member_c", kind: "PERFORMER" });
+    b.voices.push({ id: "vo_c", kind: "HUMAN" });
+    b.claims.push(
+      { id: "c8", source: "stm_v2", edge: "PERFORMED_BY", target: "vo_c", share: "10000", performer_role: "NON_FEATURED", ...base },
+      { id: "c9", source: "vo_c", edge: "OWNED_BY", target: "pty_member_c", share: "10000", ...base },
+    );
+    return f;
+  });
+  i.snapshot = { members: { pty_member_a: "1/3", pty_member_b: "1/3", pty_member_c: "1/3" } };
+  const res = run(i);
+  assertConserved(res, i);
+  const roles = new Map(res.lines.filter((l) => l.bucket === "performer").map((l) => [l.party, l.role]));
+  assert.deepEqual([...roles], [
+    ["pty_member_a", "PERFORMER_FEATURED"],
+    ["pty_member_b", "PERFORMER_FEATURED"],
+    ["pty_member_c", "PERFORMER_NON_FEATURED"],
+  ]);
+});

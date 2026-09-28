@@ -94,8 +94,9 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   if (errors.length > 0) return err(errors);
 
   const out: Output = { pool_lines: [], lines: [], holdings: [], trace: [] };
+  const lineRole = lineRoles(kinds, vectors.value);
   const allocated = attempt(() => {
-    for (const ev of events) allocateEvent(ev, body, bucketVectors, kinds, out);
+    for (const ev of events) allocateEvent(ev, body, bucketVectors, lineRole, out);
   });
   if (!allocated.ok) return err(allocated.errors);
   const result = {
@@ -223,9 +224,22 @@ function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members:
   return out;
 }
 
-/** 위임 수령인의 역할 규칙(스펙 12.16): CMO·AGENCY는 그 역할, 그 외는 버킷 역할. */
-function lineRole(kind: string | undefined, role: ClaimantRole): ClaimantRole {
-  return kind === "CMO" || kind === "AGENCY" ? kind : role;
+type LineRole = (party: string, bucketRole: ClaimantRole) => ClaimantRole;
+
+/**
+ * 라인 역할 규칙: (1) CMO·AGENCY kind는 그 역할(스펙 12.16), (2) 실연 버킷이면 투영에서 그 권리자가
+ * 한 실연 역할에만 지분이 있을 때 그 역할(스펙 12.34), 둘 다이거나 없으면 버킷 역할, (3) 그 외는 버킷 역할.
+ */
+function lineRoles(kinds: ReadonlyMap<string, string>, vectors: Vectors): LineRole {
+  const [featured, nonFeatured] = PERFORMER_ROLES.map((r) => new Set(claimantsOf(vectors[r])));
+  return (party, bucketRole) => {
+    const kind = kinds.get(party);
+    if (kind === "CMO" || kind === "AGENCY") return kind;
+    if (!PERFORMER_ROLES.includes(bucketRole)) return bucketRole;
+    const f = featured!.has(party);
+    if (f === nonFeatured!.has(party)) return bucketRole;
+    return f ? "PERFORMER_FEATURED" : "PERFORMER_NON_FEATURED";
+  };
 }
 
 function level(out: Output, eventId: string, name: string, total: bigint, shares: readonly Share[]): Allotment[] {
@@ -241,7 +255,7 @@ function level(out: Output, eventId: string, name: string, total: bigint, shares
 
 function allocateEvent(
   ev: RevenueEvent, body: AllocationBody, bucketVectors: readonly PartyVector[],
-  kinds: ReadonlyMap<string, string>, out: Output,
+  lineRole: LineRole, out: Output,
 ): void {
   const tier1 = level(out, ev.id, "tier1", BigInt(ev.amount), body.tier1.buckets.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
   for (const a of tier1) out.pool_lines.push({ event_id: ev.id, bucket: a.key, amount: a.amount.toString() });
@@ -260,7 +274,7 @@ function allocateEvent(
         out.holdings.push({ event_id: ev.id, bucket: bucket.name, reason: "RIGHTS_DISPUTE", amount: p.amount.toString() });
       } else {
         out.lines.push({
-          event_id: ev.id, party: p.key, role: lineRole(kinds.get(p.key), bucket.role),
+          event_id: ev.id, party: p.key, role: lineRole(p.key, bucket.role),
           bucket: bucket.name, line_seq: "1", amount: p.amount.toString(),
         });
       }
