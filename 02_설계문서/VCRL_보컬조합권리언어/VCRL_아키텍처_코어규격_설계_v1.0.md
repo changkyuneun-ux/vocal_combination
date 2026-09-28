@@ -480,3 +480,9 @@ manifest/
 28. **안분 커버리지**: 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
 29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다. 분쟁 위임은 투영된 권리자에서 출발해 역할별 위임 체인을 최대 2홉까지 따라가며 찾으므로, 체인 중간의 분쟁도 활성화를 막는다.
 30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`), 역분개(`REVERSAL`), 다통화 정산, 섀도 시뮬레이션 리포트는 후속 계획에서 다룬다.
+31. **출력 순서 규칙**: pool_lines는 이벤트 순서 → tier1 버킷 순서, lines·holdings는 이벤트 순서 → tier2 버킷 순서 → party id 코드 유닛 오름차순, trace는 이벤트 순서 → `tier1`, `tier2`, `bucket:<name>`(split 순서). JS 객체 키 순서에 의존하지 않는다.
+32. **버킷 역할 일치**: graph 잎의 역할은 버킷 역할과 같아야 하고, 실연 풀·멤버 비율·실연 graph가 있으면 버킷 역할은 실연 역할이어야 한다. 위임 권리가 없는 역할에 via_mandate는 쓸 수 없다(`CORE_TYPE_ERROR`).
+33. **실연 커버리지(권리자 단위, 사용자 결정)**: 투영에서 지분이 있는 실연자는 스냅샷 멤버이거나 사용량 기반 실연 소스(`graph(PERFORMER_*)`, `USAGE_WEIGHTED`·`HYBRID` 풀)로 배분되어야 한다. 아니면 `ALLOC_UNCOVERED_CLAIMANT`.
+34. **실연 라인 역할(사용자 결정)**: 실연 버킷의 라인 역할은 투영에서 그 권리자가 가진 실연 역할(주실연/부실연)이며, 둘 다이거나 없으면 버킷 역할. CMO·AGENCY kind 규칙이 우선한다.
+35. **입력 검증**: 투영의 `as_of`·`known_at`은 Instant, digest류는 digest 형식이어야 한다. 진단 경로는 입력별 접두사(`$.facts`, `$.projection`, `$.snapshot`, `$.events[i]`)를 쓴다.
+36. **식별자**: `constructor` 등 Object.prototype 이름도 유효한 id이며, 구현은 키 조회에 소유 속성만 사용한다(`__proto__`만 금지).
