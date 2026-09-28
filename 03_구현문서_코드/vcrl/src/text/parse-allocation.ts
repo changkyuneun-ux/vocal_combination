@@ -2,7 +2,7 @@ import { parseBps, percentToBps } from "../core/bps.ts";
 import { attempt, err, fail, ok, type Result } from "../core/errors.ts";
 import type { EnumValue } from "../core/enums.ts";
 import type { Dependency } from "../core/envelope.ts";
-import { validateAllocation } from "../allocation/validate.ts";
+import { MAX_VECTOR_DEPTH, validateAllocation } from "../allocation/validate.ts";
 import type { AllocationBody, AllocationDocument, SplitBucket, Tier1Bucket, VectorExpr } from "../allocation/types.ts";
 import type { ClaimantRole } from "../facts/types.ts";
 import { at, tokenize, type Token } from "./lexer.ts";
@@ -139,8 +139,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
         return fail("PARSE_SYNTAX", at(t), `unknown vector function ${t.text}`);
     }
   };
-  /** mix 재귀와 |> 파이프 연결을 합친 벡터 식의 총 중첩 한도(스택 오버플로 방지). */
-  const MAX_VECTOR_DEPTH = 64;
+  /** mix 재귀와 |> 파이프 연결을 합친 벡터 식의 총 중첩 한도(스택 오버플로 방지). 셈법은 IR 깊이와 같다(검증기와 공유). */
   let vectorDepth = 0;
   const vector = (): VectorExpr => {
     let localDepth = 0;

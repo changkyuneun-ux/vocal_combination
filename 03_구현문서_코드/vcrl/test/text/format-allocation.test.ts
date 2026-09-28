@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { formatAllocation, formatPercent } from "../../src/text/format-allocation.ts";
 import { compileAllocation, parseAllocation } from "../../src/text/parse-allocation.ts";
+import { validateAllocation } from "../../src/allocation/validate.ts";
 import { evaluate } from "../../src/allocation/evaluate.ts";
 import type { AllocationDocument } from "../../src/allocation/types.ts";
 import { VcrlError } from "../../src/core/errors.ts";
@@ -48,9 +49,10 @@ test("explicit roles, quoted ids, pipes and visibility round-trip", () => {
   assert.match(text, /\n  visibility PUBLIC;\n/);
 });
 
-test("non-facts dependencies cannot be written as text", () => {
+test("non-facts dependencies are rejected by the validator and cannot be written as text", () => {
   const doc = loadAllocationCase().policy;
   doc.depends_on = [{ ref: "vc:grant/g1@1", digest: doc.depends_on[0]!.digest }];
+  assert.deepEqual(validateAllocation(doc).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.depends_on[0].ref"]]);
   assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
 });
 

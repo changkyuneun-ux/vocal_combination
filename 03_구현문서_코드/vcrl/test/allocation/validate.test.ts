@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-import { validateAllocation } from "../../src/allocation/validate.ts";
+import { MAX_VECTOR_DEPTH, validateAllocation } from "../../src/allocation/validate.ts";
+import { diag } from "../../src/core/errors.ts";
+import { formatAllocation } from "../../src/text/format-allocation.ts";
+import { parseAllocation } from "../../src/text/parse-allocation.ts";
 import type { VectorExpr } from "../../src/allocation/types.ts";
 import { loadAllocationCase } from "../helpers.ts";
 
@@ -139,4 +142,45 @@ test("bucket role must match its vector expression", () => {
   ] }), mismatch("role"));
   assert.deepEqual(at("MASTER_OWNER", { fn: "cap", max: "5000", of: { fn: "graph", role: "PERFORMER_FEATURED" } }), mismatch("role"));
   assert.match(validateAllocation(withRole("AI_PROVIDER"))[0]!.message, /role mismatch: AI_PROVIDER vs /);
+});
+
+/** graph 잎 하나를 mix(100%)로 감싸 IR 깊이 n(잎 = 1)의 벡터를 만든다. */
+function nestedVector(n: number): VectorExpr {
+  let v: VectorExpr = { fn: "graph", role: "MASTER_OWNER" };
+  for (let i = 1; i < n; i++) v = { fn: "mix", parts: [{ weight: "10000", of: v }] };
+  return v;
+}
+
+test("vector nesting depth limit matches the parser (64)", () => {
+  assert.equal(MAX_VECTOR_DEPTH, 64);
+  const ok = withMasterVector(nestedVector(64));
+  assert.deepEqual(validateAllocation(ok), []);
+  const text = formatAllocation(ok);
+  const back = parseAllocation(text);
+  assert.ok(back.ok, JSON.stringify(back));
+  assert.deepEqual(back.value, ok);
+
+  const deep = withMasterVector(nestedVector(65));
+  assert.deepEqual(validateAllocation(deep), [diag("CORE_TYPE_ERROR", "$.body.tier2.split[0].vector", "vector nesting too deep")]);
+  const deepParsed = parseAllocation(formatAllocation(deep));
+  assert.equal(deepParsed.ok, false);
+  assert.equal((deepParsed as { ok: false; errors: { code: string }[] }).errors[0]!.code, "PARSE_SYNTAX");
+});
+
+test("a 20,000-deep vector yields a diagnostic instead of a RangeError", () => {
+  const deep = withMasterVector(nestedVector(20_000));
+  assert.deepEqual(codes(deep), ["CORE_TYPE_ERROR"]);
+  let v: unknown = { fn: "member_pct" };
+  for (let i = 0; i < 20_000; i++) v = { fn: "cap", max: "5000", of: v };
+  assert.deepEqual(codes(withVector(v)), ["CORE_TYPE_ERROR"]);
+});
+
+test("allocation v1.0 may depend only on facts", () => {
+  const p = policy();
+  const digest = p.depends_on[0]!.digest;
+  p.depends_on = [p.depends_on[0]!, { ref: "vc:grant/g1@1", digest }, { ref: "vc:approval/a1@2", digest }];
+  assert.deepEqual(validateAllocation(p), [
+    diag("CORE_TYPE_ERROR", "$.depends_on[1].ref", "allocation v1.0 may depend only on facts"),
+    diag("CORE_TYPE_ERROR", "$.depends_on[2].ref", "allocation v1.0 may depend only on facts"),
+  ]);
 });

@@ -1,11 +1,15 @@
 import { BPS_TOTAL, parseBps } from "../core/bps.ts";
-import { validateEnvelope } from "../core/envelope.ts";
+import { validateEnvelope, type Dependency } from "../core/envelope.ts";
 import { isEnumValue, type EnumName, type EnumValue } from "../core/enums.ts";
 import { capture, diag, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
+import { parseRef } from "../core/ref.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { ROLE_RIGHT } from "../facts/mandate.ts";
 import type { ClaimantRole } from "../facts/types.ts";
+
+/** 벡터 식 IR의 최대 중첩 깊이(잎 = 1, mix·cap·floor_guarantee = 1 + 자식 최대 깊이). 파서와 검증기가 같이 쓴다. */
+export const MAX_VECTOR_DEPTH = 64;
 
 const NAME_RE = /^[a-z][a-z0-9_]*$/;
 const CURRENCY_RE = /^[A-Z]{3}$/;
@@ -47,6 +51,35 @@ function leavesOf(v: unknown): Leaf[] {
   }
 }
 
+/** 벡터 식 IR 깊이가 `remaining`을 넘는지 본다. 한도 너머로는 내려가지 않는다(깊은 JSON에서도 스택 오버플로 없음). */
+function deeperThan(v: unknown, remaining: number): boolean {
+  if (!isPlainObject(v)) return false;
+  if (remaining <= 0) return true;
+  switch (v.fn) {
+    case "mix":
+      return Array.isArray(v.parts) && v.parts.some((part: unknown) => isPlainObject(part) && deeperThan(part.of, remaining - 1));
+    case "cap":
+    case "floor_guarantee":
+      return deeperThan(v.of, remaining - 1);
+    default:
+      return false;
+  }
+}
+
+/**
+ * 한도를 넘는 split 벡터를 찾는다. 봉투 검사(정규화)와 벡터 검사는 재귀이므로 이 검사가 먼저 돌아야
+ * 아주 깊은 JSON에서도 RangeError 없이 진단을 돌려준다.
+ */
+function tooDeepVectors(doc: unknown): Diagnostic[] {
+  const split = isPlainObject(doc) && isPlainObject(doc.body) && isPlainObject(doc.body.tier2) ? doc.body.tier2.split : undefined;
+  if (!Array.isArray(split)) return [];
+  return split.flatMap((bk: unknown, i: number) =>
+    isPlainObject(bk) && deeperThan(bk.vector, MAX_VECTOR_DEPTH)
+      ? [diag("CORE_TYPE_ERROR", `$.body.tier2.split[${i}].vector`, "vector nesting too deep")]
+      : [],
+  );
+}
+
 /** 스펙 12.32: 실연 잎이 있으면 버킷은 실연 역할이고 graph 잎도 모두 실연 역할, 아니면 graph 잎은 버킷 역할과 같다. 어긋난 첫 잎을 돌려준다. */
 function roleMismatch(role: ClaimantRole, leaves: readonly Leaf[]): string | undefined {
   const isPerformer = (l: Leaf) => "performer" in l || PERFORMER_ROLES.includes(l.graph);
@@ -59,11 +92,17 @@ function roleMismatch(role: ClaimantRole, leaves: readonly Leaf[]): string | und
 
 /** 안분 정책 IR의 정적 검증(스펙 5.4). 투영·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
 export function validateAllocation(doc: unknown): Diagnostic[] {
+  const deep = tooDeepVectors(doc);
+  if (deep.length > 0) return deep;
   const env = validateEnvelope(doc);
   if (env.length > 0) return env;
-  const d = doc as { module: unknown; body: Obj };
+  const d = doc as { module: unknown; depends_on: readonly Dependency[]; body: Obj };
   if (d.module !== "allocation") return [diag("CORE_TYPE_ERROR", "$.module", "expected allocation")];
   const out: Diagnostic[] = [];
+  // v1.0: grant·approval 의존은 해당 모듈과 문법(`uses <module> …`)이 생길 때 연다(스펙 12.47).
+  d.depends_on.forEach((dep, i) => {
+    if (parseRef(dep.ref).kind !== "facts") out.push(diag("CORE_TYPE_ERROR", `$.depends_on[${i}].ref`, "allocation v1.0 may depend only on facts"));
+  });
 
   const obj = (v: unknown, p: string): v is Obj => {
     if (isPlainObject(v)) return true;
