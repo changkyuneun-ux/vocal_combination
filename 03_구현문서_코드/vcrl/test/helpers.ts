@@ -25,3 +25,12 @@ export function mandateOf(input: BasicInput, id: string): Mandate {
   if (!m) throw new Error(`no mandate ${id}`);
   return m;
 }
+
+const BODY_ARRAYS = ["parties", "works", "recordings", "voices", "stems", "claims", "mandates"] as const;
+
+/** 정규형(id 오름차순, 코드 유닛 비교)으로 7개 엔티티 배열을 정렬한다. 엔티티를 추가한 테스트는 호출해야 한다. */
+export function sortBody(input: BasicInput): BasicInput {
+  const body = input.facts.body as unknown as Record<string, { id: string }[]>;
+  for (const k of BODY_ARRAYS) body[k]!.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return input;
+}

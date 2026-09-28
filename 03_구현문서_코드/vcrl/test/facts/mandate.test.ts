@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { checkClaimantCoverage, deriveClaimants, routeVector } from "../../src/facts/mandate.ts";
 import { HOLD, projectVectors } from "../../src/facts/project.ts";
 import { ratio } from "../../src/core/ratio.ts";
-import { loadBasic, mandateOf, type BasicInput } from "../helpers.ts";
+import { loadBasic, mandateOf, sortBody, type BasicInput } from "../helpers.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -38,12 +38,14 @@ test("two hops route through, a third hop is rejected", () => {
   mandateOf(i, "m1").to = "pty_pub";
   const hop = { right: "WORK" as const, share: "10000", status: "VERIFIED" as const, valid: { from: T0 }, recorded_at: T0 };
   i.facts.body.mandates.push({ id: "m3", from: "pty_pub", to: "pty_komca", ...hop });
+  sortBody(i);
   const vec = vectors(i).vectors.WORK_AUTHOR!;
   const two = routeVector(i.facts, vec, "WORK", i.as_of, i.known_at);
   assert.ok(two.ok);
   assert.deepEqual(two.value, { pty_author_c: ratio(2n, 5n), pty_komca: ratio(3n, 5n) });
 
   i.facts.body.mandates.push({ id: "m4", from: "pty_komca", to: "pty_agency_s", ...hop });
+  sortBody(i);
   const three = routeVector(i.facts, vec, "WORK", i.as_of, i.known_at);
   assert.equal(three.ok, false);
   assert.deepEqual(three.ok ? [] : three.errors.map((e) => e.code), ["FACTS_MANDATE_DEPTH"]);

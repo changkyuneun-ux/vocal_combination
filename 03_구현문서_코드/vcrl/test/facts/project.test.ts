@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HOLD, projectVectors } from "../../src/facts/project.ts";
 import { ONE, ratio, sum } from "../../src/core/ratio.ts";
-import { claimOf, loadBasic, type BasicInput } from "../helpers.ts";
+import { claimOf, loadBasic, sortBody, type BasicInput } from "../helpers.ts";
 
 const run = (i: BasicInput) => projectVectors(i.facts, i.usage, i.as_of, i.known_at);
 const errCodes = (i: BasicInput) => {
@@ -43,6 +43,7 @@ test("AI voice contributes to AI_PROVIDER; duet splits the stem", () => {
   claimOf(i, "c1").share = "5000";
   b.claims.push({ ...claimOf(i, "c1"), id: "c1b", target: "vo_ai" });
   b.claims.push({ ...claimOf(i, "c3"), id: "c_ai", source: "vo_ai", target: "pty_ai" });
+  sortBody(i);
   const r = run(i);
   assert.ok(r.ok, JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
   assert.deepEqual(r.value.vectors.PERFORMER_FEATURED, { pty_member_a: ratio(1n, 2n), pty_member_b: ratio(1n, 2n) });

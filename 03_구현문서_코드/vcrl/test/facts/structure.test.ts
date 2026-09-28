@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { validateFactsStructure } from "../../src/facts/validate.ts";
 import { CLAIM_EDGE_KINDS } from "../../src/facts/types.ts";
 import { ENUMS } from "../../src/core/enums.ts";
-import { claimOf, loadBasic } from "../helpers.ts";
+import { claimOf, loadBasic, mandateOf, sortBody, type BasicInput } from "../helpers.ts";
 
 const codes = (doc: unknown) => validateFactsStructure(doc).map((d) => d.code);
 
@@ -36,6 +36,7 @@ test("wrong module is rejected", () => {
 test("duplicate id", () => {
   const i = loadBasic();
   i.facts.body.parties.push({ id: "pty_komca", kind: "CMO" });
+  sortBody(i);
   assert.deepEqual(codes(i.facts), ["FACTS_DUPLICATE_ID"]);
 });
 
@@ -112,6 +113,83 @@ test("unknown keys are rejected on every entity shape", () => {
       [["CORE_TYPE_ERROR", `${path}.extra`]],
       label,
     );
+    assert.equal(validateFactsSchema(i.facts), false, label);
+  }
+});
+
+test("entity arrays must be strictly ascending by id (canonical order)", () => {
+  const i = loadBasic();
+  i.facts.body.claims.reverse();
+  assert.deepEqual(
+    validateFactsStructure(i.facts).map((d) => [d.code, d.path, d.message.endsWith("not sorted by id")]),
+    [["CORE_TYPE_ERROR", "$.body.claims", true]],
+  );
+  const j = loadBasic();
+  j.facts.body.parties.push({ id: "pty_zz", kind: "CMO" }, { id: "pty_aa", kind: "CMO" });
+  assert.deepEqual(validateFactsStructure(j.facts).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.body.parties"]]);
+  assert.deepEqual(validateFactsStructure(sortBody(j).facts), []);
+});
+
+test("validator matches the JSON Schema on element, id, required, ids, text and visibility rules", () => {
+  type Row = { label: string; mutate: (i: BasicInput) => void; expect: [string, string][] };
+  const rec = (x: object) => x as unknown as Record<string, unknown>;
+  const rows: Row[] = [
+    { label: "non-object element", mutate: (i) => (rec(i.facts.body).voices = ["vo_a", { id: "vo_b", kind: "HUMAN" }]),
+      expect: [["CORE_TYPE_ERROR", "$.body.voices[0]"]] },
+    { label: "id @hold as reference", mutate: (i) => (claimOf(i, "c5").target = "@hold"),
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[4].target"]] },
+    { label: "id with | and ,", mutate: (i) => (claimOf(i, "c7").id = "c7|x,y"),
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[6].id"]] },
+    { label: "missing id", mutate: (i) => delete rec(i.facts.body.works[0]!).id,
+      expect: [
+        ["CORE_TYPE_ERROR", "$.body.works[0].id"],
+        ["FACTS_UNKNOWN_ENTITY", "$.body.recordings[0].of"],
+        ["FACTS_UNKNOWN_ENTITY", "$.body.claims[5].source"],
+        ["FACTS_UNKNOWN_ENTITY", "$.body.claims[6].source"],
+      ] },
+    { label: "mandate.to format", mutate: (i) => (mandateOf(i, "m1").to = "pty@komca"),
+      expect: [["CORE_TYPE_ERROR", "$.body.mandates[0].to"]] },
+    { label: "party.kind required", mutate: (i) => delete rec(i.facts.body.parties[0]!).kind,
+      expect: [["CORE_TYPE_ERROR", "$.body.parties[0].kind"]] },
+    { label: "recording.of required", mutate: (i) => delete rec(i.facts.body.recordings[0]!).of,
+      expect: [["CORE_TYPE_ERROR", "$.body.recordings[0].of"]] },
+    { label: "voice.kind required", mutate: (i) => delete rec(i.facts.body.voices[0]!).kind,
+      expect: [["CORE_TYPE_ERROR", "$.body.voices[0].kind"]] },
+    { label: "stem.of required", mutate: (i) => delete rec(i.facts.body.stems[0]!).of,
+      expect: [["CORE_TYPE_ERROR", "$.body.stems[0].of"]] },
+    { label: "stem.slot string", mutate: (i) => (rec(i.facts.body.stems[0]!).slot = true),
+      expect: [["CORE_TYPE_ERROR", "$.body.stems[0].slot"]] },
+    { label: "stem.rights_bearing required", mutate: (i) => delete rec(i.facts.body.stems[0]!).rights_bearing,
+      expect: [["CORE_TYPE_ERROR", "$.body.stems[0].rights_bearing"]] },
+    { label: "claim.edge required", mutate: (i) => delete rec(claimOf(i, "c5")).edge,
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[4].edge"]] },
+    { label: "claim.status required", mutate: (i) => delete rec(claimOf(i, "c5")).status,
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[4].status"]] },
+    { label: "mandate.right required", mutate: (i) => delete rec(mandateOf(i, "m1")).right,
+      expect: [["CORE_TYPE_ERROR", "$.body.mandates[0].right"]] },
+    { label: "mandate.share required", mutate: (i) => delete rec(mandateOf(i, "m1")).share,
+      expect: [["CORE_TYPE_ERROR", "$.body.mandates[0].share"]] },
+    { label: "ids non-string value", mutate: (i) => (rec(i.facts.body.parties[4]!).ids = { isni: true }),
+      expect: [["CORE_TYPE_ERROR", "$.body.parties[4].ids"]] },
+    { label: "ids not an object", mutate: (i) => (rec(i.facts.body.works[0]!).ids = "T-1"),
+      expect: [["CORE_TYPE_ERROR", "$.body.works[0].ids"]] },
+    { label: "recording ids array", mutate: (i) => (rec(i.facts.body.recordings[0]!).ids = ["x"]),
+      expect: [["CORE_TYPE_ERROR", "$.body.recordings[0].ids"]] },
+    { label: "evidence string", mutate: (i) => (rec(claimOf(i, "c5")).evidence = true),
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[4].evidence"]] },
+    { label: "role_detail string", mutate: (i) => (rec(claimOf(i, "c6")).role_detail = { x: "y" }),
+      expect: [["CORE_TYPE_ERROR", "$.body.claims[5].role_detail"]] },
+    { label: "party visibility", mutate: (i) => (rec(i.facts.body.parties[0]!).visibility = "EVERYONE"),
+      expect: [["CORE_ENUM_UNKNOWN", "$.body.parties[0].visibility"]] },
+    { label: "claim visibility", mutate: (i) => (rec(claimOf(i, "c5")).visibility = "EVERYONE"),
+      expect: [["CORE_ENUM_UNKNOWN", "$.body.claims[4].visibility"]] },
+    { label: "mandate visibility", mutate: (i) => (rec(mandateOf(i, "m1")).visibility = "EVERYONE"),
+      expect: [["CORE_ENUM_UNKNOWN", "$.body.mandates[0].visibility"]] },
+  ];
+  for (const { label, mutate, expect } of rows) {
+    const i = loadBasic();
+    mutate(i);
+    assert.deepEqual(validateFactsStructure(i.facts).map((d) => [d.code, d.path]), expect, label);
     assert.equal(validateFactsSchema(i.facts), false, label);
   }
 });
