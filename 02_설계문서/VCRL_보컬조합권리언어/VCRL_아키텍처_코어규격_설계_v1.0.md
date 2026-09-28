@@ -486,3 +486,13 @@ manifest/
 34. **실연 라인 역할(사용자 결정)**: 실연 버킷의 라인 역할은 투영에서 그 권리자가 가진 실연 역할(주실연/부실연)이며, 둘 다이거나 없으면 버킷 역할. CMO·AGENCY kind 규칙이 우선한다.
 35. **입력 검증**: 투영의 `as_of`·`known_at`은 Instant, digest류는 digest 형식이어야 한다. 진단 경로는 입력별 접두사(`$.facts`, `$.projection`, `$.snapshot`, `$.events[i]`)를 쓴다.
 36. **식별자**: `constructor` 등 Object.prototype 이름도 유효한 id이며, 구현은 키 조회에 소유 속성만 사용한다(`__proto__`만 금지).
+37. **allocation 텍스트 문법(계획 1-C)**: 정본은 `spec/grammar/allocation.ebnf`. 블록은 `uses facts "<id>"@<v> digest "<d>";`, `visibility`, `scope`, `bind`, `tier1`, `tier2 <권리자 풀 버킷> { split { … } }`, `guard`, `exceptions`, `rounding`이다. scope·bind·tier1·tier2·rounding은 필수이고 블록 순서는 자유다. 비율은 `%`(소수 둘째 자리까지) 또는 `bps`(정수), id는 식별자 또는 따옴표 문자열, 주석은 `//`. 문법 오류는 `PARSE_SYNTAX`이며 경로는 `@줄:열`이다. 텍스트 입력은 allocation만 받고(사용자 결정), facts는 읽기 전용 텍스트로 표시만 한다.
+38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`은 r, 실연 풀·멤버 비율은 `PERFORMER_FEATURED`, 실연 graph만 있으면 그 역할이다. `contract`는 역할을 정하지 않는다. 추론할 수 없거나 서로 다른 역할의 graph가 섞이면 `PARSE_ROLE_REQUIRED`.
+39. **guard·exceptions 블록**: 엔진의 고정 의미를 문서로 드러내는 선택 블록이며 IR에 남지 않는다. `require covered(all_claimants)`, `require sum(split) == 100%`, `on DISPUTED -> hold(DISPUTED_SHARE)`, `on FRAUD_FLAG -> hold(RIGHTS_POOL)`만 허용하고, 그 밖은 `PARSE_UNSUPPORTED`.
+40. **포매터**: `formatAllocation`은 IR을 정규 텍스트로 쓰며 `parseAllocation(formatAllocation(ir)) = ir`이다. guard·exceptions는 출력하지 않고, `as ROLE`은 추론 결과와 다를 때만 쓴다. `formatFacts`는 원문 facts를 4.1 스타일로 표시하며 파싱 대상이 아니다.
+41. **CLI**: `compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`·`help`. 결과 JSON은 stdout, 진단은 stderr에 `<CODE> <path> <message>` 한 줄씩, 종료 코드는 0(성공)·1(진단 실패)·2(사용법 오류). `evaluate`·`verify`는 투영을 입력으로 다시 계산하며 제공된 투영을 받지 않는다. 라이브러리에서는 `verifyProjection`이 같은 역할을 한다.
+42. **공개본 검증 보강**: `visibility: PUBLIC` 항목의 share·evidence는 공개본에서도 원문이어야 하고, party.ids의 커밋먼트는 PRIVATE party에만 허용한다. party.ids의 키 `commit`은 커밋먼트 표지로 예약된다.
+43. **오류 코드 커버리지**: 모든 오류 코드는 테스트나 적합성 기대값에서 단언되어야 한다(`test/error-catalog.test.ts`). 도달 불가 방어 코드(`ALLOC_ROUNDING_INVARIANT`)만 이유와 함께 예외로 둔다.
+44. **1-C 범위 밖**: legacy-v1 변환기(사용자 결정으로 연기), facts 텍스트 입력, `diff` 명령, 결과 IR의 JSON Schema·버전 태그, 설치형 배포(Node는 `node_modules` 안의 `.ts`를 실행하지 않으므로 배포 전 빌드 단계가 필요하다).
+45. **via_mandate 정규형**: IR의 `graph.via_mandate`는 `true`이거나 생략해야 한다. `false`는 생략과 의미가 같으므로 검증기와 스키마가 거부한다(같은 의미에 IR 형태가 하나여야 digest가 갈라지지 않고 텍스트 왕복이 성립한다).
+46. **입력 형태와 CLI 안전장치**: `projectVectors`는 객체가 아닌 usage를 `FACTS_USAGE_INVALID`(`$.usage`)로, `checkActivation`은 형태가 틀린 선언 청구권자를 `CORE_TYPE_ERROR`(`$.declared…`)로 돌려준다. CLI는 파일을 읽기 전에 명령별 필수 옵션을 모두 확인하고(종료 코드 2), 명령 이름은 소유 속성으로만 조회하며, `compile`은 `.vcrl` 파일만 받는다. 예상하지 못한 예외는 한 줄 진단 `CORE_TYPE_ERROR $ unexpected error: …`와 종료 코드 1로 바꾼다.
