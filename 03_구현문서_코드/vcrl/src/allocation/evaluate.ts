@@ -1,7 +1,7 @@
 import { parseBps } from "../core/bps.ts";
 import { digestOf, isDigest } from "../core/digest.ts";
 import { isEnumValue } from "../core/enums.ts";
-import { attempt, diag, err, ok, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
+import { attempt, diag, err, ok, underPath, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
@@ -37,15 +37,9 @@ const PROJECTION_FIELDS: readonly [string, (v: unknown) => boolean][] = [
   ["as_of", isInstant], ["known_at", isInstant], ["digest", isDigest], ["facts_digest", isDigest], ["u_digest", isDigest],
 ];
 
-/** attempt()로 감싼 진단 목록 계산. 성공이면 그 값을, 예외로 실패하면 그 진단을 돌려준다(둘 다 던지지 않는다). */
-function collectDiag(fn: () => Diagnostic[]): Diagnostic[] {
-  const r = attempt(fn);
-  return r.ok ? r.value : r.errors;
-}
-
 /** evaluate 본문이 facts·snapshot·projection을 역참조하기 전에, 그것들이 최소한의 모양을 갖췄는지 본다. */
 function checkInputShapes(facts: unknown, snapshot: unknown, projection: unknown): Diagnostic[] {
-  const out: Diagnostic[] = [...validateFactsStructure(facts)];
+  const out: Diagnostic[] = underPath("$.facts", validateFactsStructure(facts));
   if (!isPlainObject(snapshot)) out.push(diag("CORE_TYPE_ERROR", "$.snapshot", "must be an object"));
   else out.push(...rejectUnknownKeys(snapshot, ["members"], "$.snapshot"));
   if (!isPlainObject(projection)) {
@@ -73,7 +67,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
 
   const errors: Diagnostic[] = [];
   if (!isId(runId)) errors.push(diag("CORE_TYPE_ERROR", "$.run_id", String(runId)));
-  errors.push(...collectDiag(() => checkDigests(policy, facts, projection)), ...checkEvents(events, body));
+  errors.push(...checkDigests(policy, facts, projection), ...checkEvents(events, body));
   const members = attempt(() => parseVector(snapshot.members, "$.snapshot.members"));
   if (!members.ok) errors.push(...members.errors);
   else for (const k of Object.keys(members.value)) if (!parties.has(k)) errors.push(diag("FACTS_UNKNOWN_PARTY", `$.snapshot.members.${k}`, k));
@@ -96,7 +90,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   const out: Output = { pool_lines: [], lines: [], holdings: [], trace: [] };
   const lineRole = lineRoles(kinds, vectors.value);
   const allocated = attempt(() => {
-    for (const ev of events) allocateEvent(ev, body, bucketVectors, lineRole, out);
+    events.forEach((ev, i) => allocateEvent(ev, `$.events[${i}]`, body, bucketVectors, lineRole, out));
   });
   if (!allocated.ok) return err(allocated.errors);
   const result = {
@@ -111,15 +105,26 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   return ok({ ...result, result_digest: digestOf(result) });
 }
 
+/** 입력의 digest를 계산한다. 계산 오류(예: JSON number)는 그 입력의 경로 접두사를 붙여 out에 모은다. */
+function digestIn(value: unknown, prefix: string, out: Diagnostic[]): string | undefined {
+  const r = attempt(() => digestOf(value));
+  if (r.ok) return r.value;
+  out.push(...underPath(prefix, r.errors));
+  return undefined;
+}
+
 function checkDigests(policy: AllocationDocument, facts: FactsDocument, projection: ProjectionIr): Diagnostic[] {
   const out: Diagnostic[] = [];
-  const factsDigest = digestOf(facts);
-  const factsRef = `vc:facts/${facts.id}@${facts.version}`;
-  if (!policy.depends_on.some((d) => d.ref === factsRef && d.digest === factsDigest)) {
-    out.push(diag("CORE_DIGEST_MISMATCH", "$.policy.depends_on", `${factsRef} ${factsDigest}`));
+  const factsDigest = digestIn(facts, "$.facts", out);
+  const selfDigest = digestIn({ ...projection, digest: undefined }, "$.projection", out);
+  if (factsDigest !== undefined) {
+    const factsRef = `vc:facts/${facts.id}@${facts.version}`;
+    if (!policy.depends_on.some((d) => d.ref === factsRef && d.digest === factsDigest)) {
+      out.push(diag("CORE_DIGEST_MISMATCH", "$.policy.depends_on", `${factsRef} ${factsDigest}`));
+    }
+    if (projection.facts_digest !== factsDigest) out.push(diag("CORE_DIGEST_MISMATCH", "$.projection.facts_digest", factsDigest));
   }
-  if (projection.facts_digest !== factsDigest) out.push(diag("CORE_DIGEST_MISMATCH", "$.projection.facts_digest", factsDigest));
-  if (digestOf({ ...projection, digest: undefined }) !== projection.digest) out.push(diag("CORE_DIGEST_MISMATCH", "$.projection.digest"));
+  if (selfDigest !== undefined && selfDigest !== projection.digest) out.push(diag("CORE_DIGEST_MISMATCH", "$.projection.digest"));
   return out;
 }
 
@@ -242,10 +247,13 @@ function lineRoles(kinds: ReadonlyMap<string, string>, vectors: Vectors): LineRo
   };
 }
 
-function level(out: Output, eventId: string, name: string, total: bigint, shares: readonly Share[]): Allotment[] {
-  const parts = splitLrm(total, shares, `$.events.${eventId}.${name}`);
+/** 이벤트 한 건: id와 입력 배열에서의 진단 경로(`$.events[i]`). */
+type EventAt = { id: string; path: string };
+
+function level(out: Output, at: EventAt, name: string, total: bigint, shares: readonly Share[]): Allotment[] {
+  const parts = splitLrm(total, shares, `${at.path}.${name}`);
   out.trace.push({
-    event_id: eventId,
+    event_id: at.id,
     level: name,
     total: total.toString(),
     parts: parts.map((p) => ({ key: p.key, weight: formatRatio(p.weight), amount: p.amount.toString() })),
@@ -254,21 +262,22 @@ function level(out: Output, eventId: string, name: string, total: bigint, shares
 }
 
 function allocateEvent(
-  ev: RevenueEvent, body: AllocationBody, bucketVectors: readonly PartyVector[],
+  ev: RevenueEvent, path: string, body: AllocationBody, bucketVectors: readonly PartyVector[],
   lineRole: LineRole, out: Output,
 ): void {
-  const tier1 = level(out, ev.id, "tier1", BigInt(ev.amount), body.tier1.buckets.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
+  const at: EventAt = { id: ev.id, path };
+  const tier1 = level(out, at, "tier1", BigInt(ev.amount), body.tier1.buckets.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
   for (const a of tier1) out.pool_lines.push({ event_id: ev.id, bucket: a.key, amount: a.amount.toString() });
   const rights = tier1.find((a) => a.key === body.tier1.rights)!.amount;
   if (ev.integrity === "FLAGGED") {
     if (rights > 0n) out.holdings.push({ event_id: ev.id, bucket: body.tier1.rights, reason: "FRAUD_REVIEW", amount: rights.toString() });
     return;
   }
-  const tier2 = level(out, ev.id, "tier2", rights, body.tier2.split.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
+  const tier2 = level(out, at, "tier2", rights, body.tier2.split.map((b) => ({ key: b.name, weight: fromBps(parseBps(b.bps)) })));
   tier2.forEach((bucketAmount, i) => {
     const bucket = body.tier2.split[i]!;
     const shares = sortedEntries(bucketVectors[i]!).map(([key, weight]) => ({ key, weight }));
-    for (const p of level(out, ev.id, `bucket:${bucket.name}`, bucketAmount.amount, shares)) {
+    for (const p of level(out, at, `bucket:${bucket.name}`, bucketAmount.amount, shares)) {
       if (p.amount === 0n) continue;
       if (p.key === HOLD) {
         out.holdings.push({ event_id: ev.id, bucket: bucket.name, reason: "RIGHTS_DISPUTE", amount: p.amount.toString() });

@@ -38,6 +38,11 @@ export function diag(code: ErrorCode, path: string, detail?: string): Diagnostic
   return { code, path, message: detail === undefined ? base : `${base}: ${detail}` };
 }
 
+/** 중첩 검증·digest 계산의 진단 경로 맨 앞 `$`를 입력 접두사(예: `$.facts`)로 바꾼다. */
+export function underPath(prefix: string, diagnostics: readonly Diagnostic[]): Diagnostic[] {
+  return diagnostics.map((d) => ({ ...d, path: d.path.startsWith("$") ? prefix + d.path.slice(1) : d.path }));
+}
+
 export class VcrlError extends Error {
   readonly diagnostics: Diagnostic[];
   constructor(diagnostics: Diagnostic[]) {

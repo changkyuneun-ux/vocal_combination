@@ -315,3 +315,22 @@ test("duplicate event ids are rejected as not strictly sorted", () => {
     assert.match(r.errors[0]!.message, /not sorted by id/);
   }
 });
+
+test("diagnostics from nested inputs carry the input's path prefix", () => {
+  const paths = (mutate: (i: EvaluationInput) => void) => {
+    const i = basic();
+    mutate(i);
+    const r = evaluate(i);
+    assert.equal(r.ok, false);
+    return r.ok ? [] : r.errors.map((e) => [e.code, e.path]);
+  };
+  assert.deepEqual(paths((i) => { (i as { facts: unknown }).facts = null; }), [["CORE_TYPE_ERROR", "$.facts"]]);
+  assert.deepEqual(paths((i) => { i.facts.id = "a b"; }), [["CORE_TYPE_ERROR", "$.facts.id"]]);
+  assert.deepEqual(paths((i) => { i.facts.body.parties[0]!.kind = "NOBODY" as never; }), [["CORE_ENUM_UNKNOWN", "$.facts.body.parties[0].kind"]]);
+  assert.deepEqual(
+    paths((i) => { i.projection = { ...i.projection, paths: [{ ...i.projection.paths[0]!, weight: 5 as never }] }; }),
+    [["CORE_NUMBER_IN_IR", "$.projection.paths[0].weight"]],
+  );
+  assert.deepEqual(paths((i) => { (i.snapshot as unknown as Record<string, unknown>).extra = "x"; }), [["CORE_TYPE_ERROR", "$.snapshot.extra"]]);
+  assert.deepEqual(paths((i) => { i.snapshot = { members: { pty_ghost: "1/1" } }; }), [["FACTS_UNKNOWN_PARTY", "$.snapshot.members.pty_ghost"]]);
+});
