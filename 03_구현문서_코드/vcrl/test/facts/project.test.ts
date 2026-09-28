@@ -167,3 +167,12 @@ test("every vector sums to exactly 1 in AI/duet and disputed scenarios", () => {
     for (const [role, vec] of Object.entries(r.value.vectors)) assert.deepEqual(sum(Object.values(vec!)), ONE, `${label} ${role}`);
   }
 });
+
+test("usage must be a plain object, not null/array/string", () => {
+  const i = loadBasic();
+  for (const bad of [null, [], "x"] as const) {
+    const r = projectVectors(i.facts, bad as unknown as typeof i.usage, i.as_of, i.known_at);
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.deepEqual(r.errors.map((e) => e.code), ["FACTS_USAGE_INVALID"]);
+  }
+});

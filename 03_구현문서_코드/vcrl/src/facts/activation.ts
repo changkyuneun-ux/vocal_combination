@@ -1,4 +1,5 @@
 import { diag, type Diagnostic } from "../core/errors.ts";
+import { isPlainObject } from "../core/jcs.ts";
 import type { Instant } from "../core/time.ts";
 import { checkClaimantCoverage, deriveClaimants, ROLE_RIGHT, type ClaimantEntry } from "./mandate.ts";
 import { HOLD, projectVectors, type PartyVector, type Usage } from "./project.ts";
@@ -21,6 +22,8 @@ const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
  */
 export function checkActivation(input: ActivationInput): Diagnostic[] {
   const { facts, usage, asOf, knownAt, declared } = input;
+  const declaredErrors = checkDeclaredShape(declared);
+  if (declaredErrors.length > 0) return declaredErrors;
   const projection = projectVectors(facts, usage, asOf, knownAt);
   if (!projection.ok) return projection.errors;
 
@@ -64,4 +67,20 @@ export function checkActivation(input: ActivationInput): Diagnostic[] {
   if (ids.length > 0) out.push(diag("FACTS_DISPUTE_OPEN", "$.activation", ids.join(",")));
   if (!derived.ok) return [...out, ...derived.errors];
   return [...out, ...checkClaimantCoverage(derived.value, declared)];
+}
+
+/** `declared`는 신뢰할 수 없는(JSON에서 온) 입력일 수 있다: role·party가 string인 plain object 배열인지 먼저 본다. */
+function checkDeclaredShape(declared: unknown): Diagnostic[] {
+  if (!Array.isArray(declared)) return [diag("CORE_TYPE_ERROR", "$.declared", "must be an array")];
+  const out: Diagnostic[] = [];
+  declared.forEach((e, i) => {
+    const p = `$.declared[${i}]`;
+    if (!isPlainObject(e)) {
+      out.push(diag("CORE_TYPE_ERROR", p, "must be an object"));
+    } else {
+      if (typeof e.role !== "string") out.push(diag("CORE_TYPE_ERROR", `${p}.role`, "must be a string"));
+      if (typeof e.party !== "string") out.push(diag("CORE_TYPE_ERROR", `${p}.party`, "must be a string"));
+    }
+  });
+  return out;
 }

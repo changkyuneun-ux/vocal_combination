@@ -1,5 +1,6 @@
 import { BPS_TOTAL, parseBps } from "../core/bps.ts";
 import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
+import { isPlainObject } from "../core/jcs.ts";
 import { ONE, ZERO, add, div, fromBps, mul, ratio, type Ratio } from "../core/ratio.ts";
 import { isInstant, type Instant } from "../core/time.ts";
 import { groupClaims, groupKey, isEffective, type ClaimGroup } from "./temporal.ts";
@@ -23,6 +24,9 @@ export function projectVectors(doc: FactsDocument, usage: Usage, asOf: Instant, 
     ...(isInstant(knownAt) ? [] : [diag("CORE_TYPE_ERROR", "$.known_at", String(knownAt))]),
   ];
   if (structural.length > 0) return err(structural);
+  if (!isPlainObject(usage)) {
+    return err([diag("FACTS_USAGE_INVALID", "$.usage", "must be an object of stem → ms strings")]);
+  }
   const b = doc.body;
   const stems = new Map(b.stems.map((s) => [s.id, s]));
   const recordings = new Map(b.recordings.map((r) => [r.id, r]));

@@ -45,6 +45,21 @@ const OPTIONS = {
 
 type Opts = Partial<Record<keyof typeof OPTIONS, string>>;
 
+/** 명령별 필수 옵션. 파일을 읽기 전에 모두 검사해, 사용법 오류(종료 2)가 입력 읽기 오류(종료 1)보다 먼저 보고되게 한다. */
+const REQUIRED: Readonly<Partial<Record<string, readonly (keyof typeof OPTIONS)[]>>> = {
+  project: ["facts", "usage", "as-of", "known-at"],
+  evaluate: ["policy", "facts", "usage", "as-of", "known-at", "snapshot", "events", "run-id"],
+  verify: ["result", "policy", "facts", "usage", "as-of", "known-at", "snapshot", "events", "run-id"],
+  activate: ["facts", "usage", "as-of", "known-at", "declared"],
+};
+
+function requireOptions(o: Opts, cmd: string): void {
+  const names = REQUIRED[cmd];
+  if (names === undefined) return;
+  const missing = names.filter((n) => o[n] === undefined);
+  if (missing.length > 0) throw new UsageError(`다음 옵션이 필요합니다: ${missing.map((n) => `--${n}`).join(", ")}`);
+}
+
 /** CLI 진입점. 입출력은 주입받는다. 반환값은 종료 코드(0 성공, 1 진단 실패, 2 사용법 오류). */
 export function run(argv: readonly string[], io: Io): number {
   const [cmd, ...rest] = argv;
@@ -69,11 +84,15 @@ export function run(argv: readonly string[], io: Io): number {
       report(io, e.diagnostics);
       return 1;
     }
-    throw e;
+    // 안전망: 라이브러리 경계에서 잡히지 않은 예외도 진단 형식으로 stderr 한 줄에 보고한다(스택은 노출하지 않는다).
+    const message = e instanceof Error ? e.message : String(e);
+    io.err(`CORE_TYPE_ERROR $ unexpected error: ${message}\n`);
+    return 1;
   }
 }
 
 function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): number {
+  if (cmd !== undefined) requireOptions(o, cmd);
   switch (cmd) {
     case "compile": {
       printJson(io, loadPolicy(io, onePositional(pos)));

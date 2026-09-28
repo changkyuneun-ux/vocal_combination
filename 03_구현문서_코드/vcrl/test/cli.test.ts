@@ -22,6 +22,9 @@ function fixture(): Map<string, string> {
     ["declared.json", j(basic.declared_claimants)],
     ["bad.vcrl", 'allocation "x" version 1 { scope { pack p; } }'],
     ["broken.json", "{"],
+    ["usage-null.json", "null"],
+    ["declared-null.json", "null"],
+    ["declared-arr-null.json", "[null]"],
   ]);
 }
 
@@ -117,4 +120,38 @@ test("bin/vcrl.ts runs as a Node executable", () => {
   const bin = fileURLToPath(new URL("../bin/vcrl.ts", import.meta.url));
   const out = execFileSync(process.execPath, [bin, "help"], { encoding: "utf8" });
   assert.match(out, /사용법: vcrl/);
+});
+
+test("malformed usage/declared inputs are diagnosed, not thrown", () => {
+  const p = cli(["project", "--facts", "facts.json", "--usage", "usage-null.json", ...TIMES]);
+  assert.equal(p.code, 1);
+  assert.match(p.err, /^FACTS_USAGE_INVALID /);
+
+  const activateArgs = ["activate", "--facts", "facts.json", "--usage", "usage.json", ...TIMES];
+  const files = fixture();
+  const a1 = cli([...activateArgs, "--declared", "declared-null.json"], files);
+  assert.equal(a1.code, 1);
+  assert.match(a1.err, /^CORE_TYPE_ERROR /);
+  const a2 = cli([...activateArgs, "--declared", "declared-arr-null.json"], files);
+  assert.equal(a2.code, 1);
+  assert.match(a2.err, /^CORE_TYPE_ERROR /);
+});
+
+test("missing required options is a usage error even when other files are unreadable", () => {
+  const r = cli(["project", "--facts", "missing.json"]);
+  assert.equal(r.code, 2);
+});
+
+test("evaluate and verify accept a JSON policy (not just .vcrl text)", () => {
+  const evalJson = ["--policy", "policy.json", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
+    "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", "run_2026_06"];
+  const r = cli(["evaluate", ...evalJson]);
+  assert.equal(r.code, 0, r.err);
+  const result = JSON.parse(r.out);
+  assert.equal(result.result_digest, expectedDigest());
+  const files = fixture();
+  files.set("result.json", r.out);
+  const v = cli(["verify", "--result", "result.json", ...evalJson], files);
+  assert.equal(v.code, 0, v.err);
+  assert.equal(v.out, `OK ${expectedDigest()}\n`);
 });

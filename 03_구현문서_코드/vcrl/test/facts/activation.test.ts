@@ -75,3 +75,16 @@ test("projection errors are returned as-is", () => {
   i.usage = { stm_ghost: "1" };
   assert.deepEqual(checkActivation(input(i)).map((x) => x.code), ["FACTS_USAGE_INVALID"]);
 });
+
+test("declared must be an array of {role, party} objects", () => {
+  const i = loadBasic();
+  const base = { facts: i.facts, usage: i.usage, asOf: i.as_of, knownAt: i.known_at };
+  for (const bad of [null, {}] as const) {
+    const d = checkActivation({ ...base, declared: bad as unknown as BasicInput["declared_claimants"] });
+    assert.deepEqual(d.map((x) => x.code), ["CORE_TYPE_ERROR"]);
+    assert.equal(d[0]!.path, "$.declared");
+  }
+  const d2 = checkActivation({ ...base, declared: [null] as unknown as BasicInput["declared_claimants"] });
+  assert.deepEqual(d2.map((x) => x.code), ["CORE_TYPE_ERROR"]);
+  assert.equal(d2[0]!.path, "$.declared[0]");
+});
