@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { checkClaimantCoverage, deriveClaimants, routeVector } from "../../src/facts/mandate.ts";
 import { HOLD, projectVectors } from "../../src/facts/project.ts";
 import { ratio } from "../../src/core/ratio.ts";
-import { loadBasic, mandateOf, sortBody, type BasicInput } from "../helpers.ts";
+import { claimOf, loadBasic, mandateOf, sortBody, type BasicInput } from "../helpers.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -71,4 +71,38 @@ test("derive claimants and check coverage", () => {
 
   const ghost = [...i.declared_claimants, { role: "AI_PROVIDER" as const, party: "pty_ghost" }];
   assert.deepEqual(checkClaimantCoverage(derived.value, ghost).map((d) => d.code), ["FACTS_UNCOVERED_CLAIMANT"]);
+});
+
+test("routeVector rejects mandates of one party summing over 10000bps", () => {
+  const i = loadBasic();
+  i.facts.body.mandates.push({ ...mandateOf(i, "m1"), id: "m1b", to: "pty_agency_s" });
+  sortBody(i);
+  const r = routeVector(i.facts, vectors(i).vectors.WORK_AUTHOR!, "WORK", i.as_of, i.known_at);
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.ok ? [] : r.errors.map((e) => [e.code, e.path, e.message.endsWith("pty_author_b")]), [
+    ["FACTS_SUM_MISMATCH", "$.route.WORK", true],
+  ]);
+});
+
+test("routed recipients are claimants under the originating role unless CMO or AGENCY", () => {
+  const i = loadBasic();
+  i.facts.body.parties.push({ id: "pty_pub", kind: "PUBLISHER" });
+  i.facts.body.mandates.push({ ...mandateOf(i, "m1"), id: "m3", from: "pty_author_c", to: "pty_pub" });
+  sortBody(i);
+  const derived = deriveClaimants(i.facts, vectors(i), i.as_of, i.known_at);
+  assert.ok(derived.ok);
+  assert.ok(derived.value.some((e) => e.role === "WORK_AUTHOR" && e.party === "pty_pub"), JSON.stringify(derived.value));
+  assert.ok(!derived.value.some((e) => e.party === HOLD));
+});
+
+test("zero-weight parties are not claimants", () => {
+  const i = loadBasic();
+  i.facts.body.parties.push({ id: "pty_author_d", kind: "AUTHOR" });
+  i.facts.body.claims.push({ ...claimOf(i, "c7"), id: "c8", target: "pty_author_d", share: "0" });
+  sortBody(i);
+  const v = vectors(i);
+  assert.deepEqual(v.vectors.WORK_AUTHOR!.pty_author_d, ratio(0n));
+  const derived = deriveClaimants(i.facts, v, i.as_of, i.known_at);
+  assert.ok(derived.ok);
+  assert.deepEqual(derived.value, i.declared_claimants);
 });

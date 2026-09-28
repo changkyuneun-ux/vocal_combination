@@ -1,7 +1,7 @@
 import { parseBps } from "../core/bps.ts";
 import type { EnumValue } from "../core/enums.ts";
 import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
-import { ZERO, add, fromBps, mul, sub, type Ratio } from "../core/ratio.ts";
+import { ONE, ZERO, add, cmp, fromBps, mul, sub, sum, type Ratio } from "../core/ratio.ts";
 import type { Instant } from "../core/time.ts";
 import { HOLD, type PartyVector, type Projection } from "./project.ts";
 import { isEffective } from "./temporal.ts";
@@ -40,14 +40,17 @@ export function routeVector(
       errors.push(diag("FACTS_MANDATE_DEPTH", `$.route.${right}`, chain));
       return;
     }
-    let routed = ZERO;
-    for (const m of ms) {
-      const s = fromBps(parseBps(m.share));
-      routed = add(routed, s);
-      const part = mul(w, s);
+    const shares = ms.map((m) => fromBps(parseBps(m.share)));
+    const routed = sum(shares);
+    if (cmp(routed, ONE) > 0) {
+      errors.push(diag("FACTS_SUM_MISMATCH", `$.route.${right}`, party));
+      return;
+    }
+    ms.forEach((m, k) => {
+      const part = mul(w, shares[k]!);
       if (m.status === "DISPUTED") put(HOLD, part);
       else route(m.to, part, hops + 1, `${chain} -> ${m.to}`);
-    }
+    });
     put(party, sub(w, mul(w, routed)));
   };
 
@@ -72,8 +75,13 @@ export function deriveClaimants(
   const put = (role: ClaimantRole, party: string) => found.set(entryKey({ role, party }), { role, party });
   const errors: Diagnostic[] = [];
 
+  /** `@hold`와 가중치 0인 party는 청구권자가 아니다. */
+  const claimantsOf = (vec: PartyVector, roleFor: (party: string) => ClaimantRole) => {
+    for (const [party, w] of Object.entries(vec)) if (party !== HOLD && w.n !== 0n) put(roleFor(party), party);
+  };
+
   for (const [role, vec] of Object.entries(projection.vectors) as [ClaimantRole, PartyVector][]) {
-    for (const party of Object.keys(vec)) if (party !== HOLD) put(role, party);
+    claimantsOf(vec, () => role);
     const right = ROLE_RIGHT[role];
     if (right === undefined) continue;
     const routed = routeVector(doc, vec, right, asOf, knownAt);
@@ -81,10 +89,11 @@ export function deriveClaimants(
       errors.push(...routed.errors);
       continue;
     }
-    for (const party of Object.keys(routed.value)) {
+    // 위임 수령인: CMO·AGENCY는 그 역할, 그 외(예: PUBLISHER)는 원래 벡터의 역할로 청구한다.
+    claimantsOf(routed.value, (party) => {
       const kind = kinds.get(party);
-      if (kind === "CMO" || kind === "AGENCY") put(kind, party);
-    }
+      return kind === "CMO" || kind === "AGENCY" ? kind : role;
+    });
   }
   if (errors.length > 0) return err(errors);
   return ok([...found.values()].sort((a, b) => byKey(entryKey(a), entryKey(b))));

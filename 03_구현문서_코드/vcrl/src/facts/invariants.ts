@@ -4,13 +4,14 @@ import { contains } from "../core/time.ts";
 import { boundaries, groupClaims, isCurrent } from "./temporal.ts";
 import { MAX_MANDATE_HOPS, type FactsBody } from "./types.ts";
 
+/** 분쟁 claim이 있는 그룹은 몫 전체가 `@hold`로 가므로 합 검사에서 제외한다(투영과 같은 규칙). */
 export function checkClaimSums(body: FactsBody): Diagnostic[] {
   const current = body.claims.filter(isCurrent);
   const reported = new Set<string>();
   const out: Diagnostic[] = [];
   for (const t of boundaries(current)) {
     for (const g of groupClaims(current.filter((c) => contains(c.valid, t))).values()) {
-      if (g.sumBps !== BPS_TOTAL && !reported.has(g.key)) {
+      if (!g.disputed && g.sumBps !== BPS_TOTAL && !reported.has(g.key)) {
         reported.add(g.key);
         out.push(diag("FACTS_SUM_MISMATCH", `$.body.claims[${g.key}]`, `${g.sumBps}bps at ${t}`));
       }

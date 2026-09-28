@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateFacts } from "../../src/facts/validate.ts";
+import { HOLD, projectVectors } from "../../src/facts/project.ts";
+import { ONE } from "../../src/core/ratio.ts";
 import { groupClaims, isEffective } from "../../src/facts/temporal.ts";
 import type { Mandate } from "../../src/facts/types.ts";
 import { claimOf, loadBasic, mandateOf, sortBody } from "../helpers.ts";
@@ -86,4 +88,16 @@ test("structural errors short-circuit invariants", () => {
   const i = loadBasic();
   claimOf(i, "c5").target = "pty_ghost";
   assert.deepEqual(codes(i.facts), ["FACTS_UNKNOWN_PARTY"]);
+});
+
+test("disputed claim groups are exempt from the 10000bps sum check", () => {
+  const i = loadBasic();
+  claimOf(i, "c5").status = "DISPUTED";
+  i.facts.body.parties.push({ id: "pty_label_y", kind: "LABEL" });
+  i.facts.body.claims.push({ ...claimOf(i, "c5"), id: "c5b", target: "pty_label_y" });
+  sortBody(i);
+  assert.deepEqual(validateFacts(i.facts), []);
+  const r = projectVectors(i.facts, i.usage, i.as_of, i.known_at);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.vectors.MASTER_OWNER, { [HOLD]: ONE });
 });
