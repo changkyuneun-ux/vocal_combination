@@ -16,7 +16,7 @@ import type {
   AllocationBody, AllocationDocument, AllocationLine, AllocationResult, Holding, PoolLine,
   RevenueEvent, Snapshot, SplitBucket, TraceEntry, VectorExpr,
 } from "./types.ts";
-import { validateAllocation } from "./validate.ts";
+import { PERFORMER_ROLES, validateAllocation } from "./validate.ts";
 import { parseVector, sortedEntries } from "./vectors.ts";
 
 export type EvaluationInput = {
@@ -33,7 +33,6 @@ type Vectors = Partial<Record<ClaimantRole, PartyVector>>;
 
 const AMOUNT_RE = /^[1-9]\d*$/;
 const EVENT_KEYS = ["id", "type", "amount", "currency", "integrity"] as const;
-const PERFORMER_ROLES: readonly ClaimantRole[] = ["PERFORMER_FEATURED", "PERFORMER_NON_FEATURED"];
 const PROJECTION_FIELDS: readonly [string, (v: unknown) => boolean][] = [
   ["as_of", isInstant], ["known_at", isInstant], ["digest", isDigest], ["facts_digest", isDigest], ["u_digest", isDigest],
 ];

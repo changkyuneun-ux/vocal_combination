@@ -8,6 +8,11 @@ import { loadAllocationCase } from "../helpers.ts";
 
 const codes = (doc: unknown) => validateAllocation(doc).map((d) => d.code).sort();
 const policy = () => loadAllocationCase().policy;
+const withRole = (role: string) => {
+  const p = policy();
+  p.body.tier2.split[0]!.role = role as never;
+  return p;
+};
 const withVector = (v: unknown) => {
   const p = policy();
   p.body.tier2.split[1]!.vector = v as VectorExpr;
@@ -59,12 +64,12 @@ test("performance_pool mode rules", () => {
 
 test("vector expressions", () => {
   assert.deepEqual(codes(withVector({ fn: "magic" })), ["CORE_ENUM_UNKNOWN"]);
-  assert.deepEqual(codes(withVector({ fn: "graph", role: "MASTER_OWNER", extra: "x" })), ["CORE_TYPE_ERROR"]);
+  assert.deepEqual(codes(withVector({ fn: "graph", role: "PERFORMER_FEATURED", extra: "x" })), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(codes(withVector({ fn: "contract", party: "@hold" })), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(
     codes(withVector({ fn: "mix", parts: [
       { weight: "5000", of: { fn: "member_pct" } },
-      { weight: "4000", of: { fn: "graph", role: "MASTER_OWNER" } },
+      { weight: "4000", of: { fn: "graph", role: "PERFORMER_FEATURED" } },
     ] })),
     ["ALLOC_WEIGHT_MISMATCH"],
   );
@@ -92,7 +97,7 @@ test("allocation JSON Schema agrees with the validator", () => {
   assert.equal(validate(policy()), true, JSON.stringify(validate.errors));
   for (const bad of [
     withVector({ fn: "magic" }),
-    withVector({ fn: "graph", role: "MASTER_OWNER", extra: "x" }),
+    withVector({ fn: "graph", role: "PERFORMER_FEATURED", extra: "x" }),
     withVector({ fn: "contract", party: "@hold" }),
   ]) {
     assert.equal(validate(bad), false);
@@ -102,4 +107,29 @@ test("allocation JSON Schema agrees with the validator", () => {
   numeric.body.tier1.buckets[0]!.bps = 2500;
   assert.equal(validate(numeric), false);
   assert.ok(codes(numeric).length > 0);
+});
+
+test("bucket role must match its vector expression", () => {
+  const at = (role: string, v: unknown) => {
+    const p = policy();
+    p.body.tier2.split[1]!.role = role as never;
+    p.body.tier2.split[1]!.vector = v as VectorExpr;
+    return validateAllocation(p).map((d) => [d.code, d.path]);
+  };
+  const mismatch = (field: string) => [["CORE_TYPE_ERROR", `$.body.tier2.split[1].${field}`]];
+  assert.deepEqual(at("AI_PROVIDER", { fn: "graph", role: "MASTER_OWNER" }), mismatch("role"));
+  assert.deepEqual(at("MASTER_OWNER", { fn: "performance_pool", mode: "MEMBER_PCT" }), mismatch("role"));
+  assert.deepEqual(at("PERFORMER_NON_FEATURED", { fn: "performance_pool", mode: "HYBRID", fixed: "4000", usage: "6000", featured_weight: "7000" }), []);
+  assert.deepEqual(at("MASTER_OWNER", { fn: "mix", parts: [
+    { weight: "5000", of: { fn: "graph", role: "MASTER_OWNER" } },
+    { weight: "5000", of: { fn: "contract", party: "pty_agency_s" } },
+  ] }), []);
+  assert.deepEqual(at("AI_PROVIDER", { fn: "graph", role: "AI_PROVIDER", via_mandate: true }), mismatch("vector.via_mandate"));
+  // 실연 버킷 안의 비실연 graph 잎, 비실연 버킷 안의 실연 graph 잎
+  assert.deepEqual(at("PERFORMER_FEATURED", { fn: "mix", parts: [
+    { weight: "5000", of: { fn: "member_pct" } },
+    { weight: "5000", of: { fn: "graph", role: "MASTER_OWNER" } },
+  ] }), mismatch("role"));
+  assert.deepEqual(at("MASTER_OWNER", { fn: "cap", max: "5000", of: { fn: "graph", role: "PERFORMER_FEATURED" } }), mismatch("role"));
+  assert.match(validateAllocation(withRole("AI_PROVIDER"))[0]!.message, /role mismatch: AI_PROVIDER vs /);
 });

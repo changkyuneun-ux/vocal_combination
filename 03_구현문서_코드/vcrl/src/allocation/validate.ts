@@ -4,6 +4,8 @@ import { isEnumValue, type EnumName, type EnumValue } from "../core/enums.ts";
 import { capture, diag, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
+import { ROLE_RIGHT } from "../facts/mandate.ts";
+import type { ClaimantRole } from "../facts/types.ts";
 
 const NAME_RE = /^[a-z][a-z0-9_]*$/;
 const CURRENCY_RE = /^[A-Z]{3}$/;
@@ -20,6 +22,40 @@ const VECTOR_KEYS: Readonly<Record<EnumValue<"vector_fn">, readonly string[]>> =
 };
 
 type Obj = Record<string, unknown>;
+
+export const PERFORMER_ROLES: readonly ClaimantRole[] = ["PERFORMER_FEATURED", "PERFORMER_NON_FEATURED"];
+
+/** 버킷 역할 판정용 잎: graph는 그 역할, 실연 풀·멤버 비율은 실연 클래스, contract는 어느 역할이든 된다. */
+type Leaf = { graph: ClaimantRole } | { performer: string };
+
+/** 벡터 식의 잎을 모은다. 구조 오류는 vector()가 따로 보고하므로 여기서는 알 수 없는 노드를 건너뛴다. */
+function leavesOf(v: unknown): Leaf[] {
+  if (!isPlainObject(v)) return [];
+  switch (v.fn) {
+    case "graph":
+      return isEnumValue("claimant_role", v.role) ? [{ graph: v.role }] : [];
+    case "performance_pool":
+    case "member_pct":
+      return [{ performer: v.fn }];
+    case "mix":
+      return Array.isArray(v.parts) ? v.parts.flatMap((part: unknown) => (isPlainObject(part) ? leavesOf(part.of) : [])) : [];
+    case "cap":
+    case "floor_guarantee":
+      return leavesOf(v.of);
+    default:
+      return [];
+  }
+}
+
+/** 스펙 12.32: 실연 잎이 있으면 버킷은 실연 역할이고 graph 잎도 모두 실연 역할, 아니면 graph 잎은 버킷 역할과 같다. 어긋난 첫 잎을 돌려준다. */
+function roleMismatch(role: ClaimantRole, leaves: readonly Leaf[]): string | undefined {
+  const isPerformer = (l: Leaf) => "performer" in l || PERFORMER_ROLES.includes(l.graph);
+  const name = (l: Leaf) => ("performer" in l ? l.performer : l.graph);
+  const bad = leaves.some(isPerformer)
+    ? leaves.find((l) => !PERFORMER_ROLES.includes(role) || !isPerformer(l))
+    : leaves.find((l) => "graph" in l && l.graph !== role);
+  return bad === undefined ? undefined : name(bad);
+}
 
 /** 안분 정책 IR의 정적 검증(스펙 5.4). 투영·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
 export function validateAllocation(doc: unknown): Diagnostic[] {
@@ -122,6 +158,9 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
       case "graph":
         enumCheck("claimant_role", v.role, `${p}.role`);
         if (v.via_mandate !== undefined && typeof v.via_mandate !== "boolean") out.push(diag("CORE_TYPE_ERROR", `${p}.via_mandate`));
+        else if (v.via_mandate === true && isEnumValue("claimant_role", v.role) && ROLE_RIGHT[v.role] === undefined) {
+          out.push(diag("CORE_TYPE_ERROR", `${p}.via_mandate`, `${v.role} has no mandate right`));
+        }
         break;
       case "contract":
         if (!isId(v.party)) out.push(diag("CORE_TYPE_ERROR", `${p}.party`, String(v.party)));
@@ -195,6 +234,10 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
     buckets(b.tier2.split, "$.body.tier2.split", ["role", "vector"], (bk, bp) => {
       enumCheck("claimant_role", bk.role, `${bp}.role`);
       vector(bk.vector, `${bp}.vector`);
+      if (isEnumValue("claimant_role", bk.role)) {
+        const leaf = roleMismatch(bk.role, leavesOf(bk.vector));
+        if (leaf !== undefined) out.push(diag("CORE_TYPE_ERROR", `${bp}.role`, `role mismatch: ${bk.role} vs ${leaf}`));
+      }
     });
   }
   if (obj(b.rounding, "$.body.rounding")) {

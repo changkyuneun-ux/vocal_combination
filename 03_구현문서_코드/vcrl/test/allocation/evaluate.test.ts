@@ -133,6 +133,7 @@ test("coverage and empty vectors", () => {
   ];
   assert.deepEqual(codes(i), ["ALLOC_UNCOVERED_CLAIMANT"]);
   const j = basic();
+  j.policy.body.tier2.split[0]!.role = "RECORDING_CONTRIBUTOR";
   j.policy.body.tier2.split[0]!.vector = { fn: "graph", role: "RECORDING_CONTRIBUTOR" };
   assert.deepEqual(codes(j), ["ALLOC_EMPTY_VECTOR", "ALLOC_UNCOVERED_CLAIMANT"]);
 });
