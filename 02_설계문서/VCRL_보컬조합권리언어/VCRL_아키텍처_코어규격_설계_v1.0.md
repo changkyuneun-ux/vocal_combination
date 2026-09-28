@@ -460,3 +460,4 @@ manifest/
 8. **위임**: `mandate.share`는 위임인이 받을 몫 중 수임인이 수령하는 비율이다. 위임인별·권리별 합은 10000bps 이하. 분쟁 위임의 몫은 `@hold`.
 9. **정적 검증 시점**: share 합·위임 불변식은 현재 지식(미대체 레코드) 기준으로 모든 유효기간 경계 시점에서 검사한다.
 10. **알 수 없는 키**: 봉투와 facts의 모든 객체에서 JSON Schema가 `additionalProperties: false`로 막는 키는 코드 검증기도 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
+11. **facts 공개본의 기본 등급(3.4 명확화)**: claim·mandate에 `visibility`가 없으면 문서의 `visibility_default`와 무관하게 `share`·`evidence`는 `PARTIES`로 취급해 커밋먼트로 치환한다. 원문 공개는 항목별로 `visibility: PUBLIC`을 명시해야 한다. 문서 단위 설정 실수로 계약 지분이 노출되는 것을 막기 위한 결정이다.

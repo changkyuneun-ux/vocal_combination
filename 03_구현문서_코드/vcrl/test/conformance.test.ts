@@ -6,7 +6,9 @@ import { toProjectionIr } from "../src/facts/result.ts";
 
 const root = new URL("../conformance/facts/", import.meta.url);
 
-for (const name of readdirSync(root).sort()) {
+const cases = readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+
+for (const name of cases) {
   test(`conformance facts/${name}`, () => {
     const read = (f: string) => JSON.parse(readFileSync(new URL(`${name}/${f}`, root), "utf8"));
     const input = read("input.json");
