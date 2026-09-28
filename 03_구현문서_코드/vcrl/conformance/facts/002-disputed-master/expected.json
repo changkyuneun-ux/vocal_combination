@@ -1,0 +1,21 @@
+{
+  "vectors": {
+    "MASTER_OWNER": { "@hold": "1/1" },
+    "PERFORMER_FEATURED": { "pty_member_a": "2/3", "pty_member_b": "1/3" },
+    "WORK_AUTHOR": { "pty_author_b": "3/5", "pty_author_c": "2/5" }
+  },
+  "paths": [
+    { "stem": "stm_inst", "role": "MASTER_OWNER", "party": "@hold", "weight": "1/1", "claims": ["c5"] },
+    { "stem": "stm_inst", "role": "WORK_AUTHOR", "party": "pty_author_b", "weight": "3/5", "claims": ["c6"] },
+    { "stem": "stm_inst", "role": "WORK_AUTHOR", "party": "pty_author_c", "weight": "2/5", "claims": ["c7"] },
+    { "stem": "stm_v1", "role": "MASTER_OWNER", "party": "@hold", "weight": "1/1", "claims": ["c5"] },
+    { "stem": "stm_v1", "role": "PERFORMER_FEATURED", "party": "pty_member_a", "weight": "1/1", "claims": ["c1", "c3"] },
+    { "stem": "stm_v1", "role": "WORK_AUTHOR", "party": "pty_author_b", "weight": "3/5", "claims": ["c6"] },
+    { "stem": "stm_v1", "role": "WORK_AUTHOR", "party": "pty_author_c", "weight": "2/5", "claims": ["c7"] },
+    { "stem": "stm_v2", "role": "MASTER_OWNER", "party": "@hold", "weight": "1/1", "claims": ["c5"] },
+    { "stem": "stm_v2", "role": "PERFORMER_FEATURED", "party": "pty_member_b", "weight": "1/1", "claims": ["c2", "c4"] },
+    { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_b", "weight": "3/5", "claims": ["c6"] },
+    { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_c", "weight": "2/5", "claims": ["c7"] }
+  ],
+  "digest": "vcrl:sha256:251f6ac2eb9ea600143bad5c8b47eff66226ec3b7b7761d7d4065370de21575f"
+}

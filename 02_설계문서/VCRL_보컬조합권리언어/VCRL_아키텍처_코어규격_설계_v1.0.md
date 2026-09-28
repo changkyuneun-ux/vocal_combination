@@ -445,3 +445,18 @@ manifest/
 - 정책게이팅엔진 미결 4건(오프라인 재생 토큰과 `CONSUME_USE`, VPN·프록시 판정, 미성년 보호 층 위치, explain 공개 범위) — 서브프로젝트 2.
 - 파트너 포털에서의 salt 전달 방식과 키 관리 — 서브프로젝트 4.
 - 기획설계 20.2 "첫 계약에서 확정할 7개 항목"과 파일럿 계약 데이터 확보 책임자 지정 — 사업 측 결정 사항.
+
+---
+
+## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `03_구현문서_코드/vcrl`)
+
+1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
+2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE` 포함). 정본은 `src/core/enums.ts`.
+3. **IR 수치 표기**: 봉투의 `version`도 문자열이다(`"1"`). 유리수는 기약분수 `"n/d"`(정수도 `"1/1"`).
+4. **의존 순환**: 의존은 낮은 rank로만 허용하므로 순환은 `CORE_DEP_DIRECTION`으로 보고한다. `CORE_DEP_CYCLE`은 두지 않는다.
+5. **오류 코드 정본**: `spec/error-codes.md`. `FACTS_DUPLICATE_ID`, `FACTS_UNKNOWN_ENTITY`, `FACTS_EDGE_KIND`, `FACTS_USAGE_INVALID`, `FACTS_CLAIMANT_DRIFT`(v2.7 `CLAIMANT_DRIFT` 대응)를 추가했다.
+6. **claim 그룹 키**: `(source, edge)`, 단 `PERFORMED_BY`는 `(source, edge, performer_role)`. `performer_role`은 `PERFORMED_BY`에 필수다.
+7. **기여 벡터 정규화**: 역할별 분모는 그 역할 경로가 있는 스템의 `ASSIGNED_LAYER_MS × 경로 가중치 합`이다. 분쟁 그룹의 몫은 `@hold` 키로 벡터에 남아 합계 1이 유지된다(재정규화 없음).
+8. **위임**: `mandate.share`는 위임인이 받을 몫 중 수임인이 수령하는 비율이다. 위임인별·권리별 합은 10000bps 이하. 분쟁 위임의 몫은 `@hold`.
+9. **정적 검증 시점**: share 합·위임 불변식은 현재 지식(미대체 레코드) 기준으로 모든 유효기간 경계 시점에서 검사한다.
+10. **알 수 없는 키**: 봉투와 facts의 모든 객체에서 JSON Schema가 `additionalProperties: false`로 막는 키는 코드 검증기도 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
