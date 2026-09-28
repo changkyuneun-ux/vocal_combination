@@ -139,16 +139,23 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
         return fail("PARSE_SYNTAX", at(t), `unknown vector function ${t.text}`);
     }
   };
+  /** mix 재귀와 |> 파이프 연결을 합친 벡터 식의 총 중첩 한도(스택 오버플로 방지). */
   const MAX_VECTOR_DEPTH = 64;
   let vectorDepth = 0;
   const vector = (): VectorExpr => {
-    vectorDepth++;
-    if (vectorDepth > MAX_VECTOR_DEPTH) fail("PARSE_SYNTAX", at(peek()), "vector nesting too deep");
+    let localDepth = 0;
+    const enterDepth = (pos: Token): void => {
+      vectorDepth++;
+      localDepth++;
+      if (vectorDepth > MAX_VECTOR_DEPTH) fail("PARSE_SYNTAX", at(pos), "vector nesting too deep");
+    };
+    enterDepth(peek());
     try {
       let v = primary();
       while (isP(peek(), "|>")) {
         next();
         const t = next();
+        enterDepth(t);
         if (isW(t, "cap")) {
           expectP("(");
           const max = ratio();
@@ -165,7 +172,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
       }
       return v;
     } finally {
-      vectorDepth--;
+      vectorDepth -= localDepth;
     }
   };
 

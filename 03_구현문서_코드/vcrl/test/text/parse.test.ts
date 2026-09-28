@@ -129,6 +129,19 @@ test("deeply nested mix() fails with PARSE_SYNTAX instead of a RangeError", () =
   assert.equal((r as { ok: false; errors: { code: string }[] }).errors[0]!.code, "PARSE_SYNTAX");
 });
 
+test("pipe chains count toward the vector nesting limit too", () => {
+  const many = " |> cap(50%)".repeat(100);
+  const src = withSplit(`      master = graph(MASTER_OWNER) : 45%;\n      performer = member_pct()${many} : 45%;\n      agency = contract(pty_agency_s) : 10% as AGENCY;`);
+  const r = compileAllocation(src);
+  assert.equal(r.ok, false);
+  assert.equal((r as { ok: false; errors: { code: string }[] }).errors[0]!.code, "PARSE_SYNTAX");
+
+  const few = " |> cap(50%)".repeat(10);
+  const okSrc = withSplit(`      master = graph(MASTER_OWNER) : 45%;\n      performer = member_pct()${few} : 45%;\n      agency = contract(pty_agency_s) : 10% as AGENCY;`);
+  const okR = compileAllocation(okSrc);
+  assert.ok(okR.ok, JSON.stringify(okR));
+});
+
 test("block order is free", () => {
   const scopeLine = '  scope { pack: pak_nova_summer_02; events: [PRIMARY, RESALE]; currency: KRW; }\n';
   const roundingLine = '  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n';
