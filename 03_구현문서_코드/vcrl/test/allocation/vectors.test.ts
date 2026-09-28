@@ -79,3 +79,12 @@ test("results always sum to exactly 1", () => {
   const v = floorGuarantee(capVector({ a: r(7n, 10n), b: r(2n, 10n), c: r(1n, 10n) }, r(1n, 2n), "$"), ["a", "b", "c", "d"], r(1n, 20n), "$");
   assert.deepEqual(sum(Object.values(v)), ONE);
 });
+
+test("Object.prototype member names are ordinary party ids", () => {
+  assert.deepEqual(floorGuarantee({ a: ONE }, ["constructor", "toString"], r(1n, 10n), "$"), {
+    a: r(4n, 5n), constructor: r(1n, 10n), toString: r(1n, 10n),
+  });
+  assert.deepEqual(capVector({ constructor: r(3n, 5n), valueOf: r(2n, 5n) }, r(1n, 2n), "$"), {
+    constructor: r(1n, 2n), valueOf: r(1n, 2n),
+  });
+});

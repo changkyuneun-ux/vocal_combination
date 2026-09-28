@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { evaluate, type EvaluationInput } from "../../src/allocation/evaluate.ts";
 import type { AllocationResult } from "../../src/allocation/types.ts";
 import { digestOf } from "../../src/core/digest.ts";
-import { evaluationInput, loadAllocationCase, loadFactsCase } from "../helpers.ts";
+import { projectToIr } from "../../src/facts/result.ts";
+import { evaluationInput, loadAllocationCase, loadFactsCase, sortBody, type BasicInput } from "../helpers.ts";
 
 const basic = () => evaluationInput(loadAllocationCase());
 function run(i: EvaluationInput): AllocationResult {
@@ -15,6 +16,25 @@ const codes = (i: EvaluationInput) => {
   const r = evaluate(i);
   return r.ok ? [] : r.errors.map((e) => e.code).sort();
 };
+/** 기본 케이스의 facts를 바꿔 평가 입력을 다시 만든다(정규형 정렬, depends_on digest·투영 재계산). */
+function withFacts(change: (f: BasicInput) => BasicInput): EvaluationInput {
+  const c = loadAllocationCase();
+  const f = sortBody(change(loadFactsCase(c.facts_case)));
+  c.policy.depends_on[0]!.digest = digestOf(f.facts);
+  const p = projectToIr(f.facts, f.usage, f.as_of, f.known_at);
+  assert.ok(p.ok);
+  return { policy: c.policy, facts: f.facts, projection: p.value, snapshot: c.snapshot, events: c.events, runId: c.run_id };
+}
+const renameParty = (from: string, to: string) => (f: BasicInput): BasicInput => JSON.parse(JSON.stringify(f).replaceAll(`"${from}"`, `"${to}"`));
+function assertConserved(res: AllocationResult, i: EvaluationInput): void {
+  for (const ev of i.events) {
+    const pool = res.pool_lines.filter((l) => l.event_id === ev.id);
+    assert.equal(pool.reduce((a, l) => a + BigInt(l.amount), 0n), BigInt(ev.amount));
+    const rights = BigInt(pool.find((l) => l.bucket === "rights")!.amount);
+    const paid = [...res.lines, ...res.holdings].filter((l) => l.event_id === ev.id).reduce((a, l) => a + BigInt(l.amount), 0n);
+    assert.equal(paid, rights);
+  }
+}
 const linesOf = (res: AllocationResult, ev: string) =>
   res.lines.filter((l) => l.event_id === ev).map((l) => [l.bucket, l.party, l.role, l.amount]);
 
@@ -40,14 +60,7 @@ test("rounding event 1001: remainders follow HIERARCHICAL_LRM_V1", () => {
 });
 
 test("money is conserved per event", () => {
-  const res = run(basic());
-  for (const ev of basic().events) {
-    const pool = res.pool_lines.filter((l) => l.event_id === ev.id);
-    assert.equal(pool.reduce((a, l) => a + BigInt(l.amount), 0n), BigInt(ev.amount));
-    const rights = BigInt(pool.find((l) => l.bucket === "rights")!.amount);
-    const paid = [...res.lines, ...res.holdings].filter((l) => l.event_id === ev.id).reduce((a, l) => a + BigInt(l.amount), 0n);
-    assert.equal(paid, rights);
-  }
+  assertConserved(run(basic()), basic());
 });
 
 test("result is deterministic and self-digested", () => {
@@ -175,4 +188,23 @@ test("result carries bind_time and events_digest", () => {
   const res = run(basic());
   assert.equal(res.bind_time, "ISSUE_TIME");
   assert.equal(res.events_digest, digestOf(basic().events));
+});
+
+test("a party id named after an Object.prototype member evaluates end to end", () => {
+  const i = withFacts(renameParty("pty_member_b", "constructor"));
+  i.snapshot = { members: { constructor: "1/2", pty_member_a: "1/2" } };
+  i.policy.body.tier2.split[1]!.vector = {
+    fn: "floor_guarantee", min: "1000",
+    of: { fn: "performance_pool", mode: "HYBRID", fixed: "4000", usage: "6000", featured_weight: "7000" },
+  };
+  const res = run(i);
+  assertConserved(res, i);
+  assert.ok(res.lines.some((l) => l.party === "constructor"));
+  // 벡터에 없는 멤버(constructor)를 floor_guarantee가 끌어올리는 경로
+  const j = withFacts(renameParty("pty_member_b", "constructor"));
+  j.snapshot = { members: { constructor: "1/2", pty_member_a: "1/2" } };
+  j.policy.body.tier2.split[2]!.vector = { fn: "floor_guarantee", min: "1000", of: j.policy.body.tier2.split[2]!.vector };
+  const res2 = run(j);
+  assertConserved(res2, j);
+  assert.ok(res2.lines.some((l) => l.bucket === "work" && l.party === "constructor"));
 });

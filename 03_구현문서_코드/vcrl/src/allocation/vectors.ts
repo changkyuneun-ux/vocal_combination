@@ -5,6 +5,9 @@ import { HOLD, type PartyVector } from "../facts/project.ts";
 
 const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** 벡터에서 k의 가중치(없으면 0). `constructor` 같은 상속 속성을 읽지 않도록 소유 속성만 본다. */
+export const weightOf = (vec: PartyVector, k: string): Ratio => (Object.hasOwn(vec, k) ? vec[k]! : ZERO);
+
 /** 같은 키는 더하고 키를 코드 유닛 오름차순으로 정렬한 벡터를 만든다. */
 export function collect(entries: Iterable<[string, Ratio]>): PartyVector {
   const m = new Map<string, Ratio>();
@@ -55,7 +58,7 @@ export function usageVector(
 
 /** `@hold`는 그대로 두고 parties에 value를 매긴 벡터. 합이 1이 아니면 조건을 만족하는 분배가 없는 것이다. */
 function build(vec: PartyVector, parties: readonly string[], value: (k: string) => Ratio, path: string): PartyVector {
-  const hold: [string, Ratio][] = HOLD in vec ? [[HOLD, vec[HOLD]!]] : [];
+  const hold: [string, Ratio][] = Object.hasOwn(vec, HOLD) ? [[HOLD, vec[HOLD]!]] : [];
   const out = collect([...hold, ...parties.map((k): [string, Ratio] => [k, value(k)])]);
   if (cmp(sum(Object.values(out)), ONE) !== 0) fail("ALLOC_INFEASIBLE", path, "no distribution satisfies the constraint");
   return out;
@@ -67,7 +70,7 @@ export function capVector(vec: PartyVector, max: Ratio, path: string): PartyVect
   const capped = new Set<string>();
   for (;;) {
     const free = parties.filter((k) => !capped.has(k));
-    const remaining = sub(sub(ONE, vec[HOLD] ?? ZERO), mul(ratio(BigInt(capped.size)), max));
+    const remaining = sub(sub(ONE, weightOf(vec, HOLD)), mul(ratio(BigInt(capped.size)), max));
     const freeSum = sum(free.map((k) => vec[k]!));
     const scale = freeSum.n === 0n ? ZERO : div(remaining, freeSum);
     const over = free.filter((k) => cmp(mul(vec[k]!, scale), max) > 0);
@@ -79,9 +82,9 @@ export function capVector(vec: PartyVector, max: Ratio, path: string): PartyVect
 /** members와 벡터의 party 각각이 최소 min을 받도록 올리고, 나머지를 원래 비율대로 줄인다(반복). */
 export function floorGuarantee(vec: PartyVector, members: readonly string[], min: Ratio, path: string): PartyVector {
   const domain = [...new Set([...Object.keys(vec).filter((k) => k !== HOLD), ...members])];
-  const available = sub(ONE, vec[HOLD] ?? ZERO);
+  const available = sub(ONE, weightOf(vec, HOLD));
   if (cmp(mul(ratio(BigInt(domain.length)), min), available) > 0) fail("ALLOC_INFEASIBLE", path, "floor exceeds available weight");
-  const val = (k: string) => vec[k] ?? ZERO;
+  const val = (k: string) => weightOf(vec, k);
   const floored = new Set(domain.filter((k) => cmp(val(k), min) < 0));
   for (;;) {
     const others = domain.filter((k) => !floored.has(k));
