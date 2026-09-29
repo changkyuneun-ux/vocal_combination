@@ -442,7 +442,7 @@ manifest/
 
 ## 11. 후속 과제
 
-> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C를 `master`에 머지한 시점). 상태는 **완료 / 부분 완료 / 미착수 / 미결(사업 결정)**로 표기한다.
+> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C·1-D 반영).
 
 ### 11.1 설계 시점에 정한 후속 과제
 
@@ -459,15 +459,15 @@ manifest/
 | 산출물 | 완료 | 남은 것 |
 |---|---|---|
 | 텍스트 문법 EBNF | allocation 문법(`spec/grammar/allocation.ebnf`, 어휘 규칙 포함), 12.37~12.39 | facts 텍스트 입력 문법(현재 facts는 표시 전용), constraint·grant·approval 문법 |
-| IR JSON 스키마 | `spec/schema/` envelope·facts IR·allocation IR | 평가 결과 IR 스키마와 버전 태그, constraint·grant·approval IR 스키마 |
+| IR JSON 스키마 | `spec/schema/` envelope·facts IR·allocation IR, 투영 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |
 | 오류 코드 목록 | `spec/error-codes.md`(구현 모듈 전체, 모든 코드가 테스트로 검증됨) | 미구현 모듈의 오류 코드 |
 
 ### 11.2 레퍼런스 구현 중 넘긴 과제 (12절에서 모음)
 
 | 과제 | 출처 | 우선순위 메모 |
 |---|---|---|
-| 설치형 배포를 위한 빌드 단계(Node는 `node_modules` 안의 `.ts`를 실행하지 않음) | 12.44 | 시스템 통합의 첫 선행 조건 |
-| 평가 결과 IR의 JSON Schema·버전 태그 | 12.44 | 외부 연동 전 필요 |
+| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널(사설 레지스트리·git·tarball)은 시스템 통합에서 결정 |
+| ~~평가 결과 IR의 JSON Schema·버전 태그~~ **완료(1-D, 12.48~12.49)** | 12.44 | |
 | facts 텍스트 입력(현재 출력 전용) | 12.44 | |
 | legacy-v1 변환기 | 12.44 | 사용자 결정으로 연기 |
 | `diff` 명령 | 12.44 | |

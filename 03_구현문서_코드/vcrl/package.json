@@ -4,16 +4,21 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
-  "bin": { "vcrl": "./bin/vcrl.ts" },
+  "bin": { "vcrl": "./dist/bin/vcrl.js" },
   "exports": {
-    "./core": "./src/core/index.ts",
-    "./facts": "./src/facts/index.ts",
-    "./allocation": "./src/allocation/index.ts",
-    "./text": "./src/text/index.ts"
+    "./core": { "types": "./dist/src/core/index.d.ts", "default": "./dist/src/core/index.js" },
+    "./facts": { "types": "./dist/src/facts/index.d.ts", "default": "./dist/src/facts/index.js" },
+    "./allocation": { "types": "./dist/src/allocation/index.d.ts", "default": "./dist/src/allocation/index.js" },
+    "./text": { "types": "./dist/src/text/index.d.ts", "default": "./dist/src/text/index.js" }
   },
+  "files": ["dist", "spec"],
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "smoke": "node scripts/smoke-pack.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
