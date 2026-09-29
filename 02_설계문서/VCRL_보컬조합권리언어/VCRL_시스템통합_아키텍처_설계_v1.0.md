@@ -120,7 +120,7 @@ reverse(runId: string, eventId: string, amount: bigint): Promise<Result<RunResul
 |---|---|---|---|---|
 | S1 | 정책 컴파일·재고정, 팩 활성화 검사 | **facts** (곡 1개 범위: 작품, 녹음, 스템, 보이스, 관련 party, claim, mandate) | `known_at` = 봉인 시각. `recorded_at ≤ known_at`인 행 버전만 포함하고, 그 뒤에 기록된 `superseded_at`은 비운다 | 없음 |
 | S2 | 정책 컴파일 | **allocation 정책** (`depends_on`에 S1 digest 고정) | — | EDITOR·WORK_APPROVER(승인), ACTIVATOR(활성화) |
-| S3 | 조합 발행 트랜잭션 | **투영 IR**, **멤버 비율**(`{members: …}`), 이를 묶은 `issue_seal` 행 | `as_of` = 발행 시각, `known_at` = 정책이 고정한 facts 봉인의 `known_at` | 없음 |
+| S3 | 조합 발행 트랜잭션 | **투영 IR**, **멤버 비율**(`{members: …}`), 이를 묶은 `issue_seal` 행 | `as_of` = `known_at` = 발행 시각(9.3-6). 투영은 정책이 고정한 facts 봉인으로 계산하므로 결과는 그 봉인 상태와 같다 | 없음 |
 | S4 | 정산 run | **events**(run에 포함된 이벤트 IR 배열), **결과 IR** | S3의 기준 시점 그대로 | 실행 워커(`SPACE_OPS`)가 `result_digest`에 서명, 검증 워커가 재계산 후 서명, 확정자(`SPACE_SETTLE`)가 서명 |
 | S5 | 공개 | **facts 공개본**(커밋먼트), Manifest | — | 플랫폼 키 |
 
@@ -342,7 +342,7 @@ CREATE TABLE manifest (
 v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬프 → 조합 ISSUED → `revenue_event(ISSUE)`)에 한 단계를 더한다.
 
 - 발행은 **정책이 고정한 facts 봉인**을 쓴다(현재 행을 다시 읽지 않는다). 팬 발행은 실시간이라 승인을 기다릴 수 없기 때문이다.
-- `sealIssue`: 사용량(`snapshot_stem_assignment` ms)과 멤버 비율로 투영을 계산해 봉인하고 `issue_seal`을 INSERT(S3). `as_of` = 발행 시각, `known_at` = facts 봉인 시각.
+- `sealIssue`: 사용량(`snapshot_stem_assignment` ms)과 멤버 비율로 투영을 계산해 봉인하고 `issue_seal`을 INSERT(S3). `as_of` = `known_at` = 발행 시각(9.3-6). facts는 정책이 고정한 봉인이므로 발행 시각을 `known_at`으로 써도 봉인 이후의 행은 들어가지 않는다.
 - 투영은 곡 1개 규모에서 수 ms이며 게이트 p95(100/500ms, 기획 16절) 안이다. 투영 IR에는 `as_of`(발행 시각)가 들어가므로 투영 digest는 발행마다 다르고 봉인 자체는 재사용되지 않는다. 초과가 실측되면 봉인 전 단계의 계산 결과(벡터·경로)를 `(facts_digest, u_digest)` 키로 캐시하는 방안을 검토한다.
 
 ### 5.4 F4 수익 유입
@@ -496,6 +496,7 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 7. **분쟁 동기 가드**: 발행 트랜잭션은 팩 상태와 별도로 해당 facts 범위에 열린 분쟁이 있는지 직접 확인해 거부한다(Outbox 일시정지 처리 전의 틈을 막는다).
 8. **추가 전용 보호**: 트리거(UPDATE·DELETE 거부, 같은 트랜잭션의 `superseded_at` 1회 설정만 허용)와 앱 DB 역할 권한(INSERT·SELECT만) 두 겹.
 9. **오류 → HTTP**: VCRL 진단 422(진단 목록 그대로), 직무 분리 403, 상태 충돌·분쟁 409, 없음 404.
+10. **facts 봉인 울타리**: 같은 행·같은 `known_at` → 같은 digest(3.1-3)는 `known_at` 이전 시각을 잡고 아직 커밋하지 않은 쓰기가 봉인 뒤에 커밋되면 깨진다. 그래서 `facts_scope.sealed_through`를 둔다. 범위에 쓰는 쪽(claim·mandate 기록, voice·stem·recording 등록, 분쟁 개시·종결)은 범위 행을 `FOR SHARE`로 잠근 뒤 자기 시각(`recorded_at`·`created_at`·`opened_at`)이 `sealed_through`보다 엄격히 늦어야 쓰고, 아니면 409 `FACTS_SEALED_THROUGH`로 거부된다. `sealFacts`는 행을 읽기 전에 범위 행을 `FOR UPDATE`로 잠가 진행 중인 쓰기의 커밋을 기다린 뒤 읽고, `sealed_through = GREATEST(sealed_through, known_at)`으로 올린다. 잠금 순서는 팩 → 범위다(정책 컴파일·재고정·분쟁 개시 공통). 교착·직렬화 실패는 409 `RETRY`로 응답한다.
 
 ### 9.4 완료 기준
 
@@ -518,3 +519,17 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 | facts 재봉인 대조 | 통과 |
 | 분쟁 → 일시정지 → 종결 → 재고정 → 재발행 | 통과 |
 | 실행 환경 | macOS 26.6.2 · Node v26.7.0 · PostgreSQL 17.11 (Docker, Debian 17.11-1.pgdg13+2) |
+| 최종 수정 후 재실행(봉인 울타리 등 반영) | 10000건, 총 36156ms, p50 / p95 / max 3.58 / 4.21 / 24.6 ms, 불일치 0, 분쟁 흐름 통과 |
+
+- 측정 조건: 연결 1개로 발행을 순차 실행했고, 로컬 Docker PostgreSQL이다. 동시 발행·네트워크 지연·운영 DB 규모는 반영하지 않았으므로 p95는 게이트 판단의 하한 참고값이다.
+- 적합성 digest 일치·등록 순서 무관 두 행의 근거는 `rights-core/test/engine-bridge/facts.test.ts`(`golden: …`, `property: registration order does not change the digest`)다. 나머지 행은 `npm run scenario`(`src/scenario/run.ts`) 출력이다.
+
+### 9.6 I-2 선행 과제
+
+I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한다.
+
+1. **KMS 서명**: `dev_signing_key`를 없애고 KMS/HSM으로 서명한다. 지금은 앱 역할 `rc_app`이 `private_pem`을 읽을 수 있어 어떤 사용자로도 서명할 수 있다.
+2. **DB 차원의 직무 분리**: `rc_app`이 `attestation`·`portal_role`·`user_account`에 직접 INSERT할 수 있다. 서명·역할 부여는 별도 DB 역할 또는 SECURITY DEFINER 함수로만 하게 하고, 서명자·역할 제약을 DB에서 검사한다.
+3. **Outbox 재시도·dead-letter**: 지금 폴러는 실패한 배치를 로그만 남기고 다음 주기에 다시 시도한다. 시도 횟수·백오프·dead-letter 테이블과 경보가 필요하다.
+4. **`dispute_closed` 핸들러**: 종결 이벤트는 쌓이기만 한다. 재고정 후보 계산·백오피스 작업 목록(3.3)으로 연결한다.
+5. **봉인 조회 인증**: `GET /seals/:digest`·`GET /issues/:id/audit`은 신원 없이 읽고 PRIVATE claim이 든 facts도 돌려준다(서버는 127.0.0.1 바인딩). 인증과 가시성 필터(공개본 S5)를 붙인다.
