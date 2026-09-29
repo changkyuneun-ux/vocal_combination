@@ -16,7 +16,7 @@ const users = await db.tx(async (tx) => {
   await seedSong(tx, fixedClock(T0, 0));
   const u = await seedUsers(tx, fixedClock(T0, 0));
   await issuance.createPack(tx, clock, u.rights, { packId: PACK, packCode: "NOVA", title: "Nova pack", factsScopeId: SCOPE });
-  await issuance.setPackClaimants(tx, u.rights, PACK, DECLARED);
+  await issuance.setPackClaimants(tx, clock, u.rights, PACK, DECLARED);
   return u;
 });
 
@@ -66,7 +66,7 @@ test("compile rejects a policy whose scope.pack differs from the target pack, wi
 test("activation fails with VCRL diagnostics when declared claimants drift", async () => {
   await db.tx(async (tx) => {
     await issuance.createPack(tx, clock, users.rights, { packId: "pak_drift", packCode: "DRIFT", title: "d", factsScopeId: SCOPE });
-    await issuance.setPackClaimants(tx, users.rights, "pak_drift", DECLARED.filter((d) => d.role !== "CMO"));
+    await issuance.setPackClaimants(tx, clock, users.rights, "pak_drift", DECLARED.filter((d) => d.role !== "CMO"));
   });
   const text = POLICY_TEXT.replace("pack: pak_nova", "pack: pak_drift");
   const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_drift", packId: "pak_drift", sourceText: text }));
@@ -82,4 +82,34 @@ test("activating a newer version supersedes the previous active version", async 
   await db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, r2));
   const rows = await db.pool.query("SELECT version, status FROM policy_version WHERE policy_id = 'pol_nova' ORDER BY version");
   assert.deepEqual(rows.rows.map((r) => [r.version, r.status]), [[1, "SUPERSEDED"], [2, "ACTIVE"]]);
+});
+
+test("verifyAttestations fails closed: no attestations, or a signer without a key", async () => {
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_verify", packId: PACK, sourceText: POLICY_TEXT }));
+  const bare = r.factsDigest; // 봉인은 됐지만 서명은 없는 digest
+  assert.deepEqual(await db.tx((tx) => signersOf(tx, bare)), []);
+  assert.equal(await db.tx((tx) => verifyAttestations(tx, bare)), false);
+  await db.tx((tx) => tx.query(
+    "INSERT INTO attestation (digest, signer_id, role, key_version, alg, signature, signed_at) VALUES ($1,'usr_ghost','WORK_APPROVER','dev-1','Ed25519','AAAA',$2)",
+    [r.policyDigest, clock.now()],
+  ));
+  assert.equal(await db.tx((tx) => verifyAttestations(tx, r.policyDigest)), false);
+});
+
+test("an ACTIVATOR who already signed the digest is refused", async () => {
+  const both = await db.tx(async (tx) => {
+    const { createUser, loadActor } = await import("../../src/platform/actor.ts");
+    await createUser(tx, clock, { userId: "usr_ed_act", displayName: "ed+act", roles: ["EDITOR", "ACTIVATOR"] });
+    return loadActor(tx, "usr_ed_act");
+  });
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, both, { policyId: "pol_sod2", packId: PACK, sourceText: POLICY_TEXT }));
+  await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.approver, r));
+  await assert.rejects(db.tx((tx) => policy.activatePolicy(ctx, tx, clock, both, r)), { code: "SOD_VIOLATION", status: 403 });
+});
+
+test("setPackClaimants writes an audit row", async () => {
+  await db.tx((tx) => issuance.setPackClaimants(tx, clock, users.rights, "pak_drift", DECLARED));
+  const rows = await db.pool.query("SELECT actor_user_id FROM audit_log WHERE action_name = 'PACK_CLAIMANTS_SET' AND entity_id = 'pak_drift'");
+  assert.ok(rows.rows.length >= 1);
+  assert.equal(rows.rows.at(-1).actor_user_id, "usr_rights");
 });

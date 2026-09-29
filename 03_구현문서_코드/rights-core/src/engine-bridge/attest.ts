@@ -22,13 +22,15 @@ export async function signersOf(tx: Tx, digest: string): Promise<{ signerId: str
   return r.rows.map((x) => ({ signerId: x.signer_id, role: x.role }));
 }
 
-/** digest의 모든 서명을 공개키로 검증한다. */
+/** digest의 모든 서명을 공개키로 검증한다. 서명이 없거나 서명자 키가 없으면 false(닫힌 실패). */
 export async function verifyAttestations(tx: Tx, digest: string): Promise<boolean> {
   const r = await tx.query(
-    "SELECT a.signer_id, a.role, a.alg, a.signature, k.public_pem FROM attestation a JOIN dev_signing_key k ON k.user_id = a.signer_id WHERE a.digest = $1",
+    "SELECT a.signer_id, a.role, a.alg, a.signature, k.public_pem FROM attestation a LEFT JOIN dev_signing_key k ON k.user_id = a.signer_id WHERE a.digest = $1",
     [digest],
   );
+  if (r.rows.length === 0) return false;
   return r.rows.every((x) => {
+    if (x.public_pem === null) return false;
     const att: Attestation = { signer: x.signer_id, role: x.role, over: digest, alg: x.alg, sig: x.signature };
     return verifyAttestation(att, x.public_pem);
   });

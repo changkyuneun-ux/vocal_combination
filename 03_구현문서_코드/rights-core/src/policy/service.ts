@@ -72,6 +72,7 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   const row = await versionRow(tx, ref);
   if (row.status !== "APPROVED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
   await requireNotSigned(tx, row.policyDigest, actor);
+  await packRow(tx, row.packId, "SHARE"); // 판정과 활성화 사이에 청구권자 교체를 막는다
   const diags = await checkPackActivation(ctx, tx, { factsDigest: row.factsDigest, declared: await declaredClaimants(tx, row.packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `${ref.policyId}@${ref.version} cannot be activated`, diags);
   await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: row.policyDigest });
