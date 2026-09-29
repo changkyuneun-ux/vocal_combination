@@ -8,7 +8,10 @@ export type Sealed = { digest: string; kind: SealKind; docId?: string; docVersio
 
 const INLINE_LIMIT = 64 * 1024;
 
-/** 값을 JCS로 정규화해 blob에 쓰고 sealed_document에 기록한다. 같은 digest는 한 번만 저장된다(멱등). */
+/**
+ * 값을 JCS로 정규화해 blob에 쓰고 sealed_document에 기록한다. 같은 digest는 한 번만 저장된다(멱등).
+ * 캐시는 채우지 않는다: 트랜잭션이 롤백되면 봉인되지 않은 값이 캐시에 남기 때문이다(캐시는 loadSealed만 채운다).
+ */
 export async function sealDocument(
   ctx: BridgeCtx, tx: Tx, input: { kind: SealKind; value: unknown; docId?: string; docVersion?: string; format?: string },
 ): Promise<Sealed> {
@@ -22,7 +25,6 @@ export async function sealDocument(
     [digest, input.kind, input.docId ?? null, input.docVersion ?? null, input.format ?? null, bytes.length, uri,
       bytes.length <= INLINE_LIMIT ? text : null],
   );
-  ctx.cache.set(digest, input.value);
   return { digest, kind: input.kind, ...(input.docId && { docId: input.docId }), ...(input.docVersion && { docVersion: input.docVersion }), ...(input.format && { format: input.format }) };
 }
 
@@ -33,6 +35,14 @@ export async function loadSealed(ctx: BridgeCtx, tx: Tx, digest: string): Promis
   if (row === undefined) throw notFound("sealed document", digest);
   const value: unknown = row.content ?? JSON.parse(new TextDecoder().decode(await ctx.blobs.get(row.storage_uri)));
   if (digestOf(value) !== digest) throw new DomainError("SEAL_CORRUPT", 500, `sealed document ${digest} does not match its digest`);
+  deepFreeze(value);
   ctx.cache.set(digest, value);
   return value;
+}
+
+/** 캐시 값은 프로세스 전체가 공유하므로 깊게 동결한다. */
+function deepFreeze(v: unknown): void {
+  if (typeof v !== "object" || v === null || Object.isFrozen(v)) return;
+  for (const x of Object.values(v)) deepFreeze(x);
+  Object.freeze(v);
 }

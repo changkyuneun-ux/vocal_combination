@@ -153,3 +153,51 @@ test("loadSealed reads storage without the cache and 404s unknown digests", asyn
     await drop();
   }
 });
+
+test("a rolled-back seal is not served from the cache", async () => {
+  const { db, drop } = await freshDb();
+  try {
+    await db.tx((tx) => registerConformance(tx));
+    const local = createBridgeCtx(createFsBlobStore(blobRoot));
+    let digest = "";
+    await assert.rejects(
+      db.tx(async (tx) => {
+        digest = (await sealFacts(local, tx, conformance.facts.id, KNOWN_AT)).digest;
+        throw new Error("rollback");
+      }),
+      /rollback/,
+    );
+    assert.equal(digest, digestOf(conformance.facts));
+    await assert.rejects(db.tx((tx) => loadSealed(local, tx, digest)), { code: "NOT_FOUND" });
+  } finally {
+    await drop();
+  }
+});
+
+test("cached sealed documents are deeply frozen", async () => {
+  const { db, drop } = await freshDb();
+  try {
+    await db.tx((tx) => registerConformance(tx));
+    const sealed = await db.tx((tx) => sealFacts(ctx, tx, conformance.facts.id, KNOWN_AT));
+    const doc = await db.tx((tx) => loadFacts(ctx, tx, sealed.digest));
+    assert.ok(Object.isFrozen(doc) && Object.isFrozen(doc.body.claims[0]) && Object.isFrozen(doc.body.claims[0]!.valid));
+  } finally {
+    await drop();
+  }
+});
+
+test("non-canonical knownAt is rejected as INVALID_INSTANT (422)", async () => {
+  const { db, drop } = await freshDb();
+  try {
+    await db.tx((tx) => registerConformance(tx));
+    for (const bad of ["2026-06-01T09:00:00.000+09:00", "2026-06-01T00:00:00Z", "2026-02-30T00:00:00.000Z"]) {
+      await assert.rejects(db.tx((tx) => sealFacts(ctx, tx, conformance.facts.id, bad)), (e: any) => {
+        assert.equal(e.code, "INVALID_INSTANT");
+        assert.equal(e.status, 422);
+        return true;
+      }, bad);
+    }
+  } finally {
+    await drop();
+  }
+});

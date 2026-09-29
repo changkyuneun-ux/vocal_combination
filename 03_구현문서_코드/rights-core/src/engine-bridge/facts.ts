@@ -5,10 +5,20 @@ import type { BridgeCtx } from "./context.ts";
 import { buildFactsDocument, type FactsRows } from "./convert-facts.ts";
 import { loadSealed, sealDocument, type Sealed } from "./seal-store.ts";
 
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/** knownAt은 SQL(timestamptz)과 변환기(문자열 비교) 양쪽에서 쓰이므로 정규 밀리초 UTC 형식만 받는다. */
+function requireInstant(knownAt: string): void {
+  if (!INSTANT.test(knownAt) || Number.isNaN(Date.parse(knownAt)) || new Date(knownAt).toISOString() !== knownAt) {
+    throw invalid("INVALID_INSTANT", `knownAt must be a canonical UTC millisecond instant: ${knownAt}`);
+  }
+}
+
 const opt = <T>(v: T | null): T | undefined => (v === null ? undefined : v);
 
 /** 범위의 행 중 knownAt까지 기록된 것만 읽는다(통합 설계 9.3-5). 정렬은 변환기가 한다. */
 export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): Promise<FactsRows> {
+  requireInstant(knownAt);
   const scope = (await tx.query(
     "SELECT s.facts_scope_id, w.work_id, w.iswc, w.created_at FROM facts_scope s JOIN work w ON w.work_id = s.work_id WHERE s.facts_scope_id = $1",
     [scopeId],
@@ -54,6 +64,7 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
 
 /** S1: 범위의 facts를 knownAt 기준으로 만들고, VCRL로 검증한 뒤 봉인한다. 같은 행·같은 knownAt이면 같은 digest다. */
 export async function sealFacts(ctx: BridgeCtx, tx: Tx, scopeId: string, knownAt: string): Promise<Sealed & { knownAt: string }> {
+  requireInstant(knownAt);
   const doc = buildFactsDocument(await loadFactsRows(tx, scopeId, knownAt), knownAt);
   const errors = validateFacts(doc);
   if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed VCRL validation`, errors);
