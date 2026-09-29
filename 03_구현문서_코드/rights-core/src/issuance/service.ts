@@ -58,6 +58,10 @@ async function disputeClosedAfter(tx: Tx, scopeId: string, knownAt: string): Pro
   return r === undefined ? undefined : { disputeId: r.dispute_id, closedAt: iso(r.closed_at)! };
 }
 
+function rebindRequired(packId: string, active: { policyId: string; version: number; factsKnownAt: string }, stale: { disputeId: string; closedAt: string }) {
+  return conflict("REBIND_REQUIRED", `pack ${packId}: policy ${active.policyId}@${active.version} pins facts known at ${active.factsKnownAt}, before dispute ${stale.disputeId} closed at ${stale.closedAt}; rebind first`);
+}
+
 /** F2(통합 설계 5.2): 활성 정책이 있고, 범위에 열린 분쟁이 없고, 정책의 facts가 마지막 분쟁 종결 이후에 고정됐고, 활성화 검사를 통과해야 한다. */
 export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, packId: string): Promise<void> {
   requireRole(actor, "ACTIVATOR");
@@ -67,9 +71,7 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   if (active === undefined) throw conflict("NO_ACTIVE_POLICY", `pack ${packId} has no active policy`);
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const stale = await disputeClosedAfter(tx, pack.factsScopeId, active.factsKnownAt);
-  if (stale !== undefined) {
-    throw conflict("REBIND_REQUIRED", `pack ${packId}: policy ${active.policyId}@${active.version} pins facts known at ${active.factsKnownAt}, before dispute ${stale.disputeId} closed at ${stale.closedAt}; rebind first`);
-  }
+  if (stale !== undefined) throw rebindRequired(packId, active, stale);
   const diags = await checkPackActivation(ctx, tx, { factsDigest: active.factsDigest, declared: await declaredClaimants(tx, packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `pack ${packId} cannot be activated`, diags);
   await tx.query("UPDATE vocal_pack SET status = 'ACTIVE' WHERE pack_id = $1", [packId]);
@@ -86,6 +88,9 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const active = await activePolicyForPack(tx, input.packId);
   if (active === undefined) throw conflict("NO_ACTIVE_POLICY", `pack ${input.packId} has no active policy`);
+  // Outbox가 팩을 멈추기 전에 분쟁이 열리고 닫혔으면 팩은 ACTIVE로 남는다. 고정된 facts가 분쟁 이전이면 발행하지 않는다.
+  const stale = await disputeClosedAfter(tx, pack.factsScopeId, active.factsKnownAt);
+  if (stale !== undefined) throw rebindRequired(input.packId, active, stale);
 
   const bad = (m: string) => invalid("INVALID_ISSUE", m);
   if (input.assignments.length === 0) throw bad("assignments must not be empty");

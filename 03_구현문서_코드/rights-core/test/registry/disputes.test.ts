@@ -71,6 +71,16 @@ test("closing restores VERIFIED; a light rebind pins the new facts; the pack rea
   await assert.rejects(db.tx((tx) => policy.rebindPolicy(ctx, tx, clock, users.activator, "pol_nova")), { code: "REBIND_NOT_NEEDED" });
 });
 
+test("a dispute opened and closed before the outbox runs still forces a rebind before issuing", async () => {
+  await db.tx((tx) => openDispute(tx, clock, { disputeId: "dsp_quick", targetType: "RIGHT_CLAIM", targetId: "c_master", reason: "quick" }));
+  await db.tx((tx) => closeDispute(tx, clock, { disputeId: "dsp_quick" }));
+  assert.equal(await packStatus(), "ACTIVE", "outbox not processed: the pack was never paused");
+  await assert.rejects(db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_quick"))), { code: "REBIND_REQUIRED", status: 409 });
+  const rb = await db.tx((tx) => policy.rebindPolicy(ctx, tx, clock, users.activator, "pol_nova"));
+  const seal = await db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_quick")));
+  assert.equal(seal.factsDigest, rb.factsDigest);
+});
+
 test("an issue racing an opening dispute waits for it and then sees the dispute", async () => {
   const client = await db.pool.connect();
   try {

@@ -67,3 +67,14 @@ test("after a seal, writers at or before sealed_through are refused with FACTS_S
     await reg.registerRecording(tx, old, { recordingId: "rcd_unscoped", workId: "wrk_unscoped", masterOwnerPartyId: "pty_label", versionTitle: "Main" });
   });
 });
+
+test("sealFacts rejects a knownAt later than the database clock (it would advance the fence)", async () => {
+  await assert.rejects(db.tx((tx) => sealFacts(ctx, tx, SCOPE, "2099-01-01T00:00:00.000Z")), (e: any) => {
+    assert.equal(e.code, "INVALID_INSTANT");
+    assert.equal(e.status, 422);
+    assert.match(e.message, /future/);
+    return true;
+  });
+  const through = (await db.pool.query("SELECT sealed_through FROM facts_scope WHERE facts_scope_id = $1", [SCOPE])).rows[0].sealed_through;
+  assert.equal(through.toISOString(), KNOWN_AT);
+});
