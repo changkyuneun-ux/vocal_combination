@@ -370,6 +370,12 @@ v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬
 - 인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 vcrl `reverse`를 호출하고, 결과(`vcrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제).
 - 확정 전 환불은 이벤트를 run에서 제외하고(run을 다시 평가), 확정 후 환불·정정은 역분개로 처리한다.
 - 엔진 역분개는 1-E에서 구현했다.
+- 호출자 책임(엔진은 priors의 순서·일관성만 강제하고 완전성은 알 수 없다):
+  - I-2는 `(original_run_id, event_id)`마다 역분개를 잠그고(동시 호출 방지), 그 이벤트의 이전 역분개 봉인을 빠짐없이 순서대로 `priors`로 넘긴다.
+  - `(original_run_id, event_id, sequence)`에 유일 제약을 둔다.
+  - 환불 id(`refund.id`)는 유일하다(멱등 키). 엔진도 같은 체인 안의 중복 id는 `REV_CHAIN_BROKEN`으로 거부한다.
+  - 역분개 `run_id`는 원 `run_id`와 달라야 한다(`pool_line` PK 충돌 방지).
+  - 이미 해제·지급된 보류를 역분개하면 음수 보류가 실제와 맞지 않는다 — 처리 규칙은 I-2 설계에서 정한다.
 
 ### 5.8 F8 공개
 
