@@ -1,0 +1,468 @@
+# VCRL 시스템 통합 아키텍처 설계
+
+- **문서 상태**: 설계 합의(브레인스토밍 승인) — 구현 계획 수립 전
+- **작성일**: 2026-09-29
+- **버전**: v1.0
+- **상위·참조 문서**:
+  - `VCRL_아키텍처_코어규격_설계_v1.0.md` (VCRL 코어 규격, 12절 구현 반영 사항 1~52)
+  - `../권리정산인프라_20260927/보컬조합_권리관리_정산인프라_기획설계_v1.0.md` (이하 "기획")
+  - `../데이터모델_v2.7.md` (이하 "v2.7")
+  - `../검증_승인_권리스탬프_설계.md`, `../정책게이팅엔진_설계.md`, `../라이선스_정산_모니터링_백오피스_개념설계.md`
+- **범위**: 레퍼런스 구현이 끝난 VCRL 엔진(`03_구현문서_코드/vcrl`, 서브프로젝트 1)을 보컬조합 권리관리·정산 시스템에 연결하는 통합 아키텍처. 이번 사이클은 설계문서만 작성하며 구현은 로드맵(7.3)의 구현 사이클에서 한다.
+
+---
+
+## 0. 결정 요약
+
+| # | 결정 | 근거 |
+|---|---|---|
+| 1 | 이번 사이클은 통합 아키텍처 설계문서만 작성한다. | 사용자 결정 (2026-09-29) |
+| 2 | 백엔드는 Node·TypeScript **모듈형 모놀리스**. PostgreSQL + 트랜잭션 Outbox + PostgreSQL 기반 작업 큐 + 오브젝트 저장소. VCRL은 라이브러리로 직접 호출한다. | 사용자 결정, 기획 9절(PostgreSQL 원본·Outbox·작업 큐), 인원 가정(백엔드 2명) |
+| 3 | **관계형 행이 원본**이고, IR은 결정 시점(컴파일·활성화·발행·정산·공개)마다 행에서 결정적으로 만들어 digest로 **봉인한 스냅샷**이다. 결정에 쓰이는 입력은 봉인된 IR뿐이다. | 사용자 결정 |
+| 4 | v2.7 대비 데이터모델 변경은 이 문서에 DDL 수준으로 적는다. `데이터모델_v2.8` 전체 개정은 후속 과제다. | 사용자 결정 |
+| 5 | VCRL을 import하는 곳은 `engine-bridge` 모듈 하나뿐이다. 행↔IR 변환·봉인 저장·엔진 호출이 여기 모인다. | 접근안 1 채택 |
+| 6 | VCRL 패키지는 백엔드와 같은 저장소의 workspace 패키지로 참조한다. 외부 파트너 검증용으로만 tarball(1-D `npm pack`)을 배포한다. | 코어 규격 12.51 "배포 채널은 시스템 통합에서 정한다" |
+| 7 | 기획 1~2단계(권리 코어·정산 MVP)는 상세 설계, 3~4단계와 게이트·스탬프(서브프로젝트 2·3)는 확장 지점과 인터페이스만 정한다. | 범위 결정 |
+
+---
+
+## 1. 용어
+
+| 용어 | 뜻 |
+|---|---|
+| **IR** (Intermediate Representation, 중간 표현) | 텍스트 문법·화면·DB 행을 엔진이 읽는 하나의 표준 JSON 형식으로 바꾼 것. 숫자는 모두 문자열이며 JSON number를 쓰지 않는다. |
+| **facts IR** | 권리 사실 문서. party·work·recording·voice·stem 엔티티와 권리 주장(claim)·위임(mandate). 곡 1개 = facts 문서 1개(이 문서의 결정). |
+| **allocation IR** (정책 IR) | 안분 정책 문서. tier1 버킷, tier2 split과 벡터 식, 반올림 규칙, `depends_on`(facts digest 고정). |
+| **투영 IR** (`vcrl-projection/1`) | facts를 기준 시점(`as_of`·`known_at`)과 사용량(u)으로 투영한 역할별 기여 벡터와 경로. |
+| **결과 IR** (`vcrl-allocation-result/1`) | 안분 평가 결과. `pool_lines`·`lines`·`holdings`·입력 digest·`result_digest`, 봉인 밖의 설명용 `trace`. |
+| **digest** | IR을 RFC 8785(JCS)로 정규화한 바이트의 SHA-256. 표기 `vcrl:sha256:<64 hex>`. |
+| **봉인(seal)** | 행→IR 변환 결과의 JCS 바이트와 digest를 불변 저장하는 것. 한 번 저장한 봉인은 바꾸지 않는다. |
+| **서명(attestation)** | 역할을 가진 서명자가 digest에 대해 남기는 Ed25519 서명(`vcrl-attest/1` 문맥). |
+| **기준 시점** | `as_of`(어느 시점의 권리 관계인가)와 `known_at`(그 시점까지 기록된 사실만 쓴다). 이중 시간축의 두 축. |
+| **발행 봉인** (`issue_seal`) | 조합 발행 시 동결하는 facts·정책·투영·멤버 비율 digest 묶음. 정산의 유일한 입력. |
+| **재고정(rebind)** | 정책 본문은 그대로 두고 `depends_on`의 facts digest만 새 봉인으로 바꾼 정책 버전을 만드는 절차(3.3). |
+
+---
+
+## 2. 아키텍처와 모듈 경계
+
+### 2.1 전체 구조
+
+```
+          백오피스·파트너 포털(브라우저)          팬 앱
+                    │  HTTPS API                     │
+┌───────────────────▼────────────────────────────────▼──────────────────┐
+│ Node·TypeScript 백엔드 (모듈형 모놀리스)                                │
+│                                                                        │
+│  registry ─┐   policy ─┐   issuance ─┐   revenue ─┐   settlement ─┐   │
+│            │           │             │            │               │   │
+│            └───────────┴──────┬──────┴────────────┴───────────────┘   │
+│                               ▼                                        │
+│                         engine-bridge ──► vcrl (workspace 패키지)      │
+│                               │                                        │
+│  ledger ◄── settlement        │           disclosure ◄── settlement    │
+│                               ▼                                        │
+│  platform: Outbox · 작업 큐 워커 · 오브젝트 저장소 · 감사 로그 · 서명 API │
+└───────────────┬──────────────────────────────┬─────────────────────────┘
+                ▼                              ▼
+          PostgreSQL (원본)          오브젝트 저장소 (봉인 IR 원문, 계약서, 보고서)
+                                     KMS/HSM (서명키), 비밀 저장소 (salt)
+```
+
+모듈 사이는 함수 인터페이스로 호출한다. 다른 모듈의 테이블을 직접 쓰지 않는다(읽기는 공개된 조회 함수로). 비동기 작업은 상태 변경과 같은 트랜잭션에 Outbox 레코드를 쓰고, 작업 큐 워커가 처리한다.
+
+### 2.2 모듈
+
+| 모듈 | 책임 | 소유 테이블(주요) | VCRL 관련 |
+|---|---|---|---|
+| `registry` 권리 등록소 | party·work·recording·voice·stem 편집, 권리 주장·위임의 이중 시간축 버전 추가, 분쟁 개시·종결 | `party`, `work`, `recording`, `voice`, `stem`, `right_claim`, `mandate`, `facts_scope`, `dispute` | facts의 원본 행 |
+| `policy` 정책 레지스트리 | 안분 정책 작성(폼 또는 VCRL 텍스트), 컴파일, 시뮬레이션, 승인(직무 분리), 활성화, 재고정 | `policy_version`, (폼용) `settlement_policy`·`allocation_policy`·`alloc_layer`·`share_bucket*` | 정책 IR 봉인(S2) |
+| `issuance` 발행 | 팩 활성화 검사, 발행 트랜잭션의 스냅샷 동결 | `vocal_pack`, `rights_snapshot`, `snapshot_*`, `issue_seal` | `checkActivation`, 투영 봉인(S3) |
+| `revenue` 수익 수집·대사 | 이벤트 멱등 수집, 순매출 확정, 무결성 플래그, 발행 봉인 연결 | `revenue_event` | events 입력 |
+| `settlement` 정산 실행 | 배치 선정·그룹화, 평가, 결과 봉인, 재계산 검증, 검토·확정 | `settlement_batch`, `settlement_run`, `settlement_run_event`, `pool_line`, `allocation_line`, `unallocated_holding` | `evaluate`, `verifyAllocationResult` |
+| `ledger` 원장·지급 | 확정 라인의 복식 원장 반영, 보류 해제, 지급 지시·PSP 연동, 명세 | `payout_instruction`, 원장 테이블(v2.7·기획) | VCRL 밖 |
+| `disclosure` 공개 | Rights Manifest 번들, 공개본(커밋먼트), 플랫폼 서명, `/verify` | `manifest`(3.1 G) | 공개본·검증 |
+| `engine-bridge` 엔진 경계 | 행→IR 변환(순수 함수), 봉인 저장소, 엔진 호출, 결과→행 변환 | `sealed_document`, `attestation` | **VCRL을 import하는 유일한 모듈** |
+| `platform` 공통 기반 | Outbox, 작업 큐, 오브젝트 저장소 접근, 감사 로그, 서명 API, 권한 | `outbox`, `audit_log`, `user_account`·역할 | — |
+
+### 2.3 `engine-bridge` 인터페이스
+
+다른 모듈은 아래 함수만 호출한다. 모든 함수는 결정적이며 현재 시각을 스스로 읽지 않는다(기준 시점은 인자로 받는다).
+
+```ts
+sealFacts(scopeId: string, knownAt: Instant): Promise<Sealed>                     // S1
+compilePolicy(source: string, factsDigest: Digest): Promise<Result<Sealed>>        // S2 (텍스트 → IR → 검증 → 봉인)
+checkPackActivation(policyDigest: Digest, declared: ClaimantEntry[]): Promise<Diagnostic[]>
+sealIssue(input: { snapshotId: string; policyDigest: Digest; usageMs: Record<string, bigint>;
+                   members: Record<string, number /* bps */>; issuedAt: Instant }): Promise<IssueSeal>  // S3
+evaluateRun(input: { runId: string; issueSeal: IssueSeal; events: RevenueEventRow[] }): Promise<Result<RunResult>> // S4
+verifyRun(runId: string): Promise<Diagnostic[]>                                    // 독립 재계산
+publicBundle(runId: string): Promise<Sealed>                                        // S5
+reverse(runId: string, eventId: string, amount: bigint): Promise<Result<RunResult>> // 엔진 선행 과제(5.7)
+```
+
+`Sealed = { digest, kind, docId, docVersion, format }`. `RunResult`는 결과 digest와 행으로 변환한 라인·풀·보류 목록이다.
+
+---
+
+## 3. 봉인 모델
+
+### 3.1 원칙
+
+1. 편집은 행에서 한다. 결정(활성화·발행·정산·공개)에 쓰이는 입력은 **봉인된 IR만** 넘긴다.
+2. 봉인 = 행→IR 결정적 변환 결과의 JCS 바이트와 digest를 불변 저장.
+3. **같은 행 + 같은 기준 시점 → 언제 다시 만들어도 같은 digest.** 변환기 정합성의 판정 기준이다.
+4. 봉인은 내용 주소(digest)로만 참조한다. 도메인 행은 digest 컬럼으로 봉인을 가리킨다.
+
+### 3.2 봉인 지점
+
+| # | 시점 | 만드는 IR | 기준 시점 | 서명 |
+|---|---|---|---|---|
+| S1 | 정책 컴파일·재고정, 팩 활성화 검사 | **facts** (곡 1개 범위: 작품, 녹음, 스템, 보이스, 관련 party, claim, mandate) | `known_at` = 봉인 시각. `recorded_at ≤ known_at`인 행 버전만 포함하고, 그 뒤에 기록된 `superseded_at`은 비운다 | 없음 |
+| S2 | 정책 컴파일 | **allocation 정책** (`depends_on`에 S1 digest 고정) | — | EDITOR·WORK_APPROVER(승인), ACTIVATOR(활성화) |
+| S3 | 조합 발행 트랜잭션 | **투영 IR**, **멤버 비율**(`{members: …}`), 이를 묶은 `issue_seal` 행 | `as_of` = 발행 시각, `known_at` = 정책이 고정한 facts 봉인의 `known_at` | 없음 |
+| S4 | 정산 run | **events**(run에 포함된 이벤트 IR 배열), **결과 IR** | S3의 기준 시점 그대로 | 실행 워커(`SPACE_OPS`)가 `result_digest`에 서명, 검증 워커가 재계산 후 서명, 확정자(`SPACE_SETTLE`)가 서명 |
+| S5 | 공개 | **facts 공개본**(커밋먼트), Manifest | — | 플랫폼 키 |
+
+### 3.3 facts 변경과 정책 재고정
+
+엔진은 정책의 `depends_on`에 적힌 facts digest와 평가에 쓰는 facts가 정확히 같아야 평가한다. 따라서 claim 하나가 검증돼도 facts digest가 바뀌고, 이후 발행에 쓰려면 정책을 새 facts 봉인에 다시 고정해야 한다.
+
+- **가벼운 재고정**: 정책 본문이 같고, 새 facts로 투영한 청구권자 집합이 직전 고정 facts와 같고(`FACTS_CLAIMANT_DRIFT` 없음), 커버리지 검사와 `checkActivation`이 통과하면, ACTIVATOR 1인 서명으로 새 정책 버전(`rebind_of_version` 기록)을 만들어 즉시 ACTIVE로 바꾼다.
+- **전체 재승인**: 청구권자 집합이 바뀌었거나 열린 분쟁이 있으면 F1 전체 절차(승인 → 활성화)를 다시 밟는다.
+- 재고정은 발행되지 않은 미래 조합에만 영향을 준다. 이미 발행된 조합은 S3 봉인으로만 정산된다. 발행 후 facts 정정은 정정 흐름(5.7)에서 다룬다.
+- `registry`는 facts 범위의 행이 바뀔 때 Outbox로 `facts_changed(scopeId)`를 내보내고, `policy`가 재고정 후보를 계산해 백오피스 작업 목록에 올린다(자동 실행하지 않는다).
+
+### 3.4 결합 시점
+
+MVP의 결합 시점은 `ISSUE_TIME` 하나다(v2.7 호환, 코어 규격 9절 13번). `USAGE_TIME`·`SALE_TIME`·`REPORT_PERIOD`는 정산 run에서 이벤트 시각으로 투영을 새로 만드는 방식이 되며, 확장 지점으로만 둔다(`evaluateRun`의 입력에 `bindTime`과 기준 시점 결정 함수를 추가).
+
+---
+
+## 4. 데이터모델 변경 (v2.7 대비)
+
+### 4.1 표현 규칙
+
+- 행에는 정수를 저장한다: 금액 `BIGINT`(최소 통화 단위, KRW는 원), 비율 `INT` bps(0~10000).
+- IR로 바꿀 때 문자열로 만든다(`"10000"`, `"2500"`). 유리수 비율(`"n/d"`)은 행에 저장하지 않는다. 필요하면 봉인 문서에서 읽는다.
+- 시각은 `TIMESTAMPTZ`로 저장하고 IR에서는 밀리초 3자리 UTC 문자열(`2026-06-01T00:00:00.000Z`)로 만든다. 저장 정밀도가 마이크로초라도 변환 시 밀리초로 자르며, 같은 밀리초에 두 버전이 기록되지 않도록 `recorded_at`은 서버가 밀리초 단위로 발급한다.
+- id는 VCRL id 규칙(`^[A-Za-z0-9._-]+$`, `__proto__` 금지)을 DB `CHECK`로 강제한다.
+
+### 4.2 추가 테이블
+
+```sql
+-- facts 범위: 곡 1개 = facts 문서 1개
+CREATE TABLE facts_scope (
+  facts_scope_id  TEXT PRIMARY KEY CHECK (facts_scope_id ~ '^[A-Za-z0-9._-]+$'),  -- facts IR의 id
+  work_id         TEXT NOT NULL REFERENCES work(work_id),
+  last_version    INT  NOT NULL DEFAULT 0,       -- S1 봉인 때마다 증가, facts IR의 version
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 보이스(사람·AI 목소리). v2.7에 없는 facts 엔티티
+CREATE TABLE voice (
+  voice_id        TEXT PRIMARY KEY,
+  facts_scope_id  TEXT NOT NULL REFERENCES facts_scope,
+  kind            TEXT NOT NULL CHECK (kind IN ('HUMAN','AI'))
+);
+
+-- 권리 주장: 이중 시간축, 추가만 허용(UPDATE·DELETE 금지, DB 역할로 강제)
+CREATE TABLE right_claim (
+  claim_id        TEXT NOT NULL,
+  version         INT  NOT NULL,
+  facts_scope_id  TEXT NOT NULL REFERENCES facts_scope,
+  source_id       TEXT NOT NULL,                 -- stem·voice·recording·work id
+  edge            TEXT NOT NULL CHECK (edge IN ('PERFORMED_BY','OWNED_BY','IN_SLOT','OF_RECORDING','PART_OF',
+                                               'CONTROLLED_BY','OF_WORK','WRITTEN_BY','CONTRIBUTED_BY')),
+  target_id       TEXT NOT NULL,                 -- voice 또는 party id
+  share_bps       INT  NOT NULL CHECK (share_bps BETWEEN 0 AND 10000),
+  performer_role  TEXT NULL CHECK (performer_role IN ('FEATURED','NON_FEATURED')),
+  role_detail     TEXT NULL,
+  status          TEXT NOT NULL CHECK (status IN ('ASSERTED','VERIFIED','DISPUTED','SUPERSEDED')),
+  valid_from      TIMESTAMPTZ NOT NULL,
+  valid_to        TIMESTAMPTZ NULL,
+  recorded_at     TIMESTAMPTZ NOT NULL,
+  superseded_at   TIMESTAMPTZ NULL,              -- 다음 버전 기록 시각(같은 트랜잭션에서 설정하는 유일한 예외 갱신)
+  evidence_digest TEXT NULL,                     -- 계약서 등 증빙 원문의 digest(오브젝트 저장소)
+  visibility      TEXT NULL CHECK (visibility IN ('PUBLIC','PARTIES','PRIVATE')),
+  source_ref      TEXT NULL,                     -- 이행 출처(예: rights_image_party:<id>)
+  PRIMARY KEY (claim_id, version)
+);
+
+-- 위임(신탁·대리): right_claim과 같은 이중 시간축 구조
+CREATE TABLE mandate (
+  mandate_id      TEXT NOT NULL,
+  version         INT  NOT NULL,
+  facts_scope_id  TEXT NOT NULL REFERENCES facts_scope,
+  from_party_id   TEXT NOT NULL REFERENCES party,
+  to_party_id     TEXT NOT NULL REFERENCES party,
+  right_kind      TEXT NOT NULL CHECK (right_kind IN ('MASTER','WORK','PERFORMER')),
+  share_bps       INT  NOT NULL CHECK (share_bps BETWEEN 0 AND 10000),
+  status          TEXT NOT NULL CHECK (status IN ('ASSERTED','VERIFIED','DISPUTED','SUPERSEDED')),
+  valid_from      TIMESTAMPTZ NOT NULL,
+  valid_to        TIMESTAMPTZ NULL,
+  recorded_at     TIMESTAMPTZ NOT NULL,
+  superseded_at   TIMESTAMPTZ NULL,
+  visibility      TEXT NULL CHECK (visibility IN ('PUBLIC','PARTIES','PRIVATE')),
+  source_ref      TEXT NULL,
+  PRIMARY KEY (mandate_id, version)
+);
+
+-- 봉인 저장소: 내용 주소, 불변
+CREATE TABLE sealed_document (
+  digest       TEXT PRIMARY KEY CHECK (digest ~ '^vcrl:sha256:[0-9a-f]{64}$'),
+  kind         TEXT NOT NULL CHECK (kind IN ('facts','allocation','projection','members','events',
+                                             'allocation_result','public_facts','manifest')),
+  doc_id       TEXT NULL,
+  doc_version  TEXT NULL,
+  format       TEXT NULL,                        -- vcrl-projection/1, vcrl-allocation-result/1 등
+  byte_size    BIGINT NOT NULL,
+  storage_uri  TEXT NOT NULL,                    -- JCS 바이트 원문(오브젝트 저장소)
+  content      JSONB NULL,                       -- 64KiB 이하 문서의 조회용 사본(정본은 storage_uri)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 서명
+CREATE TABLE attestation (
+  digest       TEXT NOT NULL REFERENCES sealed_document,
+  signer_id    TEXT NOT NULL,                    -- user_account id 또는 platform:<key>
+  role         TEXT NOT NULL CHECK (role IN ('EDITOR','APPROVER','WORK_APPROVER','ACTIVATOR','SPACE_OPS','SPACE_SETTLE','PLATFORM')),
+  key_version  TEXT NOT NULL,
+  alg          TEXT NOT NULL DEFAULT 'Ed25519',
+  signature    TEXT NOT NULL,
+  signed_at    TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (digest, signer_id, role)
+);
+
+-- 정책 버전(정본은 봉인된 IR)
+CREATE TABLE policy_version (
+  policy_id          TEXT NOT NULL,
+  version            INT  NOT NULL,
+  source_text        TEXT NOT NULL,              -- VCRL 텍스트(폼에서 생성했거나 직접 작성)
+  policy_digest      TEXT NULL REFERENCES sealed_document,  -- COMPILED 이후
+  facts_digest       TEXT NOT NULL REFERENCES sealed_document,
+  status             TEXT NOT NULL CHECK (status IN ('DRAFT','COMPILED','APPROVED','ACTIVE','SUPERSEDED','TERMINATED')),
+  rebind_of_version  INT  NULL,                  -- 가벼운 재고정의 원 버전
+  pack_id            TEXT NULL REFERENCES vocal_pack,        -- 적용 범위(스코프의 pack)
+  created_by         TEXT NOT NULL,
+  activated_at       TIMESTAMPTZ NULL,
+  PRIMARY KEY (policy_id, version)
+);
+CREATE UNIQUE INDEX policy_one_active ON policy_version (policy_id) WHERE status = 'ACTIVE';
+
+-- 발행 봉인(S3): 정산의 유일한 입력
+CREATE TABLE issue_seal (
+  snapshot_id        TEXT PRIMARY KEY REFERENCES rights_snapshot,
+  facts_digest       TEXT NOT NULL REFERENCES sealed_document,
+  policy_digest      TEXT NOT NULL REFERENCES sealed_document,
+  projection_digest  TEXT NOT NULL REFERENCES sealed_document,
+  members_digest     TEXT NOT NULL REFERENCES sealed_document,
+  as_of              TIMESTAMPTZ NOT NULL,
+  known_at           TIMESTAMPTZ NOT NULL
+);
+
+-- 정산 run: evaluate 1회 = run 1개
+CREATE TABLE settlement_run (
+  run_id             TEXT PRIMARY KEY CHECK (run_id ~ '^[A-Za-z0-9._-]+$'),
+  batch_id           TEXT NOT NULL REFERENCES settlement_batch,
+  policy_digest      TEXT NOT NULL, projection_digest TEXT NOT NULL, members_digest TEXT NOT NULL,
+  events_digest      TEXT NULL,  result_digest TEXT NULL REFERENCES sealed_document,
+  status             TEXT NOT NULL CHECK (status IN ('PENDING','CALCULATED','VERIFIED','CONFIRMED','FAILED','VOIDED')),
+  diagnostics        JSONB NULL,                 -- FAILED일 때 엔진 진단 전문
+  executed_by        TEXT NOT NULL, verified_by TEXT NULL, confirmed_by TEXT NULL,
+  CHECK (verified_by IS NULL OR verified_by <> executed_by),
+  CHECK (confirmed_by IS NULL OR confirmed_by <> executed_by),
+  UNIQUE (batch_id, projection_digest, policy_digest, members_digest)
+);
+CREATE TABLE settlement_run_event (
+  run_id    TEXT NOT NULL REFERENCES settlement_run,
+  event_id  TEXT NOT NULL REFERENCES revenue_event,
+  active    BOOLEAN NOT NULL DEFAULT true,       -- run이 FAILED·VOIDED가 되면 false
+  PRIMARY KEY (run_id, event_id)
+);
+-- 이벤트 하나는 살아 있는 run 하나에만 들어간다(중복 지급 방지)
+CREATE UNIQUE INDEX run_event_once ON settlement_run_event (event_id) WHERE active;
+
+-- 공개 Manifest
+CREATE TABLE manifest (
+  manifest_id     TEXT PRIMARY KEY,
+  subject_kind    TEXT NOT NULL CHECK (subject_kind IN ('ISSUE','RUN','BATCH')),
+  subject_id      TEXT NOT NULL,
+  bundle_digest   TEXT NOT NULL REFERENCES sealed_document,
+  published_at    TIMESTAMPTZ NULL
+);
+```
+
+`settlement_batch`에는 `batch_manifest_digest TEXT NULL`을 추가한다. 값은 배치에 속한 확정 run의 `result_digest`를 정렬한 배열의 digest다.
+
+### 4.3 변경 테이블
+
+| 테이블 | 변경 | 이유 |
+|---|---|---|
+| `pool_line` | 고정 3컬럼(`rights_pool_krw`·`platform_krw`·`fan_incentive_krw`) → `(run_id, event_id, bucket, amount_krw)`, PK `(run_id, event_id, bucket)`. 기존 형태는 뷰 `pool_line_v27`로 제공 | VCRL tier1 버킷은 이름이 임의 |
+| `allocation_line` | `run_id`, `role`, `bucket`, `line_seq INT` 추가. 유일키 `(run_id, event_id, party_id, role, bucket, line_seq)`. `share_ratio NUMERIC(16,12)` 삭제. `base_breakdown_json`은 결과의 `trace`에서 생성(설명용). `line_kind`·`reversal_of_line_id`는 역분개용으로 유지 | 결과 IR 라인 키와 일치, 비율 손실 방지 |
+| `unallocated_holding` | `run_id NULL`, `bucket NULL` 추가. `reason_code`에 `RIGHTS_DISPUTE` 추가 | 엔진 보류(`RIGHTS_DISPUTE`·`FRAUD_REVIEW`)를 그대로 기록 |
+| `revenue_event` | `source_system`, `source_event_id`, `source_revision`, `currency CHAR(3)` 추가, UNIQUE `(source_system, source_event_id, source_revision)` | 기획 11절 중복 판정 키, 다통화 확장 |
+| `rights_image_party`, `claimant` | 원본에서 **화면용 요약 캐시**로 격하. 발행 봉인의 투영에서 재생성. 드리프트는 `FACTS_CLAIMANT_DRIFT`로 감시 | 원본은 `right_claim`·`mandate` |
+| `work.cmo_managed`, `share_bucket.member_source=CMO` | 화면용 요약으로만 유지. 실제 신탁 라우팅은 `mandate` | 코어 규격 9절 D05 |
+| `settlement_policy`·`allocation_policy`·`alloc_layer`·`share_bucket*`·`settlement_rule` | 폼 편집용으로 유지. 저장 시 VCRL 텍스트를 생성해 `policy_version.source_text`에 넣는다. tier1 3풀은 VCRL tier1 버킷 `platform`·`rights`·`fan`으로 대응 | 정본은 봉인된 정책 IR |
+
+### 4.4 행 → IR 변환 규칙(요지)
+
+| IR 필드 | 행 출처 | 규칙 |
+|---|---|---|
+| facts `id`·`version` | `facts_scope.facts_scope_id`, `last_version` | S1마다 버전 증가 |
+| `parties[]` | 범위 안 claim·mandate가 참조하는 `party` | `kind` = `party_type` 대응표(구현 사이클에서 확정), id 오름차순 |
+| `claims[]` | `right_claim` 중 `recorded_at ≤ known_at`인 버전 | `share` = `share_bps` 문자열, `superseded_at > known_at`이면 비움 |
+| `mandates[]` | `mandate` | claim과 같은 규칙 |
+| 정책 IR | `policy_version.source_text` | `compileAllocation` 결과 그대로 |
+| 사용량 u | `snapshot_stem_assignment.duration_ms` | 스템별 합계 문자열 |
+| members | `snapshot_member_pct.pct_bps` | `{members: {party: "bps"}}` |
+| events | `revenue_event` | `amount` = `net_amount_krw`, `type` = `PURCHASE→PRIMARY`, `RESALE→RESALE`, `integrity` = `FLAGGED→FLAGGED`, 그 밖 `CLEAR`. `ISSUE`(금액 0)는 제외, `REFUND_*`는 5.7 |
+
+---
+
+## 5. 핵심 흐름
+
+### 5.1 F1 정책 작성 → 활성화
+
+1. EDITOR가 폼 또는 VCRL 텍스트로 편집 → `DRAFT`.
+2. 컴파일: `sealFacts(scope, now)`(S1) → 텍스트에 `uses facts … digest` 고정 → `compilePolicy` → `COMPILED`(S2).
+3. 시뮬레이션 리포트: 최근 발행 봉인 N건과 그 이벤트를 새 정책으로 평가해 현 정책 결과와 비교(엔진 섀도 리포트 전까지는 `evaluate` 2회 호출로 차액 계산).
+4. 승인: EDITOR와 다른 WORK_APPROVER가 정책 digest에 서명 → `APPROVED`.
+5. 활성화: 승인자와 다른 ACTIVATOR가 `checkActivation` 통과 후 서명 → `ACTIVE`. 이전 ACTIVE는 `SUPERSEDED`. 활성화 이후 발행되는 조합부터 적용(소급 없음).
+6. facts만 바뀌면 3.3 재고정.
+
+### 5.2 F2 팩 활성화
+
+팩은 활성 정책이 있고 `checkPackActivation`(선언 청구권자 = `rights_image_party` 캐시 vs 투영, 위임 경로까지 분쟁 없음)이 통과해야 활성화된다. `FACTS_DISPUTE_OPEN`이면 거부(코어 규격 12.20).
+
+### 5.3 F3 조합 발행
+
+v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬프 → 조합 ISSUED → `revenue_event(ISSUE)`)에 한 단계를 더한다.
+
+- 발행은 **정책이 고정한 facts 봉인**을 쓴다(현재 행을 다시 읽지 않는다). 팬 발행은 실시간이라 승인을 기다릴 수 없기 때문이다.
+- `sealIssue`: 사용량(`snapshot_stem_assignment` ms)과 멤버 비율로 투영을 계산해 봉인하고 `issue_seal`을 INSERT(S3). `as_of` = 발행 시각, `known_at` = facts 봉인 시각.
+- 투영은 곡 1개 규모에서 수 ms이며 게이트 p95(100/500ms, 기획 16절) 안이다. 초과가 실측되면 `(facts_digest, 정규화 u)` 키로 투영 봉인을 캐시한다(u_digest가 이미 정규화 사용량 기준이다).
+
+### 5.4 F4 수익 유입
+
+어댑터(앱 결제, PSP, 이후 DSR)가 `revenue_event`를 중복 판정 키로 멱등 기록한다. `vc_id → rights_snapshot → issue_seal`로 연결한다. 연결할 발행 봉인이 없으면 `unallocated_holding(NO_ACTIVE_POLICY)`.
+
+### 5.5 F5 정산 배치
+
+1. 배치 `RUNNING`: 기간 내 미배정 이벤트를 발행 봉인별로 그룹화(같은 정책·투영·멤버여야 한 번에 평가 가능). 그룹 1개 = `settlement_run` 1개(`PENDING`).
+2. 정산 워커(작업 큐, 병렬): events 봉인 → `evaluateRun` → 결과 봉인 → `pool_line`·`allocation_line`·`unallocated_holding` INSERT를 run 단위 트랜잭션으로 → `CALCULATED`. 엔진 진단이면 `FAILED` + 진단 저장, 해당 이벤트는 `active=false`로 풀려 다음 배치로.
+3. 검증 워커(실행 워커와 다른 서비스 신원): `verifyRun` = `verifyAllocationResult` 재계산 → 불일치 0이면 서명 후 `VERIFIED`, 불일치면 `VOIDED` + 경보.
+4. 검토·확정: 사람(`SPACE_SETTLE`, 실행자와 다름)이 배치 단위로 확정 → 모든 run `CONFIRMED`, `batch_manifest_digest` 기록 → `ledger`로 Outbox.
+5. **규모 위험**: 조합마다 투영이 달라 run 수가 이벤트가 있는 조합 수에 비례한다(기획 16절의 1.5억 라인 경고와 같은 문제). MVP는 워커 병렬화와 결과 오브젝트 저장으로 대응하고, 정산 그룹 단위 집계는 3단계 실측 후 결정한다(8절 미결).
+
+### 5.6 F6 분쟁
+
+1. 분쟁 개시 → 해당 claim의 새 버전 `DISPUTED`(registry) → Outbox `dispute_opened(scope)` → 영향 팩 자동 일시정지(새 발행 차단).
+2. 이미 발행된 조합은 봉인 facts에 분쟁이 없어 엔진이 보류하지 않는다. 그래서 **시스템 정산 게이트**가 막는다: 배치 그룹화 단계에서 열린 분쟁이 걸린 facts 범위의 이벤트는 run에 넣지 않고, 순매출 전액을 `unallocated_holding(RIGHTS_DISPUTE, run_id NULL)`로 보류한다(tier1 분리는 엔진 평가가 필요하므로 분쟁 종결 후 평가 때 한다). 자동 재정규화는 하지 않는다(기획 원칙).
+3. 분쟁 종결:
+   - 원 권리 관계 유지 → 보류 이벤트를 봉인 입력 그대로 다음 배치에서 평가하고 보류 해제.
+   - 권리 관계 변경 → 5.7 정정 흐름.
+
+### 5.7 F7 정정·환불 (엔진 선행 과제: 역분개)
+
+- 인터페이스: `engine-bridge.reverse(runId, eventId, amount)` → 원 라인을 참조(`reversal_of_line_id`)하는 `REVERSAL` 라인과 증가한 `line_seq`, 새 결과 봉인. 부분 환불은 원 이벤트 누적 상한까지.
+- 엔진 지원 전 임시 처리: 확정 전 환불은 이벤트를 run에서 제외. 확정 후 환불은 직무 분리가 적용된 수동 `ADJUSTMENT`(서명 필수).
+- 따라서 **정산 MVP(I-2) 시작 전에 엔진 역분개를 구현**한다.
+
+### 5.8 F8 공개
+
+확정된 run·배치에 대해 Manifest 번들을 만든다: facts 공개본(커밋먼트), 정책 IR, 투영 IR, 결과 IR(`result_digest`, 봉인 밖 `trace`), 서명. 당사자별 salt는 비밀 저장소에 둔다(전달 방식은 서브프로젝트 4). `/verify`는 같은 `vcrl` 코드로 재계산한다(코어 규격 7.2).
+
+---
+
+## 6. 운영
+
+### 6.1 결정성과 재실행
+
+- `engine-bridge` 변환기는 순수 함수다. 현재 시각·난수·DB 정렬 순서에 의존하지 않고 id를 명시적으로 정렬한다(코드 유닛 비교). 기준 시점은 인자로 받는다.
+- 같은 run을 다시 실행하면 같은 `result_digest`가 나와야 한다. 다르면 경보 후 run을 `VOIDED`.
+
+### 6.2 멱등성
+
+| 대상 | 키 |
+|---|---|
+| 수익 이벤트 | `(source_system, source_event_id, source_revision)` |
+| 정산 run | `(batch_id, policy_digest, projection_digest, members_digest)` |
+| 이벤트 배정 | `run_event_once` 부분 유일 인덱스 |
+| 원장 반영 | `run_id` |
+| 지급 | PSP 멱등키(기획 12절) |
+| 봉인 | `digest` 기본키(중복 저장 무해) |
+
+### 6.3 비동기와 장애
+
+- 상태 변경과 Outbox 기록은 같은 트랜잭션. 작업 큐는 PostgreSQL 기반(graphile-worker·pg-boss 등, 구현 사이클에서 선택).
+- 워커 작업은 재시도 안전해야 한다. 정산 워커 중단 시 봉인은 불변이고 라인 기록은 run 단위 트랜잭션이라 부분 기록이 남지 않는다.
+
+### 6.4 키 관리
+
+- 사용자 키(승인자·활성화 담당자·확정자 개인), 플랫폼 키(검증 워커·Manifest).
+- 개인키는 KMS/HSM에 두고 서명 API만 노출한다. 백엔드 프로세스는 개인키를 읽지 않는다.
+- salt는 party별로 비밀 저장소에 둔다. 키 교체·폐기는 `attestation.key_version`으로 추적한다.
+
+### 6.5 권한과 직무 분리
+
+| 역할 | 행위 | 겸직 금지 |
+|---|---|---|
+| EDITOR | 정책 편집·컴파일 | WORK_APPROVER, ACTIVATOR |
+| WORK_APPROVER | 정책 승인 | EDITOR |
+| ACTIVATOR | 정책 활성화·재고정 | EDITOR, WORK_APPROVER |
+| SPACE_OPS | 배치 실행 | SPACE_SETTLE |
+| 검증 워커 | 재계산 검증 | 실행 워커와 다른 서비스 신원 |
+| SPACE_SETTLE | 배치 확정 | SPACE_OPS |
+
+서명 시점에 서비스 검사와 DB `CHECK`·트리거로 이중 강제한다.
+
+### 6.6 관측
+
+run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일치 건수(0 목표), `FACTS_CLAIMANT_DRIFT` 경보, 분쟁 일시정지 팩 수, 재고정 대기 정책 수. 모든 봉인·서명 이벤트는 `audit_log`에 남긴다.
+
+---
+
+## 7. 테스트 · 이행 · 로드맵
+
+### 7.1 테스트
+
+1. **변환기 golden**: 픽스처 행 → IR → VCRL 적합성 케이스(`conformance/`)와 digest 일치.
+2. **속성 테스트**: 행 삽입 순서·트랜잭션 순서를 바꿔도 digest 동일.
+3. **흐름 통합(실제 PostgreSQL)**: F1~F6 시나리오, 직무 분리 위반 거부, 분쟁 중 팩 활성화 거부.
+4. **재계산 감사**: 확정 run 전수를 독립 검증기로 재계산, 불일치 0.
+5. **기획 출시 기준**: golden dataset, 보존식(Σ amount = R), 중복 지급 0, 재실행 동일성.
+
+### 7.2 이행 (기획 17절 순서)
+
+1. 테이블 추가(4.2) 및 변경(4.3).
+2. v2.7 `rights_image_party`·크레딧에서 `right_claim`·`mandate` 초기 버전 생성(`source_ref`에 출처).
+3. 섀도 계산: 기존 v2.7 정산과 VCRL 결과를 병행 비교, 차이 분류.
+4. 신규 팩부터 VCRL 정산 활성화. 기존 발행분의 봉인은 다시 쓰지 않는다.
+
+### 7.3 로드맵 (구현 사이클)
+
+| 사이클 | 내용 | 기획 단계 |
+|---|---|---|
+| I-1 권리 코어 PoC | `registry`, `engine-bridge`, `policy`, `issuance`, 봉인 저장소, 서명 API(개발용 키). 곡 1개·1만 조합 재현 | 1단계 |
+| 엔진 선행 | 역분개(REVERSAL), 섀도 시뮬레이션 리포트 | — |
+| I-2 정산 MVP | `revenue`, `settlement`, `ledger`, 지급 연동, 명세, F7 | 2단계 |
+| I-3 공개·파트너 포털 | `disclosure`, salt 전달, 키 관리(서브프로젝트 4와 합류) | — |
+| 이후 | 다중 채널(DSR 어댑터·다통화), 게이트·스탬프(서브프로젝트 2·3), B2B | 3~4단계 |
+
+---
+
+## 8. 미결 사항
+
+| 항목 | 결정 시점 |
+|---|---|
+| 작업 큐 제품(graphile-worker·pg-boss 등) | I-1 구현 계획 |
+| `party_type` ↔ VCRL `party_kind` 대응표 | I-1 구현 계획 |
+| 정산 그룹 단위 집계 전략(run 수 폭증 대응) | 3단계 성능 실측 후 |
+| 비`ISSUE_TIME` 결합 시점의 기준 시점 결정 규칙 | 해당 채널 도입 시 |
+| 시스템 판정 보류 코드(v2.7 7종)와 기획 예외 코드·엔진 보류 코드의 통합 목록 | I-2 구현 계획 |
+| 스탬프 조항·승인 모드 어휘의 문서 개정(코어 규격 9절) | 서브프로젝트 2·3 |
+| 사업 측 결정: 첫 계약 7개 항목, 파일럿 데이터 확보 책임자(기획 20.2) | 파일럿 전 |
+| `데이터모델_v2.8` 전체 개정 | I-1 착수 전 |
