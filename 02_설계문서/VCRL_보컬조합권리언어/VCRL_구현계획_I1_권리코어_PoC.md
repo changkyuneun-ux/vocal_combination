@@ -2229,6 +2229,8 @@ test("issue writes the snapshot and an issue seal whose projection matches the u
   const proj = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.projectionDigest])).rows[0].content;
   assert.equal(proj.format, "vcrl-projection/1");
   assert.deepEqual(proj.vectors.PERFORMER_FEATURED, { pty_member_a: "1/3", pty_member_b: "2/3" });
+  const members = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.membersDigest])).rows[0].content;
+  assert.deepEqual(members, { members: { pty_member_a: "1/2", pty_member_b: "1/2" } });
 });
 
 test("identical combinations share the members seal; projections differ only by as_of", async () => {
@@ -2348,7 +2350,7 @@ import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadFacts } from "./facts.ts";
 import { sealDocument } from "./seal-store.ts";
-import { digestOf } from "vcrl/core";
+import { digestOf, formatRatio, fromBps } from "vcrl/core";
 
 export type IssueSeal = {
   snapshotId: string; factsDigest: string; policyDigest: string; projectionDigest: string; membersDigest: string; asOf: string; knownAt: string;
@@ -2356,6 +2358,11 @@ export type IssueSeal = {
 
 const toStrings = (o: Record<string, number>) =>
   Object.fromEntries(Object.keys(o).sort().map((k) => [k, String(o[k])]));
+
+/** 멤버 봉인 = 엔진 Snapshot 형식(`{members: {party: "n/d"}}`, 합 1). 행의 bps를 유리수 문자열로 바꾼다(0 bps 멤버는 뺀다). */
+export function membersIr(members: Record<string, number>): { members: Record<string, string> } {
+  return { members: Object.fromEntries(Object.keys(members).sort().filter((k) => members[k]! > 0).map((k) => [k, formatRatio(fromBps(members[k]!))])) };
+}
 
 function buildProjection(facts: FactsDocument, usageMs: Record<string, number>, at: string) {
   const r = projectToIr(facts, toStrings(usageMs), at, at);
@@ -2371,7 +2378,7 @@ export async function sealIssue(
   const facts = await loadFacts(ctx, tx, input.factsDigest);
   const projection = buildProjection(facts, input.usageMs, input.issuedAt);
   const p = await sealDocument(ctx, tx, { kind: "projection", value: projection, docId: facts.id, format: projection.format });
-  const m = await sealDocument(ctx, tx, { kind: "members", value: { members: toStrings(input.members) } });
+  const m = await sealDocument(ctx, tx, { kind: "members", value: membersIr(input.members) });
   await tx.query(
     "INSERT INTO issue_seal (snapshot_id, facts_digest, policy_digest, projection_digest, members_digest, as_of, known_at) VALUES ($1,$2,$3,$4,$5,$6,$6)",
     [input.snapshotId, input.factsDigest, input.policyDigest, p.digest, m.digest, input.issuedAt],
@@ -2396,7 +2403,7 @@ export async function rederiveIssue(ctx: BridgeCtx, tx: Tx, snapshotId: string) 
   const facts = await loadFacts(ctx, tx, expected.factsDigest);
   const recomputed = {
     projectionDigest: digestOf(buildProjection(facts, usageMs, expected.asOf)),
-    membersDigest: digestOf({ members: toStrings(members) }),
+    membersDigest: digestOf(membersIr(members)),
   };
   const ok = recomputed.projectionDigest === expected.projectionDigest && recomputed.membersDigest === expected.membersDigest;
   return { ok, expected, recomputed };
