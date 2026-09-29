@@ -24,6 +24,7 @@ for (const name of cases) {
     const ir = r.value;
     assert.deepEqual(ir.vectors, expected.vectors);
     assert.deepEqual(ir.paths, expected.paths);
+    assert.equal(ir.format, expected.format);
     assert.equal(ir.digest, expected.digest);
   });
 }
@@ -45,6 +46,7 @@ for (const name of allocationCases) {
     assert.deepEqual(r.value.pool_lines, expected.pool_lines);
     assert.deepEqual(r.value.lines, expected.lines);
     assert.deepEqual(r.value.holdings, expected.holdings);
+    assert.equal(r.value.format, expected.format);
     assert.equal(r.value.result_digest, expected.result_digest);
   });
 }

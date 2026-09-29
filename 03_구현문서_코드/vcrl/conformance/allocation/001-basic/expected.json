@@ -1,4 +1,5 @@
 {
+  "format": "vcrl-alloc-result/1",
   "pool_lines": [
     { "event_id": "ev_001", "bucket": "platform", "amount": "2500" },
     { "event_id": "ev_001", "bucket": "ops", "amount": "500" },
@@ -20,5 +21,5 @@
     { "event_id": "ev_002", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "1", "amount": "42" }
   ],
   "holdings": [],
-  "result_digest": "vcrl:sha256:44ded518a8744ed520c9fdea88bc96fa7a7122415a9b72cec7694701fe110a35"
+  "result_digest": "vcrl:sha256:427da6fa2ec2de008e66d0c6512c991e117990a14a80bd09b2ca1a840f6e8d07"
 }

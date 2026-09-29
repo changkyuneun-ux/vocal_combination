@@ -41,7 +41,11 @@ export type AllocationLine = { event_id: string; party: string; role: ClaimantRo
 export type Holding = { event_id: string; bucket: string; reason: EnumValue<"holding_reason">; amount: string };
 export type TraceEntry = { event_id: string; level: string; total: string; parts: { key: string; weight: string; amount: string }[] };
 
+/** 안분 결과 형식 태그(스펙 12.48). result_digest 계산에 포함된다. */
+export const ALLOCATION_RESULT_FORMAT = "vcrl-alloc-result/1" as const;
+
 export type AllocationResult = {
+  format: typeof ALLOCATION_RESULT_FORMAT;
   run_id: string;
   policy_digest: string;
   projection_digest: string;

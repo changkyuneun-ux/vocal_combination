@@ -4,6 +4,7 @@ import { evaluate, type EvaluationInput } from "../../src/allocation/evaluate.ts
 import type { AllocationResult } from "../../src/allocation/types.ts";
 import { digestOf } from "../../src/core/digest.ts";
 import { projectToIr } from "../../src/facts/result.ts";
+import type { ProjectionIr } from "../../src/facts/result.ts";
 import { evaluationInput, loadAllocationCase, loadFactsCase, sortBody, type BasicInput } from "../helpers.ts";
 
 const basic = () => evaluationInput(loadAllocationCase());
@@ -366,4 +367,19 @@ test("performer coverage is judged per role: graph(PERFORMER_FEATURED) does not 
   }
   const ok = withGuest({ pty_guest: "1/3", pty_member_a: "1/3", pty_member_b: "1/3" });
   assertConserved(run(ok), ok);
+});
+
+test("allocation result carries its format tag inside result_digest (spec 12.48)", () => {
+  const r = run(basic());
+  assert.equal(r.format, "vcrl-alloc-result/1");
+  assert.equal(r.result_digest, digestOf({ ...r, result_digest: undefined }));
+  assert.notEqual(r.result_digest, digestOf({ ...r, format: undefined, result_digest: undefined }));
+});
+
+test("evaluate rejects a projection with another format tag", () => {
+  const input = basic();
+  const projection = { ...input.projection, format: "vcrl-projection/2" } as unknown as ProjectionIr;
+  const r = evaluate({ ...input, projection });
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.errors.some((e) => e.code === "CORE_TYPE_ERROR" && e.path === "$.projection.format"), JSON.stringify(r));
 });

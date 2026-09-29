@@ -6,7 +6,11 @@ import type { Instant } from "../core/time.ts";
 import { projectVectors, type Projection, type Usage } from "./project.ts";
 import type { FactsDocument } from "./types.ts";
 
+/** 투영 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
+export const PROJECTION_FORMAT = "vcrl-projection/1" as const;
+
 export type ProjectionIr = {
+  format: typeof PROJECTION_FORMAT;
   facts_digest: string;
   as_of: Instant;
   known_at: Instant;
@@ -41,7 +45,7 @@ function toProjectionIr(p: Projection, facts: FactsDocument, usage: Usage, asOf:
     .map((r) => ({ stem: r.stem, role: r.role, party: r.party, weight: formatRatio(r.weight), claims: [...r.claims] }))
     .sort((a, b) =>
       byKey(a.stem, b.stem) || byKey(a.role, b.role) || byKey(a.party, b.party) || byKey(a.claims.join(","), b.claims.join(",")));
-  const body = { facts_digest: digestOf(facts), as_of: asOf, known_at: knownAt, u_digest: digestOf(normalizedUsage(usage)), vectors, paths };
+  const body = { format: PROJECTION_FORMAT, facts_digest: digestOf(facts), as_of: asOf, known_at: knownAt, u_digest: digestOf(normalizedUsage(usage)), vectors, paths };
   return { ...body, digest: digestOf(body) };
 }
 

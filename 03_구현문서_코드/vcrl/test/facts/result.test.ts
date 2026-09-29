@@ -140,3 +140,10 @@ test("public validation: PUBLIC items must stay raw, only PRIVATE party ids may 
   (label as unknown as { ids: unknown }).ids = commitValue({ isni: "0000000123456789" }, salt);
   assert.deepEqual(validatePublicFacts(pub2).map((d) => d.code), ["CORE_TYPE_ERROR"]);
 });
+
+test("projection IR carries its format tag inside the digest (spec 12.48)", () => {
+  const a = build();
+  assert.equal(a.format, "vcrl-projection/1");
+  assert.equal(a.digest, digestOf({ ...a, digest: undefined }));
+  assert.notEqual(a.digest, digestOf({ ...a, format: undefined, digest: undefined }));
+});

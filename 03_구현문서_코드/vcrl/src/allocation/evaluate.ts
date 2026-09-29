@@ -7,7 +7,7 @@ import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { isInstant } from "../core/time.ts";
 import { HOLD, type PartyVector } from "../facts/project.ts";
-import type { ProjectionIr } from "../facts/result.ts";
+import { PROJECTION_FORMAT, type ProjectionIr } from "../facts/result.ts";
 import type { ClaimantRole, FactsDocument } from "../facts/types.ts";
 import { validateFactsStructure } from "../facts/validate.ts";
 import { evalVector, type ExprContext } from "./expr.ts";
@@ -16,6 +16,7 @@ import type {
   AllocationBody, AllocationDocument, AllocationLine, AllocationResult, Holding, PoolLine,
   RevenueEvent, Snapshot, SplitBucket, TraceEntry, VectorExpr,
 } from "./types.ts";
+import { ALLOCATION_RESULT_FORMAT } from "./types.ts";
 import { PERFORMER_ROLES, validateAllocation } from "./validate.ts";
 import { parseVector, sortedEntries } from "./vectors.ts";
 
@@ -45,6 +46,9 @@ function checkInputShapes(facts: unknown, snapshot: unknown, projection: unknown
   if (!isPlainObject(projection)) {
     out.push(diag("CORE_TYPE_ERROR", "$.projection", "must be an object"));
     return out;
+  }
+  if (projection.format !== PROJECTION_FORMAT) {
+    out.push(diag("CORE_TYPE_ERROR", "$.projection.format", `unsupported projection format: ${String(projection.format)}`));
   }
   for (const [k, valid] of PROJECTION_FIELDS) {
     if (!valid(projection[k])) out.push(diag("CORE_TYPE_ERROR", `$.projection.${k}`, String(projection[k])));
@@ -94,6 +98,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   });
   if (!allocated.ok) return err(allocated.errors);
   const result = {
+    format: ALLOCATION_RESULT_FORMAT,
     run_id: runId,
     policy_digest: digestOf(policy),
     projection_digest: projection.digest,

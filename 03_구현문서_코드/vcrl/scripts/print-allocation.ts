@@ -11,6 +11,6 @@ const projection = projectToIr(facts.facts, facts.usage, facts.as_of, facts.know
 if (!projection.ok) throw new Error(projection.errors.map((e) => e.code).join(","));
 const r = evaluate({ policy: input.policy, facts: facts.facts, projection: projection.value, snapshot: input.snapshot, events: input.events, runId: input.run_id });
 const out = r.ok
-  ? { pool_lines: r.value.pool_lines, lines: r.value.lines, holdings: r.value.holdings, result_digest: r.value.result_digest }
+  ? { format: r.value.format, pool_lines: r.value.pool_lines, lines: r.value.lines, holdings: r.value.holdings, result_digest: r.value.result_digest }
   : { errors: r.errors.map((e) => e.code).sort() };
 console.log(JSON.stringify(out, null, 2));
