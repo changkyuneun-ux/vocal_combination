@@ -79,7 +79,7 @@ import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type Alloca
 import { digestOf, type Diagnostic } from "vcrl/core";
 import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "vcrl/facts";
 import { compileAllocation } from "vcrl/text";
-export const formats: ["vcrl-alloc-result/1", "vcrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
+export const formats: ["vcrl-allocation-result/1", "vcrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
 export const check = (input: VerificationInput, r: AllocationResult): Diagnostic[] => verifyAllocationResult(input, r);
 export const fns = [evaluate, projectToIr, compileAllocation, digestOf] as const;
 export type Fmt = ProjectionIr["format"];

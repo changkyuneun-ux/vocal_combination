@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vcrl.invalid/1.0/allocation.result.schema.json",
-  "title": "VCRL allocation result (vcrl-alloc-result/1)",
+  "title": "VCRL allocation result (vcrl-allocation-result/1)",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "format", "run_id", "policy_digest", "projection_digest", "snapshot_digest", "events_digest", "bind_time",
-    "pool_lines", "lines", "holdings", "trace", "result_digest"
+    "pool_lines", "lines", "holdings", "result_digest"
   ],
   "properties": {
-    "format": { "const": "vcrl-alloc-result/1" },
+    "format": { "const": "vcrl-allocation-result/1" },
     "run_id": { "$ref": "#/$defs/id" },
     "policy_digest": { "$ref": "#/$defs/digest" },
     "projection_digest": { "$ref": "#/$defs/digest" },

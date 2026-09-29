@@ -1,5 +1,5 @@
 {
-  "format": "vcrl-alloc-result/1",
+  "format": "vcrl-allocation-result/1",
   "pool_lines": [
     { "event_id": "ev_001", "bucket": "platform", "amount": "2500" },
     { "event_id": "ev_001", "bucket": "ops", "amount": "500" },
@@ -18,5 +18,5 @@
   "holdings": [
     { "event_id": "ev_001", "bucket": "rights", "reason": "FRAUD_REVIEW", "amount": "7000" }
   ],
-  "result_digest": "vcrl:sha256:c917454ecb966f806900c419fce43c2c9fe10c14ce4de2d0abcad78bba81bada"
+  "result_digest": "vcrl:sha256:14fa7feef5ea76778b0be6085bb199aab8b250bf5ecf74cf03c5f47d47e38d22"
 }

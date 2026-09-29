@@ -67,7 +67,7 @@ test("money is conserved per event", () => {
 test("result is deterministic and self-digested", () => {
   const a = run(basic());
   assert.equal(a.result_digest, run(basic()).result_digest);
-  assert.equal(a.result_digest, digestOf({ ...a, result_digest: undefined }));
+  assert.equal(a.result_digest, digestOf({ ...a, result_digest: undefined, trace: undefined }));
   assert.equal(a.policy_digest, digestOf(basic().policy));
 });
 
@@ -369,11 +369,23 @@ test("performer coverage is judged per role: graph(PERFORMER_FEATURED) does not 
   assertConserved(run(ok), ok);
 });
 
-test("allocation result carries its format tag inside result_digest (spec 12.48)", () => {
+test("allocation result carries its format tag inside result_digest, trace outside it (spec 12.48)", () => {
   const r = run(basic());
-  assert.equal(r.format, "vcrl-alloc-result/1");
-  assert.equal(r.result_digest, digestOf({ ...r, result_digest: undefined }));
-  assert.notEqual(r.result_digest, digestOf({ ...r, format: undefined, result_digest: undefined }));
+  assert.equal(r.format, "vcrl-allocation-result/1");
+  assert.ok(r.trace.length > 0);
+  assert.equal(r.result_digest, digestOf({ ...r, result_digest: undefined, trace: undefined }));
+  assert.notEqual(r.result_digest, digestOf({ ...r, format: undefined, result_digest: undefined, trace: undefined }));
+});
+
+test("the seal covers line amounts but not trace entries (spec 12.48)", () => {
+  const r = structuredClone(run(basic()));
+  const seal = (v: typeof r) => digestOf({ ...v, result_digest: undefined, trace: undefined });
+  const traced = structuredClone(r);
+  traced.trace[0]!.total = "1";
+  assert.equal(seal(traced), r.result_digest);
+  const lined = structuredClone(r);
+  lined.lines[0]!.amount = "1";
+  assert.notEqual(seal(lined), r.result_digest);
 });
 
 test("evaluate rejects a projection with another format tag", () => {

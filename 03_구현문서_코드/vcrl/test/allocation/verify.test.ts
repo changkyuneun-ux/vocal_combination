@@ -32,16 +32,38 @@ test("a non-object result is a type error", () => {
 
 test("another format tag is reported before any recomputation", () => {
   const { input, result } = setup();
-  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "vcrl-alloc-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
+  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "vcrl-allocation-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
   const { format: _omit, ...untagged } = result;
   assert.deepEqual(at(verifyAllocationResult(input, untagged)), ["CORE_TYPE_ERROR $.result.format"]);
+});
+
+test("a genuine result without trace verifies (trace is outside the seal)", () => {
+  const { input, result } = setup();
+  const { trace: _omit, ...untraced } = result;
+  assert.deepEqual(verifyAllocationResult(input, untraced), []);
+});
+
+test("a forged trace is caught against the recomputed trace", () => {
+  const { input, result } = setup();
+  const forged = structuredClone(result);
+  forged.trace[0]!.total = "1";
+  const ds = verifyAllocationResult(input, forged);
+  assert.deepEqual(at(ds), ["CORE_DIGEST_MISMATCH $.result.trace"]);
+  assert.match(ds[0]!.message, /: trace does not match the recomputed trace$/);
+});
+
+test("a hostile trace is diagnosed, not thrown", () => {
+  const { input, result } = setup();
+  const ds = verifyAllocationResult(input, { ...result, trace: JSON.parse('{"toString":1}') });
+  assert.ok(ds.length > 0);
+  assert.ok(ds.every((d) => d.path.startsWith("$.result.trace")), JSON.stringify(ds));
 });
 
 test("tampered content is caught even when result_digest is re-sealed", () => {
   const { input, result } = setup();
   const forged = structuredClone(result);
   forged.lines[0]!.amount = "1";
-  forged.result_digest = digestOf({ ...forged, result_digest: undefined });
+  forged.result_digest = digestOf({ ...forged, result_digest: undefined, trace: undefined });
   assert.deepEqual(at(verifyAllocationResult(input, forged)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.result_digest"]);
 });
 
@@ -70,7 +92,7 @@ test("hostile digest values are diagnosed, not thrown", () => {
 test("a forged projection_digest alone, re-sealed, is reported", () => {
   const { input, result } = setup();
   const forged = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
-  forged.result_digest = digestOf({ ...forged, result_digest: undefined });
+  forged.result_digest = digestOf({ ...forged, result_digest: undefined, trace: undefined });
   assert.deepEqual(at(verifyAllocationResult(input, forged)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.projection_digest", "CORE_DIGEST_MISMATCH $.result.result_digest"]);
 });
 

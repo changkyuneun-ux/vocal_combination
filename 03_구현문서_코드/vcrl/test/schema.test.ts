@@ -44,6 +44,13 @@ test("every conformance allocation result matches the result schema (spec 12.49)
   assert.equal(n, 3);
 });
 
+test("an allocation result without trace still matches the result schema (trace is optional)", () => {
+  const r = evaluate(evaluationInput(loadAllocationCase()));
+  assert.ok(r.ok);
+  const { trace: _omit, ...untraced } = r.value;
+  assert.equal(resultSchema(untraced), true, JSON.stringify(resultSchema.errors));
+});
+
 test("result schemas reject another format, unknown fields, JSON numbers and unknown roles", () => {
   const p = projection();
   assert.ok(p.ok);
@@ -59,7 +66,7 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
   assert.ok(r.ok);
   const line0 = r.value.lines[0]!;
   for (const bad of [
-    { ...r.value, format: "vcrl-alloc-result/2" },
+    { ...r.value, format: "vcrl-allocation-result/2" },
     { ...r.value, extra: "x" },
     { ...r.value, lines: [{ ...line0, amount: 3150 }] },
     { ...r.value, lines: [{ ...line0, role: "NOBODY" }] },

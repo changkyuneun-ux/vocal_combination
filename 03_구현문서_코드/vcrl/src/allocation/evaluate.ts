@@ -107,7 +107,8 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
     bind_time: body.bind.time,
     ...out,
   };
-  return ok({ ...result, result_digest: digestOf(result) });
+  // trace는 설명용 자료로 봉인 밖에 둔다(스펙 12.48). 결과에는 남기되 result_digest 계산에서는 뺀다.
+  return ok({ ...result, result_digest: digestOf({ ...result, trace: undefined }) });
 }
 
 /** 입력의 digest를 계산한다. 계산 오류(예: JSON number)는 그 입력의 경로 접두사를 붙여 out에 모은다. */

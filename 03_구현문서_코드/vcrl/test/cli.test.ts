@@ -160,7 +160,7 @@ test("verify rejects a result with another format tag", () => {
   const r = cli(["evaluate", ...EVAL]);
   assert.equal(r.code, 0, r.err);
   const files = fixture();
-  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "vcrl-alloc-result/2" }));
+  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "vcrl-allocation-result/2" }));
   const v = cli(["verify", "--result", "other.json", ...EVAL], files);
   assert.equal(v.code, 1);
   assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);

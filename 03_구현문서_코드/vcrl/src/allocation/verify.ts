@@ -32,8 +32,16 @@ export function verifyAllocationResult(input: VerificationInput, given: unknown)
     out.push(diag("CORE_DIGEST_MISMATCH", "$.result.projection_digest", describe(given.projection_digest)));
   }
   if (given.result_digest !== expected) out.push(diag("CORE_DIGEST_MISMATCH", "$.result.result_digest", describe(given.result_digest)));
-  const content = attempt(() => digestOf({ ...given, result_digest: undefined }));
+  const content = attempt(() => digestOf({ ...given, result_digest: undefined, trace: undefined }));
   if (!content.ok) out.push(...underPath("$.result", content.errors));
   else if (content.value !== expected) out.push(diag("CORE_DIGEST_MISMATCH", "$.result", "result content does not match the recomputed result"));
+  // trace는 봉인 밖이므로 있으면 재계산한 trace와 직접 대조한다.
+  if (Object.hasOwn(given, "trace")) {
+    const trace = attempt(() => digestOf(given.trace));
+    if (!trace.ok) out.push(...underPath("$.result.trace", trace.errors));
+    else if (trace.value !== digestOf(recomputed.value.trace)) {
+      out.push(diag("CORE_DIGEST_MISMATCH", "$.result.trace", "trace does not match the recomputed trace"));
+    }
+  }
   return out;
 }
