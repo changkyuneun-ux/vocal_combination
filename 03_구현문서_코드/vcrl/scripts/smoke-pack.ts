@@ -4,10 +4,14 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
+const requireFromPkg = createRequire(join(pkg, "package.json"));
+const tscBin = requireFromPkg.resolve("typescript/bin/tsc");
+const typesRoot = dirname(dirname(requireFromPkg.resolve("@types/node/package.json")));
 const tmp = mkdtempSync(join(tmpdir(), "vcrl-smoke-"));
 const sh = (cmd: string, args: string[], cwd: string) => execFileSync(cmd, args, { cwd, encoding: "utf8" });
 const read = (rel: string) => readFileSync(join(pkg, rel), "utf8");
@@ -104,11 +108,11 @@ export const bad: AllocationResult["result_digest"] = 1;
   put("tsconfig.json", {
     compilerOptions: {
       target: "ES2024", module: "NodeNext", moduleResolution: "NodeNext", strict: true, noEmit: true, skipLibCheck: false,
-      types: ["node"], typeRoots: [join(pkg, "node_modules", "@types")],
+      types: ["node"], typeRoots: [typesRoot],
     },
     files: ["types.ts"],
   });
-  sh(process.execPath, [join(pkg, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"], app);
+  sh(process.execPath, [tscBin, "-p", "tsconfig.json"], app);
 
   console.log(`smoke OK ${expected.result_digest}`);
 } finally {

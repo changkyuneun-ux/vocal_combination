@@ -1,0 +1,6 @@
+{
+  "name": "vocal-combination-code",
+  "private": true,
+  "workspaces": ["vcrl", "rights-core"],
+  "engines": { "node": ">=24" }
+}

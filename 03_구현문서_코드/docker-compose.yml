@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: rc
+      POSTGRES_PASSWORD: rc
+      POSTGRES_DB: rights_core
+    ports:
+      - "54329:5432"
+    volumes:
+      - ./rights-core/db/init:/docker-entrypoint-initdb.d:ro
