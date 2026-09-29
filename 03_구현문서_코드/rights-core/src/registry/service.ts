@@ -1,7 +1,7 @@
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
-import { lookup, scopeExists, type EntityKind } from "./repo.ts";
+import { fenceRecording, fenceScope, fenceWork, lookup, scopeExists, type EntityKind } from "./repo.ts";
 
 export type PartyType = "LABEL" | "AGENCY" | "PUBLISHER" | "CMO" | "AUTHOR" | "ARTIST" | "MEMBER" | "SESSION" | "AI_PROVIDER" | "FAN" | "PLATFORM";
 export type ClaimEdge = "PERFORMED_BY" | "OWNED_BY" | "CONTROLLED_BY" | "WRITTEN_BY" | "CONTRIBUTED_BY";
@@ -43,8 +43,10 @@ export async function createScope(tx: Tx, clock: Clock, s: { factsScopeId: strin
 }
 
 export async function registerRecording(tx: Tx, clock: Clock, r: { recordingId: string; workId: string; masterOwnerPartyId: string; isrc?: string; versionTitle: string }): Promise<void> {
+  const at = clock.now();
+  await fenceWork(tx, r.workId, at);
   await tx.query("INSERT INTO recording_version (recording_id, work_id, master_owner_party_id, isrc, version_title, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [r.recordingId, r.workId, r.masterOwnerPartyId, r.isrc ?? null, r.versionTitle, clock.now()]);
+    [r.recordingId, r.workId, r.masterOwnerPartyId, r.isrc ?? null, r.versionTitle, at]);
 }
 
 export async function registerSlot(tx: Tx, s: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number }): Promise<void> {
@@ -53,12 +55,16 @@ export async function registerSlot(tx: Tx, s: { slotId: string; recordingId: str
 }
 
 export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; slotId: string; recordingId: string; performerPartyId?: string; rightsBearing: boolean }): Promise<void> {
+  const at = clock.now();
+  await fenceRecording(tx, s.recordingId, at);
   await tx.query("INSERT INTO stem (stem_id, slot_id, recording_id, performer_party_id, rights_bearing, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [s.stemId, s.slotId, s.recordingId, s.performerPartyId ?? null, s.rightsBearing, clock.now()]);
+    [s.stemId, s.slotId, s.recordingId, s.performerPartyId ?? null, s.rightsBearing, at]);
 }
 
 export async function registerVoice(tx: Tx, clock: Clock, v: { voiceId: string; factsScopeId: string; kind: "HUMAN" | "AI" }): Promise<void> {
-  await tx.query("INSERT INTO voice (voice_id, facts_scope_id, kind, created_at) VALUES ($1,$2,$3,$4)", [v.voiceId, v.factsScopeId, v.kind, clock.now()]);
+  const at = clock.now();
+  await fenceScope(tx, v.factsScopeId, at);
+  await tx.query("INSERT INTO voice (voice_id, facts_scope_id, kind, created_at) VALUES ($1,$2,$3,$4)", [v.voiceId, v.factsScopeId, v.kind, at]);
 }
 
 /** 엔티티가 존재하고, 범위가 있는 종류면 같은 facts 범위에 속하며, party면 facts에 들어갈 수 있는 종류인지 확인한다. */
@@ -69,13 +75,22 @@ async function requireEndpoint(tx: Tx, kind: EntityKind, id: string, scopeId: st
   if (kind === "party" && NON_FACTS_PARTY.has(e.detail ?? "")) throw invalid("INVALID_REFERENCE", `${role}: party ${id} (${e.detail}) cannot appear in facts`);
 }
 
+/** expectedVersion: 호출자가 읽은 현재 버전(없으면 0). 잠근 현재 버전과 다르면 VERSION_CONFLICT(잃어버린 갱신 방지). */
+export type RecordOptions = { expectedVersion?: number };
+
 /**
  * 이중 시간축 버전 추가: 현재 버전을 잠그고, 새 버전을 INSERT한 뒤 직전 버전의 superseded_at을 설정한다.
  * 새 버전은 현재 버전보다 엄격히 늦게 기록되어야 하고 같은 facts 범위에 있어야 한다.
  */
-async function nextVersion(tx: Tx, table: "right_claim" | "mandate", idCol: string, id: string, scopeId: string, recordedAt: string): Promise<number> {
+async function nextVersion(
+  tx: Tx, table: "right_claim" | "mandate", idCol: string, id: string, scopeId: string, recordedAt: string, expectedVersion: number | undefined,
+): Promise<number> {
   const cur = await tx.query(`SELECT version, recorded_at, facts_scope_id FROM ${table} WHERE ${idCol} = $1 AND superseded_at IS NULL FOR UPDATE`, [id]);
   const row = cur.rows[0];
+  const current = row === undefined ? 0 : (row.version as number);
+  if (expectedVersion !== undefined && expectedVersion !== current) {
+    throw conflict("VERSION_CONFLICT", `${id}: expected current version ${expectedVersion} but it is ${current}`);
+  }
   if (row === undefined) return 1;
   if (row.facts_scope_id !== scopeId) throw invalid("INVALID_REFERENCE", `${id} belongs to facts scope ${row.facts_scope_id}`);
   if (Date.parse(recordedAt) <= (row.recorded_at as Date).getTime()) {
@@ -88,13 +103,14 @@ async function supersede(tx: Tx, table: "right_claim" | "mandate", idCol: string
   if (version > 1) await tx.query(`UPDATE ${table} SET superseded_at = $3 WHERE ${idCol} = $1 AND version = $2`, [id, version - 1, at]);
 }
 
-export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft): Promise<Recorded> {
+export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft, opts: RecordOptions = {}): Promise<Recorded> {
   if (!(await scopeExists(tx, d.factsScopeId))) throw notFound("facts scope", d.factsScopeId);
   const [srcKind, dstKind] = EDGE_ENDPOINTS[d.edge];
   await requireEndpoint(tx, srcKind, d.sourceId, d.factsScopeId, "source");
   await requireEndpoint(tx, dstKind, d.targetId, d.factsScopeId, "target");
   const recordedAt = clock.now();
-  const version = await nextVersion(tx, "right_claim", "claim_id", d.claimId, d.factsScopeId, recordedAt);
+  await fenceScope(tx, d.factsScopeId, recordedAt);
+  const version = await nextVersion(tx, "right_claim", "claim_id", d.claimId, d.factsScopeId, recordedAt, opts.expectedVersion);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "right_claim", "claim_id", d.claimId, version, recordedAt);
   await tx.query(
@@ -107,13 +123,14 @@ export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft): Promise<
   return { id: d.claimId, version, recordedAt };
 }
 
-export async function recordMandate(tx: Tx, clock: Clock, d: MandateDraft): Promise<Recorded> {
+export async function recordMandate(tx: Tx, clock: Clock, d: MandateDraft, opts: RecordOptions = {}): Promise<Recorded> {
   if (!(await scopeExists(tx, d.factsScopeId))) throw notFound("facts scope", d.factsScopeId);
   if (d.fromPartyId === d.toPartyId) throw invalid("INVALID_REFERENCE", `mandate ${d.mandateId}: from and to are the same party`);
   await requireEndpoint(tx, "party", d.fromPartyId, d.factsScopeId, "from");
   await requireEndpoint(tx, "party", d.toPartyId, d.factsScopeId, "to");
   const recordedAt = clock.now();
-  const version = await nextVersion(tx, "mandate", "mandate_id", d.mandateId, d.factsScopeId, recordedAt);
+  await fenceScope(tx, d.factsScopeId, recordedAt);
+  const version = await nextVersion(tx, "mandate", "mandate_id", d.mandateId, d.factsScopeId, recordedAt, opts.expectedVersion);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "mandate", "mandate_id", d.mandateId, version, recordedAt);
   await tx.query(

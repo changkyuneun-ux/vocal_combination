@@ -99,3 +99,32 @@ test("entities are immutable and stems must belong to their slot's recording", a
     await reg.registerStem(tx, c, { stemId: "stm_x", slotId: "slt_1", recordingId: "rcd_2", rightsBearing: true });
   }));
 });
+
+test("recording with a stale expectedVersion is refused with VERSION_CONFLICT (lost-update guard)", async () => {
+  const c = fixedClock("2026-07-01T00:00:00.000Z", 1000);
+  const cur = await db.tx((tx) => reg.currentClaim(tx, "c_ctrl"));
+  assert.equal(cur.version, 2);
+  await assert.rejects(db.tx((tx) => reg.recordClaim(tx, c, claim({ status: "VERIFIED" }), { expectedVersion: 1 })), { code: "VERSION_CONFLICT", status: 409 });
+  await assert.rejects(db.tx((tx) => reg.recordClaim(tx, c, claim({ claimId: "c_new" }), { expectedVersion: 1 })), { code: "VERSION_CONFLICT" });
+  assert.equal((await db.tx((tx) => reg.recordClaim(tx, c, claim({ status: "VERIFIED" }), { expectedVersion: 2 }))).version, 3);
+  const m = { mandateId: "m_1", factsScopeId: "fsc_1", fromPartyId: "pty_m1", toPartyId: "pty_cmo", rightKind: "PERFORMER" as const,
+    shareBps: 10000, status: "VERIFIED" as const, validFrom: T0 };
+  await assert.rejects(db.tx((tx) => reg.recordMandate(tx, c, m, { expectedVersion: 1 })), { code: "VERSION_CONFLICT" });
+  assert.equal((await db.tx((tx) => reg.recordMandate(tx, c, m, { expectedVersion: 2 }))).version, 3);
+});
+
+test("superseded_at without a successor version fails at commit with RC001", async () => {
+  const setOnCurrent = "UPDATE right_claim SET superseded_at = recorded_at + interval '1 second' WHERE claim_id = 'c_perf' AND superseded_at IS NULL";
+  await assert.rejects(db.pool.query(setOnCurrent), { code: "RC001" });
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("UPDATE mandate SET superseded_at = recorded_at + interval '1 second' WHERE mandate_id = 'm_1' AND superseded_at IS NULL");
+    await assert.rejects(client.query("COMMIT"), { code: "RC001" });
+  } finally {
+    await client.query("ROLLBACK").catch(() => undefined);
+    client.release();
+  }
+  const cur = await db.tx((tx) => reg.currentClaim(tx, "c_perf"));
+  assert.equal(cur.version, 1);
+});

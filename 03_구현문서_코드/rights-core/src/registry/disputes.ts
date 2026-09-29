@@ -2,6 +2,7 @@ import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
 import { conflict, notFound } from "../platform/errors.ts";
 import { enqueue } from "../platform/outbox.ts";
+import { fenceScope } from "./repo.ts";
 import { currentClaim, currentMandate, recordClaim, recordMandate } from "./service.ts";
 
 /**
@@ -13,23 +14,28 @@ async function lockScopePacks(tx: Tx, scopeId: string): Promise<void> {
   await tx.query("SELECT pack_id FROM vocal_pack WHERE facts_scope_id = $1 ORDER BY pack_id FOR UPDATE", [scopeId]);
 }
 
-/** 분쟁 개시(통합 설계 5.6): 대상의 새 버전을 DISPUTED로 기록하고 dispute 행과 Outbox 이벤트를 남긴다. */
+/**
+ * 분쟁 개시(통합 설계 5.6): 대상의 새 버전을 DISPUTED로 기록하고 dispute 행과 Outbox 이벤트를 남긴다.
+ * 현재 버전은 잠그지 않고 읽으므로, 기록할 때 읽은 버전을 expectedVersion으로 넘겨 그 사이의 다른 기록을 VERSION_CONFLICT로 거부한다.
+ */
 export async function openDispute(tx: Tx, clock: Clock, input: { disputeId: string; targetType: "RIGHT_CLAIM" | "MANDATE"; targetId: string; reason: string }): Promise<void> {
   let scopeId: string;
   if (input.targetType === "RIGHT_CLAIM") {
-    const { version: _v, ...cur } = await currentClaim(tx, input.targetId);
+    const { version, ...cur } = await currentClaim(tx, input.targetId);
     scopeId = cur.factsScopeId;
     await lockScopePacks(tx, scopeId);
-    await recordClaim(tx, clock, { ...cur, status: "DISPUTED" });
+    await recordClaim(tx, clock, { ...cur, status: "DISPUTED" }, { expectedVersion: version });
   } else {
-    const { version: _v, ...cur } = await currentMandate(tx, input.targetId);
+    const { version, ...cur } = await currentMandate(tx, input.targetId);
     scopeId = cur.factsScopeId;
     await lockScopePacks(tx, scopeId);
-    await recordMandate(tx, clock, { ...cur, status: "DISPUTED" });
+    await recordMandate(tx, clock, { ...cur, status: "DISPUTED" }, { expectedVersion: version });
   }
+  const openedAt = clock.now();
+  await fenceScope(tx, scopeId, openedAt);
   await tx.query(
     "INSERT INTO dispute (dispute_id, target_type, target_id, facts_scope_id, dispute_reason, opened_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [input.disputeId, input.targetType, input.targetId, scopeId, input.reason, clock.now()],
+    [input.disputeId, input.targetType, input.targetId, scopeId, input.reason, openedAt],
   );
   await enqueue(tx, clock, "dispute_opened", { disputeId: input.disputeId, factsScopeId: scopeId });
 }
@@ -41,12 +47,14 @@ export async function closeDispute(tx: Tx, clock: Clock, input: { disputeId: str
   if (d.status !== "OPEN") throw conflict("INVALID_STATE", `dispute ${input.disputeId} is ${d.status}`);
   const res = input.resolution ?? {};
   if (d.target_type === "RIGHT_CLAIM") {
-    const { version: _v, ...cur } = await currentClaim(tx, d.target_id);
-    await recordClaim(tx, clock, { ...cur, status: "VERIFIED", ...(res.shareBps !== undefined && { shareBps: res.shareBps }), ...(res.targetId !== undefined && { targetId: res.targetId }) });
+    const { version, ...cur } = await currentClaim(tx, d.target_id);
+    await recordClaim(tx, clock, { ...cur, status: "VERIFIED", ...(res.shareBps !== undefined && { shareBps: res.shareBps }), ...(res.targetId !== undefined && { targetId: res.targetId }) }, { expectedVersion: version });
   } else {
-    const { version: _v, ...cur } = await currentMandate(tx, d.target_id);
-    await recordMandate(tx, clock, { ...cur, status: "VERIFIED", ...(res.shareBps !== undefined && { shareBps: res.shareBps }), ...(res.targetId !== undefined && { toPartyId: res.targetId }) });
+    const { version, ...cur } = await currentMandate(tx, d.target_id);
+    await recordMandate(tx, clock, { ...cur, status: "VERIFIED", ...(res.shareBps !== undefined && { shareBps: res.shareBps }), ...(res.targetId !== undefined && { toPartyId: res.targetId }) }, { expectedVersion: version });
   }
-  await tx.query("UPDATE dispute SET status = 'CLOSED', closed_at = $2 WHERE dispute_id = $1", [input.disputeId, clock.now()]);
+  const closedAt = clock.now();
+  await fenceScope(tx, d.facts_scope_id, closedAt); // closed_at은 팩 재활성화 판정(REBIND_REQUIRED)에 쓰인다
+  await tx.query("UPDATE dispute SET status = 'CLOSED', closed_at = $2 WHERE dispute_id = $1", [input.disputeId, closedAt]);
   await enqueue(tx, clock, "dispute_closed", { disputeId: input.disputeId, factsScopeId: d.facts_scope_id });
 }
