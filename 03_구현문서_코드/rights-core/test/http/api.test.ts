@@ -91,3 +91,13 @@ test("empty JSON body is treated as {}; malformed JSON and missing fields are 40
   const noBody = await app.inject({ method: "POST", url: "/policies/pol_x/compile", headers: { "x-actor": "usr_editor" } });
   assert.equal(noBody.statusCode, 400, noBody.body);
 });
+
+test("input validation ordering and DB-level input errors", async () => {
+  const v = await app.inject({ method: "POST", url: "/policies/pol_x/versions/abc/approve", headers: { "x-actor": "usr_approver" } });
+  assert.equal(v.statusCode, 400, v.body);
+  assert.equal((await app.inject({ method: "POST", url: "/policies/pol_x/versions/0/approve", headers: { "x-actor": "usr_approver" } })).statusCode, 400);
+  const noId = await app.inject({ method: "POST", url: "/policies/pol_x/compile", payload: { packId: 1 } });
+  assert.equal(noId.statusCode, 401, noId.body);
+  const claim = await post("/claims", "usr_rights", {});
+  assert.ok(claim.statusCode === 400 || claim.statusCode === 422, claim.body);
+});

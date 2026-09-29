@@ -35,6 +35,8 @@ export function buildServer(deps: Deps): FastifyInstance {
     if (err?.code === "RC001") return reply.status(409).send({ code: "APPEND_ONLY", message: err.message, diagnostics: [] });
     if (err?.code === "23503" || err?.code === "23514") return reply.status(422).send({ code: "INVALID_REFERENCE", message: err.detail ?? err.message, diagnostics: [] });
     if (err?.validation || (typeof err?.statusCode === "number" && err.statusCode >= 400 && err.statusCode < 500)) return reply.status(400).send({ code: "BAD_REQUEST", message: err.message, diagnostics: [] });
+    if (err?.code === "22P02" || err?.code === "23502") return reply.status(400).send({ code: "BAD_REQUEST", message: err.message, diagnostics: [] });
+    console.error("unhandled", err);
     return reply.status(500).send({ code: "INTERNAL", message: "internal error", diagnostics: [] });
   });
   registryRoutes(app, deps);
