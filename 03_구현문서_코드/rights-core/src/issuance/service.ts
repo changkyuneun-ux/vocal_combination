@@ -7,6 +7,7 @@ import { checkPackActivation, type Declared } from "../engine-bridge/activation.
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { sealIssue, type IssueSeal } from "../engine-bridge/issue.ts";
 import { activePolicyForPack } from "../policy/service.ts";
+import type { OutboxHandlers } from "../platform/outbox.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
   requireRole(actor, "RIGHTS_EDITOR");
@@ -112,3 +113,15 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   await audit(tx, clock, { actor: actor.userId, action: "ISSUED", entityType: "rights_snapshot", entityId: snapshotId, after: { projection: seal.projectionDigest } });
   return seal;
 }
+
+/** Outbox 핸들러: 분쟁이 열리면 그 facts 범위의 ACTIVE 팩을 일시정지한다(통합 설계 5.6-1). 재활성화는 수동이다. */
+export const OUTBOX_HANDLERS: OutboxHandlers = {
+  async dispute_opened(tx, payload: { factsScopeId: string; disputeId: string }, clock) {
+    const paused = (await tx.query(
+      "UPDATE vocal_pack SET status = 'PAUSED' WHERE facts_scope_id = $1 AND status = 'ACTIVE' RETURNING pack_id", [payload.factsScopeId],
+    )).rows;
+    for (const p of paused) {
+      await audit(tx, clock, { actor: "system:outbox", action: "PACK_PAUSED", entityType: "vocal_pack", entityId: p.pack_id, after: { disputeId: payload.disputeId } });
+    }
+  },
+};

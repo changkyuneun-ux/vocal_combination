@@ -79,7 +79,7 @@ test("invalid assignments and members are rejected and nothing is written", asyn
 
 test("an open dispute in the scope blocks issuing even before the pack is paused", async () => {
   await db.tx((tx) => tx.query(
-    "INSERT INTO dispute (dispute_id, target_type, target_id, facts_scope_id, dispute_reason, opened_at) VALUES ('dsp_t','RIGHT_CLAIM','c_master',$1,'test',now())", [SCOPE],
+    "INSERT INTO dispute (dispute_id, target_type, target_id, facts_scope_id, dispute_reason, opened_at) VALUES ('dsp_t','RIGHT_CLAIM','c_master',$1,'test',date_trunc('milliseconds', now()))", [SCOPE],
   ));
   await assert.rejects(db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_d"))), { code: "FACTS_DISPUTE_OPEN", status: 409 });
 });

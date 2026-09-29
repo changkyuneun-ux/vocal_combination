@@ -1,6 +1,6 @@
-import { checkActivation, type ClaimantEntry } from "vcrl/facts";
+import { checkActivation, deriveClaimants, projectVectors, type ClaimantEntry } from "vcrl/facts";
 import type { Tx } from "../platform/db.ts";
-import type { Diagnostic } from "../platform/errors.ts";
+import { invalid, type Diagnostic } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadFacts } from "./facts.ts";
 
@@ -17,4 +17,14 @@ export async function checkPackActivation(ctx: BridgeCtx, tx: Tx, input: { facts
   return checkActivation({
     facts, usage: fullUsage(facts.body.stems), asOf: input.at, knownAt: input.at, declared: input.declared as ClaimantEntry[],
   });
+}
+
+/** 투영에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
+export async function claimantSet(ctx: BridgeCtx, tx: Tx, factsDigest: string, at: string): Promise<string[]> {
+  const facts = await loadFacts(ctx, tx, factsDigest);
+  const projection = projectVectors(facts, fullUsage(facts.body.stems), at, at);
+  if (!projection.ok) throw invalid("PROJECTION_FAILED", "projection failed", projection.errors);
+  const derived = deriveClaimants(facts, projection.value, at, at);
+  if (!derived.ok) throw invalid("PROJECTION_FAILED", "claimant derivation failed", derived.errors);
+  return derived.value.map((e) => `${e.role}:${e.party}`).sort();
 }

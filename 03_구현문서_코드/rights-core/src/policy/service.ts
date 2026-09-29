@@ -5,9 +5,9 @@ import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { sealFacts } from "../engine-bridge/facts.ts";
-import { compilePolicyText } from "../engine-bridge/policy.ts";
+import { compilePolicyText, repinPolicy } from "../engine-bridge/policy.ts";
 import { attest, signersOf } from "../engine-bridge/attest.ts";
-import { checkPackActivation } from "../engine-bridge/activation.ts";
+import { checkPackActivation, claimantSet } from "../engine-bridge/activation.ts";
 import { declaredClaimants, packRow } from "../issuance/service.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
@@ -84,6 +84,38 @@ export async function activePolicyForPack(tx: Tx, packId: string): Promise<Omit<
   const r = (await tx.query("SELECT * FROM policy_version WHERE pack_id = $1 AND status = 'ACTIVE'", [packId])).rows[0];
   if (r === undefined) return undefined;
   return { policyId: r.policy_id, version: r.version, policyDigest: r.policy_digest, factsDigest: r.facts_digest, factsKnownAt: iso(r.facts_known_at)! };
+}
+
+/**
+ * 가벼운 재고정(통합 설계 3.3): 현재 ACTIVE 버전의 본문을 새 facts 봉인에 다시 고정한 새 버전을 만들어 곧바로 ACTIVE로 한다.
+ * 조건: facts가 실제로 바뀌었고, 청구권자 집합이 같고, 활성화 검사가 통과한다. 아니면 전체 재승인이 필요하다.
+ */
+export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, policyId: string): Promise<{ version: number; factsDigest: string; policyDigest: string }> {
+  requireRole(actor, "ACTIVATOR");
+  const cur = (await tx.query("SELECT version FROM policy_version WHERE policy_id = $1 AND status = 'ACTIVE' FOR UPDATE", [policyId])).rows[0];
+  if (cur === undefined) throw conflict("INVALID_STATE", `${policyId} has no ACTIVE version`);
+  const row = await versionRow(tx, { policyId, version: cur.version });
+  const pack = await packRow(tx, row.packId, "SHARE"); // 판정과 교체 사이에 청구권자 교체를 막는다
+  const now = clock.now();
+  const facts = await sealFacts(ctx, tx, pack.factsScopeId, now);
+  if (facts.digest === row.factsDigest) throw conflict("REBIND_NOT_NEEDED", `${policyId} is already pinned to the current facts`);
+  const diags = await checkPackActivation(ctx, tx, { factsDigest: facts.digest, declared: await declaredClaimants(tx, row.packId), at: now });
+  const before = await claimantSet(ctx, tx, row.factsDigest, now);
+  const after = diags.length === 0 ? await claimantSet(ctx, tx, facts.digest, now) : [];
+  if (diags.length > 0 || before.join("|") !== after.join("|")) {
+    throw new DomainError("REBIND_REQUIRES_APPROVAL", 409, `${policyId}: claimants changed or activation blocked; full approval required`, diags);
+  }
+  const version = ((await tx.query("SELECT MAX(version) AS v FROM policy_version WHERE policy_id = $1", [policyId])).rows[0].v as number) + 1;
+  const { sealed, canonicalText } = await repinPolicy(ctx, tx, { policyDigest: row.policyDigest, version, facts });
+  await tx.query(
+    `INSERT INTO policy_version (policy_id, version, source_text, policy_digest, facts_digest, facts_known_at, status, rebind_of_version, pack_id, created_by, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,'APPROVED',$7,$8,$9,$10)`,
+    [policyId, version, canonicalText, sealed.digest, facts.digest, now, row.version, row.packId, actor.userId, clock.now()],
+  );
+  await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: sealed.digest });
+  await supersedeAndActivate(tx, clock, { ...row, version, policyDigest: sealed.digest, factsDigest: facts.digest, factsKnownAt: now });
+  await audit(tx, clock, { actor: actor.userId, action: "POLICY_REBOUND", entityType: "policy_version", entityId: `${policyId}@${version}`, after: { rebindOf: row.version, factsDigest: facts.digest } });
+  return { version, factsDigest: facts.digest, policyDigest: sealed.digest };
 }
 
 export { versionRow };
