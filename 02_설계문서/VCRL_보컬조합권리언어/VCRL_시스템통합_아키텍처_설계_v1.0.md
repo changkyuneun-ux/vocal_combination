@@ -317,7 +317,7 @@ CREATE TABLE manifest (
 | `mandates[]` | `mandate` | claim과 같은 규칙 |
 | 정책 IR | `policy_version.source_text` | `compileAllocation` 결과 그대로 |
 | 사용량 u | `snapshot_stem_assignment.duration_ms` | 스템별 합계 문자열 |
-| members | `snapshot_member_pct.pct_bps` | `{members: {party: "n/d"}}` (bps → 유리수, 합 1, 0 bps 멤버 제외)`` |
+| members | `snapshot_member_pct.pct_bps` | `{members: {party: "n/d"}}` (bps → 유리수, 합 1, 0 bps 멤버 제외) |
 | events | `revenue_event` | `amount` = `net_amount_krw`, `type` = `PURCHASE→PRIMARY`, `RESALE→RESALE`, `integrity` = `FLAGGED→FLAGGED`, 그 밖 `CLEAR`. `ISSUE`(금액 0)는 제외, `REFUND_*`는 5.7 |
 
 ---
