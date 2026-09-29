@@ -98,7 +98,7 @@ sealIssue(input: { snapshotId: string; policyDigest: Digest; usageMs: Record<str
 evaluateRun(input: { runId: string; issueSeal: IssueSeal; events: RevenueEventRow[] }): Promise<Result<RunResult>> // S4
 verifyRun(runId: string): Promise<Diagnostic[]>                                    // 독립 재계산
 publicBundle(runId: string): Promise<Sealed>                                        // S5
-reverse(runId: string, eventId: string, amount: bigint): Promise<Result<RunResult>> // 엔진 선행 과제(5.7)
+reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" | "CORRECTION" | "FRAUD"; amount: bigint }): Promise<Result<ReversalRun>>  // 원 결과·이전 역분개 봉인을 읽어 vcrl reverse 호출(코어 규격 12.53~12.55)
 ```
 
 `Sealed = { digest, kind, docId, docVersion, format }`. `RunResult`는 결과 digest와 행으로 변환한 라인·풀·보류 목록이다.
@@ -328,7 +328,7 @@ CREATE TABLE manifest (
 
 1. EDITOR가 폼 또는 VCRL 텍스트로 편집 → `DRAFT`.
 2. 컴파일: `sealFacts(scope, now)`(S1) → 텍스트에 `uses facts … digest` 고정 → `compilePolicy` → `COMPILED`(S2).
-3. 시뮬레이션 리포트: 최근 발행 봉인 N건과 그 이벤트를 새 정책으로 평가해 현 정책 결과와 비교(엔진 섀도 리포트 전까지는 `evaluate` 2회 호출로 차액 계산).
+3. 시뮬레이션 리포트: 최근 발행 봉인 N건과 그 이벤트를 새 정책으로 평가해 현 정책 결과와 비교(vcrl `shadowReport`, 코어 규격 12.56).
 4. 승인: EDITOR와 다른 WORK_APPROVER가 정책 digest에 서명 → `APPROVED`.
 5. 활성화: 승인자와 다른 ACTIVATOR가 `checkActivation` 통과 후 서명 → `ACTIVE`. 이전 ACTIVE는 `SUPERSEDED`. 활성화 이후 발행되는 조합부터 적용(소급 없음).
 6. facts만 바뀌면 3.3 재고정.
@@ -367,9 +367,8 @@ v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬
 
 ### 5.7 F7 정정·환불 (엔진 선행 과제: 역분개)
 
-- 인터페이스: `engine-bridge.reverse(runId, eventId, amount)` → 원 라인을 참조(`reversal_of_line_id`)하는 `REVERSAL` 라인과 증가한 `line_seq`, 새 결과 봉인. 부분 환불은 원 이벤트 누적 상한까지.
-- 엔진 지원 전 임시 처리: 확정 전 환불은 이벤트를 run에서 제외. 확정 후 환불은 직무 분리가 적용된 수동 `ADJUSTMENT`(서명 필수).
-- 따라서 **정산 MVP(I-2) 시작 전에 엔진 역분개를 구현**한다.
+- 인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 vcrl `reverse`를 호출하고, 결과(`vcrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제).
+- 엔진 역분개는 1-E에서 구현했다.
 
 ### 5.8 F8 공개
 
@@ -447,7 +446,7 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 | 사이클 | 내용 | 기획 단계 |
 |---|---|---|
 | I-1 권리 코어 PoC | `registry`, `engine-bridge`, `policy`, `issuance`, 봉인 저장소, 서명 API(개발용 키). 곡 1개·1만 조합 재현 | 1단계 |
-| 엔진 선행 | 역분개(REVERSAL), 섀도 시뮬레이션 리포트 | — |
+| 엔진 선행 | 역분개(REVERSAL), 섀도 시뮬레이션 리포트 — 완료(1-E) | — |
 | I-2 정산 MVP | `revenue`, `settlement`, `ledger`, 지급 연동, 명세, F7 | 2단계 |
 | I-3 공개·파트너 포털 | `disclosure`, salt 전달, 키 관리(서브프로젝트 4와 합류) | — |
 | 이후 | 다중 채널(DSR 어댑터·다통화), 게이트·스탬프(서브프로젝트 2·3), B2B | 3~4단계 |

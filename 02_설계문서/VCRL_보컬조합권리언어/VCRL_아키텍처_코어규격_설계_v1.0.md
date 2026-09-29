@@ -444,7 +444,7 @@ manifest/
 
 ## 11. 후속 과제
 
-> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C·1-D 반영). 상태는 **완료 / 부분 완료 / 미착수 / 미결(사업 결정)**로 표기한다.
+> 상태 기준일: 2026-09-29 (계획 1-A~1-E 반영). 상태는 **완료 / 부분 완료 / 미착수 / 미결(사업 결정)**로 표기한다.
 
 ### 11.1 설계 시점에 정한 후속 과제
 
@@ -475,9 +475,9 @@ manifest/
 | `diff` 명령 | 12.44 | |
 | constraint·grant·approval 모듈 구현과 안분 정책의 해당 모듈 의존(`uses <module> …`) | 6절, 12.47 | v1.0 안분은 facts에만 의존 |
 | 템플릿 계승(`ALLOC_WIDENING`) | 12.30 | |
-| 역분개(`REVERSAL`)와 `line_seq` 증가 | 12.24, 12.30 | 정산 정정에 필요 |
+| ~~역분개(`REVERSAL`)와 `line_seq` 증가~~ **완료(1-E, 12.53~12.57)** | 12.24, 12.30 | 정산 정정에 필요 |
 | 다통화 정산 | 12.30 | |
-| 섀도 시뮬레이션 리포트 | 12.30 | |
+| ~~섀도 시뮬레이션 리포트~~ **완료(1-E, 12.53~12.57)** | 12.30 | |
 
 ### 11.3 리뷰에서 나온 개선 후보
 
@@ -513,13 +513,13 @@ manifest/
 21. **allocation IR 형태(계획 1-B)**: `body = { scope{pack, events[], currency}, bind{time}, tier1{buckets[{name,bps}], rights}, tier2{split[{name,bps,role,vector}]}, rounding{method,tie} }`. 벡터 식은 `fn` 7종(`graph{role, via_mandate?}`, `contract{party}`, `member_pct`, `performance_pool{mode, fixed?, usage?, featured_weight?}`, `mix{parts[{weight, of}]}`, `cap{max, of}`, `floor_guarantee{min, of}`)이며 비율 인자는 bps 문자열이다. 스키마는 `spec/schema/allocation.ir.schema.json`. 텍스트 문법(5.2의 예시)은 1-C 파서가 이 IR로 변환한다.
 22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 투영의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
 23. **cap·floor_guarantee**: 반복 수위 채우기로 정확히 계산한다. `@hold`는 제한·보장·재분배 대상이 아니다. floor의 영역은 스냅샷 멤버와 벡터의 party 합집합이다. 조건을 만족하는 분배가 없으면 `ALLOC_INFEASIBLE`.
-24. **라인 역할과 순번**: line의 role은 party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role이다(12.16과 같은 규칙). `line_seq`는 `"1"`이며 역분개(REVERSAL)는 후속 계획에서 다룬다.
+24. **라인 역할과 순번**: line의 role은 party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role이다(12.16과 같은 규칙). `line_seq`는 평가 결과에서 `"1"`이고, 역분개 결과에서 k번째 역분개는 `k+1`이다(12.55).
 25. **보류 규칙**: 벡터의 `@hold` 몫은 `holding(RIGHTS_DISPUTE)`. `integrity = FLAGGED` 이벤트는 tier1은 그대로 기록하고 권리자 풀 전액을 `holding(bucket = tier1.rights, FRAUD_REVIEW)`로 보낸다. pool_line은 0원도 기록하고, 0원 line·holding은 만들지 않는다(trace에는 남는다).
 26. **이벤트 정규형**: 이벤트 배열은 id 엄격 오름차순, amount는 양의 정수 문자열(최소 통화 단위), type과 currency는 정책 scope 안이어야 한다(`ALLOC_SCOPE_MISMATCH`).
 27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 투영 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 투영할지는 호출자가 그 규칙대로 `as_of`를 정한다.
 28. **안분 커버리지**: 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
 29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다. 분쟁 위임은 투영된 권리자에서 출발해 역할별 위임 체인을 최대 2홉까지 따라가며 찾으므로, 체인 중간의 분쟁도 활성화를 막는다.
-30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`), 역분개(`REVERSAL`), 다통화 정산, 섀도 시뮬레이션 리포트는 후속 계획에서 다룬다.
+30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`)과 다통화 정산은 후속 계획에서 다룬다. 역분개와 섀도 리포트는 1-E(12.53~12.57)에서 구현했다.
 31. **출력 순서 규칙**: pool_lines는 이벤트 순서 → tier1 버킷 순서, lines·holdings는 이벤트 순서 → tier2 버킷 순서 → party id 코드 유닛 오름차순, trace는 이벤트 순서 → `tier1`, `tier2`, `bucket:<name>`(split 순서). JS 객체 키 순서에 의존하지 않는다.
 32. **버킷 역할 일치**: graph 잎의 역할은 버킷 역할과 같아야 하고, 실연 풀·멤버 비율·실연 graph가 있으면 버킷 역할은 실연 역할이어야 한다. 위임 권리가 없는 역할에 via_mandate는 쓸 수 없다(`CORE_TYPE_ERROR`).
 33. **실연 커버리지(권리자 단위, 사용자 결정)**: 투영에서 실연 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다. `graph(PERFORMER_X)`는 역할 X에만 도달하고, `USAGE_WEIGHTED`·`HYBRID` 풀은 두 실연 역할 모두에 도달한다. 아니면 `ALLOC_UNCOVERED_CLAIMANT`(detail `R:party`, 역할 → party id 코드 유닛 오름차순, (역할, party) 쌍마다 한 번). 도달 판정은 구조적이다: 정책 작성자가 명시적으로 0으로 둔 가중치(예: HYBRID `usage: "0"`, `featured_weight: "10000"`, mix part `"0"`)는 의도된 정책으로 존중하며 오류로 보지 않는다.
@@ -542,3 +542,8 @@ manifest/
 50. **결과 검증 API**: `verifyAllocationResult(input, given)`는 제공된 결과를 신뢰하지 않고 입력으로 다시 평가해 대조한다. `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `projection_digest`·`result_digest`가 다르거나 내용이 재계산 결과와 다르면 `CORE_DIGEST_MISMATCH`. `given`에 `trace`가 있으면 재계산한 trace와 대조해 다르면 `CORE_DIGEST_MISMATCH`(`$.result.trace`). CLI `verify`는 이 함수를 쓴다. CLI 진단 출력은 경로·메시지의 제어·줄 구분·양방향 문자를 `\uXXXX`로 이스케이프한다.
 51. **배포용 빌드**: `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)으로 `dist/`에 JS·`.d.ts`·소스맵을 낸다. `package.json`의 `exports`는 `./core`·`./facts`·`./allocation`·`./text`(`types`·`default` 조건으로 `dist`를 가리킴)와 `./spec/*`·`./package.json`이고, `bin`은 `dist/bin/vcrl.js`, `files`는 `dist`와 `spec`, `prepack`은 빌드다. `private: true`는 유지한다. 개발·테스트는 계속 `src/*.ts`를 직접 실행한다. 배포 채널은 시스템 통합에서 정한다.
 52. **패키지 스모크 테스트**: `npm pack`한 tarball을 임시 디렉터리에 설치해 네 진입점 import, 설치된 `vcrl` CLI의 `compile`·`evaluate`, 설치된 CLI의 `verify`(정상 통과, 변조 시 종료 1), 스키마·`package.json` export 해석, 타입 선언 소비(`tsc`)를 확인하고 결과 digest가 적합성 기대값과 같은지 본다. 네트워크 없이 도는 별도 스크립트(`npm run smoke`)로 두고 `npm test`에는 넣지 않는다.
+53. **역분개 (계획 1-E)**: `reverse({original, policy, eventId, refund, priors, runId})`는 정책·facts를 다시 평가하지 않고 봉인된 원 안분 결과만으로 한 이벤트를 `refund.amount`만큼 되돌린다. `refund.reason`은 Enum `reversal_reason`(`REFUND`·`CORRECTION`·`FRAUD`). `policy`는 원 결과의 `policy_digest`와 같아야 하며(아니면 `CORE_DIGEST_MISMATCH`) 권리 풀 이름을 얻는 데만 쓴다. 원 결과의 digest가 틀리면 `REV_ORIGINAL_DIGEST`, 이벤트가 없으면 `REV_UNKNOWN_EVENT`, 권리 풀 ≠ 라인·보류 합이면 `REV_ORIGINAL_INCONSISTENT`, 금액이 양의 정수 문자열이 아니면 `REV_AMOUNT`, 누적이 원 금액을 넘으면 `REV_EXCEEDS_REMAINING`.
+54. **`REVERSAL_REMAINING_LRM_V1`**: 항목의 남은 금액(원 금액 − 이전 역분개) 비례로 (1) tier1 풀, (2) 권리 풀 증분을 라인·보류의 버킷 그룹(첫 등장 순), (3) 그룹 증분을 그룹 안 항목에 `splitLrm`한다. 남은 금액 0인 항목은 제외하고, LRM 키는 버킷 이름·`line:<party>`·`hold:<reason>`. 증분은 0 이상이고 남은 금액을 넘지 않으며 층별 합이 보존되고, 누적이 원 금액에 이르면 모든 항목이 정확히 0이 된다. 누적 목표 방식(원 금액 × 누적/원 금액의 LRM)은 최대 잔여법의 비단조성(앨라배마 역설) 때문에 음수 증분이 생길 수 있어 채택하지 않았다. 환불을 나누는 방식에 따라 항목별 분배가 최소 단위만큼 달라질 수 있다.
+55. **역분개 결과 IR `vcrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). `verifyReversal({original, policy, priors}, given)`은 재계산 대조(규칙은 12.50과 같다).
+56. **섀도 리포트 `vcrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
+57. **스키마·적합성 (1-E)**: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`. 적합성 `conformance/reversal/`(부분 환불 두 번 뒤 한도 초과 거부, 잔액 전액으로 순합 0; 부정 보류 전액 역분개). CLI 명령은 추가하지 않았다.
