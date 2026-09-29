@@ -15,9 +15,9 @@ const withDb = (url: string, name: string) => {
 
 export function appUrlFor(name: string): string {
   const u = new URL(withDb(ADMIN_URL, name));
-  const [user, pass] = APP_CREDENTIALS.split(":");
-  u.username = user!;
-  u.password = pass!;
+  const i = APP_CREDENTIALS.indexOf(":");
+  u.username = APP_CREDENTIALS.slice(0, i);
+  u.password = APP_CREDENTIALS.slice(i + 1);
   return u.toString();
 }
 
@@ -31,7 +31,7 @@ function templateName(): string {
 }
 
 /** 템플릿 DB(마이그레이션 적용본)를 복제해 새 DB를 만든다. 동시 실행은 advisory lock으로 직렬화한다. */
-export async function createFreshDatabase(adminUrl: string): Promise<{ name: string; appUrl: string; drop(): Promise<void> }> {
+export async function createFreshDatabase(adminUrl: string): Promise<{ name: string; appUrl: string; adminUrl: string; drop(): Promise<void> }> {
   const admin = new pg.Client({ connectionString: adminUrl });
   await admin.connect();
   const tpl = templateName();
@@ -40,13 +40,21 @@ export async function createFreshDatabase(adminUrl: string): Promise<{ name: str
     await admin.query("SELECT pg_advisory_lock($1)", [LOCK_KEY]);
     const exists = await admin.query("SELECT 1 FROM pg_database WHERE datname = $1", [tpl]);
     if (exists.rowCount === 0) {
-      await admin.query(`CREATE DATABASE ${tpl}`);
-      const c = new pg.Client({ connectionString: withDb(adminUrl, tpl) });
-      await c.connect();
+      const building = `${tpl}_building_${process.pid}`;
+      await admin.query(`DROP DATABASE IF EXISTS ${building} WITH (FORCE)`);
+      await admin.query(`CREATE DATABASE ${building}`);
       try {
-        await migrate(c);
-      } finally {
-        await c.end();
+        const c = new pg.Client({ connectionString: withDb(adminUrl, building) });
+        await c.connect();
+        try {
+          await migrate(c);
+        } finally {
+          await c.end();
+        }
+        await admin.query(`ALTER DATABASE ${building} RENAME TO ${tpl}`);
+      } catch (e) {
+        await admin.query(`DROP DATABASE IF EXISTS ${building} WITH (FORCE)`).catch(() => undefined);
+        throw e;
       }
     }
     await admin.query(`CREATE DATABASE ${name} TEMPLATE ${tpl}`);
@@ -57,6 +65,7 @@ export async function createFreshDatabase(adminUrl: string): Promise<{ name: str
   return {
     name,
     appUrl: appUrlFor(name),
+    adminUrl: withDb(adminUrl, name),
     async drop() {
       const a = new pg.Client({ connectionString: adminUrl });
       await a.connect();
