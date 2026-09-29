@@ -1,10 +1,11 @@
 import { parseArgs } from "node:util";
 import { digestOf } from "../core/digest.ts";
-import { VcrlError, diag, fail, type Diagnostic } from "../core/errors.ts";
+import { VcrlError, fail, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { evaluate } from "../allocation/evaluate.ts";
 import type { AllocationDocument, AllocationResult, RevenueEvent, Snapshot } from "../allocation/types.ts";
 import { validateAllocation } from "../allocation/validate.ts";
+import { verifyAllocationResult, type VerificationInput } from "../allocation/verify.ts";
 import { checkActivation } from "../facts/activation.ts";
 import type { ClaimantEntry } from "../facts/mandate.ts";
 import type { Usage } from "../facts/project.ts";
@@ -128,24 +129,13 @@ function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): numb
       return 0;
     }
     case "evaluate": {
-      printJson(io, evaluateFromFiles(io, o).result);
+      printJson(io, evaluateFromFiles(io, o));
       return 0;
     }
     case "verify": {
       const given = readJson(io, need(o, "result"));
-      const { result, projection } = evaluateFromFiles(io, o);
-      const errors: Diagnostic[] = [];
-      if (!isPlainObject(given)) {
-        errors.push(diag("CORE_TYPE_ERROR", "$.result", "must be an object"));
-      } else {
-        if (given.projection_digest !== projection.digest) errors.push(diag("CORE_DIGEST_MISMATCH", "$.result.projection_digest", String(given.projection_digest)));
-        if (given.result_digest !== result.result_digest) errors.push(diag("CORE_DIGEST_MISMATCH", "$.result.result_digest", String(given.result_digest)));
-        if (digestOf({ ...given, result_digest: undefined }) !== result.result_digest) {
-          errors.push(diag("CORE_DIGEST_MISMATCH", "$.result", "result content does not match the recomputed result"));
-        }
-      }
-      throwIf(errors);
-      io.out(`OK ${result.result_digest}\n`);
+      throwIf(verifyAllocationResult(verificationInput(io, o), given));
+      io.out(`OK ${(given as { result_digest: string }).result_digest}\n`);
       return 0;
     }
     case "activate": {
@@ -172,19 +162,27 @@ function project(io: Io, o: Opts): ProjectionIr {
   return r.value;
 }
 
-/** 투영은 입력으로 계산하고(제공된 투영을 받지 않는다) 평가한다. */
-function evaluateFromFiles(io: Io, o: Opts): { result: AllocationResult; projection: ProjectionIr } {
-  const projection = project(io, o);
-  const r = evaluate({
+/** evaluate·verify 공통 입력. 투영은 파일로 받지 않고 facts·usage·시점으로 계산한다. */
+function verificationInput(io: Io, o: Opts): VerificationInput {
+  return {
     policy: loadPolicy(io, need(o, "policy")),
     facts: readJson(io, need(o, "facts")) as FactsDocument,
-    projection,
+    usage: readJson(io, need(o, "usage")) as Usage,
+    asOf: need(o, "as-of"),
+    knownAt: need(o, "known-at"),
     snapshot: readJson(io, need(o, "snapshot")) as Snapshot,
     events: readJson(io, need(o, "events")) as RevenueEvent[],
     runId: need(o, "run-id"),
-  });
+  };
+}
+
+function evaluateFromFiles(io: Io, o: Opts): AllocationResult {
+  const { usage, asOf, knownAt, ...rest } = verificationInput(io, o);
+  const projection = projectToIr(rest.facts, usage, asOf, knownAt);
+  if (!projection.ok) throw new VcrlError(projection.errors);
+  const r = evaluate({ ...rest, projection: projection.value });
   if (!r.ok) throw new VcrlError(r.errors);
-  return { result: r.value, projection };
+  return r.value;
 }
 
 function loadPolicy(io: Io, path: string): AllocationDocument {

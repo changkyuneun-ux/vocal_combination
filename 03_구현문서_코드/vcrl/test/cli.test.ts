@@ -156,6 +156,16 @@ test("evaluate and verify accept a JSON policy (not just .vcrl text)", () => {
   assert.equal(v.out, `OK ${expectedDigest()}\n`);
 });
 
+test("verify rejects a result with another format tag", () => {
+  const r = cli(["evaluate", ...EVAL]);
+  assert.equal(r.code, 0, r.err);
+  const files = fixture();
+  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "vcrl-alloc-result/2" }));
+  const v = cli(["verify", "--result", "other.json", ...EVAL], files);
+  assert.equal(v.code, 1);
+  assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
+});
+
 test("prototype-property command names are unknown commands, not internal errors", () => {
   for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
     const r = cli([name]);
