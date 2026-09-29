@@ -101,7 +101,7 @@ publicBundle(runId: string): Promise<Sealed>                                    
 reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" | "CORRECTION" | "FRAUD"; amount: bigint }): Promise<Result<ReversalRun>>  // 원 결과·이전 역분개 봉인을 읽어 vcrl reverse 호출(코어 규격 12.53~12.55)
 ```
 
-`Sealed = { digest, kind, docId, docVersion, format }`. `RunResult`는 결과 digest와 행으로 변환한 라인·풀·보류 목록이다.
+`Sealed = { digest, kind, docId, docVersion, format }`. `RunResult`는 결과 digest와 행으로 변환한 라인·풀·보류 목록이다. `ReversalRun`은 역분개 결과 digest(`vcrl-reversal-result/1`)와 행으로 변환한 음수 풀 라인·REVERSAL 라인·음수 보류 목록이다.
 
 ---
 
@@ -365,9 +365,10 @@ v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬
    - 원 권리 관계 유지 → 보류 이벤트를 봉인 입력 그대로 다음 배치에서 평가하고 보류 해제.
    - 권리 관계 변경 → 5.7 정정 흐름.
 
-### 5.7 F7 정정·환불 (엔진 선행 과제: 역분개)
+### 5.7 F7 정정·환불
 
 - 인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 vcrl `reverse`를 호출하고, 결과(`vcrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제).
+- 확정 전 환불은 이벤트를 run에서 제외하고(run을 다시 평가), 확정 후 환불·정정은 역분개로 처리한다.
 - 엔진 역분개는 1-E에서 구현했다.
 
 ### 5.8 F8 공개
