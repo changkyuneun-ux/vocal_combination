@@ -57,6 +57,8 @@ test("closing restores VERIFIED; a light rebind pins the new facts; the pack rea
   await db.tx((tx) => closeDispute(tx, clock, { disputeId: "dsp_1" }));
   const cur = await db.tx((tx) => reg.currentClaim(tx, "c_own_b"));
   assert.equal(cur.status, "VERIFIED");
+  // 활성 정책은 분쟁 이전 facts에 고정돼 있으므로 재고정 없이 재활성화할 수 없다.
+  await assert.rejects(db.tx((tx) => issuance.activatePack(ctx, tx, clock, users.activator, PACK)), { code: "REBIND_REQUIRED", status: 409 });
   const before = await db.tx((tx) => policy.activePolicyForPack(tx, PACK));
   const rb = await db.tx((tx) => policy.rebindPolicy(ctx, tx, clock, users.activator, "pol_nova"));
   assert.equal(rb.version, before!.version + 1);
@@ -103,7 +105,10 @@ test("a rebind that would change the claimant set requires full approval", async
 
 test("closing with a resolution amends the claim in a new VERIFIED version", async () => {
   await db.tx((tx) => openDispute(tx, clock, { disputeId: "dsp_2", targetType: "MANDATE", targetId: "m_agency", reason: "term" }));
+  await processOutbox(db, issuance.OUTBOX_HANDLERS, clock);
+  assert.equal(await packStatus(), "PAUSED");
   await db.tx((tx) => closeDispute(tx, clock, { disputeId: "dsp_2", resolution: { shareBps: 5000 } }));
+  await assert.rejects(db.tx((tx) => issuance.activatePack(ctx, tx, clock, users.activator, PACK)), { code: "REBIND_REQUIRED", status: 409 });
   const m = await db.tx((tx) => reg.currentMandate(tx, "m_agency"));
   assert.equal(m.status, "VERIFIED");
   assert.equal(m.shareBps, 5000);

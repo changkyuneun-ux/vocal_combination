@@ -6,6 +6,8 @@ import { fixedClock } from "../../src/platform/clock.ts";
 import * as policy from "../../src/policy/service.ts";
 import * as issuance from "../../src/issuance/service.ts";
 import { signersOf, verifyAttestations } from "../../src/engine-bridge/attest.ts";
+import { openDispute } from "../../src/registry/disputes.ts";
+import * as reg from "../../src/registry/service.ts";
 
 const { db, drop } = await freshDb();
 const { ctx, cleanup } = tempBridge();
@@ -112,4 +114,16 @@ test("setPackClaimants writes an audit row", async () => {
   const rows = await db.pool.query("SELECT actor_user_id FROM audit_log WHERE action_name = 'PACK_CLAIMANTS_SET' AND entity_id = 'pak_drift'");
   assert.ok(rows.rows.length >= 1);
   assert.equal(rows.rows.at(-1).actor_user_id, "usr_rights");
+});
+
+test("an open dispute in the scope refuses policy activation and rebind even off every projection path", async () => {
+  // 투영 경로 밖의 위임(작곡가 c는 실연자가 아니다)에 분쟁을 연다: checkActivation은 이 분쟁을 보지 않는다.
+  await db.tx((tx) => reg.recordMandate(tx, clock, {
+    mandateId: "m_offpath", factsScopeId: SCOPE, fromPartyId: "pty_author_c", toPartyId: "pty_cmo", rightKind: "PERFORMER", shareBps: 10000, status: "VERIFIED", validFrom: T0,
+  }));
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_nova", packId: PACK, sourceText: POLICY_TEXT }));
+  await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.approver, r));
+  await db.tx((tx) => openDispute(tx, clock, { disputeId: "dsp_offpath", targetType: "MANDATE", targetId: "m_offpath", reason: "off path" }));
+  await assert.rejects(db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, r)), { code: "FACTS_DISPUTE_OPEN", status: 409 });
+  await assert.rejects(db.tx((tx) => policy.rebindPolicy(ctx, tx, clock, users.activator, "pol_nova")), { code: "REBIND_REQUIRES_APPROVAL", status: 409 });
 });

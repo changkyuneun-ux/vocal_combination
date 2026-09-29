@@ -99,5 +99,43 @@ test("input validation ordering and DB-level input errors", async () => {
   const noId = await app.inject({ method: "POST", url: "/policies/pol_x/compile", payload: { packId: 1 } });
   assert.equal(noId.statusCode, 401, noId.body);
   const claim = await post("/claims", "usr_rights", {});
-  assert.ok(claim.statusCode === 400 || claim.statusCode === 422, claim.body);
+  assert.equal(claim.statusCode, 400, claim.body);
+  assert.equal(claim.json().code, "BAD_REQUEST");
+});
+
+test("POST /issues validates the body shape before touching the pack (400 BAD_REQUEST)", async () => {
+  const good = { packId: "pak_none", vcId: "vc_v", assignments: [{ slotId: "slt_1", stemId: "stm_a1" }], members: { pty_member_a: 10000 } };
+  const bad: object[] = [
+    {},
+    { ...good, packId: 1 },
+    { ...good, vcId: null },
+    { ...good, assignments: "slt_1" },
+    { ...good, assignments: [{ slotId: 1, stemId: "stm_a1" }] },
+    { ...good, assignments: [null] },
+    { ...good, members: [] },
+    { ...good, members: { pty_member_a: "10000" } },
+    { ...good, members: { pty_member_a: 1.5 } },
+  ];
+  for (const body of bad) {
+    const r = await post("/issues", "usr_issuer", body);
+    assert.equal(r.statusCode, 400, `${JSON.stringify(body)} -> ${r.body}`);
+    assert.equal(r.json().code, "BAD_REQUEST");
+  }
+  assert.equal((await post("/issues", "usr_issuer", good)).statusCode, 404);
+});
+
+test("serialization failures and deadlocks map to 409 RETRY", async () => {
+  const probe = buildServer({ db, ctx, clock });
+  for (const code of ["40P01", "40001"]) {
+    probe.get(`/probe/${code}`, async () => { throw Object.assign(new Error(`pg ${code}`), { code }); });
+  }
+  try {
+    for (const code of ["40P01", "40001"]) {
+      const r = await probe.inject({ method: "GET", url: `/probe/${code}` });
+      assert.equal(r.statusCode, 409, r.body);
+      assert.equal(r.json().code, "RETRY");
+    }
+  } finally {
+    await probe.close();
+  }
 });

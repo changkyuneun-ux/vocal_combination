@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { systemClock } from "../platform/clock.ts";
 import { createDb } from "../platform/db.ts";
 import { startOutboxPoller } from "../platform/outbox.ts";
@@ -8,7 +9,9 @@ import { buildServer } from "./server.ts";
 
 const url = process.env.DATABASE_URL ?? "postgres://rc_app:rc_app@localhost:54329/rights_core";
 const db = createDb(url);
-const ctx = createBridgeCtx(createFsBlobStore(process.env.BLOB_DIR ?? ".blobs"));
+// 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다.
+const blobDir = process.env.BLOB_DIR ?? fileURLToPath(new URL("../../.blobs/", import.meta.url));
+const ctx = createBridgeCtx(createFsBlobStore(blobDir));
 const app = buildServer({ db, ctx, clock: systemClock });
 const stop = startOutboxPoller(db, OUTBOX_HANDLERS, systemClock, 1000);
 const port = Number(process.env.PORT ?? 8080);

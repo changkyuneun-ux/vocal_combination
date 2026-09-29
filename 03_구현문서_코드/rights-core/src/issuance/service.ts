@@ -1,7 +1,7 @@
 import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
-import type { Tx } from "../platform/db.ts";
+import { iso, type Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { checkPackActivation, type Declared } from "../engine-bridge/activation.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
@@ -47,7 +47,18 @@ export async function openDisputeInScope(tx: Tx, scopeId: string): Promise<boole
   return ((await tx.query("SELECT 1 FROM dispute WHERE facts_scope_id = $1 AND status = 'OPEN' LIMIT 1", [scopeId])).rowCount ?? 0) > 0;
 }
 
-/** F2(통합 설계 5.2): 활성 정책이 있고, 범위에 열린 분쟁이 없고, 활성화 검사를 통과해야 한다. */
+/**
+ * 활성 정책의 facts 고정 이후에 종결된 분쟁. 종결은 대상의 새 버전을 기록하므로 고정된 facts는 낡았고,
+ * 재고정(rebindPolicy) 또는 새 정책 버전 없이 팩을 다시 켜면 분쟁 이전 facts로 발행하게 된다.
+ */
+async function disputeClosedAfter(tx: Tx, scopeId: string, knownAt: string): Promise<{ disputeId: string; closedAt: string } | undefined> {
+  const r = (await tx.query(
+    "SELECT dispute_id, closed_at FROM dispute WHERE facts_scope_id = $1 AND closed_at > $2 ORDER BY closed_at DESC, dispute_id LIMIT 1", [scopeId, knownAt],
+  )).rows[0];
+  return r === undefined ? undefined : { disputeId: r.dispute_id, closedAt: iso(r.closed_at)! };
+}
+
+/** F2(통합 설계 5.2): 활성 정책이 있고, 범위에 열린 분쟁이 없고, 정책의 facts가 마지막 분쟁 종결 이후에 고정됐고, 활성화 검사를 통과해야 한다. */
 export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, packId: string): Promise<void> {
   requireRole(actor, "ACTIVATOR");
   const pack = await packRow(tx, packId, "UPDATE");
@@ -55,6 +66,10 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   const active = await activePolicyForPack(tx, packId);
   if (active === undefined) throw conflict("NO_ACTIVE_POLICY", `pack ${packId} has no active policy`);
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
+  const stale = await disputeClosedAfter(tx, pack.factsScopeId, active.factsKnownAt);
+  if (stale !== undefined) {
+    throw conflict("REBIND_REQUIRED", `pack ${packId}: policy ${active.policyId}@${active.version} pins facts known at ${active.factsKnownAt}, before dispute ${stale.disputeId} closed at ${stale.closedAt}; rebind first`);
+  }
   const diags = await checkPackActivation(ctx, tx, { factsDigest: active.factsDigest, declared: await declaredClaimants(tx, packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `pack ${packId} cannot be activated`, diags);
   await tx.query("UPDATE vocal_pack SET status = 'ACTIVE' WHERE pack_id = $1", [packId]);
@@ -92,6 +107,10 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   if (memberEntries.reduce((acc, [, v]) => acc + v, 0) !== 10000) throw bad("member bps must sum to 10000");
   const known = (await tx.query("SELECT party_id FROM party WHERE party_id = ANY($1)", [memberEntries.map(([p]) => p)])).rows.length;
   if (known !== memberEntries.length) throw bad("unknown member party");
+  // 멤버는 배정된 정산 대상 스템을 실연한 party여야 한다(레이블·작가 등은 멤버 비율을 받을 수 없다).
+  const performers = new Set(input.assignments.map((a) => byStem.get(a.stemId)!).filter((s) => s.rights_bearing && s.performer_party_id !== null).map((s) => s.performer_party_id as string));
+  const outsiders = memberEntries.map(([p]) => p).filter((p) => !performers.has(p));
+  if (outsiders.length > 0) throw bad(`members must perform an assigned rights-bearing stem: ${outsiders.sort().join(", ")}`);
 
   const issuedAt = clock.now();
   const snapshotId = `snp_${input.vcId}`;
@@ -117,6 +136,8 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
 /** Outbox 핸들러: 분쟁이 열리면 그 facts 범위의 ACTIVE 팩을 일시정지한다(통합 설계 5.6-1). 재활성화는 수동이다. */
 export const OUTBOX_HANDLERS: OutboxHandlers = {
   async dispute_opened(tx, payload: { factsScopeId: string; disputeId: string }, clock) {
+    // openDispute와 같은 순서(pack_id)로 먼저 잠근다. UPDATE의 행 순서는 정해져 있지 않아 교착할 수 있다.
+    await tx.query("SELECT pack_id FROM vocal_pack WHERE facts_scope_id = $1 ORDER BY pack_id FOR UPDATE", [payload.factsScopeId]);
     const paused = (await tx.query(
       "UPDATE vocal_pack SET status = 'PAUSED' WHERE facts_scope_id = $1 AND status = 'ACTIVE' RETURNING pack_id", [payload.factsScopeId],
     )).rows;

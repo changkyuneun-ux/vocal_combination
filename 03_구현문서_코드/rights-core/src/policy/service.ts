@@ -8,7 +8,7 @@ import { sealFacts } from "../engine-bridge/facts.ts";
 import { compilePolicyText, repinPolicy } from "../engine-bridge/policy.ts";
 import { attest, signersOf } from "../engine-bridge/attest.ts";
 import { checkPackActivation, claimantSet } from "../engine-bridge/activation.ts";
-import { declaredClaimants, packRow } from "../issuance/service.ts";
+import { declaredClaimants, openDisputeInScope, packRow } from "../issuance/service.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
 type Row = { policyId: string; version: number; status: string; policyDigest: string; factsDigest: string; factsKnownAt: string; packId: string };
@@ -32,7 +32,8 @@ export async function compilePolicy(
   ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; sourceText: string },
 ): Promise<PolicyVersionRef & { policyDigest: string; factsDigest: string; canonicalText: string }> {
   requireRole(actor, "EDITOR");
-  const pack = await packRow(tx, input.packId);
+  // 잠금 순서는 팩 → 범위(openDispute·rebind와 같다). 팩을 먼저 잡지 않으면 봉인의 범위 FOR UPDATE와 분쟁 개시의 팩 FOR UPDATE가 교착한다.
+  const pack = await packRow(tx, input.packId, "SHARE");
   const knownAt = clock.now();
   const facts = await sealFacts(ctx, tx, pack.factsScopeId, knownAt);
   const version = ((await tx.query("SELECT COALESCE(MAX(version), 0) AS v FROM policy_version WHERE policy_id = $1", [input.policyId])).rows[0].v as number) + 1;
@@ -72,7 +73,9 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   const row = await versionRow(tx, ref);
   if (row.status !== "APPROVED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
   await requireNotSigned(tx, row.policyDigest, actor);
-  await packRow(tx, row.packId, "SHARE"); // 판정과 활성화 사이에 청구권자 교체를 막는다
+  const pack = await packRow(tx, row.packId, "SHARE"); // 판정과 활성화 사이에 청구권자 교체를 막는다
+  // checkActivation은 투영 경로 위의 분쟁만 본다. 범위에 열린 분쟁이 하나라도 있으면 경로와 무관하게 거부한다.
+  if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const diags = await checkPackActivation(ctx, tx, { factsDigest: row.factsDigest, declared: await declaredClaimants(tx, row.packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `${ref.policyId}@${ref.version} cannot be activated`, diags);
   await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: row.policyDigest });
@@ -96,6 +99,9 @@ export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   if (cur === undefined) throw conflict("INVALID_STATE", `${policyId} has no ACTIVE version`);
   const row = await versionRow(tx, { policyId, version: cur.version });
   const pack = await packRow(tx, row.packId, "SHARE"); // 판정과 교체 사이에 청구권자 교체를 막는다
+  if (await openDisputeInScope(tx, pack.factsScopeId)) {
+    throw new DomainError("REBIND_REQUIRES_APPROVAL", 409, `${policyId}: facts scope ${pack.factsScopeId} has an open dispute; full approval required after it closes`);
+  }
   const now = clock.now();
   const facts = await sealFacts(ctx, tx, pack.factsScopeId, now);
   if (facts.digest === row.factsDigest) throw conflict("REBIND_NOT_NEEDED", `${policyId} is already pinned to the current facts`);
