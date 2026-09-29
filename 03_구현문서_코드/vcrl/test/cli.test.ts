@@ -174,6 +174,17 @@ test("verify diagnoses a hostile format value instead of the unexpected-error ne
   assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
 });
 
+test("diagnostic output escapes control characters so a result file cannot forge lines", () => {
+  const files = fixture();
+  files.set("forge.json", '{"format":"x\\nOK vcrl:sha256:0000"}');
+  const v = cli(["verify", "--result", "forge.json", ...EVAL], files);
+  assert.equal(v.code, 1, v.err);
+  const lines = v.err.split("\n").filter((l) => l !== "");
+  assert.equal(lines.length, 1, v.err);
+  assert.ok(v.err.includes("\\u000A"), v.err);
+  assert.ok(!lines.some((l) => l.startsWith("OK")), v.err);
+});
+
 test("prototype-property command names are unknown commands, not internal errors", () => {
   for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
     const r = cli([name]);

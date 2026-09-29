@@ -228,6 +228,10 @@ function printJson(io: Io, v: unknown): void {
   io.out(JSON.stringify(v, null, 2) + "\n");
 }
 
+/** 진단 한 건이 stderr 한 줄을 넘지 못하게 제어·줄 구분 문자를 `\uXXXX`로 이스케이프한다(스펙 12.50). */
+const escapeControls = (s: string): string =>
+  s.replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`);
+
 function report(io: Io, diagnostics: readonly Diagnostic[]): void {
-  for (const d of diagnostics) io.err(`${d.code} ${d.path} ${d.message}\n`);
+  for (const d of diagnostics) io.err(`${d.code} ${escapeControls(d.path)} ${escapeControls(d.message)}\n`);
 }

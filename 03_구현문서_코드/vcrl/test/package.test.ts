@@ -6,7 +6,9 @@ const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url),
 const MODULES = ["core", "facts", "allocation", "text"];
 
 test("exports point at built files that mirror src (spec 12.51)", () => {
-  assert.deepEqual(Object.keys(pkg.exports).sort(), MODULES.map((m) => `./${m}`).sort());
+  assert.deepEqual(Object.keys(pkg.exports).sort(), [...MODULES.map((m) => `./${m}`), "./spec/*", "./package.json"].sort());
+  assert.equal(pkg.exports["./spec/*"], "./spec/*");
+  assert.equal(pkg.exports["./package.json"], "./package.json");
   for (const m of MODULES) {
     assert.deepEqual(pkg.exports[`./${m}`], { types: `./dist/src/${m}/index.d.ts`, default: `./dist/src/${m}/index.js` });
     assert.ok(existsSync(new URL(`../src/${m}/index.ts`, import.meta.url)), m);

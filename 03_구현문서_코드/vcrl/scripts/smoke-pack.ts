@@ -1,4 +1,4 @@
-// tarball 스모크 테스트(스펙 12.52): npm pack → 임시 디렉터리에 설치 → 라이브러리·CLI·타입 선언 확인.
+// tarball 스모크 테스트(스펙 12.52): npm pack → 임시 디렉터리에 설치 → 라이브러리·CLI(verify 포함)·타입 선언·스키마 export 확인.
 // 네트워크 없이 돈다(런타임 의존성이 없으므로 --offline 설치). 실행: npm run smoke
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -60,6 +60,9 @@ if (!r.ok) throw new Error(JSON.stringify(r.errors));
 const v = verifyAllocationResult({ policy: policy.value, facts, usage, asOf, knownAt, snapshot, events, runId }, r.value);
 if (v.length > 0) throw new Error(JSON.stringify(v));
 if (!digestOf({}).startsWith("vcrl:sha256:")) throw new Error("digestOf");
+for (const spec of ["vcrl/spec/schema/allocation.result.schema.json", "vcrl/package.json"]) {
+  if (!import.meta.resolve(spec).startsWith("file:")) throw new Error("cannot resolve " + spec);
+}
 console.log(r.value.result_digest);
 `);
   assert.equal(sh(process.execPath, ["check.mjs"], app).trim(), expected.result_digest, "library result digest");
@@ -67,11 +70,23 @@ console.log(r.value.result_digest);
   // 2) 설치된 CLI.
   const vcrl = join(app, "node_modules", ".bin", "vcrl");
   assert.deepEqual(JSON.parse(sh(vcrl, ["compile", "policy.vcrl"], app)), alloc.policy, "vcrl compile");
-  const result = JSON.parse(sh(vcrl, [
-    "evaluate", "--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json",
+  const evalArgs = [
+    "--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json",
     "--as-of", facts.as_of, "--known-at", facts.known_at, "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", alloc.run_id,
-  ], app));
+  ];
+  const evaluated = sh(vcrl, ["evaluate", ...evalArgs], app);
+  const result = JSON.parse(evaluated);
   assert.equal(result.result_digest, expected.result_digest, "vcrl evaluate");
+  put("result.json", evaluated);
+  assert.equal(sh(vcrl, ["verify", "--result", "result.json", ...evalArgs], app), `OK ${expected.result_digest}\n`, "vcrl verify");
+  const tampered = structuredClone(result);
+  tampered.lines[0].amount = "1";
+  put("tampered.json", tampered);
+  assert.throws(
+    () => execFileSync(vcrl, ["verify", "--result", "tampered.json", ...evalArgs], { cwd: app, encoding: "utf8", stdio: "pipe" }),
+    (e: { status?: number }) => e.status === 1,
+    "vcrl verify must exit 1 on a tampered result",
+  );
 
   // 3) 타입 선언 소비.
   put("types.ts", `
@@ -98,4 +113,9 @@ export const bad: AllocationResult["result_digest"] = 1;
   console.log(`smoke OK ${expected.result_digest}`);
 } finally {
   rmSync(tmp, { recursive: true, force: true });
+  try {
+    sh("npm", ["run", "clean"], pkg);
+  } catch {
+    // 정리 실패는 스모크 결과를 바꾸지 않는다.
+  }
 }
