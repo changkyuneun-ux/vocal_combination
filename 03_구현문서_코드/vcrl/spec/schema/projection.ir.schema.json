@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vcrl.invalid/1.0/projection.ir.schema.json",
+  "title": "VCRL projection IR (vcrl-projection/1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "facts_digest", "as_of", "known_at", "u_digest", "vectors", "paths", "digest"],
+  "properties": {
+    "format": { "const": "vcrl-projection/1" },
+    "facts_digest": { "$ref": "#/$defs/digest" },
+    "as_of": { "$ref": "#/$defs/instant" },
+    "known_at": { "$ref": "#/$defs/instant" },
+    "u_digest": { "$ref": "#/$defs/digest" },
+    "vectors": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/claimantRole" },
+      "additionalProperties": {
+        "type": "object",
+        "propertyNames": { "$ref": "#/$defs/partyKey" },
+        "additionalProperties": { "$ref": "#/$defs/ratio" }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stem", "role", "party", "weight", "claims"],
+        "properties": {
+          "stem": { "$ref": "#/$defs/id" },
+          "role": { "$ref": "#/$defs/claimantRole" },
+          "party": { "$ref": "#/$defs/partyKey" },
+          "weight": { "$ref": "#/$defs/ratio" },
+          "claims": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+        }
+      }
+    },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
+    "partyKey": { "type": "string", "pattern": "^(@hold|[A-Za-z0-9._-]+)$", "not": { "const": "__proto__" } },
+    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "ratio": { "type": "string", "pattern": "^(0|[1-9]\\d*)/[1-9]\\d*$" },
+    "claimantRole": {
+      "enum": ["MASTER_OWNER", "WORK_AUTHOR", "CMO", "PERFORMER_FEATURED", "PERFORMER_NON_FEATURED", "AGENCY", "AI_PROVIDER", "RECORDING_CONTRIBUTOR"]
+    }
+  }
+}
