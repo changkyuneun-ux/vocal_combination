@@ -1,0 +1,85 @@
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { freshDb } from "../helpers.ts";
+import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge } from "../fixtures.ts";
+import { fixedClock } from "../../src/platform/clock.ts";
+import * as policy from "../../src/policy/service.ts";
+import * as issuance from "../../src/issuance/service.ts";
+import { signersOf, verifyAttestations } from "../../src/engine-bridge/attest.ts";
+
+const { db, drop } = await freshDb();
+const { ctx, cleanup } = tempBridge();
+after(async () => { await drop(); cleanup(); });
+
+const clock = fixedClock("2026-02-01T00:00:00.000Z", 1000);
+const users = await db.tx(async (tx) => {
+  await seedSong(tx, fixedClock(T0, 0));
+  const u = await seedUsers(tx, fixedClock(T0, 0));
+  await issuance.createPack(tx, clock, u.rights, { packId: PACK, packCode: "NOVA", title: "Nova pack", factsScopeId: SCOPE });
+  await issuance.setPackClaimants(tx, u.rights, PACK, DECLARED);
+  return u;
+});
+
+test("compile pins depends_on to the current facts seal and stores canonical text", async () => {
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_nova", packId: PACK, sourceText: POLICY_TEXT }));
+  assert.equal(r.version, 1);
+  assert.match(r.canonicalText, new RegExp(`digest "${r.factsDigest}"`));
+  assert.doesNotMatch(r.canonicalText, /0{64}/);
+  const s = await db.tx((tx) => signersOf(tx, r.policyDigest));
+  assert.deepEqual(s, [{ signerId: "usr_editor", role: "EDITOR" }]);
+  assert.equal(await db.tx((tx) => verifyAttestations(tx, r.policyDigest)), true);
+});
+
+test("roles and separation of duties are enforced", async () => {
+  const ref = { policyId: "pol_nova", version: 1 };
+  await assert.rejects(db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.editor, ref)), { code: "ROLE_REQUIRED" });
+  await assert.rejects(db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, ref)), { code: "INVALID_STATE" });
+  await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.approver, ref));
+  await db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, ref));
+  const active = await db.tx((tx) => policy.activePolicyForPack(tx, PACK));
+  assert.equal(active?.version, 1);
+  const s = await db.tx((tx) => signersOf(tx, active!.policyDigest));
+  assert.deepEqual(s.map((x) => x.role).sort(), ["ACTIVATOR", "EDITOR", "WORK_APPROVER"]);
+});
+
+test("the same person cannot sign two roles on one policy", async () => {
+  const both = await db.tx(async (tx) => {
+    const { createUser, loadActor } = await import("../../src/platform/actor.ts");
+    await createUser(tx, clock, { userId: "usr_both", displayName: "both", roles: ["EDITOR", "WORK_APPROVER"] });
+    return loadActor(tx, "usr_both");
+  });
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, both, { policyId: "pol_sod", packId: PACK, sourceText: POLICY_TEXT }));
+  await assert.rejects(db.tx((tx) => policy.approvePolicy(ctx, tx, clock, both, r)), { code: "SOD_VIOLATION", status: 403 });
+});
+
+test("compile rejects a policy whose scope.pack differs from the target pack, with VCRL diagnostics for bad text", async () => {
+  await assert.rejects(
+    db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_x", packId: PACK, sourceText: POLICY_TEXT.replace("pack: pak_nova", "pack: pak_other") })),
+    { code: "POLICY_PACK_MISMATCH", status: 422 },
+  );
+  await assert.rejects(
+    db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_x", packId: PACK, sourceText: "allocation {" })),
+    (e: any) => e.status === 422 && e.diagnostics.some((d: any) => d.code === "PARSE_SYNTAX"),
+  );
+});
+
+test("activation fails with VCRL diagnostics when declared claimants drift", async () => {
+  await db.tx(async (tx) => {
+    await issuance.createPack(tx, clock, users.rights, { packId: "pak_drift", packCode: "DRIFT", title: "d", factsScopeId: SCOPE });
+    await issuance.setPackClaimants(tx, users.rights, "pak_drift", DECLARED.filter((d) => d.role !== "CMO"));
+  });
+  const text = POLICY_TEXT.replace("pack: pak_nova", "pack: pak_drift");
+  const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_drift", packId: "pak_drift", sourceText: text }));
+  await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.approver, r));
+  await assert.rejects(db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, r)), (e: any) =>
+    e.status === 422 && e.diagnostics.some((d: any) => d.code === "FACTS_CLAIMANT_DRIFT"));
+});
+
+test("activating a newer version supersedes the previous active version", async () => {
+  const r2 = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_nova", packId: PACK, sourceText: POLICY_TEXT }));
+  assert.equal(r2.version, 2);
+  await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, users.approver, r2));
+  await db.tx((tx) => policy.activatePolicy(ctx, tx, clock, users.activator, r2));
+  const rows = await db.pool.query("SELECT version, status FROM policy_version WHERE policy_id = 'pol_nova' ORDER BY version");
+  assert.deepEqual(rows.rows.map((r) => [r.version, r.status]), [[1, "SUPERSEDED"], [2, "ACTIVE"]]);
+});
