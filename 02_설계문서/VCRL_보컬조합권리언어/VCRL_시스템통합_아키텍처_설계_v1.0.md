@@ -494,9 +494,9 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 5. **facts 범위의 구성**: 범위의 작품 1개, 그 작품의 `recording_version` 전부, 그 녹음들의 스템 전부, 범위의 `voice`, 범위의 claim·mandate(기준 시점까지 기록된 버전), 그리고 claim 대상·mandate 양끝으로 참조되는 party. 외부 식별자는 `party.isni`→`ids.isni`, `party.ipi_no`→`ids.ipi`, `work.iswc`→`ids.iswc`, `recording_version.isrc`→`ids.isrc`(값이 있을 때만).
 6. **발행 투영의 기준 시점**: `as_of = known_at = 발행 시각`. 발행 시각은 항상 facts 봉인 시각보다 늦으므로 봉인된 facts 상태와 같은 결과이며, facts 봉인 시각을 따로 저장하지 않는다.
 7. **분쟁 동기 가드**: 발행 트랜잭션은 팩 상태와 별도로 해당 facts 범위에 열린 분쟁이 있는지 직접 확인해 거부한다(Outbox 일시정지 처리 전의 틈을 막는다).
-8. **추가 전용 보호**: 트리거(UPDATE·DELETE 거부, 같은 트랜잭션의 `superseded_at` 1회 설정만 허용)와 앱 DB 역할 권한(INSERT·SELECT만) 두 겹.
+8. **추가 전용 보호**: 트리거(UPDATE·DELETE 거부, `superseded_at`은 NULL에서 값으로 한 번, 그리고 후속 버전과 함께만 설정 — 같은 id에 `recorded_at = superseded_at`인 행이 있는지 커밋 시점에 검사하는 지연 제약 트리거, 마이그레이션 0008)와 앱 DB 역할 권한(INSERT·SELECT와 명시된 컬럼 UPDATE만) 두 겹.
 9. **오류 → HTTP**: VCRL 진단 422(진단 목록 그대로), 직무 분리 403, 상태 충돌·분쟁 409, 없음 404.
-10. **facts 봉인 울타리**: 같은 행·같은 `known_at` → 같은 digest(3.1-3)는 `known_at` 이전 시각을 잡고 아직 커밋하지 않은 쓰기가 봉인 뒤에 커밋되면 깨진다. 그래서 `facts_scope.sealed_through`를 둔다. 범위에 쓰는 쪽(claim·mandate 기록, voice·stem·recording 등록, 분쟁 개시·종결)은 범위 행을 `FOR SHARE`로 잠근 뒤 자기 시각(`recorded_at`·`created_at`·`opened_at`)이 `sealed_through`보다 엄격히 늦어야 쓰고, 아니면 409 `FACTS_SEALED_THROUGH`로 거부된다. `sealFacts`는 행을 읽기 전에 범위 행을 `FOR UPDATE`로 잠가 진행 중인 쓰기의 커밋을 기다린 뒤 읽고, `sealed_through = GREATEST(sealed_through, known_at)`으로 올린다. 잠금 순서는 팩 → 범위다(정책 컴파일·재고정·분쟁 개시 공통). 교착·직렬화 실패는 409 `RETRY`로 응답한다.
+10. **facts 봉인 울타리**: 같은 행·같은 `known_at` → 같은 digest(3.1-3)는 `known_at` 이전 시각을 잡고 아직 커밋하지 않은 쓰기가 봉인 뒤에 커밋되면 깨진다. 그래서 `facts_scope.sealed_through`를 둔다. 범위에 쓰는 쪽(claim·mandate 기록, voice·stem·recording 등록, 분쟁 개시·종결)은 범위 행을 `FOR SHARE`로 잠근 뒤 자기 시각(`recorded_at`·`created_at`·`opened_at`)이 `sealed_through`보다 엄격히 늦어야 쓰고, 아니면 409 `FACTS_SEALED_THROUGH`로 거부된다. `sealFacts`는 행을 읽기 전에 범위 행을 `FOR UPDATE`로 잠가 진행 중인 쓰기의 커밋을 기다린 뒤 읽고, `sealed_through = GREATEST(sealed_through, known_at)`으로 올린다. 잠금 순서는 팩 → 범위다(정책 컴파일·재고정·분쟁 개시 공통). 교착·직렬화 실패는 409 `RETRY`로 응답한다. 한 트랜잭션에서 같은 범위에 쓴 뒤 봉인하지 않는다(`FOR SHARE` → `FOR UPDATE` 승격은 교착할 수 있고 409 `RETRY`로 드러난다). DB 시계보다 늦은 `known_at`은 울타리를 앞당기므로 422 `INVALID_INSTANT`로 거부한다.
 
 ### 9.4 완료 기준
 
@@ -533,3 +533,4 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 3. **Outbox 재시도·dead-letter**: 지금 폴러는 실패한 배치를 로그만 남기고 다음 주기에 다시 시도한다. 시도 횟수·백오프·dead-letter 테이블과 경보가 필요하다.
 4. **`dispute_closed` 핸들러**: 종결 이벤트는 쌓이기만 한다. 재고정 후보 계산·백오피스 작업 목록(3.3)으로 연결한다.
 5. **봉인 조회 인증**: `GET /seals/:digest`·`GET /issues/:id/audit`은 신원 없이 읽고 PRIVATE claim이 든 facts도 돌려준다(서버는 127.0.0.1 바인딩). 인증과 가시성 필터(공개본 S5)를 붙인다.
+6. **울타리·직무 분리를 DB 트리거로**: 봉인 울타리와 서명 역할 검사는 서비스 코드에만 있다. `rc_app`은 `right_claim`·`mandate`에 과거 시각의 행을 직접 INSERT할 수 있으므로, `sealed_through` 검사와 직무 분리 검사를 트리거로 옮긴다.
