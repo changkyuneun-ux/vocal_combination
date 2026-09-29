@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, attempt, capture, diag, fail } from "../../src/core/errors.ts";
+import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, attempt, capture, describe, diag, fail } from "../../src/core/errors.ts";
 
 test("diag composes message from registry", () => {
   assert.deepEqual(diag("FACTS_CYCLE", "$.body.mandates", "m1"), {
@@ -41,4 +41,14 @@ test("attempt turns VcrlError into a failed Result and passes values through", (
   assert.equal(r.ok, false);
   assert.deepEqual(r.ok ? [] : r.errors.map((d) => d.code), ["ALLOC_INFEASIBLE"]);
   assert.throws(() => attempt(() => { throw new TypeError("boom"); }), TypeError);
+});
+
+test("describe never throws on hostile values", () => {
+  assert.equal(describe("x"), "x");
+  assert.equal(describe(1), "1");
+  assert.equal(describe(null), "null");
+  assert.equal(describe(undefined), "undefined");
+  assert.equal(describe(JSON.parse('{"toString":1}')), "object");
+  assert.equal(describe(Object.create(null)), "object");
+  assert.equal(describe([]), "array");
 });

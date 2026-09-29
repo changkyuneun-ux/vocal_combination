@@ -1,6 +1,6 @@
 import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import { isEnumValue, type EnumValue } from "./enums.ts";
-import { diag, type Diagnostic } from "./errors.ts";
+import { describe, diag, type Diagnostic } from "./errors.ts";
 import { canonicalize } from "./jcs.ts";
 
 export type AttestationRole = EnumValue<"attestation_role">;
@@ -38,7 +38,7 @@ export function checkAttestations(atts: readonly Attestation[], expectedDigest: 
   atts.forEach((att, i) => {
     const p = `$.attestations[${i}]`;
     if (!isEnumValue("attestation_role", att.role)) {
-      out.push(diag("CORE_ENUM_UNKNOWN", `${p}.role`, String(att.role)));
+      out.push(diag("CORE_ENUM_UNKNOWN", `${p}.role`, describe(att.role)));
       return;
     }
     if (att.over !== expectedDigest) {

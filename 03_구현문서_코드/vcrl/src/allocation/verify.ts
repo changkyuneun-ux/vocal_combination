@@ -1,5 +1,5 @@
 import { digestOf } from "../core/digest.ts";
-import { attempt, diag, underPath, type Diagnostic } from "../core/errors.ts";
+import { attempt, describe, diag, underPath, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import type { Instant } from "../core/time.ts";
 import type { Usage } from "../facts/project.ts";
@@ -15,9 +15,10 @@ export type VerificationInput = Omit<EvaluationInput, "projection"> & { usage: U
  * 일치하면 빈 배열을 돌려주고, 예외를 던지지 않는다.
  */
 export function verifyAllocationResult(input: VerificationInput, given: unknown): Diagnostic[] {
+  if (!isPlainObject(input)) return [diag("CORE_TYPE_ERROR", "$", "verification input must be an object")];
   if (!isPlainObject(given)) return [diag("CORE_TYPE_ERROR", "$.result", "must be an object")];
   if (given.format !== ALLOCATION_RESULT_FORMAT) {
-    return [diag("CORE_TYPE_ERROR", "$.result.format", `unsupported result format: ${String(given.format)}`)];
+    return [diag("CORE_TYPE_ERROR", "$.result.format", `unsupported result format: ${describe(given.format)}`)];
   }
   const { usage, asOf, knownAt, ...rest } = input;
   const projection = projectToIr(rest.facts, usage, asOf, knownAt);
@@ -28,9 +29,9 @@ export function verifyAllocationResult(input: VerificationInput, given: unknown)
   const out: Diagnostic[] = [];
   const expected = recomputed.value.result_digest;
   if (given.projection_digest !== projection.value.digest) {
-    out.push(diag("CORE_DIGEST_MISMATCH", "$.result.projection_digest", String(given.projection_digest)));
+    out.push(diag("CORE_DIGEST_MISMATCH", "$.result.projection_digest", describe(given.projection_digest)));
   }
-  if (given.result_digest !== expected) out.push(diag("CORE_DIGEST_MISMATCH", "$.result.result_digest", String(given.result_digest)));
+  if (given.result_digest !== expected) out.push(diag("CORE_DIGEST_MISMATCH", "$.result.result_digest", describe(given.result_digest)));
   const content = attempt(() => digestOf({ ...given, result_digest: undefined }));
   if (!content.ok) out.push(...underPath("$.result", content.errors));
   else if (content.value !== expected) out.push(diag("CORE_DIGEST_MISMATCH", "$.result", "result content does not match the recomputed result"));

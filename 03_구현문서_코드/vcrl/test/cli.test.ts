@@ -166,6 +166,14 @@ test("verify rejects a result with another format tag", () => {
   assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
 });
 
+test("verify diagnoses a hostile format value instead of the unexpected-error net", () => {
+  const files = fixture();
+  files.set("hostile.json", '{"format":{"toString":1}}');
+  const v = cli(["verify", "--result", "hostile.json", ...EVAL], files);
+  assert.equal(v.code, 1, v.err);
+  assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
+});
+
 test("prototype-property command names are unknown commands, not internal errors", () => {
   for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
     const r = cli([name]);

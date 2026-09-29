@@ -383,3 +383,10 @@ test("evaluate rejects a projection with another format tag", () => {
   assert.equal(r.ok, false);
   assert.ok(!r.ok && r.errors.some((e) => e.code === "CORE_TYPE_ERROR" && e.path === "$.projection.format"), JSON.stringify(r));
 });
+
+test("evaluate diagnoses a hostile projection format without throwing", () => {
+  const input = basic();
+  const projection = { ...input.projection, format: JSON.parse('{"toString":1}') } as unknown as ProjectionIr;
+  const r = evaluate({ ...input, projection });
+  assert.ok(!r.ok && r.errors.some((e) => e.code === "CORE_TYPE_ERROR" && e.path === "$.projection.format"), JSON.stringify(r));
+});

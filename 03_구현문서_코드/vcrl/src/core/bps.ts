@@ -1,11 +1,11 @@
-import { fail } from "./errors.ts";
+import { describe, fail } from "./errors.ts";
 
 export type Bps = number;
 export const BPS_TOTAL = 10000;
 
 const BPS_RE = /^(0|[1-9]\d{0,4})$/;
 export function parseBps(s: unknown, path = "$"): Bps {
-  if (typeof s !== "string" || !BPS_RE.test(s)) fail("CORE_TYPE_ERROR", path, `not a bps string: ${String(s)}`);
+  if (typeof s !== "string" || !BPS_RE.test(s)) fail("CORE_TYPE_ERROR", path, `not a bps string: ${describe(s)}`);
   const v = Number(s);
   if (v > BPS_TOTAL) fail("CORE_TYPE_ERROR", path, `bps > ${BPS_TOTAL}: ${s}`);
   return v;

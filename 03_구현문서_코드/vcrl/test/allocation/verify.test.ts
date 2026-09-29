@@ -48,7 +48,39 @@ test("tampered content is caught even when result_digest is re-sealed", () => {
 test("a different projection digest is reported", () => {
   const { input, result } = setup();
   const other = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
-  assert.ok(at(verifyAllocationResult(input, other)).includes("CORE_DIGEST_MISMATCH $.result.projection_digest"));
+  assert.deepEqual(at(verifyAllocationResult(input, other)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.projection_digest"]);
+});
+
+const hostile = () => JSON.parse('{"toString":1}');
+
+test("hostile format values are diagnosed, not thrown", () => {
+  const { input, result } = setup();
+  for (const format of [hostile(), Object.create(null)]) {
+    assert.deepEqual(at(verifyAllocationResult(input, { ...result, format })), ["CORE_TYPE_ERROR $.result.format"]);
+  }
+});
+
+test("hostile digest values are diagnosed, not thrown", () => {
+  const { input, result } = setup();
+  const ds = at(verifyAllocationResult(input, { ...result, projection_digest: hostile(), result_digest: hostile() }));
+  assert.ok(ds.includes("CORE_DIGEST_MISMATCH $.result.projection_digest"), ds.join());
+  assert.ok(ds.includes("CORE_DIGEST_MISMATCH $.result.result_digest"), ds.join());
+});
+
+test("a forged projection_digest alone, re-sealed, is reported", () => {
+  const { input, result } = setup();
+  const forged = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
+  forged.result_digest = digestOf({ ...forged, result_digest: undefined });
+  assert.deepEqual(at(verifyAllocationResult(input, forged)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.projection_digest", "CORE_DIGEST_MISMATCH $.result.result_digest"]);
+});
+
+test("malformed verification input is diagnosed, not thrown", () => {
+  const { input, result } = setup();
+  assert.deepEqual(at(verifyAllocationResult(null as unknown as VerificationInput, result)), ["CORE_TYPE_ERROR $"]);
+  for (const k of ["asOf", "knownAt", "runId"] as const) {
+    const ds = verifyAllocationResult({ ...input, [k]: hostile() }, result);
+    assert.ok(ds.length > 0, k);
+  }
 });
 
 test("a JSON number inside the given result is diagnosed under $.result, not thrown", () => {

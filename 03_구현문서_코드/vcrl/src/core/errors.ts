@@ -99,3 +99,10 @@ export const LEGACY_ERROR_MAP: Readonly<Record<string, ErrorCode>> = {
   DSL_WEIGHT_MISMATCH: "ALLOC_WEIGHT_MISMATCH",
   DSL_UNCOVERED_CLAIMANT: "ALLOC_UNCOVERED_CLAIMANT",
 };
+
+/** 진단 메시지용 값 표시. 적대적 입력(예: `{"toString":1}`)에서도 예외를 던지지 않는다. */
+export function describe(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v === null || typeof v === "number" || typeof v === "bigint" || typeof v === "boolean" || v === undefined) return String(v);
+  return Array.isArray(v) ? "array" : typeof v;
+}

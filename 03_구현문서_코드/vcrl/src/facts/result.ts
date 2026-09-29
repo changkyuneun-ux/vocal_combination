@@ -1,5 +1,5 @@
 import { digestOf } from "../core/digest.ts";
-import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
+import { describe, diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, ratio } from "../core/ratio.ts";
 import type { Instant } from "../core/time.ts";
@@ -56,5 +56,5 @@ export function verifyProjection(doc: FactsDocument, usage: Usage, asOf: Instant
   const given = isPlainObject(projection) ? projection.digest : undefined;
   return given === recomputed.value.digest
     ? []
-    : [diag("CORE_DIGEST_MISMATCH", "$.projection.digest", `${String(given)} != ${recomputed.value.digest}`)];
+    : [diag("CORE_DIGEST_MISMATCH", "$.projection.digest", `${describe(given)} != ${recomputed.value.digest}`)];
 }

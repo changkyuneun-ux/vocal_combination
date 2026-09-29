@@ -1,7 +1,7 @@
 import { BPS_TOTAL, parseBps } from "../core/bps.ts";
 import { validateEnvelope, type Dependency } from "../core/envelope.ts";
 import { isEnumValue, type EnumName, type EnumValue } from "../core/enums.ts";
-import { capture, diag, type Diagnostic } from "../core/errors.ts";
+import { capture, describe, diag, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { parseRef } from "../core/ref.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
@@ -110,7 +110,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
     return false;
   };
   const enumCheck = (name: EnumName, v: unknown, p: string) => {
-    if (!isEnumValue(name, v)) out.push(diag("CORE_ENUM_UNKNOWN", p, `${name}: ${String(v)}`));
+    if (!isEnumValue(name, v)) out.push(diag("CORE_ENUM_UNKNOWN", p, `${name}: ${describe(v)}`));
   };
   /** bps를 검사하고 값을 돌려준다. 잘못되면 오류를 기록하고 undefined. */
   const bps = (v: unknown, p: string): number | undefined => {
@@ -135,7 +135,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
         return;
       }
       out.push(...rejectUnknownKeys(bk, ["name", "bps", ...extra], bp));
-      if (typeof bk.name !== "string" || !NAME_RE.test(bk.name)) out.push(diag("CORE_TYPE_ERROR", `${bp}.name`, String(bk.name)));
+      if (typeof bk.name !== "string" || !NAME_RE.test(bk.name)) out.push(diag("CORE_TYPE_ERROR", `${bp}.name`, describe(bk.name)));
       else if (names.includes(bk.name)) out.push(diag("ALLOC_DUPLICATE_NAME", `${bp}.name`, bk.name));
       else names.push(bk.name);
       const v = bps(bk.bps, `${bp}.bps`);
@@ -154,11 +154,11 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
     }
     enumCheck("pool_mode", v.mode, `${p}.mode`);
     const need = (k: string) => {
-      if (v[k] === undefined) out.push(diag("ALLOC_MODE_REQUIRED", `${p}.${k}`, `required for ${String(v.mode)}`));
+      if (v[k] === undefined) out.push(diag("ALLOC_MODE_REQUIRED", `${p}.${k}`, `required for ${describe(v.mode)}`));
       else bps(v[k], `${p}.${k}`);
     };
     const forbid = (k: string) => {
-      if (v[k] !== undefined) out.push(diag("CORE_TYPE_ERROR", `${p}.${k}`, `not allowed for ${String(v.mode)}`));
+      if (v[k] !== undefined) out.push(diag("CORE_TYPE_ERROR", `${p}.${k}`, `not allowed for ${describe(v.mode)}`));
     };
     switch (v.mode) {
       case "MEMBER_PCT":
@@ -189,7 +189,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
   const vector = (v: unknown, p: string): void => {
     if (!obj(v, p)) return;
     if (!isEnumValue("vector_fn", v.fn)) {
-      out.push(diag("CORE_ENUM_UNKNOWN", `${p}.fn`, String(v.fn)));
+      out.push(diag("CORE_ENUM_UNKNOWN", `${p}.fn`, describe(v.fn)));
       return;
     }
     out.push(...rejectUnknownKeys(v, VECTOR_KEYS[v.fn], p));
@@ -202,7 +202,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
         }
         break;
       case "contract":
-        if (!isId(v.party)) out.push(diag("CORE_TYPE_ERROR", `${p}.party`, String(v.party)));
+        if (!isId(v.party)) out.push(diag("CORE_TYPE_ERROR", `${p}.party`, describe(v.party)));
         break;
       case "member_pct":
         break;
@@ -248,14 +248,14 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
   if (obj(b.scope, "$.body.scope")) {
     const s = b.scope;
     out.push(...rejectUnknownKeys(s, ["pack", "events", "currency"], "$.body.scope"));
-    if (!isId(s.pack)) out.push(diag("CORE_TYPE_ERROR", "$.body.scope.pack", String(s.pack)));
+    if (!isId(s.pack)) out.push(diag("CORE_TYPE_ERROR", "$.body.scope.pack", describe(s.pack)));
     if (!Array.isArray(s.events) || s.events.length === 0) {
       out.push(diag("CORE_TYPE_ERROR", "$.body.scope.events", "non-empty array required"));
     } else {
       s.events.forEach((e: unknown, i: number) => enumCheck("event_type", e, `$.body.scope.events[${i}]`));
       if (new Set(s.events).size !== s.events.length) out.push(diag("CORE_TYPE_ERROR", "$.body.scope.events", "duplicate event type"));
     }
-    if (typeof s.currency !== "string" || !CURRENCY_RE.test(s.currency)) out.push(diag("CORE_TYPE_ERROR", "$.body.scope.currency", String(s.currency)));
+    if (typeof s.currency !== "string" || !CURRENCY_RE.test(s.currency)) out.push(diag("CORE_TYPE_ERROR", "$.body.scope.currency", describe(s.currency)));
   }
   if (obj(b.bind, "$.body.bind")) {
     out.push(...rejectUnknownKeys(b.bind, ["time"], "$.body.bind"));
@@ -265,7 +265,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
     out.push(...rejectUnknownKeys(b.tier1, ["buckets", "rights"], "$.body.tier1"));
     const names = buckets(b.tier1.buckets, "$.body.tier1.buckets", []);
     if (typeof b.tier1.rights !== "string" || !names.includes(b.tier1.rights)) {
-      out.push(diag("CORE_UNKNOWN_REF", "$.body.tier1.rights", String(b.tier1.rights)));
+      out.push(diag("CORE_UNKNOWN_REF", "$.body.tier1.rights", describe(b.tier1.rights)));
     }
   }
   if (obj(b.tier2, "$.body.tier2")) {
@@ -282,7 +282,7 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
   if (obj(b.rounding, "$.body.rounding")) {
     out.push(...rejectUnknownKeys(b.rounding, ["method", "tie"], "$.body.rounding"));
     enumCheck("rounding_method", b.rounding.method, "$.body.rounding.method");
-    if (b.rounding.tie !== "party_id_asc") out.push(diag("CORE_TYPE_ERROR", "$.body.rounding.tie", String(b.rounding.tie)));
+    if (b.rounding.tie !== "party_id_asc") out.push(diag("CORE_TYPE_ERROR", "$.body.rounding.tie", describe(b.rounding.tie)));
   }
   return out;
 }

@@ -1,6 +1,6 @@
 import { digestOf, isDigest } from "./digest.ts";
 import { isEnumValue, type EnumValue } from "./enums.ts";
-import { capture, diag, type Diagnostic } from "./errors.ts";
+import { capture, describe, diag, type Diagnostic } from "./errors.ts";
 import { canonicalize } from "./jcs.ts";
 import { parseRef } from "./ref.ts";
 import { isId, rejectUnknownKeys } from "./shape.ts";
@@ -35,11 +35,11 @@ export function validateEnvelope(doc: unknown): Diagnostic[] {
   if (!isObject(doc)) return [diag("CORE_TYPE_ERROR", "$", "document must be an object")];
   const out: Diagnostic[] = [...capture(() => canonicalize(doc))];
   if (doc.vcrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.vcrl", `expected "${LANGUAGE_VERSION}"`));
-  if (!isEnumValue("module", doc.module)) out.push(diag("CORE_ENUM_UNKNOWN", "$.module", String(doc.module)));
+  if (!isEnumValue("module", doc.module)) out.push(diag("CORE_ENUM_UNKNOWN", "$.module", describe(doc.module)));
   if (!isId(doc.id)) out.push(diag("CORE_TYPE_ERROR", "$.id"));
   if (typeof doc.version !== "string" || !VERSION_RE.test(doc.version)) out.push(diag("CORE_TYPE_ERROR", "$.version"));
   if (!isEnumValue("visibility", doc.visibility_default)) {
-    out.push(diag("CORE_ENUM_UNKNOWN", "$.visibility_default", String(doc.visibility_default)));
+    out.push(diag("CORE_ENUM_UNKNOWN", "$.visibility_default", describe(doc.visibility_default)));
   }
   if (!isObject(doc.body)) out.push(diag("CORE_TYPE_ERROR", "$.body", "body must be an object"));
   if (!Array.isArray(doc.depends_on)) {

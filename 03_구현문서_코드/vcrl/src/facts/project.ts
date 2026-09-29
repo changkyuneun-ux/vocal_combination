@@ -1,5 +1,5 @@
 import { BPS_TOTAL, parseBps } from "../core/bps.ts";
-import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
+import { describe, diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { ONE, ZERO, add, div, fromBps, mul, ratio, type Ratio } from "../core/ratio.ts";
 import { isInstant, type Instant } from "../core/time.ts";
@@ -20,8 +20,8 @@ const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 export function projectVectors(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant): Result<Projection> {
   const structural = [
     ...validateFactsStructure(doc),
-    ...(isInstant(asOf) ? [] : [diag("CORE_TYPE_ERROR", "$.as_of", String(asOf))]),
-    ...(isInstant(knownAt) ? [] : [diag("CORE_TYPE_ERROR", "$.known_at", String(knownAt))]),
+    ...(isInstant(asOf) ? [] : [diag("CORE_TYPE_ERROR", "$.as_of", describe(asOf))]),
+    ...(isInstant(knownAt) ? [] : [diag("CORE_TYPE_ERROR", "$.known_at", describe(knownAt))]),
   ];
   if (structural.length > 0) return err(structural);
   if (!isPlainObject(usage)) {
@@ -37,7 +37,7 @@ export function projectVectors(doc: FactsDocument, usage: Usage, asOf: Instant, 
   for (const [stemId, raw] of Object.entries(usage)) {
     const stem = stems.get(stemId);
     if (!stem || !stem.rights_bearing || typeof raw !== "string" || !MS_RE.test(raw)) {
-      errors.push(diag("FACTS_USAGE_INVALID", `$.usage.${stemId}`, String(raw)));
+      errors.push(diag("FACTS_USAGE_INVALID", `$.usage.${stemId}`, describe(raw)));
     } else if (raw !== "0") {
       ms.set(stemId, BigInt(raw));
     }

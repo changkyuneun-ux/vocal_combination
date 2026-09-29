@@ -1,7 +1,7 @@
 import { parseBps } from "../core/bps.ts";
 import { digestOf, isDigest } from "../core/digest.ts";
 import { isEnumValue } from "../core/enums.ts";
-import { attempt, diag, err, ok, underPath, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
+import { attempt, describe, diag, err, ok, underPath, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
@@ -48,10 +48,10 @@ function checkInputShapes(facts: unknown, snapshot: unknown, projection: unknown
     return out;
   }
   if (projection.format !== PROJECTION_FORMAT) {
-    out.push(diag("CORE_TYPE_ERROR", "$.projection.format", `unsupported projection format: ${String(projection.format)}`));
+    out.push(diag("CORE_TYPE_ERROR", "$.projection.format", `unsupported projection format: ${describe(projection.format)}`));
   }
   for (const [k, valid] of PROJECTION_FIELDS) {
-    if (!valid(projection[k])) out.push(diag("CORE_TYPE_ERROR", `$.projection.${k}`, String(projection[k])));
+    if (!valid(projection[k])) out.push(diag("CORE_TYPE_ERROR", `$.projection.${k}`, describe(projection[k])));
   }
   if (!isPlainObject(projection.vectors)) out.push(diag("CORE_TYPE_ERROR", "$.projection.vectors", "must be an object"));
   return out;
@@ -70,7 +70,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   const kinds = new Map(facts.body.parties.map((p) => [p.id, p.kind]));
 
   const errors: Diagnostic[] = [];
-  if (!isId(runId)) errors.push(diag("CORE_TYPE_ERROR", "$.run_id", String(runId)));
+  if (!isId(runId)) errors.push(diag("CORE_TYPE_ERROR", "$.run_id", describe(runId)));
   errors.push(...checkDigests(policy, facts, projection), ...checkEvents(events, body));
   const members = attempt(() => parseVector(snapshot.members, "$.snapshot.members"));
   if (!members.ok) errors.push(...members.errors);
@@ -146,7 +146,7 @@ function checkEvents(events: unknown, body: AllocationBody): Diagnostic[] {
     }
     out.push(...rejectUnknownKeys(e, EVENT_KEYS, p));
     if (!isId(e.id)) {
-      out.push(diag("CORE_TYPE_ERROR", `${p}.id`, String(e.id)));
+      out.push(diag("CORE_TYPE_ERROR", `${p}.id`, describe(e.id)));
     } else {
       if (!orderReported && prev !== undefined && prev >= e.id) {
         out.push(diag("CORE_TYPE_ERROR", "$.events", "not sorted by id"));
@@ -154,12 +154,12 @@ function checkEvents(events: unknown, body: AllocationBody): Diagnostic[] {
       }
       prev = e.id;
     }
-    if (!isEnumValue("event_type", e.type)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.type`, String(e.type)));
+    if (!isEnumValue("event_type", e.type)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.type`, describe(e.type)));
     else if (!body.scope.events.includes(e.type)) out.push(diag("ALLOC_SCOPE_MISMATCH", `${p}.type`, e.type));
-    if (typeof e.amount !== "string" || !AMOUNT_RE.test(e.amount)) out.push(diag("CORE_TYPE_ERROR", `${p}.amount`, String(e.amount)));
-    if (typeof e.currency !== "string") out.push(diag("CORE_TYPE_ERROR", `${p}.currency`, String(e.currency)));
+    if (typeof e.amount !== "string" || !AMOUNT_RE.test(e.amount)) out.push(diag("CORE_TYPE_ERROR", `${p}.amount`, describe(e.amount)));
+    if (typeof e.currency !== "string") out.push(diag("CORE_TYPE_ERROR", `${p}.currency`, describe(e.currency)));
     else if (e.currency !== body.scope.currency) out.push(diag("ALLOC_SCOPE_MISMATCH", `${p}.currency`, e.currency));
-    if (!isEnumValue("integrity_status", e.integrity)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.integrity`, String(e.integrity)));
+    if (!isEnumValue("integrity_status", e.integrity)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.integrity`, describe(e.integrity)));
   });
   return out;
 }

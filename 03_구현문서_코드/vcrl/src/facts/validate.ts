@@ -2,7 +2,7 @@ import { parseBps } from "../core/bps.ts";
 import { isCommitment } from "../core/commit.ts";
 import { validateEnvelope } from "../core/envelope.ts";
 import { isEnumValue, type EnumName } from "../core/enums.ts";
-import { capture, diag, type Diagnostic } from "../core/errors.ts";
+import { capture, describe, diag, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { checkInterval, isInstant } from "../core/time.ts";
@@ -76,7 +76,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     body[key].forEach((e, i) => {
       const p = `$.body.${key}[${i}]`;
       if (!isId(e.id)) {
-        out.push(diag("CORE_TYPE_ERROR", `${p}.id`, `not an id: ${String(e.id)}`));
+        out.push(diag("CORE_TYPE_ERROR", `${p}.id`, `not an id: ${describe(e.id)}`));
         return;
       }
       const prev = body[key][i - 1]?.id;
@@ -96,7 +96,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
   const ref = (v: unknown, expected: EntityType | undefined, path: string) => {
     if (!present(v, path)) return;
     if (!isId(v)) {
-      out.push(diag("CORE_TYPE_ERROR", path, `not an id: ${String(v)}`));
+      out.push(diag("CORE_TYPE_ERROR", path, `not an id: ${describe(v)}`));
       return;
     }
     if (expected === undefined) return;
@@ -110,7 +110,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     return v === undefined;
   };
   const enumField = (name: EnumName, v: unknown, path: string, optional = false) => {
-    if (!absent(v, path, optional) && !isEnumValue(name, v)) out.push(diag("CORE_ENUM_UNKNOWN", path, `${name}: ${String(v)}`));
+    if (!absent(v, path, optional) && !isEnumValue(name, v)) out.push(diag("CORE_ENUM_UNKNOWN", path, `${name}: ${describe(v)}`));
   };
   const text = (v: unknown, path: string, optional = false) => {
     if (!absent(v, path, optional) && typeof v !== "string") out.push(diag("CORE_TYPE_ERROR", path, "must be a string"));
@@ -130,7 +130,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     enumField("claim_status", r.status, `${p}.status`);
     if (isPlainObject(r.valid)) out.push(...unknownKeys(r.valid, "interval", `${p}.valid`));
     out.push(...checkInterval(r.valid, `${p}.valid`));
-    if (!isInstant(r.recorded_at)) out.push(diag("CORE_TYPE_ERROR", `${p}.recorded_at`, String(r.recorded_at)));
+    if (!isInstant(r.recorded_at)) out.push(diag("CORE_TYPE_ERROR", `${p}.recorded_at`, describe(r.recorded_at)));
     else if (r.superseded_at !== undefined && (!isInstant(r.superseded_at) || r.superseded_at <= r.recorded_at)) {
       out.push(diag("CORE_TYPE_ERROR", `${p}.superseded_at`, "must be an instant after recorded_at"));
     }
@@ -174,14 +174,14 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     const kindsFor = typeof c.edge === "string" && Object.hasOwn(CLAIM_EDGE_KINDS, c.edge)
       ? CLAIM_EDGE_KINDS[c.edge as ClaimEdge]
       : undefined;
-    if (kindsFor === undefined && present(c.edge, `${p}.edge`)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.edge`, String(c.edge)));
+    if (kindsFor === undefined && present(c.edge, `${p}.edge`)) out.push(diag("CORE_ENUM_UNKNOWN", `${p}.edge`, describe(c.edge)));
     ref(c.source, kindsFor?.[0], `${p}.source`);
     ref(c.target, kindsFor?.[1], `${p}.target`);
     bps(c.share, `${p}.share`, c.visibility);
     record(c, p);
     if (c.edge === "PERFORMED_BY") {
       if (!isEnumValue("performer_role", c.performer_role)) {
-        out.push(diag("CORE_ENUM_UNKNOWN", `${p}.performer_role`, `performer_role: ${String(c.performer_role)}`));
+        out.push(diag("CORE_ENUM_UNKNOWN", `${p}.performer_role`, `performer_role: ${describe(c.performer_role)}`));
       }
     } else if (c.performer_role !== undefined) {
       out.push(diag("CORE_TYPE_ERROR", `${p}.performer_role`, "only allowed on PERFORMED_BY"));

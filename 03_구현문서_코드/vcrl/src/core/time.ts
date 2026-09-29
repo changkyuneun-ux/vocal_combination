@@ -1,4 +1,4 @@
-import { diag, type Diagnostic } from "./errors.ts";
+import { describe, diag, type Diagnostic } from "./errors.ts";
 
 export type Instant = string;
 export type Interval = { from: Instant; to?: Instant };
@@ -20,8 +20,8 @@ export function checkInterval(v: unknown, path: string): Diagnostic[] {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return [diag("CORE_TYPE_ERROR", path, "interval must be an object")];
   const iv = v as Record<string, unknown>;
   const out: Diagnostic[] = [];
-  if (!isInstant(iv.from)) out.push(diag("CORE_TYPE_ERROR", `${path}.from`, String(iv.from)));
-  if (iv.to !== undefined && !isInstant(iv.to)) out.push(diag("CORE_TYPE_ERROR", `${path}.to`, String(iv.to)));
+  if (!isInstant(iv.from)) out.push(diag("CORE_TYPE_ERROR", `${path}.from`, describe(iv.from)));
+  if (iv.to !== undefined && !isInstant(iv.to)) out.push(diag("CORE_TYPE_ERROR", `${path}.to`, describe(iv.to)));
   if (out.length === 0 && iv.to !== undefined && !((iv.from as string) < (iv.to as string))) {
     out.push(diag("CORE_TYPE_ERROR", path, "from must be before to"));
   }
