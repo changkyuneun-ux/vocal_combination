@@ -1,0 +1,22 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SRC = fileURLToPath(new URL("../../src/", import.meta.url));
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f);
+    return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") ? [p] : [];
+  });
+}
+
+test("only src/engine-bridge imports vcrl (design 9.2)", () => {
+  const offenders = walk(SRC)
+    .filter((p) => !relative(SRC, p).startsWith("engine-bridge/"))
+    .filter((p) => /from\s+["']vcrl(\/[a-z]+)?["']/.test(readFileSync(p, "utf8")))
+    .map((p) => relative(SRC, p));
+  assert.deepEqual(offenders, []);
+});
