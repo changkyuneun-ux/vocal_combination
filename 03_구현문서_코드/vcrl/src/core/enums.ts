@@ -31,6 +31,7 @@ export const ENUMS = {
   visibility: ["PUBLIC", "PARTIES", "PRIVATE"],
   vc_status: ["DRAFT", "VALIDATED", "RESERVED", "SUBMITTED", "ISSUED", "FLAGGED", "HIDDEN", "VOID"],
   holding_reason: ["RIGHTS_DISPUTE", "FRAUD_REVIEW"],
+  reversal_reason: ["REFUND", "CORRECTION", "FRAUD"],
   integrity_status: ["CLEAR", "FLAGGED"],
   vector_fn: ["graph", "contract", "member_pct", "performance_pool", "mix", "cap", "floor_guarantee"],
 } as const;
