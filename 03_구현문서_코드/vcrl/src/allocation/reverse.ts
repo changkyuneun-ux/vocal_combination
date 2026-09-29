@@ -47,6 +47,7 @@ export type ReversalInput = {
 
 const AMOUNT_RE = /^(0|[1-9]\d*)$/;
 const POSITIVE_RE = /^[1-9]\d*$/;
+const BUCKET_RE = /^[a-z][a-z0-9_]*$/;
 const REFUND_KEYS = ["id", "reason", "amount"] as const;
 
 type Pool = { key: string; row: PoolLine; remaining: bigint };
@@ -67,22 +68,36 @@ function rowsOf(original: AllocationResult, name: "pool_lines" | "lines" | "hold
   });
 }
 
+function checkBucket(v: unknown, path: string): string {
+  if (typeof v !== "string" || !BUCKET_RE.test(v)) fail("CORE_TYPE_ERROR", path, describe(v));
+  return v;
+}
+
 /** 되돌릴 이벤트의 풀 라인·라인·보류와 남은 금액(처음에는 원 금액). */
 function buildState(original: AllocationResult, rights: string, eventId: string): State {
   const pools: Pool[] = [];
   rowsOf(original, "pool_lines").forEach((p, i) => {
     if (p.event_id !== eventId) return;
+    checkBucket(p.bucket, `$.original.pool_lines[${i}].bucket`);
     pools.push({ key: String(p.bucket), row: p as unknown as PoolLine, remaining: amountOf(p.amount, `$.original.pool_lines[${i}].amount`) });
   });
   if (pools.length === 0) fail("REV_UNKNOWN_EVENT", "$.event_id", eventId);
   const children: Child[] = [];
   rowsOf(original, "lines").forEach((l, i) => {
     if (l.event_id !== eventId) return;
+    const lp = `$.original.lines[${i}]`;
+    if (!isId(l.party)) fail("CORE_TYPE_ERROR", `${lp}.party`, describe(l.party));
+    if (!isEnumValue("claimant_role", l.role)) fail("CORE_TYPE_ERROR", `${lp}.role`, describe(l.role));
+    checkBucket(l.bucket, `${lp}.bucket`);
+    if (typeof l.line_seq !== "string" || !POSITIVE_RE.test(l.line_seq)) fail("CORE_TYPE_ERROR", `${lp}.line_seq`, describe(l.line_seq));
     const line = l as unknown as AllocationLine;
     children.push({ key: `line:${line.party}`, group: line.bucket, line, remaining: amountOf(l.amount, `$.original.lines[${i}].amount`) });
   });
   rowsOf(original, "holdings").forEach((h, i) => {
     if (h.event_id !== eventId) return;
+    const hp = `$.original.holdings[${i}]`;
+    checkBucket(h.bucket, `${hp}.bucket`);
+    if (!isEnumValue("holding_reason", h.reason)) fail("CORE_TYPE_ERROR", `${hp}.reason`, describe(h.reason));
     const holding = h as unknown as Holding;
     children.push({ key: `hold:${holding.reason}`, group: holding.bucket, holding, remaining: amountOf(h.amount, `$.original.holdings[${i}].amount`) });
   });
@@ -204,4 +219,18 @@ export function reverse(input: ReversalInput): Result<ReversalResult> {
     });
     return step(s, priors.length + 1, refund, runId, previous, before);
   });
+}
+
+export type ReversalVerificationInput = Omit<ReversalInput, "eventId" | "refund" | "runId">;
+
+/** 제공된 역분개 결과를 신뢰하지 않고 원 결과·이전 역분개로 다시 계산해 대조한다(설계 결정 7). */
+export function verifyReversal(input: ReversalVerificationInput, given: unknown): Diagnostic[] {
+  if (!isPlainObject(given)) return [diag("CORE_TYPE_ERROR", "$.result", "must be an object")];
+  if (given.format !== REVERSAL_RESULT_FORMAT) return [diag("CORE_TYPE_ERROR", "$.result.format", describe(given.format))];
+  const r = reverse({ ...input, eventId: given.event_id as string, refund: given.refund as Refund, runId: given.run_id as string });
+  if (!r.ok) return r.errors;
+  const self = attempt(() => digestOf({ ...given, result_digest: undefined }));
+  if (!self.ok) return underPath("$.result", self.errors);
+  if (r.value.result_digest !== given.result_digest || self.value !== given.result_digest) return [diag("CORE_DIGEST_MISMATCH", "$.result")];
+  return [];
 }

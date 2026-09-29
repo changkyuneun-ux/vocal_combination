@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluate } from "../../src/allocation/evaluate.ts";
-import { reverse, type ReversalResult, type Refund } from "../../src/allocation/reverse.ts";
+import { reverse, verifyReversal, type ReversalResult, type Refund } from "../../src/allocation/reverse.ts";
 import type { AllocationResult } from "../../src/allocation/types.ts";
 import { digestOf } from "../../src/core/digest.ts";
 import { evaluationInput, loadAllocationCase } from "../helpers.ts";
@@ -112,4 +112,57 @@ test("a prior that does not re-derive breaks the chain", () => {
   const ok2 = reverse({ original: result, policy, eventId: "ev_001", refund: refund("100", "rf_2"), priors: [first.value], runId: "run_2" });
   assert.ok(ok2.ok);
   assert.equal(ok2.value.previous_digest, first.value.result_digest);
+});
+
+test("chain: a re-sealed forged prior and a skipped first reversal are both rejected", () => {
+  const { result, policy } = original();
+  const first = reverse({ original: result, policy, eventId: "ev_001", refund: refund("100"), priors: [], runId: "run_1" });
+  assert.ok(first.ok);
+  const second = reverse({ original: result, policy, eventId: "ev_001", refund: refund("200", "rf_2"), priors: [first.value], runId: "run_2" });
+  assert.ok(second.ok);
+  const forgedBody = { ...first.value, lines: first.value.lines.map((l, i) => (i === 0 ? { ...l, amount: "-1" } : l)) };
+  const { result_digest: _d, ...rest } = forgedBody;
+  const resealed = { ...rest, result_digest: digestOf(rest) } as ReversalResult;
+  const r1 = reverse({ original: result, policy, eventId: "ev_001", refund: refund("100", "rf_3"), priors: [resealed], runId: "run_3" });
+  assert.deepEqual(codes(r1), ["REV_CHAIN_BROKEN"]);
+  const r2 = reverse({ original: result, policy, eventId: "ev_001", refund: refund("100", "rf_3"), priors: [second.value], runId: "run_3" });
+  assert.deepEqual(codes(r2), ["REV_CHAIN_BROKEN"]);
+});
+
+test("a re-sealed original with malformed row fields is a CORE_TYPE_ERROR at the row path", () => {
+  const { result, policy } = original();
+  const seal = (o: Record<string, unknown>) => ({ ...o, result_digest: digestOf({ ...o, trace: undefined, result_digest: undefined }) }) as unknown as AllocationResult;
+  const base = { original: result, policy, eventId: "ev_001", refund: refund("100"), priors: [] as ReversalResult[], runId: "run_h" };
+  const mutLine = (patch: Record<string, unknown>) => seal({ ...result, lines: result.lines.map((l, i) => (i === 3 ? { ...l, ...patch } : l)) });
+  for (const [patch, field] of [[{ party: "Not An Id" }, "party"], [{ bucket: "Bad" }, "bucket"], [{ role: "NOPE" }, "role"], [{ line_seq: "0" }, "line_seq"]] as const) {
+    const r = reverse({ ...base, original: mutLine(patch) });
+    assert.ok(!r.ok);
+    assert.deepEqual(r.errors.map((e) => [e.code, e.path]), [["CORE_TYPE_ERROR", `$.original.lines[3].${field}`]]);
+  }
+  const badPool = seal({ ...result, pool_lines: result.pool_lines.map((p, i) => (i === 0 ? { ...p, bucket: "Bad" } : p)) });
+  const rp = reverse({ ...base, original: badPool });
+  assert.ok(!rp.ok);
+  assert.deepEqual(rp.errors.map((e) => [e.code, e.path]), [["CORE_TYPE_ERROR", "$.original.pool_lines[0].bucket"]]);
+  const held = original("003-fraud-hold");
+  const h = held.result.holdings[0]!;
+  const hi = held.result.holdings.indexOf(h);
+  const badHold = seal({ ...held.result, holdings: held.result.holdings.map((x, i) => (i === hi ? { ...x, reason: "WHY" } : x)) });
+  const rh = reverse({ original: badHold, policy: held.policy, eventId: h.event_id, refund: refund("1"), priors: [], runId: "run_h" });
+  assert.ok(!rh.ok);
+  assert.deepEqual(rh.errors.map((e) => [e.code, e.path]), [["CORE_TYPE_ERROR", `$.original.holdings[${hi}].reason`]]);
+});
+
+test("verifyReversal accepts an honest result and rejects forgeries, including re-sealed ones", () => {
+  const { result, policy } = original();
+  const r = reverse({ original: result, policy, eventId: "ev_001", refund: refund("1234"), priors: [], runId: "run_v" });
+  assert.ok(r.ok);
+  const input = { original: result, policy, priors: [] };
+  assert.deepEqual(verifyReversal(input, r.value), []);
+  assert.deepEqual(verifyReversal(input, "x").map((d) => d.code), ["CORE_TYPE_ERROR"]);
+  assert.deepEqual(verifyReversal(input, { ...r.value, format: "vcrl-reversal-result/2" }).map((d) => d.path), ["$.result.format"]);
+  const moved = r.value.lines.map((l, i) => (i === 0 ? { ...l, amount: String(BigInt(l.amount) - 1n) } : i === 1 ? { ...l, amount: String(BigInt(l.amount) + 1n) } : l));
+  const { result_digest: _d, ...rest } = { ...r.value, lines: moved };
+  const resealed = { ...rest, result_digest: digestOf(rest) };
+  assert.deepEqual(verifyReversal(input, resealed).map((d) => d.code), ["CORE_DIGEST_MISMATCH"]);
+  assert.deepEqual(verifyReversal(input, { ...r.value, refund: { ...r.value.refund, amount: "99999" } }).map((d) => d.code), ["REV_EXCEEDS_REMAINING"]);
 });
