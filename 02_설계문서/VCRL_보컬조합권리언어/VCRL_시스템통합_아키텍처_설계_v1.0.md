@@ -458,11 +458,49 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 
 | 항목 | 결정 시점 |
 |---|---|
-| 작업 큐 제품(graphile-worker·pg-boss 등) | I-1 구현 계획 |
-| `party_type` ↔ VCRL `party_kind` 대응표 | I-1 구현 계획 |
+| 작업 큐 제품(graphile-worker·pg-boss 등) | I-2 구현 계획(I-1은 Outbox 인프로세스 폴러로 충분, 9절) |
+| ~~`party_type` ↔ VCRL `party_kind` 대응표~~ **확정**(9.3, 데이터모델 v2.8 `party`) | — |
 | 정산 그룹 단위 집계 전략(run 수 폭증 대응) | 3단계 성능 실측 후 |
 | 비`ISSUE_TIME` 결합 시점의 기준 시점 결정 규칙 | 해당 채널 도입 시 |
 | 시스템 판정 보류 코드(v2.7 7종)와 기획 예외 코드·엔진 보류 코드의 통합 목록 | I-2 구현 계획 |
 | 스탬프 조항·승인 모드 어휘의 문서 개정(코어 규격 9절) | 서브프로젝트 2·3 |
 | 사업 측 결정: 첫 계약 7개 항목, 파일럿 데이터 확보 책임자(기획 20.2) | 파일럿 전 |
 | ~~`데이터모델_v2.8` 전체 개정~~ **완료**(`../데이터모델_v2.8.md`, 2026-09-29) | — |
+
+---
+
+## 9. I-1 권리 코어 PoC 설계 결정 (2026-09-29)
+
+### 9.1 형태와 범위
+
+- **형태**: 모듈 + 최소 HTTP API + 시나리오 러너. UI 없음.
+- **포함**: `registry`, `engine-bridge`, `policy`, `issuance`, `platform`(마이그레이션·감사 로그·Outbox 인프로세스 폴러·개발용 서명 API·헤더 기반 개발용 신원), 최소 HTTP API, 시나리오 러너(합성 곡 1개·1만 조합).
+- **제외**: 수익·정산·원장·공개, 동의·스탬프·게이트, 유일키 예약, 실제 인증·S3·KMS, UI, 작업 큐 제품 선택(I-2).
+- **데이터**: 실제 계약 데이터 확보 전이므로 VCRL 적합성 케이스 `nova-debut-01`을 확장한 합성 곡으로 진행한다. 실제 곡은 픽스처 교체로 같은 러너에 넣는다.
+
+### 9.2 기술 스택과 저장소 구조
+
+- Node 24(TypeScript 직접 실행) + Fastify + node-postgres(`pg`) + 번호 붙은 SQL 마이그레이션 파일과 작은 실행기 + 직접 작성한 SQL. ORM은 쓰지 않는다(추가 전용·이중 시간축·부분 인덱스를 SQL 그대로 드러내기 위해).
+- `03_구현문서_코드/`를 npm workspaces 루트(`vcrl`, `rights-core`)로 하고, `rights-core`는 `vcrl`의 빌드된 `dist`를 workspace 의존성으로 쓴다(1-D 배포 경로 검증).
+- 개발·테스트 DB는 Docker Compose PostgreSQL 17. 테스트는 파일마다 템플릿 DB를 복제한 새 DB를 쓴다.
+- 계층: `routes`(입력 검증·신원) → `service`(업무 규칙·직무 분리·트랜잭션) → `repo`(SQL). 서비스 함수는 트랜잭션 핸들과 `Clock`을 인자로 받는다. `vcrl` import는 `engine-bridge`만 한다(테스트로 강제).
+
+### 9.3 세부 결정
+
+1. **facts 버전 번호**: facts IR `version` = 기준 시점까지 해당 범위에서 기록 변화(`recorded_at`·`superseded_at`)가 일어난 서로 다른 시각의 개수. 봉인마다 1씩 올리면 같은 행에서도 digest가 달라져 3.1 원칙 3이 깨지기 때문이다. 변화가 없는 두 기준 시점은 같은 digest가 되어 봉인을 재사용한다. `facts_scope.last_version`은 조회용 캐시다.
+2. **정책의 facts 고정은 IR에서**: 작성자 텍스트의 `uses facts … digest` 줄은 신뢰하지 않는다. 컴파일 시 텍스트 → IR → `depends_on`을 현재 facts 봉인으로 덮어씀 → 검증 → 봉인. 저장하는 `source_text`는 VCRL 포매터의 정규 텍스트다(`parse(format(ir)) = ir`).
+3. **`party_type` → `party_kind`**: `LABEL`·`AGENCY`·`PUBLISHER`·`CMO`·`AUTHOR`·`SESSION`·`AI_PROVIDER`는 같은 이름, `ARTIST`·`MEMBER` → `PERFORMER`, `FAN`·`PLATFORM`은 facts 불가. v2.8 `party_type`에 `AUTHOR`를 추가했다.
+4. **권리 주장 엣지**: `right_claim.edge`는 VCRL의 지분 엣지 5종만 허용한다. 구조 관계는 `stem.slot_id`·`stem.recording_id`·`recording_version.work_id` 컬럼에서 facts 엔티티 필드로 만든다(v2.8 정정).
+5. **facts 범위의 구성**: 범위의 작품 1개, 그 작품의 `recording_version` 전부, 그 녹음들의 스템 전부, 범위의 `voice`, 범위의 claim·mandate(기준 시점까지 기록된 버전), 그리고 claim 대상·mandate 양끝으로 참조되는 party. 외부 식별자는 `party.isni`→`ids.isni`, `party.ipi_no`→`ids.ipi`, `work.iswc`→`ids.iswc`, `recording_version.isrc`→`ids.isrc`(값이 있을 때만).
+6. **발행 투영의 기준 시점**: `as_of = known_at = 발행 시각`. 발행 시각은 항상 facts 봉인 시각보다 늦으므로 봉인된 facts 상태와 같은 결과이며, facts 봉인 시각을 따로 저장하지 않는다.
+7. **분쟁 동기 가드**: 발행 트랜잭션은 팩 상태와 별도로 해당 facts 범위에 열린 분쟁이 있는지 직접 확인해 거부한다(Outbox 일시정지 처리 전의 틈을 막는다).
+8. **추가 전용 보호**: 트리거(UPDATE·DELETE 거부, 같은 트랜잭션의 `superseded_at` 1회 설정만 허용)와 앱 DB 역할 권한(INSERT·SELECT만) 두 겹.
+9. **오류 → HTTP**: VCRL 진단 422(진단 목록 그대로), 직무 분리 403, 상태 충돌·분쟁 409, 없음 404.
+
+### 9.4 완료 기준
+
+- VCRL 적합성 `facts/001-basic`을 행으로 등록해 봉인한 digest가 적합성 facts의 digest와 같다.
+- 등록 순서를 섞어도 digest가 같다.
+- 시나리오 러너가 합성 곡 1개로 1만 조합을 발행하고, 모든 발행 봉인을 행에서 다시 만들어 불일치 0.
+- 로컬 발행 지연 p95 100ms 이하(넘으면 원인과 투영 캐시 검토를 리포트에 기록).
+- 분쟁 → 자동 일시정지·발행 거부 → 종결 → 가벼운 재고정 → 재활성화 → 발행 시나리오 통과.
