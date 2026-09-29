@@ -39,6 +39,8 @@
 | `REV_CHAIN_BROKEN` | 이전 역분개 체인이 재도출되지 않음 | `reverse` |
 | `REV_EXCEEDS_REMAINING` | 누적 역분개액 > 원 이벤트 금액 | `reverse` |
 | `REV_AMOUNT` | 역분개 금액이 양의 정수 문자열이 아님 | `reverse` |
+| `SHADOW_EVENTS_MISMATCH` | 섀도 비교 쌍의 이벤트 불일치 | `shadowReport` |
+| `SHADOW_DUPLICATE_EVENT` | 같은 이벤트가 여러 쌍에 나옴 | `shadowReport` |
 | `PARSE_SYNTAX` | 텍스트 문법 오류(경로 `@줄:열`) | `tokenize`, `parseAllocation` |
 | `PARSE_ROLE_REQUIRED` | 버킷 역할 추론 불가, `as <ROLE>` 필요 | `parseAllocation` |
 | `PARSE_UNSUPPORTED` | 고정 의미와 다른 guard·exceptions 문장 | `parseAllocation` |

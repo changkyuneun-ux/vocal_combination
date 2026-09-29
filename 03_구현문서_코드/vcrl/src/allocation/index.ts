@@ -6,3 +6,4 @@ export * from "./expr.ts";
 export * from "./evaluate.ts";
 export * from "./verify.ts";
 export * from "./reverse.ts";
+export * from "./shadow.ts";

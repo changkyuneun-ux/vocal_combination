@@ -34,6 +34,8 @@ export const ERROR_CODES = {
   REV_CHAIN_BROKEN: "이전 역분개가 같은 원 결과·이벤트에서 순서대로 재도출되지 않는다",
   REV_EXCEEDS_REMAINING: "누적 역분개액이 원 이벤트 금액을 넘는다",
   REV_AMOUNT: "역분개 금액은 양의 정수 문자열이어야 한다",
+  SHADOW_EVENTS_MISMATCH: "섀도 비교 쌍의 두 평가가 서로 다른 이벤트를 쓴다",
+  SHADOW_DUPLICATE_EVENT: "같은 이벤트가 섀도 비교의 여러 쌍에 나온다",
   PARSE_SYNTAX: "텍스트 문법 오류",
   PARSE_ROLE_REQUIRED: "버킷 역할을 추론할 수 없어 `as <ROLE>` 표기가 필요하다",
   PARSE_UNSUPPORTED: "엔진의 고정 의미와 다른 guard·exceptions 문장은 지원하지 않는다",
