@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **정정 (최종 리뷰 반영, 2026-09-29):** 안분 결과 형식 태그는 `vcrl-allocation-result/1`로 바뀌었고 `trace`는 봉인(`result_digest`) 밖으로 옮겨졌다. 이 계획서의 `vcrl-alloc-result/1`과 봉인 범위 기술은 설계문서 12.48~12.52가 대체한다.
+
 **Goal:** 투영 IR과 안분 결과에 digest로 봉인된 형식 태그를 붙이고, 두 결과 IR의 JSON Schema와 라이브러리 결과 검증 함수 `verifyAllocationResult`를 추가한 뒤, 다른 Node 서비스가 설치해 쓸 수 있도록 `dist/`로 빌드하고 tarball 스모크 테스트로 확인한다.
 
 **Architecture:** 형식 상수는 생성하는 모듈에 둔다(`PROJECTION_FORMAT`은 `src/facts/result.ts`, `ALLOCATION_RESULT_FORMAT`은 `src/allocation/types.ts`). 결과 검증은 새 파일 `src/allocation/verify.ts`에 두고 CLI `verify`가 이를 호출한다. 빌드는 기존 `tsc`로 `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)을 실행해 `dist/`에 JS·`.d.ts`를 내며, 개발·테스트는 계속 `src/*.ts`를 직접 실행한다.

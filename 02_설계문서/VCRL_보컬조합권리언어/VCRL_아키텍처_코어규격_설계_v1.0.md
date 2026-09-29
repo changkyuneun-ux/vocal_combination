@@ -370,6 +370,8 @@ manifest/
 2. **불변식**: 공개 범위 안의 합계 10000bps, `Σ amount = R`, 커버리지.
 3. **재계산**: 레퍼런스 평가기 재실행 → `result_digest` 대조. 당사자는 salt로 커밋먼트를 열어 자기 몫까지 재계산.
 
+> 서명(1단계)은 `result_digest`를 덮으므로 설명용 `trace`는 서명 범위 밖이다. `trace`는 3단계 재계산으로만 확인한다(12.48, 12.50).
+
 ### 7.3 공개 채널
 
 - 파트너 포털 + API: `GET /manifests/{id}`, `GET /manifests/{id}/verify`.
@@ -537,6 +539,6 @@ manifest/
 47. **검증기와 파서의 공통 한도·의존 범위**: 벡터 식 중첩 깊이는 파서와 검증기가 같은 한도(64)를 쓰며, v1.0의 안분 정책은 facts에만 의존할 수 있다(grant·approval 의존은 해당 모듈 구현 시 문법 `uses <module> …`과 함께 연다). facts 텍스트 표시는 자유 텍스트의 제어·양방향 문자를 이스케이프한다. JSON 중첩 깊이는 정규화 단계에서 256으로 제한한다(초과 시 CORE_TYPE_ERROR).
 48. **결과 IR 형식 태그 (계획 1-D)**: 투영 IR은 `"format": "vcrl-projection/1"`, 안분 평가 결과는 `"format": "vcrl-allocation-result/1"`을 갖는다. 형식 태그는 봉인 본문에 포함된다(형식 버전을 바꿔 끼울 수 없다). 안분 결과의 봉인 본문은 `trace`와 `result_digest`를 뺀 전체(입력 digest, `bind_time`, `pool_lines`, `lines`, `holdings`, `run_id`, `format`)이며, `trace`는 설명용 자료로 봉인 밖에 있고 재계산으로만 확인한다(12.50). 투영 IR은 `digest`를 뺀 전체가 봉인 본문이다. 형식 버전 `/N`은 봉인 본문의 표현이나 봉인 범위가 바뀔 때만 올리며, 언어 버전(`vcrl: "1.0"`)과는 독립이다. 평가기는 다른 `format`의 투영을 `CORE_TYPE_ERROR`(`$.projection.format`)로 거부한다. 도입으로 적합성 기대값의 digest만 바뀌고 금액·라인·보류는 그대로다.
 49. **결과 IR 스키마**: `spec/schema/projection.ir.schema.json`, `spec/schema/allocation.result.schema.json`(JSON Schema 2020-12, `package.json`의 `./spec/*` export로 설치 후에도 참조 가능). 적합성 케이스의 투영·평가 결과가 스키마를 통과해야 한다(`trace`는 선택 필드)(테스트가 강제).
-50. **결과 검증 API**: `verifyAllocationResult(input, given)`는 제공된 결과를 신뢰하지 않고 입력으로 다시 평가해 대조한다. `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `projection_digest`·`result_digest`가 다르거나 내용이 재계산 결과와 다르면 `CORE_DIGEST_MISMATCH`. `given`에 `trace`가 있으면 재계산한 trace와 대조해 다르면 `CORE_DIGEST_MISMATCH`(`$.result.trace`). CLI `verify`는 이 함수를 쓴다. CLI 진단 출력은 경로·메시지의 제어·줄 구분 문자를 `\uXXXX`로 이스케이프한다.
+50. **결과 검증 API**: `verifyAllocationResult(input, given)`는 제공된 결과를 신뢰하지 않고 입력으로 다시 평가해 대조한다. `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `projection_digest`·`result_digest`가 다르거나 내용이 재계산 결과와 다르면 `CORE_DIGEST_MISMATCH`. `given`에 `trace`가 있으면 재계산한 trace와 대조해 다르면 `CORE_DIGEST_MISMATCH`(`$.result.trace`). CLI `verify`는 이 함수를 쓴다. CLI 진단 출력은 경로·메시지의 제어·줄 구분·양방향 문자를 `\uXXXX`로 이스케이프한다.
 51. **배포용 빌드**: `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)으로 `dist/`에 JS·`.d.ts`·소스맵을 낸다. `package.json`의 `exports`는 `./core`·`./facts`·`./allocation`·`./text`(`types`·`default` 조건으로 `dist`를 가리킴)와 `./spec/*`·`./package.json`이고, `bin`은 `dist/bin/vcrl.js`, `files`는 `dist`와 `spec`, `prepack`은 빌드다. `private: true`는 유지한다. 개발·테스트는 계속 `src/*.ts`를 직접 실행한다. 배포 채널은 시스템 통합에서 정한다.
 52. **패키지 스모크 테스트**: `npm pack`한 tarball을 임시 디렉터리에 설치해 네 진입점 import, 설치된 `vcrl` CLI의 `compile`·`evaluate`, 설치된 CLI의 `verify`(정상 통과, 변조 시 종료 1), 스키마·`package.json` export 해석, 타입 선언 소비(`tsc`)를 확인하고 결과 digest가 적합성 기대값과 같은지 본다. 네트워크 없이 도는 별도 스크립트(`npm run smoke`)로 두고 `npm test`에는 넣지 않는다.

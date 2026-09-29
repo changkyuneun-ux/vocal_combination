@@ -198,3 +198,12 @@ test("compile only accepts a .vcrl file", () => {
   assert.equal(r.code, 2);
   assert.match(r.err, /compile은 \.vcrl 파일만 받습니다/);
 });
+
+test("diagnostic output escapes bidi controls so a diagnostic cannot be visually reordered", () => {
+  const files = fixture();
+  files.set("bidi.json", JSON.stringify({ format: "x\u202Ey\u2066z\u200F" }));
+  const v = cli(["verify", "--result", "bidi.json", ...EVAL], files);
+  assert.equal(v.code, 1);
+  assert.doesNotMatch(v.err, /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/);
+  assert.ok(v.err.includes(String.raw`x\u202Ey\u2066z\u200F`), v.err);
+});
