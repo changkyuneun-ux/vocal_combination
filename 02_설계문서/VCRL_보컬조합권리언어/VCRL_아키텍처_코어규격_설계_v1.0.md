@@ -190,7 +190,7 @@ facts "nova-debut-01" version 3 {
 ### 4.2 권리 주장(claim) 모델
 
 - 기획설계 v1.0의 `right_claim`을 정본으로 채택한다.
-- 상태: `ASSERTED → VERIFIED | DISPUTED`, `* → SUPERSEDED`. **투영에는 `VERIFIED`만 포함한다.**
+- 상태: `ASSERTED → VERIFIED | DISPUTED`, `* → SUPERSEDED`. **투영에는 `VERIFIED`와 `DISPUTED`만 포함하며, `DISPUTED`가 있는 그룹은 보류(`@hold`)로 투영한다.** `ASSERTED`는 검증 전이라 제외한다.
 - 이중 시간축: 효력 구간 `valid [from, to)` + 기록 구간 `recorded_at / superseded_at`. 질의는 `(as_of, known_at)` 두 시점을 받으며, 두 값이 같으면 결과가 영구히 재현된다.
 - `evidence`: 증빙 문서의 해시 참조. 기본 공개 등급 `PARTIES`.
 - **`work.cmo_managed` Boolean을 폐지하고 `mandate`로 일원화한다(D05).**
