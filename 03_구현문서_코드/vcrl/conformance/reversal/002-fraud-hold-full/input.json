@@ -1,0 +1,7 @@
+{
+  "allocation_case": "003-fraud-hold",
+  "event_id": "ev_001",
+  "steps": [
+    { "run_id": "run_rev_f", "refund": { "id": "rf_f", "reason": "FRAUD", "amount": "10000" } }
+  ]
+}

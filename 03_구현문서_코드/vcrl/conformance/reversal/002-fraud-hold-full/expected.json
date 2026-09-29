@@ -1,0 +1,18 @@
+{
+  "steps": [
+    {
+      "sequence": "1",
+      "cumulative": "10000",
+      "pool_lines": [
+        { "event_id": "ev_001", "bucket": "platform", "amount": "-2500" },
+        { "event_id": "ev_001", "bucket": "ops", "amount": "-500" },
+        { "event_id": "ev_001", "bucket": "rights", "amount": "-7000" }
+      ],
+      "lines": [],
+      "holdings": [
+        { "event_id": "ev_001", "bucket": "rights", "reason": "FRAUD_REVIEW", "amount": "-7000" }
+      ],
+      "result_digest": "vcrl:sha256:3c2ba6ac55bebbae31d0d5f2a7c9227550c8adc6233f6b6680c634c0cc1f7493"
+    }
+  ]
+}

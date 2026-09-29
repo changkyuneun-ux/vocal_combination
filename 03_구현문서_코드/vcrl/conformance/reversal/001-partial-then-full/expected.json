@@ -1,0 +1,59 @@
+{
+  "steps": [
+    {
+      "sequence": "1",
+      "cumulative": "3000",
+      "pool_lines": [
+        { "event_id": "ev_001", "bucket": "platform", "amount": "-750" },
+        { "event_id": "ev_001", "bucket": "ops", "amount": "-150" },
+        { "event_id": "ev_001", "bucket": "rights", "amount": "-2100" }
+      ],
+      "lines": [
+        { "event_id": "ev_001", "party": "pty_label_x", "role": "MASTER_OWNER", "bucket": "master", "line_seq": "2", "reverses_line_seq": "1", "amount": "-945" },
+        { "event_id": "ev_001", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "2", "reverses_line_seq": "1", "amount": "-567" },
+        { "event_id": "ev_001", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "2", "reverses_line_seq": "1", "amount": "-378" },
+        { "event_id": "ev_001", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "2", "reverses_line_seq": "1", "amount": "-84" },
+        { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "2", "reverses_line_seq": "1", "amount": "-126" }
+      ],
+      "holdings": [],
+      "result_digest": "vcrl:sha256:579b08960e3310dbc24a745a7b782b445257f99c052ed769a0cb10f936aeeefd"
+    },
+    {
+      "sequence": "2",
+      "cumulative": "6333",
+      "pool_lines": [
+        { "event_id": "ev_001", "bucket": "platform", "amount": "-833" },
+        { "event_id": "ev_001", "bucket": "ops", "amount": "-167" },
+        { "event_id": "ev_001", "bucket": "rights", "amount": "-2333" }
+      ],
+      "lines": [
+        { "event_id": "ev_001", "party": "pty_label_x", "role": "MASTER_OWNER", "bucket": "master", "line_seq": "3", "reverses_line_seq": "1", "amount": "-1050" },
+        { "event_id": "ev_001", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "3", "reverses_line_seq": "1", "amount": "-630" },
+        { "event_id": "ev_001", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "3", "reverses_line_seq": "1", "amount": "-420" },
+        { "event_id": "ev_001", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "3", "reverses_line_seq": "1", "amount": "-93" },
+        { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "3", "reverses_line_seq": "1", "amount": "-140" }
+      ],
+      "holdings": [],
+      "result_digest": "vcrl:sha256:d4cf64d7a55d76cc82e3ef7e313c6c799f3977addcad543999c971598cec1864"
+    },
+    { "errors": ["REV_EXCEEDS_REMAINING"] },
+    {
+      "sequence": "3",
+      "cumulative": "10000",
+      "pool_lines": [
+        { "event_id": "ev_001", "bucket": "platform", "amount": "-917" },
+        { "event_id": "ev_001", "bucket": "ops", "amount": "-183" },
+        { "event_id": "ev_001", "bucket": "rights", "amount": "-2567" }
+      ],
+      "lines": [
+        { "event_id": "ev_001", "party": "pty_label_x", "role": "MASTER_OWNER", "bucket": "master", "line_seq": "4", "reverses_line_seq": "1", "amount": "-1155" },
+        { "event_id": "ev_001", "party": "pty_member_a", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "4", "reverses_line_seq": "1", "amount": "-693" },
+        { "event_id": "ev_001", "party": "pty_member_b", "role": "PERFORMER_FEATURED", "bucket": "performer", "line_seq": "4", "reverses_line_seq": "1", "amount": "-462" },
+        { "event_id": "ev_001", "party": "pty_author_c", "role": "WORK_AUTHOR", "bucket": "work", "line_seq": "4", "reverses_line_seq": "1", "amount": "-103" },
+        { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "4", "reverses_line_seq": "1", "amount": "-154" }
+      ],
+      "holdings": [],
+      "result_digest": "vcrl:sha256:b4a630015a8aa91bf220223328814941e00b20c0b0c89184b777ec9e17bc3f3e"
+    }
+  ]
+}

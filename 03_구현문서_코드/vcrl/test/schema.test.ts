@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import { evaluate } from "../src/allocation/evaluate.ts";
+import { reverse } from "../src/allocation/reverse.ts";
+import { shadowReport } from "../src/allocation/shadow.ts";
 import { projectToIr } from "../src/facts/result.ts";
 import { evaluationInput, loadAllocationCase, loadFactsCase } from "./helpers.ts";
 
@@ -72,4 +74,24 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
     { ...r.value, lines: [{ ...line0, role: "NOBODY" }] },
     { ...r.value, holdings: [{ event_id: "ev_001", bucket: "rights", reason: "WHATEVER", amount: "1" }] },
   ]) assert.equal(resultSchema(bad), false, JSON.stringify(bad).slice(0, 80));
+});
+
+const reversalSchema = ajv.compile(load("reversal.result.schema.json"));
+const shadowSchema = ajv.compile(load("shadow.report.schema.json"));
+
+test("reversal results and shadow reports match their schemas", () => {
+  const c = loadAllocationCase();
+  const input = evaluationInput(c);
+  const ev = evaluate(input);
+  assert.ok(ev.ok);
+  const first = reverse({ original: ev.value, policy: c.policy, eventId: "ev_001", refund: { id: "rf_1", reason: "REFUND", amount: "3000" }, priors: [], runId: "run_1" });
+  assert.ok(first.ok);
+  const second = reverse({ original: ev.value, policy: c.policy, eventId: "ev_001", refund: { id: "rf_2", reason: "REFUND", amount: "7000" }, priors: [first.value], runId: "run_2" });
+  assert.ok(second.ok);
+  for (const r of [first.value, second.value]) assert.equal(reversalSchema(r), true, JSON.stringify(reversalSchema.errors));
+  assert.equal(reversalSchema({ ...first.value, lines: [{ ...first.value.lines[0], amount: "945" }] }), false);
+  const shadow = shadowReport([{ baseline: input, candidate: input }]);
+  assert.ok(shadow.ok);
+  assert.equal(shadowSchema(shadow.value), true, JSON.stringify(shadowSchema.errors));
+  assert.equal(shadowSchema({ ...shadow.value, extra: "x" }), false);
 });

@@ -1,0 +1,10 @@
+{
+  "allocation_case": "001-basic",
+  "event_id": "ev_001",
+  "steps": [
+    { "run_id": "run_rev_1", "refund": { "id": "rf_1", "reason": "REFUND", "amount": "3000" } },
+    { "run_id": "run_rev_2", "refund": { "id": "rf_2", "reason": "REFUND", "amount": "3333" } },
+    { "run_id": "run_rev_x", "refund": { "id": "rf_x", "reason": "REFUND", "amount": "3668" } },
+    { "run_id": "run_rev_3", "refund": { "id": "rf_3", "reason": "CORRECTION", "amount": "3667" } }
+  ]
+}

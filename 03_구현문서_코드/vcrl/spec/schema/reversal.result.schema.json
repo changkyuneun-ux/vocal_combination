@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vcrl.invalid/1.0/reversal.result.schema.json",
+  "title": "VCRL reversal result (vcrl-reversal-result/1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format", "run_id", "original_run_id", "original_result_digest", "policy_digest", "event_id", "refund", "sequence",
+    "cumulative", "original_amount", "method", "pool_lines", "lines", "holdings", "result_digest"
+  ],
+  "properties": {
+    "format": { "const": "vcrl-reversal-result/1" },
+    "run_id": { "$ref": "#/$defs/id" },
+    "original_run_id": { "$ref": "#/$defs/id" },
+    "original_result_digest": { "$ref": "#/$defs/digest" },
+    "policy_digest": { "$ref": "#/$defs/digest" },
+    "event_id": { "$ref": "#/$defs/id" },
+    "refund": {
+      "type": "object", "additionalProperties": false, "required": ["id", "reason", "amount"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "reason": { "enum": ["REFUND", "CORRECTION", "FRAUD"] },
+        "amount": { "$ref": "#/$defs/positive" }
+      }
+    },
+    "sequence": { "$ref": "#/$defs/positive" },
+    "cumulative": { "$ref": "#/$defs/positive" },
+    "original_amount": { "$ref": "#/$defs/positive" },
+    "previous_digest": { "$ref": "#/$defs/digest" },
+    "method": { "const": "REVERSAL_REMAINING_LRM_V1" },
+    "pool_lines": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["event_id", "bucket", "amount"],
+        "properties": { "event_id": { "$ref": "#/$defs/id" }, "bucket": { "$ref": "#/$defs/name" }, "amount": { "$ref": "#/$defs/negative" } }
+      }
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["event_id", "party", "role", "bucket", "line_seq", "reverses_line_seq", "amount"],
+        "properties": {
+          "event_id": { "$ref": "#/$defs/id" },
+          "party": { "$ref": "#/$defs/id" },
+          "role": { "$ref": "#/$defs/claimantRole" },
+          "bucket": { "$ref": "#/$defs/name" },
+          "line_seq": { "$ref": "#/$defs/positive" },
+          "reverses_line_seq": { "$ref": "#/$defs/positive" },
+          "amount": { "$ref": "#/$defs/negative" }
+        }
+      }
+    },
+    "holdings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["event_id", "bucket", "reason", "amount"],
+        "properties": {
+          "event_id": { "$ref": "#/$defs/id" },
+          "bucket": { "$ref": "#/$defs/name" },
+          "reason": { "enum": ["RIGHTS_DISPUTE", "FRAUD_REVIEW"] },
+          "amount": { "$ref": "#/$defs/negative" }
+        }
+      }
+    },
+    "result_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "positive": { "type": "string", "pattern": "^[1-9]\\d*$" },
+    "negative": { "type": "string", "pattern": "^-[1-9]\\d*$" },
+    "claimantRole": {
+      "enum": ["MASTER_OWNER", "WORK_AUTHOR", "CMO", "PERFORMER_FEATURED", "PERFORMER_NON_FEATURED", "AGENCY", "AI_PROVIDER", "RECORDING_CONTRIBUTOR"]
+    }
+  }
+}

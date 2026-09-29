@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vcrl.invalid/1.0/shadow.report.schema.json",
+  "title": "VCRL shadow report (vcrl-shadow-report/1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "pairs", "parties", "buckets", "holdings", "totals", "report_digest"],
+  "properties": {
+    "format": { "const": "vcrl-shadow-report/1" },
+    "pairs": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["events_digest", "baseline_policy_digest", "candidate_policy_digest", "baseline_result_digest", "candidate_result_digest"],
+        "properties": {
+          "events_digest": { "$ref": "#/$defs/digest" },
+          "baseline_policy_digest": { "$ref": "#/$defs/digest" },
+          "candidate_policy_digest": { "$ref": "#/$defs/digest" },
+          "baseline_result_digest": { "$ref": "#/$defs/digest" },
+          "candidate_result_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "parties": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["party", "role", "baseline", "candidate", "delta"],
+        "properties": {
+          "party": { "$ref": "#/$defs/id" }, "role": { "$ref": "#/$defs/claimantRole" },
+          "baseline": { "$ref": "#/$defs/amount" }, "candidate": { "$ref": "#/$defs/amount" }, "delta": { "$ref": "#/$defs/signed" }
+        }
+      }
+    },
+    "buckets": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["level", "bucket", "baseline", "candidate", "delta"],
+        "properties": {
+          "level": { "enum": ["tier1", "tier2"] }, "bucket": { "$ref": "#/$defs/name" },
+          "baseline": { "$ref": "#/$defs/amount" }, "candidate": { "$ref": "#/$defs/amount" }, "delta": { "$ref": "#/$defs/signed" }
+        }
+      }
+    },
+    "holdings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["reason", "baseline", "candidate", "delta"],
+        "properties": {
+          "reason": { "enum": ["RIGHTS_DISPUTE", "FRAUD_REVIEW"] },
+          "baseline": { "$ref": "#/$defs/amount" }, "candidate": { "$ref": "#/$defs/amount" }, "delta": { "$ref": "#/$defs/signed" }
+        }
+      }
+    },
+    "totals": {
+      "type": "object", "additionalProperties": false, "required": ["events", "amount"],
+      "properties": { "events": { "$ref": "#/$defs/amount" }, "amount": { "$ref": "#/$defs/amount" } }
+    },
+    "report_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "amount": { "type": "string", "pattern": "^(0|[1-9]\\d*)$" },
+    "signed": { "type": "string", "pattern": "^(0|-?[1-9]\\d*)$" },
+    "claimantRole": {
+      "enum": ["MASTER_OWNER", "WORK_AUTHOR", "CMO", "PERFORMER_FEATURED", "PERFORMER_NON_FEATURED", "AGENCY", "AI_PROVIDER", "RECORDING_CONTRIBUTOR"]
+    }
+  }
+}
