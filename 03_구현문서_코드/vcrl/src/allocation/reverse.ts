@@ -217,6 +217,9 @@ export function reverse(input: ReversalInput): Result<ReversalResult> {
       previous = prior.result_digest;
       before += BigInt(prior.refund.amount);
     });
+    if ((priors as readonly ReversalResult[]).some((p) => p.refund.id === refund.id)) {
+      fail("REV_CHAIN_BROKEN", "$.refund.id", `duplicate refund id ${refund.id}`);
+    }
     return step(s, priors.length + 1, refund, runId, previous, before);
   });
 }

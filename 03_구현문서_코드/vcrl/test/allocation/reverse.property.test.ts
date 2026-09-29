@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluate } from "../../src/allocation/evaluate.ts";
-import { reverse, type ReversalResult } from "../../src/allocation/reverse.ts";
+import { reverse, verifyReversal, type ReversalResult } from "../../src/allocation/reverse.ts";
 import { evaluationInput, loadAllocationCase } from "../helpers.ts";
 import { int, rng } from "../prop.ts";
 
@@ -17,6 +17,7 @@ function parts(r: () => number, total: bigint, maxParts: number): bigint[] {
 for (const name of ["001-basic", "002-disputed-master", "003-fraud-hold"]) {
   test(`property: random refund sequences on ${name} keep every invariant and end at zero`, () => {
     const r = rng(20260929 + name.length);
+    let heldRows = 0;
     for (let trial = 0; trial < 60; trial++) {
       const c = loadAllocationCase(name);
       const amount = String(int(r, 1, 5_000_000));
@@ -36,6 +37,8 @@ for (const name of ["001-basic", "002-disputed-master", "003-fraud-hold"]) {
         const rv = reverse({ original, policy: c.policy, eventId, refund: { id: `rf_${k}`, reason: "REFUND", amount: a.toString() }, priors, runId: `run_${k}` });
         assert.ok(rv.ok, JSON.stringify(rv));
         const v = rv.value;
+        assert.deepEqual(verifyReversal({ original, policy: c.policy, priors }, v), [], "every generated reversal verifies");
+        heldRows += v.holdings.length;
         const rightsInc = -BigInt(v.pool_lines.find((p) => p.bucket === c.policy.body.tier1.rights)?.amount ?? "0");
         const childInc = [...v.lines, ...v.holdings].reduce((acc, x) => acc - BigInt(x.amount), 0n);
         assert.equal(rightsInc, childInc, "rights pool increment = lines + holdings increment");
@@ -54,5 +57,6 @@ for (const name of ["001-basic", "002-disputed-master", "003-fraud-hold"]) {
       }
       assert.ok([...remaining.values()].every((x) => x === 0n), "full refund nets every item to zero");
     }
+    if (name === "003-fraud-hold") assert.ok(heldRows > 0, "the fraud-held case reverses at least one holding");
   });
 }

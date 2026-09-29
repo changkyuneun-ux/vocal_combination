@@ -90,8 +90,33 @@ test("reversal results and shadow reports match their schemas", () => {
   assert.ok(second.ok);
   for (const r of [first.value, second.value]) assert.equal(reversalSchema(r), true, JSON.stringify(reversalSchema.errors));
   assert.equal(reversalSchema({ ...first.value, lines: [{ ...first.value.lines[0], amount: "945" }] }), false);
+  assert.equal(reversalSchema({ ...first.value, previous_digest: second.value.result_digest }), false, "sequence 1 must not carry previous_digest");
+  const { previous_digest: _p, ...unlinked } = second.value;
+  assert.equal(reversalSchema(unlinked), false, "sequence > 1 requires previous_digest");
   const shadow = shadowReport([{ baseline: input, candidate: input }]);
   assert.ok(shadow.ok);
   assert.equal(shadowSchema(shadow.value), true, JSON.stringify(shadowSchema.errors));
   assert.equal(shadowSchema({ ...shadow.value, extra: "x" }), false);
+});
+
+test("a shifted-policy shadow report (negative deltas) and a holdings reversal match their schemas", () => {
+  const input = evaluationInput(loadAllocationCase("002-disputed-master"));
+  const split = input.policy.body.tier2.split.map((b) =>
+    b.name === "master" ? { ...b, bps: "4000" } : b.name === "performer" ? { ...b, bps: "5000" } : b);
+  const candidate = { ...input, policy: { ...input.policy, version: "2", body: { ...input.policy.body, tier2: { split } } } };
+  const shadow = shadowReport([{ baseline: input, candidate }]);
+  assert.ok(shadow.ok, JSON.stringify(shadow));
+  assert.ok([...shadow.value.parties, ...shadow.value.buckets, ...shadow.value.holdings].some((x) => x.delta.startsWith("-")));
+  assert.ok(shadow.value.holdings.length > 0);
+  assert.equal(shadowSchema(shadow.value), true, JSON.stringify(shadowSchema.errors));
+  assert.equal(shadowSchema({ ...shadow.value, currency: "krw" }), false);
+
+  const c = loadAllocationCase("003-fraud-hold");
+  const ev = evaluate(evaluationInput(c));
+  assert.ok(ev.ok);
+  const held = ev.value.holdings[0]!;
+  const rv = reverse({ original: ev.value, policy: c.policy, eventId: held.event_id, refund: { id: "rf_f", reason: "FRAUD", amount: "1000" }, priors: [], runId: "run_f" });
+  assert.ok(rv.ok, JSON.stringify(rv));
+  assert.ok(rv.value.holdings.length > 0);
+  assert.equal(reversalSchema(rv.value), true, JSON.stringify(reversalSchema.errors));
 });

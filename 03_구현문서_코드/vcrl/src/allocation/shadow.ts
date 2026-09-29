@@ -12,6 +12,8 @@ export type ShadowPair = { baseline: EvaluationInput; candidate: EvaluationInput
 export type Comparison = { baseline: string; candidate: string; delta: string };
 export type ShadowReport = {
   format: typeof SHADOW_REPORT_FORMAT;
+  /** 모든 쌍 정책의 공통 통화(`policy.body.scope.currency`). */
+  currency: string;
   pairs: {
     events_digest: string; baseline_policy_digest: string; candidate_policy_digest: string;
     baseline_result_digest: string; candidate_result_digest: string;
@@ -46,6 +48,7 @@ export function shadowReport(pairs: readonly ShadowPair[]): Result<ShadowReport>
   const errors: Diagnostic[] = [];
   const results: [AllocationResult, AllocationResult][] = [];
   const seen = new Set<string>();
+  let currency: string | undefined;
   pairs.forEach((pair: unknown, i: number) => {
     const p = `$.pairs[${i}]`;
     if (!isPlainObject(pair) || !isPlainObject(pair.baseline) || !isPlainObject(pair.candidate)) {
@@ -59,6 +62,13 @@ export function shadowReport(pairs: readonly ShadowPair[]): Result<ShadowReport>
     if (!b.ok || !c.ok) return;
     if (b.value.events_digest !== c.value.events_digest) {
       errors.push(diag("SHADOW_EVENTS_MISMATCH", p));
+      return;
+    }
+    const bc = (pair.baseline as unknown as EvaluationInput).policy.body.scope.currency;
+    const cc = (pair.candidate as unknown as EvaluationInput).policy.body.scope.currency;
+    currency ??= bc;
+    if (bc !== currency || cc !== currency) {
+      errors.push(diag("SHADOW_CURRENCY_MISMATCH", p, `${bc}/${cc} vs ${currency}`));
       return;
     }
     for (const id of new Set(b.value.pool_lines.map((l) => l.event_id))) {
@@ -89,6 +99,7 @@ export function shadowReport(pairs: readonly ShadowPair[]): Result<ShadowReport>
   }
   const report: Omit<ShadowReport, "report_digest"> = {
     format: SHADOW_REPORT_FORMAT,
+    currency: currency!,
     pairs: results.map(([b, c]) => ({
       events_digest: b.events_digest, baseline_policy_digest: b.policy_digest, candidate_policy_digest: c.policy_digest,
       baseline_result_digest: b.result_digest, candidate_result_digest: c.result_digest,

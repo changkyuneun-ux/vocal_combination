@@ -41,6 +41,7 @@
 | `REV_AMOUNT` | 역분개 금액이 양의 정수 문자열이 아님 | `reverse` |
 | `SHADOW_EVENTS_MISMATCH` | 섀도 비교 쌍의 이벤트 불일치 | `shadowReport` |
 | `SHADOW_DUPLICATE_EVENT` | 같은 이벤트가 여러 쌍에 나옴 | `shadowReport` |
+| `SHADOW_CURRENCY_MISMATCH` | 섀도 비교 쌍들의 통화(정책 `scope.currency`)가 서로 다름 | `shadowReport` |
 | `PARSE_SYNTAX` | 텍스트 문법 오류(경로 `@줄:열`) | `tokenize`, `parseAllocation` |
 | `PARSE_ROLE_REQUIRED` | 버킷 역할 추론 불가, `as <ROLE>` 필요 | `parseAllocation` |
 | `PARSE_UNSUPPORTED` | 고정 의미와 다른 guard·exceptions 문장 | `parseAllocation` |

@@ -166,3 +166,26 @@ test("verifyReversal accepts an honest result and rejects forgeries, including r
   assert.deepEqual(verifyReversal(input, resealed).map((d) => d.code), ["CORE_DIGEST_MISMATCH"]);
   assert.deepEqual(verifyReversal(input, { ...r.value, refund: { ...r.value.refund, amount: "99999" } }).map((d) => d.code), ["REV_EXCEEDS_REMAINING"]);
 });
+
+test("a refund id already used by a prior reversal is REV_CHAIN_BROKEN at $.refund.id", () => {
+  const { result, policy } = original();
+  const first = reverse({ original: result, policy, eventId: "ev_001", refund: refund("100", "rf_dup"), priors: [], runId: "run_1" });
+  assert.ok(first.ok);
+  const dup = reverse({ original: result, policy, eventId: "ev_001", refund: refund("200", "rf_dup"), priors: [first.value], runId: "run_2" });
+  assert.ok(!dup.ok);
+  assert.deepEqual(dup.errors.map((e) => [e.code, e.path, e.message.includes("duplicate refund id")]), [["REV_CHAIN_BROKEN", "$.refund.id", true]]);
+});
+
+test("verifyReversal: unresealed tampering, a verified second reversal and a mistyped event_id", () => {
+  const { result, policy } = original();
+  const first = reverse({ original: result, policy, eventId: "ev_001", refund: refund("1000"), priors: [], runId: "run_1" });
+  assert.ok(first.ok);
+  const input = { original: result, policy, priors: [] as ReversalResult[] };
+  const tampered = { ...first.value, lines: first.value.lines.map((l, i) => (i === 0 ? { ...l, amount: "-1" } : l)) };
+  assert.deepEqual(verifyReversal(input, tampered).map((d) => [d.code, d.path]), [["CORE_DIGEST_MISMATCH", "$.result"]]);
+  const second = reverse({ original: result, policy, eventId: "ev_001", refund: refund("2000", "rf_2"), priors: [first.value], runId: "run_2" });
+  assert.ok(second.ok);
+  assert.deepEqual(verifyReversal({ ...input, priors: [first.value] }, second.value), []);
+  assert.notDeepEqual(verifyReversal(input, second.value), [], "verified against the wrong priors");
+  assert.ok(verifyReversal(input, { ...first.value, event_id: 1 }).length > 0);
+});

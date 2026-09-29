@@ -65,6 +65,9 @@
     },
     "result_digest": { "$ref": "#/$defs/digest" }
   },
+  "if": { "properties": { "sequence": { "const": "1" } } },
+  "then": { "not": { "required": ["previous_digest"] } },
+  "else": { "required": ["previous_digest"] },
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },

@@ -4,9 +4,10 @@
   "title": "VCRL shadow report (vcrl-shadow-report/1)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format", "pairs", "parties", "buckets", "holdings", "totals", "report_digest"],
+  "required": ["format", "currency", "pairs", "parties", "buckets", "holdings", "totals", "report_digest"],
   "properties": {
     "format": { "const": "vcrl-shadow-report/1" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
     "pairs": {
       "type": "array", "minItems": 1,
       "items": {
