@@ -8,7 +8,7 @@ import { payoutJobHandlers, submitPayout } from "../../src/payout/handlers.ts";
 import { fakeProvider } from "../../src/payout/fake-provider.ts";
 import type { PayoutProvider } from "../../src/payout/provider.ts";
 import { computeWithholding } from "../../src/payout/policy.ts";
-import { postEntry } from "../../src/ledger/journal.ts";
+import { balance, postEntry } from "../../src/ledger/journal.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -17,8 +17,14 @@ let cur: Clock = fixedClock("2026-03-10T00:00:00.000Z", 1);
 const clock: Clock = { now: () => cur.now() };
 const base = fakeProvider();
 let failNextSubmit = false;
+type Call = { op: "submit" | "status"; key: string; instructionId: string; amount: string; accountRef: string };
+const calls: Call[] = [];
+const override = new Map<string, "UNKNOWN" | "FAILED">(); // 멱등 키 → 다음 submit의 강제 결과
 const provider: PayoutProvider = {
   async submit(i, key) {
+    calls.push({ op: "submit", key, instructionId: i.instructionId, amount: i.amountKrw.toString(), accountRef: i.accountRef });
+    const o = override.get(key);
+    if (o !== undefined) { override.delete(key); return o === "UNKNOWN" ? { status: "UNKNOWN" } : { status: "FAILED", reason: "FORCED" }; }
     if (failNextSubmit) { failNextSubmit = false; throw new Error("transient PSP outage"); }
     return base.submit(i, key);
   },
@@ -115,6 +121,8 @@ test("resubmit a stuck payout with the same idempotency key: PAID exactly once",
   assert.equal(await status(), "PENDING");
 
   assert.equal((await req("POST", `/payouts/${id}/resubmit`, "usr_ops", {})).statusCode, 403);
+  // 프로필의 계좌 토큰이 바뀌어도 재전송은 처음 보낸 토큰을 쓴다.
+  assert.equal((await req("PUT", "/parties/pty_member_a/payout-profile", "usr_settle", { taxType: "DOMESTIC_INDIVIDUAL", payoutAccountRef: "tok_CHANGED", kycVerified: true })).statusCode, 200);
   assert.equal((await req("POST", `/payouts/${id}/resubmit`, undefined, {})).statusCode, 401);
   assert.equal((await req("POST", "/payouts/po_nope/resubmit", "usr_settle", {})).statusCode, 404);
   const r = await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {});
@@ -124,11 +132,92 @@ test("resubmit a stuck payout with the same idempotency key: PAID exactly once",
   assert.equal(await status(), "PAID");
   const n = (await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry WHERE kind = 'PAYOUT_SETTLED' AND source_ref = $1", [`settled:${id}`])).rows[0].n;
   assert.equal(n, 1);
+  const sub = calls.filter((c) => c.op === "submit" && c.instructionId === id);
+  assert.equal(sub.length, 2, "first send (threw) and the resubmit");
+  for (const c of sub) {
+    assert.equal(c.key, `payout:${id}`);
+    assert.equal(c.accountRef, "tok_pty_member_a");
+    assert.equal(c.amount, sub[0]!.amount);
+  }
+  assert.equal((await w.db.pool.query("SELECT submitted_account_ref AS r FROM payout_instruction WHERE instruction_id = $1", [id])).rows[0].r, "tok_pty_member_a");
   assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action_name = 'PAYOUT_RESUBMITTED' AND entity_id = $1", [id])).rows[0].n, 1);
   // 끝난 지시와 한 번도 보내지 않은 지시는 재전송할 수 없다.
   assert.equal((await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {})).json().code, "NOT_RESUBMITTABLE");
   const held = (await w.db.pool.query("SELECT instruction_id FROM payout_instruction WHERE submit_attempted_at IS NULL LIMIT 1")).rows[0];
   if (held !== undefined) assert.equal((await req("POST", `/payouts/${held.instruction_id}/resubmit`, "usr_settle", {})).statusCode, 409);
+});
+
+let day = 4;
+/** party에게 gross를 쌓고 지급 실행을 만들어 지시 id를 돌려준다. */
+async function newInstruction(partyId: string, gross: bigint): Promise<string> {
+  const d = String(day++).padStart(2, "0");
+  cur = fixedClock(`2026-06-${d}T00:00:00.000Z`, 1);
+  await w.db.tx((tx) => postEntry(tx, clock, { kind: "ADJUSTMENT", sourceRef: `adj:rs-${d}`, createdBy: "usr_settle",
+    postings: [{ account: { kind: "RECEIVABLE" }, amount: gross }, { account: { kind: "PARTY_PAYABLE", partyId }, amount: -gross }] }));
+  cur = fixedClock(`2026-06-${d}T12:00:00.000Z`, 1);
+  const r = await req("POST", "/payout-runs", "usr_settle", { payoutRunId: `rs-${d}`, asOf: `2026-06-${d}T12:00:00.000Z` });
+  assert.equal(r.statusCode, 201, r.body);
+  return `po_rs-${d}_${partyId}`;
+}
+const entryCount = async (kind: string, id: string) => (await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry WHERE kind = $1 AND source_ref LIKE $2", [kind, `%:${id}`])).rows[0].n as number;
+const instrStatus = async (id: string) => (await w.db.pool.query("SELECT status FROM payout_instruction WHERE instruction_id = $1", [id])).rows[0].status as string;
+const pollJobs = (id: string) => jobs.sent.filter((j) => j.name === "poll-payout" && j.data.instructionId === id).length;
+const plainGross = (from: bigint) => { let g = from; while (g % 97n === 0n || g % 89n === 0n) g++; return g; }; // 면세: 실지급액 = 총액
+
+test("resubmit from SUBMITTED: UNKNOWN re-arms the poll without a second entry", async () => {
+  const id = await newInstruction("pty_label", plainGross(300_000n));
+  await submitPayout(payDeps(), { instructionId: id });
+  assert.equal(await instrStatus(id), "SUBMITTED");
+  const polls = pollJobs(id);
+  override.set(`payout:${id}`, "UNKNOWN");
+  const r = await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {});
+  assert.equal(r.statusCode, 200, r.body);
+  assert.deepEqual([r.json().providerStatus, r.json().status], ["UNKNOWN", "SUBMITTED"]);
+  assert.equal(pollJobs(id), polls + 1);
+  assert.equal(await entryCount("PAYOUT", id), 1);
+  assert.equal(await entryCount("PAYOUT_SETTLED", id) + await entryCount("PAYOUT_FAILED", id), 0);
+  const sub = calls.filter((c) => c.op === "submit" && c.instructionId === id);
+  assert.deepEqual(sub.map((c) => c.key), [`payout:${id}`, `payout:${id}`]);
+  await jobs.drain(payoutJobHandlers(payDeps()));
+  assert.equal(await instrStatus(id), "PAID");
+  assert.equal(await entryCount("PAYOUT_SETTLED", id), 1);
+});
+
+test("resubmit from SUBMITTED: FAILED restores the balance exactly once", async () => {
+  const gross = plainGross(310_000n);
+  const before = await w.db.tx((tx) => balance(tx, { kind: "PARTY_PAYABLE", partyId: "pty_agency" }));
+  const id = await newInstruction("pty_agency", gross);
+  await submitPayout(payDeps(), { instructionId: id });
+  assert.equal(await instrStatus(id), "SUBMITTED");
+  override.set(`payout:${id}`, "FAILED");
+  const r = await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {});
+  assert.equal(r.statusCode, 200, r.body);
+  assert.equal(r.json().status, "FAILED");
+  assert.equal(await entryCount("PAYOUT_FAILED", id), 1);
+  assert.equal(await w.db.tx((tx) => balance(tx, { kind: "PARTY_PAYABLE", partyId: "pty_agency" })), before - gross);
+  await jobs.drain(payoutJobHandlers(payDeps())); // 남은 poll은 끝난 지시에 아무것도 하지 않는다.
+  assert.equal(await entryCount("PAYOUT_FAILED", id), 1);
+  assert.equal((await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {})).statusCode, 409);
+});
+
+test("resubmit of a never-sent instruction is 409", async () => {
+  const id = await newInstruction("pty_cmo", plainGross(320_000n));
+  assert.equal(await instrStatus(id), "PENDING");
+  const r = await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {});
+  assert.equal(r.statusCode, 409);
+  assert.equal(r.json().code, "NOT_RESUBMITTABLE");
+  assert.equal(calls.filter((c) => c.instructionId === id).length, 0);
+});
+
+test("role is checked before body validation and before 503", async () => {
+  const noProv = buildServer({ db: w.db, ctx: w.ctx, clock, jobs });
+  try {
+    const call = (method: "POST", url: string, payload: unknown, a = app) => a.inject({ method, url, headers: { "x-actor": "usr_ops" }, payload: payload as object });
+    assert.equal((await call("POST", "/payout-runs", {})).statusCode, 403);
+    assert.equal((await call("POST", "/holds/1/release", {})).statusCode, 403);
+    assert.equal((await call("POST", "/runs/x/void", {})).statusCode, 403);
+    assert.equal((await call("POST", "/payouts/x/resubmit", {}, noProv)).statusCode, 403);
+  } finally { await noProv.close(); }
 });
 
 test("statements, trial balance and invariants over HTTP", async () => {

@@ -1,6 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { ADMIN_URL } from "../../src/platform/dbadmin.ts";
 import { createDb, poolMaxFromEnv } from "../../src/platform/db.ts";
@@ -36,4 +37,23 @@ test("RC_DB_POOL_MAX: default 20, positive integers only", () => {
   assert.equal(poolMaxFromEnv({ RC_DB_POOL_MAX: "" }), 20);
   assert.equal(poolMaxFromEnv({ RC_DB_POOL_MAX: "7" }), 7);
   for (const bad of ["0", "-1", "1.5", "abc", "1e3"]) assert.throws(() => poolMaxFromEnv({ RC_DB_POOL_MAX: bad }), /RC_DB_POOL_MAX/);
+});
+
+test("the CLI runs when invoked through a symlink and fails without RC_ADMIN_URL", async () => {
+  const { symlinkSync, mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { spawnSync } = await import("node:child_process");
+  const dir = mkdtempSync(join(tmpdir(), "rc-mig-"));
+  try {
+    const link = join(dir, "migrate-link.ts");
+    symlinkSync(fileURLToPath(new URL("../../src/platform/migrate-cli.ts", import.meta.url)), link);
+    const env = { ...process.env }; delete env.RC_ADMIN_URL;
+    const r = spawnSync(process.execPath, [link], { env, encoding: "utf8" });
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, /RC_ADMIN_URL/);
+    const ok = spawnSync(process.execPath, [link], { env: { ...env, RC_ADMIN_URL: at(ADMIN_URL, name) }, encoding: "utf8" });
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stdout, /applied migrations \(0\)/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

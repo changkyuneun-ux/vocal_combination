@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { requireRole } from "../platform/actor.ts";
 import { DomainError } from "../platform/errors.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import { recordWebhook, resubmitPayout } from "./handlers.ts";
@@ -32,11 +33,13 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
   });
   app.post("/payout-runs", async (req, reply) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
+    requireRole(actor, "SPACE_SETTLE");
     const b: any = req.body;
     return reply.status(201).send(await createPayoutRun(d(), actor, { payoutRunId: str(b, "payoutRunId"), asOf: str(b, "asOf") }));
   });
   app.post<{ Params: { id: string } }>("/payouts/:id/resubmit", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
+    requireRole(actor, "SPACE_SETTLE");
     if (deps.provider === undefined) throw new DomainError("PSP_NOT_CONFIGURED", 503, "no payout provider is configured");
     return resubmitPayout({ ...d(), provider: deps.provider }, actor, req.params.id);
   });

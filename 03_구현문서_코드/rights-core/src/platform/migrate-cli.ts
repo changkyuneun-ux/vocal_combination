@@ -1,6 +1,7 @@
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
-import { installJobSchema } from "./jobs.ts";
+import { installJobSchema, JOB_NAMES } from "./jobs.ts";
 import { migrate } from "./migrate.ts";
 
 /**
@@ -25,13 +26,16 @@ export async function runMigrations(adminUrl: string): Promise<{ applied: string
               has_table_privilege('rc_app', 'audit_log', 'INSERT') AS a`)).rows[0];
     if (!ok.s || !ok.t || !ok.a) throw new Error(`rc_app privileges are missing (pgboss schema ${ok.s}, pgboss.job ${ok.t}, audit_log ${ok.a})`);
     const queues = (await v.query("SELECT name FROM pgboss.queue ORDER BY name")).rows.map((r) => r.name as string);
+    const missing = JOB_NAMES.filter((n) => !queues.includes(n));
+    if (missing.length > 0) throw new Error(`queues missing after install: ${missing.join(", ")}`);
     return { applied, queues };
   } finally {
     await v.end();
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+const isMain = (() => { try { return process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+if (isMain) {
   const url = process.env.RC_ADMIN_URL;
   if (url === undefined || url === "") {
     console.error("RC_ADMIN_URL is required");

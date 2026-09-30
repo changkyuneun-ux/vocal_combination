@@ -19,18 +19,18 @@ export const MAX_POLLS = 10;
 
 type Instruction = {
   instructionId: string; partyId: string; status: string; gross: bigint; withholding: bigint; net: bigint;
-  idempotencyKey: string; providerRef: string | null; entryId: string | null; submitAttempted: boolean; submitUnknown: boolean;
+  idempotencyKey: string; providerRef: string | null; entryId: string | null; submitAttempted: boolean; submitUnknown: boolean; submittedAccountRef: string | null;
 };
 
 async function loadInstruction(tx: Tx, id: string, lock: boolean): Promise<Instruction | undefined> {
   const r = (await tx.query(
     `SELECT instruction_id, party_id, status, gross_krw::text AS g, withholding_krw::text AS w, net_krw::text AS n, idempotency_key, provider_ref, entry_id::text AS e,
-            submit_attempted_at IS NOT NULL AS attempted, submit_unknown_at IS NOT NULL AS unknown
+            submit_attempted_at IS NOT NULL AS attempted, submitted_account_ref, submit_unknown_at IS NOT NULL AS unknown
        FROM payout_instruction WHERE instruction_id = $1${lock ? " FOR UPDATE" : ""}`, [id])).rows[0];
   if (r === undefined) return undefined;
   return {
     instructionId: r.instruction_id, partyId: r.party_id, status: r.status, gross: BigInt(r.g), withholding: BigInt(r.w), net: BigInt(r.n),
-    idempotencyKey: r.idempotency_key, providerRef: r.provider_ref, entryId: r.e, submitAttempted: r.attempted, submitUnknown: r.unknown,
+    idempotencyKey: r.idempotency_key, providerRef: r.provider_ref, entryId: r.e, submitAttempted: r.attempted, submitUnknown: r.unknown, submittedAccountRef: r.submitted_account_ref,
   };
 }
 
@@ -64,7 +64,7 @@ export async function submitPayout(d: PayoutDeps, data: { instructionId: string 
       await applyResult(tx, d.clock, i, { status: "FAILED", reason: "NO_ACCOUNT" });
       return null;
     }
-    await tx.query("UPDATE payout_instruction SET submit_attempted_at = $2 WHERE instruction_id = $1", [i.instructionId, d.clock.now()]);
+    await tx.query("UPDATE payout_instruction SET submit_attempted_at = $2, submitted_account_ref = $3 WHERE instruction_id = $1", [i.instructionId, d.clock.now(), accountRef]);
     return { i, accountRef };
   });
   if (plan === null) return;
@@ -92,10 +92,8 @@ export async function resubmitPayout(d: PayoutDeps, actor: Actor, instructionId:
     const i = await loadInstruction(tx, instructionId, true);
     if (i === undefined) throw notFound("payout instruction", instructionId);
     if (!isOpen(i) || !i.submitAttempted) throw conflict("NOT_RESUBMITTABLE", `instruction ${instructionId} is ${i.status}${i.submitAttempted ? "" : " and was never sent"}`);
-    const acct = (await tx.query("SELECT payout_account_ref FROM party_payout_profile WHERE party_id = $1", [i.partyId])).rows[0];
-    const accountRef = (acct?.payout_account_ref ?? null) as string | null;
-    if (accountRef === null) throw conflict("NO_ACCOUNT", `party ${i.partyId} has no payout account token`);
-    return { i, accountRef };
+    // 처음 보낸 계좌 토큰을 쓴다(그 뒤 프로필이 바뀌어도 같은 멱등 키에 같은 계좌).
+    return { i, accountRef: i.submittedAccountRef! };
   });
   let r: ProviderResult;
   try {

@@ -38,6 +38,7 @@ export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
   // 운영자 라우트(역할 SPACE_SETTLE은 서비스가 검사). 신원(401)이 본문 검증(400)보다 먼저다.
   app.post<{ Params: { id: string } }>("/holds/:id/release", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
+    requireRole(actor, "SPACE_SETTLE");
     const allocation: any = (req.body as any)?.allocation;
     if (allocation === null || typeof allocation !== "object" || Array.isArray(allocation)) throw new DomainError("BAD_REQUEST", 400, "allocation must be an object of party -> amount string");
     return releaseHold(d(), actor, { holdingId: req.params.id, allocation });
@@ -49,6 +50,7 @@ export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
     }));
   app.post<{ Params: { id: string } }>("/runs/:id/void", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
+    requireRole(actor, "SPACE_SETTLE");
     const reason = (req.body as any)?.reason;
     if (typeof reason !== "string" || reason === "") throw new DomainError("BAD_REQUEST", 400, "reason must be a non-empty string");
     return voidRun(d(), actor, req.params.id, reason);
