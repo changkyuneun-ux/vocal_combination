@@ -16,6 +16,20 @@ export async function createUser(tx: Tx, clock: Clock, u: { userId: string; disp
   ]);
 }
 
+export const SYSTEM_IDENTITIES = ["sys_ingest", "sys_settler", "sys_verifier"] as const;
+
+/**
+ * 시스템 신원(수익 수집·정산 실행·정산 검증)을 없으면 만든다(역할 SYSTEM, 개발 서명 키). 여러 번 호출해도 같다.
+ * 동시 호출은 트랜잭션 advisory lock으로 직렬화한다. 서버 시작 시 호출은 Task 6에서 main.ts에 연결한다.
+ */
+export async function ensureSystemIdentities(tx: Tx, clock: Clock): Promise<void> {
+  await tx.query("SELECT pg_advisory_xact_lock(hashtext('rc.system_identities'))");
+  const existing = new Set((await tx.query("SELECT user_id FROM user_account WHERE user_id = ANY($1)", [[...SYSTEM_IDENTITIES]])).rows.map((r) => r.user_id as string));
+  for (const id of SYSTEM_IDENTITIES) {
+    if (!existing.has(id)) await createUser(tx, clock, { userId: id, displayName: id, roles: ["SYSTEM"] });
+  }
+}
+
 export async function loadActor(tx: Tx, userId: string): Promise<Actor> {
   const u = await tx.query("SELECT 1 FROM user_account WHERE user_id = $1", [userId]);
   if (u.rowCount === 0) throw new DomainError("UNKNOWN_ACTOR", 401, `unknown actor: ${userId}`);

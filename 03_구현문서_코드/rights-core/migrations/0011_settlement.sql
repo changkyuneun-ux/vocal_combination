@@ -29,7 +29,7 @@ CREATE TABLE settlement_run (
   UNIQUE (batch_id, snapshot_id),
   CHECK (verified_by IS NULL OR verified_by <> executed_by),
   CHECK (status NOT IN ('CALCULATED','VERIFIED','CONFIRMED') OR (events_digest IS NOT NULL AND result_digest IS NOT NULL)),
-  CHECK (status NOT IN ('VERIFIED','CONFIRMED') OR verified_by IS NOT NULL)
+  CHECK (status NOT IN ('VERIFIED','CONFIRMED') OR (verified_by IS NOT NULL AND verified_at IS NOT NULL))
 );
 CREATE INDEX settlement_run_batch ON settlement_run (batch_id, status);
 
@@ -97,6 +97,83 @@ CREATE TRIGGER pool_line_immutable BEFORE UPDATE OR DELETE ON pool_line FOR EACH
 CREATE TRIGGER allocation_line_immutable BEFORE UPDATE OR DELETE ON allocation_line FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
 CREATE TRIGGER unallocated_holding_immutable BEFORE UPDATE OR DELETE ON unallocated_holding FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
 CREATE TRIGGER settlement_batch_skip_immutable BEFORE UPDATE OR DELETE ON settlement_batch_skip FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
+
+-- 상태 전이 가드. 위반은 RC001(추가 전용 규칙과 같은 409 APPEND_ONLY)로 거부한다.
+-- 배치: OPEN → CONFIRMED 한 번. 확정 필드는 NULL → 값 한 번만. 그 밖의 열은 바꾸지 않는다.
+CREATE FUNCTION rc_settlement_batch_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status IS DISTINCT FROM OLD.status OR OLD.status = 'CONFIRMED' THEN
+    IF NOT (OLD.status = 'OPEN' AND NEW.status = 'CONFIRMED') THEN
+      RAISE EXCEPTION 'settlement_batch %: status % -> % rejected', OLD.batch_id, OLD.status, NEW.status USING ERRCODE = 'RC001';
+    END IF;
+  END IF;
+  IF (OLD.confirmed_by IS NOT NULL AND NEW.confirmed_by IS DISTINCT FROM OLD.confirmed_by)
+     OR (OLD.confirmed_at IS NOT NULL AND NEW.confirmed_at IS DISTINCT FROM OLD.confirmed_at)
+     OR (OLD.batch_manifest_digest IS NOT NULL AND NEW.batch_manifest_digest IS DISTINCT FROM OLD.batch_manifest_digest) THEN
+    RAISE EXCEPTION 'settlement_batch %: confirmation fields are write-once', OLD.batch_id USING ERRCODE = 'RC001';
+  END IF;
+  IF (to_jsonb(NEW) - ARRAY['status','confirmed_by','confirmed_at','batch_manifest_digest'])
+     <> (to_jsonb(OLD) - ARRAY['status','confirmed_by','confirmed_at','batch_manifest_digest']) THEN
+    RAISE EXCEPTION 'settlement_batch %: only status and confirmation fields may change', OLD.batch_id USING ERRCODE = 'RC001';
+  END IF;
+  RETURN NEW;
+END $$;
+
+-- run: PENDING → CALCULATED|FAILED|VOIDED, CALCULATED → VERIFIED|VOIDED, VERIFIED → CONFIRMED|VOIDED.
+-- CONFIRMED·FAILED·VOIDED는 끝 상태. digest·검증자·검증 시각은 NULL → 값 한 번만.
+-- diagnostics는 FAILED·VOIDED로 전이하는 같은 UPDATE에서만 쓸 수 있다.
+CREATE FUNCTION rc_settlement_run_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
+       (OLD.status = 'PENDING' AND NEW.status IN ('CALCULATED','FAILED','VOIDED'))
+    OR (OLD.status = 'CALCULATED' AND NEW.status IN ('VERIFIED','VOIDED'))
+    OR (OLD.status = 'VERIFIED' AND NEW.status IN ('CONFIRMED','VOIDED'))) THEN
+    RAISE EXCEPTION 'settlement_run %: status % -> % rejected', OLD.run_id, OLD.status, NEW.status USING ERRCODE = 'RC001';
+  END IF;
+  IF (OLD.events_digest IS NOT NULL AND NEW.events_digest IS DISTINCT FROM OLD.events_digest)
+     OR (OLD.result_digest IS NOT NULL AND NEW.result_digest IS DISTINCT FROM OLD.result_digest)
+     OR (OLD.verified_by IS NOT NULL AND NEW.verified_by IS DISTINCT FROM OLD.verified_by)
+     OR (OLD.verified_at IS NOT NULL AND NEW.verified_at IS DISTINCT FROM OLD.verified_at) THEN
+    RAISE EXCEPTION 'settlement_run %: digests and verification fields are write-once', OLD.run_id USING ERRCODE = 'RC001';
+  END IF;
+  IF NEW.diagnostics IS DISTINCT FROM OLD.diagnostics
+     AND NOT (NEW.status IS DISTINCT FROM OLD.status AND NEW.status IN ('FAILED','VOIDED')) THEN
+    RAISE EXCEPTION 'settlement_run %: diagnostics may only be set with a transition to FAILED or VOIDED', OLD.run_id USING ERRCODE = 'RC001';
+  END IF;
+  IF (to_jsonb(NEW) - ARRAY['status','events_digest','result_digest','diagnostics','verified_by','verified_at'])
+     <> (to_jsonb(OLD) - ARRAY['status','events_digest','result_digest','diagnostics','verified_by','verified_at']) THEN
+    RAISE EXCEPTION 'settlement_run %: identity columns are immutable', OLD.run_id USING ERRCODE = 'RC001';
+  END IF;
+  RETURN NEW;
+END $$;
+
+-- run_event: active는 true → false 한 번만, 그리고 부모 run이 (이 UPDATE 시점에) FAILED·VOIDED일 때만.
+-- 순서 주의: run을 무효화하고 이벤트를 풀어 주는 코드는 run을 먼저 VOIDED(또는 FAILED)로 UPDATE한 뒤 이벤트를 푼다.
+CREATE FUNCTION rc_settlement_run_event_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE run_status TEXT;
+BEGIN
+  IF (to_jsonb(NEW) - 'active') <> (to_jsonb(OLD) - 'active') THEN
+    RAISE EXCEPTION 'settlement_run_event %/%: only active may change', OLD.run_id, OLD.event_id USING ERRCODE = 'RC001';
+  END IF;
+  IF NEW.active IS DISTINCT FROM OLD.active THEN
+    IF NOT (OLD.active AND NOT NEW.active) THEN
+      RAISE EXCEPTION 'settlement_run_event %/%: active may only go true -> false', OLD.run_id, OLD.event_id USING ERRCODE = 'RC001';
+    END IF;
+    SELECT status INTO run_status FROM settlement_run WHERE run_id = OLD.run_id;
+    IF run_status NOT IN ('FAILED','VOIDED') THEN
+      RAISE EXCEPTION 'settlement_run_event %/%: run is %, release requires FAILED or VOIDED', OLD.run_id, OLD.event_id, run_status USING ERRCODE = 'RC001';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER settlement_batch_guard BEFORE UPDATE ON settlement_batch FOR EACH ROW EXECUTE FUNCTION rc_settlement_batch_guard();
+CREATE TRIGGER settlement_run_guard BEFORE UPDATE ON settlement_run FOR EACH ROW EXECUTE FUNCTION rc_settlement_run_guard();
+CREATE TRIGGER settlement_run_event_guard BEFORE UPDATE ON settlement_run_event FOR EACH ROW EXECUTE FUNCTION rc_settlement_run_event_guard();
+-- 배치·run·run_event는 지우지 않는다.
+CREATE TRIGGER settlement_batch_no_delete BEFORE DELETE ON settlement_batch FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
+CREATE TRIGGER settlement_run_no_delete BEFORE DELETE ON settlement_run FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
+CREATE TRIGGER settlement_run_event_no_delete BEFORE DELETE ON settlement_run_event FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
 
 GRANT SELECT, INSERT ON settlement_batch, settlement_run, settlement_run_event, pool_line, allocation_line, unallocated_holding, settlement_batch_skip TO rc_app;
 GRANT UPDATE (status, confirmed_by, confirmed_at, batch_manifest_digest) ON settlement_batch TO rc_app;

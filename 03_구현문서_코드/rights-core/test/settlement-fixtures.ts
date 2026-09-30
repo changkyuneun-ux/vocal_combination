@@ -1,5 +1,5 @@
 import type { Actor } from "../src/platform/actor.ts";
-import { createUser, loadActor } from "../src/platform/actor.ts";
+import { createUser, ensureSystemIdentities, loadActor } from "../src/platform/actor.ts";
 import { fixedClock, type Clock } from "../src/platform/clock.ts";
 import type { Db } from "../src/platform/db.ts";
 import type { BridgeCtx } from "../src/engine-bridge/context.ts";
@@ -25,9 +25,10 @@ export async function settlementWorld(): Promise<SettlementWorld> {
   const users = await db.tx(async (tx) => {
     await seedSong(tx, base);
     const u = await seedUsers(tx, base);
-    for (const [id, role] of [["usr_ops", "SPACE_OPS"], ["usr_settle", "SPACE_SETTLE"], ["sys_ingest", "SYSTEM"], ["sys_settler", "SYSTEM"], ["sys_verifier", "SYSTEM"]] as const) {
+    for (const [id, role] of [["usr_ops", "SPACE_OPS"], ["usr_settle", "SPACE_SETTLE"]] as const) {
       await createUser(tx, base, { userId: id, displayName: id, roles: [role] });
     }
+    await ensureSystemIdentities(tx, base);
     await issuance.createPack(tx, clock, u.rights, { packId: PACK, packCode: "NOVA", title: "Nova", factsScopeId: SCOPE });
     await issuance.setPackClaimants(tx, clock, u.rights, PACK, DECLARED);
     return { ...u, ops: await loadActor(tx, "usr_ops"), settle: await loadActor(tx, "usr_settle"), ingest: await loadActor(tx, "sys_ingest") };
