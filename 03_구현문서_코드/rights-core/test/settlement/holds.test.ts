@@ -140,3 +140,37 @@ test("a partial refund before release shrinks the releasable amount; a later ref
   assert.deepEqual(net.rows, [], "ev_g payables net to zero");
   assert.equal(await trialSum(), 0n);
 });
+
+test("repeated partial refunds after release follow each party's remaining share; a full refund nets every party to zero", async () => {
+  // 4286 → tier1 1071/214/3000(LRM) → 권리 풀 3000 전액 FRAUD_REVIEW 보류.
+  await purchase(w, "ev_d", "vc_1", "4286", "2026-06-02T00:00:00.000Z", "FLAGGED");
+  await createBatch(d, w.users.ops, { batchId: "bat_d", periodStart: "2026-06-01T00:00:00.000Z", periodEnd: "2026-07-01T00:00:00.000Z" });
+  await jobs.drain(jobHandlers(d));
+  await confirmBatch(d, w.users.settle, "bat_d");
+  await jobs.drain(jobHandlers(d));
+  const h = await holdOf("ev_d");
+  assert.equal(h.amount, 3000n);
+  const alloc = { pty_agency: "1000", pty_cmo: "1000", pty_label: "1000" };
+  await releaseHold(d, w.users.settle, { holdingId: h.id, allocation: alloc });
+  const netFor = async () => new Map((await w.db.pool.query(
+    `SELECT a.party_id, SUM(p.amount_krw)::text AS s FROM posting p JOIN journal_entry j USING (entry_id) JOIN ledger_account a USING (account_id)
+      WHERE a.kind = 'PARTY_PAYABLE' AND p.event_id = 'ev_d' AND j.kind IN ('HOLD_RELEASE','REVERSAL') GROUP BY a.party_id`)).rows.map((r) => [r.party_id as string, BigInt(r.s)]));
+  const refunds = ["1", "1", "1", "1001", "7", "3"];
+  let refunded = 0;
+  for (const [i, amt] of refunds.entries()) {
+    await refund(`rf_d${i}`, "ev_d", amt);
+    await jobs.drain(jobHandlers(d));
+    refunded += Number(amt);
+    for (const [p, n] of await netFor()) assert.ok(n <= 0n, `${p} was reversed beyond its released share after rf_d${i}: ${n}`);
+  }
+  await refund("rf_dlast", "ev_d", String(4286 - refunded));
+  await jobs.drain(jobHandlers(d));
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM reversal_run WHERE event_id = 'ev_d'")).rows[0].n, refunds.length + 1);
+  const net = await netFor();
+  for (const p of Object.keys(alloc)) assert.equal(net.get(p), 0n, `${p} nets to zero for ev_d`);
+  const progress = await w.db.pool.query(
+    "SELECT party_id, SUM(amount_krw)::text AS s FROM hold_release_reversal x JOIN hold_release r USING (release_id) WHERE r.holding_id = $1 GROUP BY party_id ORDER BY party_id", [h.id]);
+  assert.deepEqual(progress.rows.map((r) => [r.party_id, r.s]), [["pty_agency", "1000"], ["pty_cmo", "1000"], ["pty_label", "1000"]]);
+  assert.equal(await holdBal(), 0n);
+  assert.equal(await trialSum(), 0n);
+});

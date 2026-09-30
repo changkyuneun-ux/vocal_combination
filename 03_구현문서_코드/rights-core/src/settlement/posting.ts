@@ -1,6 +1,6 @@
 import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
-import { conflict, notFound } from "../platform/errors.ts";
+import { conflict, DomainError, notFound } from "../platform/errors.ts";
 import { poolAccountFor } from "../ledger/accounts.ts";
 import { postEntry, type PostingInput } from "../ledger/journal.ts";
 import { splitByWeights } from "../ledger/split.ts";
@@ -41,11 +41,14 @@ export async function postConfirmedRun(tx: Tx, clock: Clock, runId: string): Pro
 
 /**
  * 역분개의 REVERSAL 분개(통합 설계 11.2-4·5). 역분개 행의 금액은 음수이므로 부호를 뒤집어 쓴다.
- * 원 보류가 이미 해제됐으면(hold_release) 그 보류의 역분개 금액은 해제 배분 비율로 권리자 미지급금에 전기한다.
+ * 원 보류가 이미 해제됐으면(hold_release) 그 보류의 역분개 금액은 권리자별 남은 해제액 비율로 권리자 미지급금에 전기하고
+ * 진행을 hold_release_reversal에 남긴다.
  */
 export async function postReversal(tx: Tx, clock: Clock, reversalId: string): Promise<void> {
   const rv = (await tx.query("SELECT original_run_id, event_id, sequence FROM reversal_run WHERE reversal_id = $1", [reversalId])).rows[0];
   if (rv === undefined) throw notFound("reversal", reversalId);
+  // 이미 쓴 역분개면 아무것도 계산하지 않는다(멱등, 해제 진행 기록도 한 번만).
+  if (((await tx.query("SELECT 1 FROM journal_entry WHERE source_ref = $1", [`rev:${reversalId}`])).rowCount ?? 0) > 0) return;
   const runId = rv.original_run_id as string;
   const rights = await rightsBucket(tx, runId);
   const postings: PostingInput[] = [];
@@ -57,24 +60,44 @@ export async function postReversal(tx: Tx, clock: Clock, reversalId: string): Pr
     postings.push({ account: { kind: "PARTY_PAYABLE", partyId: l.party_id }, amount: -BigInt(l.a), eventId: rv.event_id, runId });
   }
   const holds = (await tx.query(
-    `SELECT h.reason, h.amount_krw::text AS a, hr.allocation
+    `SELECT h.reason, h.amount_krw::text AS a, hr.release_id::text AS release_id, hr.allocation
        FROM unallocated_holding h
        LEFT JOIN unallocated_holding o ON o.run_id = h.run_id AND o.event_id = h.event_id AND o.bucket = h.bucket AND o.reason = h.reason AND o.line_seq = 1
        LEFT JOIN hold_release hr ON hr.holding_id = o.holding_id
       WHERE h.reversal_id = $1 ORDER BY h.holding_id`, [reversalId])).rows;
+  const progress: { releaseId: string; partyId: string; amount: bigint }[] = [];
   for (const h of holds) {
-    const amount = -BigInt(h.a);
-    if (h.allocation === null) {
+    const amount = -BigInt(h.a);   // 양수: 되돌릴 금액
+    if (h.release_id === null) {
       postings.push({ account: { kind: "HOLD", reason: h.reason }, amount, eventId: rv.event_id, runId });
       continue;
     }
-    // 해제된 보류: 보류 계정 대신 해제 배분 비율로 권리자 미지급금에서 뺀다(최대 잔여법, 동률 party_id 오름차순).
-    const weights = Object.entries(h.allocation as Record<string, string>).map(([key, v]) => ({ key, weight: BigInt(v) }));
+    // 해제된 보류(통합 설계 11.2-5): 보류 계정 대신 권리자 미지급금에서 뺀다. 가중치는 권리자별 남은 해제액
+    // (배분 − 이 해제에서 이미 되돌린 금액)이다 — 부분 역분개가 반복돼도 반올림이 쌓이지 않고, 누구도 남은 몫을 넘지 않으며,
+    // 보류 전액이 역분개되면 권리자별 순합이 정확히 0이 된다(최대 잔여법, 동률 party_id 오름차순).
+    const done = new Map((await tx.query(
+      "SELECT party_id, SUM(amount_krw)::text AS s FROM hold_release_reversal WHERE release_id = $1 GROUP BY party_id", [h.release_id],
+    )).rows.map((r) => [r.party_id as string, BigInt(r.s)]));
+    const weights = Object.entries(h.allocation as Record<string, string>)
+      .map(([key, v]) => ({ key, weight: BigInt(v) - (done.get(key) ?? 0n) }))
+      .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const left = weights.reduce((a, w) => a + w.weight, 0n);
+    if (amount > left) throw new DomainError("LEDGER_RELEASE_EXCEEDED", 500, `reversal ${reversalId} takes ${amount} from release ${h.release_id} with ${left} left`);
+    if (amount === 0n) continue;
     for (const [partyId, part] of splitByWeights(amount, weights)) {
+      if (part === 0n) continue;
       postings.push({ account: { kind: "PARTY_PAYABLE", partyId }, amount: part, eventId: rv.event_id, runId });
+      progress.push({ releaseId: h.release_id, partyId, amount: part });
     }
   }
-  await postEntry(tx, clock, { kind: "REVERSAL", sourceRef: `rev:${reversalId}`, createdBy: SYSTEM, postings });
+  const e = await postEntry(tx, clock, { kind: "REVERSAL", sourceRef: `rev:${reversalId}`, createdBy: SYSTEM, postings });
+  if (e.created && progress.length > 0) {
+    await tx.query(
+      `INSERT INTO hold_release_reversal (release_id, reversal_id, party_id, amount_krw)
+       SELECT r, $2, p, a FROM unnest($1::bigint[], $3::text[], $4::bigint[]) AS t(r, p, a)`,
+      [progress.map((x) => x.releaseId), reversalId, progress.map((x) => x.partyId), progress.map((x) => x.amount.toString())],
+    );
+  }
 }
 
 /** post-batch 처리기: 배치의 CONFIRMED run마다 분개(멱등). */

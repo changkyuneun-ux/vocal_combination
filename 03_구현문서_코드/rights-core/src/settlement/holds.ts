@@ -3,6 +3,7 @@ import { audit } from "../platform/audit.ts";
 import type { Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { postEntry, type PostingInput } from "../ledger/journal.ts";
+import { postConfirmedRun } from "./posting.ts";
 import type { SettleDeps } from "./service.ts";
 
 const AMOUNT = /^[1-9]\d{0,17}$/;
@@ -32,6 +33,7 @@ export async function releaseHold(d: SettleDeps, actor: Actor, input: { holdingI
       `SELECT h.run_id, h.event_id, h.bucket, h.reason, h.line_seq, h.amount_krw::text AS a, r.status
          FROM unallocated_holding h JOIN settlement_run r USING (run_id) WHERE h.holding_id = $1`, [input.holdingId])).rows[0];
     if (h === undefined || h.line_seq !== 1) throw notFound("hold", input.holdingId);
+    // CONFIRMED는 끝 상태(0011 가드)이므로 잠금 전에 읽어도 바뀌지 않는다.
     if (h.status !== "CONFIRMED") throw conflict("INVALID_STATE", `run ${h.run_id} is ${h.status}`);
     await tx.query("SELECT 1 FROM settlement_run_event WHERE run_id = $1 AND event_id = $2 FOR UPDATE", [h.run_id, h.event_id]);
     const done = await tx.query("SELECT 1 FROM hold_release WHERE holding_id = $1", [input.holdingId]);
@@ -49,6 +51,8 @@ export async function releaseHold(d: SettleDeps, actor: Actor, input: { holdingI
     const at = { eventId: h.event_id as string, runId: h.run_id as string };
     const postings: PostingInput[] = [{ account: { kind: "HOLD", reason: h.reason }, amount: remaining, ...at }];
     for (const [p, v] of entries) postings.push({ account: { kind: "PARTY_PAYABLE", partyId: p }, amount: -BigInt(v), ...at });
+    // post-batch보다 먼저 올 수 있으므로 원 run의 SETTLEMENT 분개를 먼저 보장한다(멱등) — HOLD_RELEASE는 항상 SETTLEMENT 뒤.
+    await postConfirmedRun(tx, d.clock, h.run_id);
     const e = await postEntry(tx, d.clock, { kind: "HOLD_RELEASE", sourceRef: `hold:${input.holdingId}`, createdBy: actor.userId, postings });
     const allocation = Object.fromEntries(entries);
     try {

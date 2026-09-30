@@ -1,6 +1,6 @@
-import { evaluate, type RevenueEvent } from "vcrl/allocation";
+import { evaluate, type AllocationResult, type RevenueEvent } from "vcrl/allocation";
 import type { Tx } from "../platform/db.ts";
-import { DomainError, notFound } from "../platform/errors.ts";
+import { conflict, DomainError, notFound } from "../platform/errors.ts";
 import { splitByWeights } from "../ledger/split.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadSealed } from "./seal-store.ts";
@@ -29,13 +29,23 @@ export async function suggestFraudRelease(ctx: BridgeCtx, tx: Tx, holdingId: str
   if (ev === undefined) throw notFound("sealed event", h.event_id);
   const r = evaluate({ policy: s.policy, facts: s.facts, projection: s.projection, snapshot: s.snapshot, events: [{ ...ev, integrity: "CLEAR" }], runId: h.run_id });
   if (!r.ok) throw new DomainError("SUGGESTION_FAILED", 500, `re-evaluation of ${h.event_id} failed`, r.errors);
-  const byParty = new Map<string, bigint>();
-  for (const l of r.value.lines) if (l.event_id === h.event_id) byParty.set(l.party, (byParty.get(l.party) ?? 0n) + BigInt(l.amount));
   const remaining = BigInt(h.remaining);
-  const allocation: Record<string, string> = {};
-  if (remaining > 0n && byParty.size > 0) {
-    const parts = splitByWeights(remaining, [...byParty].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, weight]) => ({ key, weight })));
-    for (const [k, v] of parts) if (v !== 0n) allocation[k] = v.toString();
-  }
+  const allocation = suggestionFrom(r.value, h.event_id, remaining);
   return { holdingId, heldKrw: h.held, remainingKrw: remaining.toString(), allocation };
+}
+
+/**
+ * CLEAR 재평가 결과에서 그 이벤트의 라인을 권리자별로 합쳐 남은 보류액으로 비례 배분한다(최대 잔여법, 동률 party_id 오름차순).
+ * 재평가에서 그 이벤트에 RIGHTS_DISPUTE 보류가 생기면 분쟁분의 처리는 운영자가 정하도록 409 SUGGESTION_HAS_DISPUTE로 거부한다.
+ */
+export function suggestionFrom(result: Pick<AllocationResult, "lines" | "holdings">, eventId: string, remaining: bigint): Record<string, string> {
+  const disputed = result.holdings.filter((x) => x.event_id === eventId).reduce((a, x) => a + BigInt(x.amount), 0n);
+  if (disputed > 0n) throw conflict("SUGGESTION_HAS_DISPUTE", `re-evaluating ${eventId} as CLEAR holds ${disputed} for RIGHTS_DISPUTE`);
+  const byParty = new Map<string, bigint>();
+  for (const l of result.lines) if (l.event_id === eventId) byParty.set(l.party, (byParty.get(l.party) ?? 0n) + BigInt(l.amount));
+  const allocation: Record<string, string> = {};
+  if (remaining <= 0n || byParty.size === 0) return allocation;
+  const weights = [...byParty].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, weight]) => ({ key, weight }));
+  for (const [k, v] of splitByWeights(remaining, weights)) if (v !== 0n) allocation[k] = v.toString();
+  return allocation;
 }
