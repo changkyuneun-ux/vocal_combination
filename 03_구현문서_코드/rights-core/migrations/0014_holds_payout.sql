@@ -109,3 +109,32 @@ GRANT SELECT, INSERT ON party_payout_profile, payout_run, payout_instruction TO 
 GRANT UPDATE (tax_type, payout_account_ref, kyc_verified, updated_at) ON party_payout_profile TO rc_app;
 GRANT UPDATE (status, provider_ref, settled_entry_id) ON payout_instruction TO rc_app;
 GRANT SELECT ON payout_policy TO rc_app;
+
+-- 지급 결과(통합 설계 11.2-7): provider_ref는 한 지시에만 속한다(webhook이 지시를 찾는 열).
+CREATE UNIQUE INDEX payout_instruction_provider_ref ON payout_instruction (provider_ref) WHERE provider_ref IS NOT NULL;
+
+-- PSP webhook inbox: 같은 provider_event_id는 한 번만 저장한다. 처리 시각(processed_at) NULL → 값 한 번만 바꿀 수 있다.
+CREATE TABLE psp_webhook_inbox (
+  provider_event_id TEXT PRIMARY KEY CHECK (length(provider_event_id) BETWEEN 1 AND 200),
+  provider_ref      TEXT NOT NULL,
+  status            TEXT NOT NULL CHECK (status IN ('PAID','FAILED')),
+  payload           JSONB NOT NULL,
+  received_at       TIMESTAMPTZ NOT NULL CHECK (received_at = date_trunc('milliseconds', received_at)),
+  processed_at      TIMESTAMPTZ NULL CHECK (processed_at = date_trunc('milliseconds', processed_at))
+);
+CREATE INDEX psp_webhook_inbox_unprocessed ON psp_webhook_inbox (provider_ref) WHERE processed_at IS NULL;
+
+CREATE FUNCTION rc_psp_webhook_inbox_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.processed_at IS NOT NULL THEN
+    RAISE EXCEPTION 'psp_webhook_inbox %: already processed', OLD.provider_event_id USING ERRCODE = 'RC001';
+  END IF;
+  IF (to_jsonb(NEW) - 'processed_at') <> (to_jsonb(OLD) - 'processed_at') THEN
+    RAISE EXCEPTION 'psp_webhook_inbox %: only processed_at may change', OLD.provider_event_id USING ERRCODE = 'RC001';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER psp_webhook_inbox_guard BEFORE UPDATE ON psp_webhook_inbox FOR EACH ROW EXECUTE FUNCTION rc_psp_webhook_inbox_guard();
+CREATE TRIGGER psp_webhook_inbox_no_delete BEFORE DELETE ON psp_webhook_inbox FOR EACH ROW EXECUTE FUNCTION rc_reject_mutation();
+GRANT SELECT, INSERT ON psp_webhook_inbox TO rc_app;
+GRANT UPDATE (processed_at) ON psp_webhook_inbox TO rc_app;

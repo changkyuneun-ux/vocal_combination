@@ -2,13 +2,15 @@ import { PgBoss, type Db as BossDb, type JobResult } from "pg-boss";
 import pg from "pg";
 import type { Tx } from "./db.ts";
 
-export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "reverse-event" | "post-batch" | "submit-payout";
-export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "reverse-event", "post-batch", "submit-payout"];
-export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>): Promise<void> };
+export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "reverse-event" | "post-batch" | "submit-payout" | "poll-payout" | "apply-psp-result";
+export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "reverse-event", "post-batch", "submit-payout", "poll-payout", "apply-psp-result"];
+/** startAfterSeconds: 이 초만큼 뒤에 처리한다(pg-boss startAfter). 기록용 큐는 지연 없이 바로 처리 대상으로 둔다. */
+export type SendOptions = { startAfterSeconds?: number };
+export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>, opts?: SendOptions): Promise<void> };
 export type JobHandler = (data: Record<string, string>) => Promise<void>;
 export type BossJobs = Jobs & { work(handlers: Record<JobName, JobHandler>): Promise<void>; drainIdle(timeoutMs: number): Promise<void>; stop(): Promise<void> };
 /** 테스트용: 보낸 작업을 트랜잭션 커밋과 무관하게 기록한다. drain은 핸들러를 순서대로 호출하고 새로 쌓인 작업도 처리한다. 처리기가 없는 작업은 대기로 남는다. */
-export type RecordingJobs = Jobs & { sent: { name: JobName; data: Record<string, string> }[]; drain(handlers: Partial<Record<JobName, JobHandler>>): Promise<number> };
+export type RecordingJobs = Jobs & { sent: { name: JobName; data: Record<string, string>; startAfterSeconds?: number }[]; drain(handlers: Partial<Record<JobName, JobHandler>>): Promise<number> };
 
 const SCHEMA = "pgboss";
 /** 아직 끝나지 않은 작업 상태(대기·재시도·실행 중). */
@@ -66,8 +68,9 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
   const localConcurrency = opts.localConcurrency ?? 1;
   let inFlight = 0;
   return {
-    async send(tx, name, data) {
-      await boss.send(name, data, { db: txExecutor(tx), retryLimit: 5, retryBackoff: true });
+    async send(tx, name, data, opts) {
+      const startAfter = opts?.startAfterSeconds;
+      await boss.send(name, data, { db: txExecutor(tx), retryLimit: 5, retryBackoff: true, ...(startAfter === undefined ? {} : { startAfter }) });
     },
     async work(handlers) {
       for (const name of JOB_NAMES) {
@@ -111,12 +114,12 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
 }
 
 export function recordingJobs(): RecordingJobs {
-  const sent: { name: JobName; data: Record<string, string> }[] = [];
+  const sent: { name: JobName; data: Record<string, string>; startAfterSeconds?: number }[] = [];
   const done: boolean[] = [];
   return {
     sent,
-    async send(_tx, name, data) {
-      sent.push({ name, data: { ...data } });
+    async send(_tx, name, data, opts) {
+      sent.push(opts?.startAfterSeconds === undefined ? { name, data: { ...data } } : { name, data: { ...data }, startAfterSeconds: opts.startAfterSeconds });
       done.push(false);
     },
     async drain(handlers) {

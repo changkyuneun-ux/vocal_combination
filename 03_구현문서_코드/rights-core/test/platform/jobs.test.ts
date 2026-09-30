@@ -69,3 +69,25 @@ test("the server entry point passes env worker options to startBossJobs", () => 
   const main = readFileSync(fileURLToPath(new URL("../../src/http/main.ts", import.meta.url)), "utf8");
   assert.match(main, /startBossJobs\(url, workOptionsFromEnv\(process\.env\)\)/);
 });
+
+test("a delayed send is recorded with its delay and stored by pg-boss with a future start_after", async () => {
+  const rec = recordingJobs();
+  await db.tx((tx) => rec.send(tx, "poll-payout", { instructionId: "po_1", attempt: "1" }, { startAfterSeconds: 60 }));
+  assert.deepEqual(rec.sent, [{ name: "poll-payout", data: { instructionId: "po_1", attempt: "1" }, startAfterSeconds: 60 }]);
+  const boss = await startBossJobs((db.pool as any).options.connectionString);
+  try {
+    await db.tx((tx) => boss.send(tx, "poll-payout", { instructionId: "po_delay" }, { startAfterSeconds: 60 }));
+    await db.tx((tx) => boss.send(tx, "poll-payout", { instructionId: "po_now" }));
+    const r = await db.pool.query(
+      "SELECT data->>'instructionId' AS id, start_after > now() + interval '30 seconds' AS later FROM pgboss.job WHERE name = 'poll-payout' ORDER BY id");
+    assert.deepEqual(r.rows.map((x) => [x.id, x.later]), [["po_delay", true], ["po_now", false]]);
+  } finally {
+    await boss.stop();
+  }
+});
+
+test("the server entry point registers the payout job handlers with the RC_PSP-selected provider", () => {
+  const main = readFileSync(fileURLToPath(new URL("../../src/http/main.ts", import.meta.url)), "utf8");
+  assert.match(main, /providerFromEnv\(process\.env\)/);
+  assert.match(main, /payoutJobHandlers\(\{ db, clock: systemClock, jobs, provider \}\)/);
+});
