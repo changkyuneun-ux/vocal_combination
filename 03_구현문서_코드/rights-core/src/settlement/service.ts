@@ -19,8 +19,9 @@ export type BatchView = {
 
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-export async function releaseRunEvents(tx: Tx, runId: string): Promise<void> {
-  await tx.query("UPDATE settlement_run_event SET active = false WHERE run_id = $1 AND active", [runId]);
+/** run의 살아 있는 이벤트를 푼다(run이 이미 FAILED·VOIDED여야 한다, 0011 가드). 푼 이벤트 수를 돌려준다. */
+export async function releaseRunEvents(tx: Tx, runId: string): Promise<number> {
+  return (await tx.query("UPDATE settlement_run_event SET active = false WHERE run_id = $1 AND active", [runId])).rowCount ?? 0;
 }
 
 /**
@@ -76,20 +77,32 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       g.push({ eventId: c.event_id, net, refunded: BigInt(c.refunded), refundIds: c.refund_ids as string[] });
       groups.set(c.snapshot_id, g);
     }
-    const runs: string[] = [];
-    for (const snapshotId of [...groups.keys()].sort()) {
-      const runId = `run_${input.batchId}_${snapshotId}`;
-      await tx.query("INSERT INTO settlement_run (run_id, batch_id, snapshot_id, created_at) VALUES ($1,$2,$3,$4)", [runId, input.batchId, snapshotId, now]);
+    // 일괄 INSERT(통합 설계 11.2-13): run·run 이벤트·포함 환불을 각각 unnest 배열 한 문장으로 넣어 전역 배치 잠금 보유 시간을 줄인다.
+    const snapshots = [...groups.keys()].sort();
+    const runs = snapshots.map((snapshotId) => `run_${input.batchId}_${snapshotId}`);
+    const ev = { run: [] as string[], event: [] as string[], net: [] as string[], refunded: [] as string[] };
+    const rf = { run: [] as string[], event: [] as string[], refund: [] as string[] };
+    snapshots.forEach((snapshotId, i) => {
       for (const e of groups.get(snapshotId)!) {
-        await tx.query("INSERT INTO settlement_run_event (run_id, event_id, net_amount_krw, refunds_included_krw) VALUES ($1,$2,$3,$4)",
-          [runId, e.eventId, e.net.toString(), e.refunded.toString()]);
-        for (const refundId of e.refundIds) {
-          await tx.query("INSERT INTO settlement_run_event_refund (run_id, event_id, refund_event_id) VALUES ($1,$2,$3)", [runId, e.eventId, refundId]);
-        }
+        ev.run.push(runs[i]!); ev.event.push(e.eventId); ev.net.push(e.net.toString()); ev.refunded.push(e.refunded.toString());
+        for (const refundId of e.refundIds) { rf.run.push(runs[i]!); rf.event.push(e.eventId); rf.refund.push(refundId); }
       }
-      await d.jobs.send(tx, "settle-run", { runId });
-      runs.push(runId);
+    });
+    if (runs.length > 0) {
+      await tx.query(
+        `INSERT INTO settlement_run (run_id, batch_id, snapshot_id, created_at)
+         SELECT u.run_id, $2, u.snapshot_id, $3 FROM unnest($1::text[], $4::text[]) AS u(run_id, snapshot_id)`,
+        [runs, input.batchId, now, snapshots]);
+      await tx.query(
+        `INSERT INTO settlement_run_event (run_id, event_id, net_amount_krw, refunds_included_krw)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::bigint[], $4::bigint[])`,
+        [ev.run, ev.event, ev.net, ev.refunded]);
     }
+    if (rf.run.length > 0) {
+      await tx.query("INSERT INTO settlement_run_event_refund (run_id, event_id, refund_event_id) SELECT * FROM unnest($1::text[], $2::text[], $3::text[])",
+        [rf.run, rf.event, rf.refund]);
+    }
+    for (const runId of runs) await d.jobs.send(tx, "settle-run", { runId });
     await audit(tx, d.clock, { actor: actor.userId, action: "BATCH_CREATED", entityType: "settlement_batch", entityId: input.batchId, after: { runs: runs.length, skipped: skipped.length } });
     return { batchId: input.batchId, runs, skipped };
   });

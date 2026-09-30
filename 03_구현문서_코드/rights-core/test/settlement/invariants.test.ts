@@ -191,16 +191,24 @@ test("a reversal without its REVERSAL entry is listed as unposted", async () => 
 
 test("pool sums that disagree with run-event nets or refund amounts are listed", async () => {
   await rolledBack(async (tx, chk) => {
-    const run = (await tx.query("SELECT run_id, event_id FROM pool_line WHERE line_seq = 1 AND event_id = 'ev_c'")).rows[0];
-    await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw) VALUES ($1, $2, 'zzz', 1, 5)", [run.run_id, run.event_id]);
+    // 원 결과 라인은 run이 PENDING일 때만 들어가므로(INSERT 가드 11.2-12) 어긋난 run을 따로 만들고 run:<id> 분개를 붙인다.
+    const snap = (await tx.query("SELECT snapshot_id FROM settlement_run WHERE status = 'CONFIRMED' LIMIT 1")).rows[0].snapshot_id as string;
+    await tx.query("INSERT INTO settlement_batch (batch_id, period_start, period_end, executed_by, created_at) VALUES ('bat_ghost', $1, $2, 'usr_ops', $2)",
+      ["2026-11-01T00:00:00.000Z", "2026-12-01T00:00:00.000Z"]);
+    await tx.query("INSERT INTO settlement_run (run_id, batch_id, snapshot_id, created_at) VALUES ('run_ghost', 'bat_ghost', $1, '2026-12-01T00:00:00.000Z')", [snap]);
+    await tx.query(`INSERT INTO revenue_event (event_id, source_system, source_event_id, event_type, vc_id, net_amount_krw, currency, occurred_at, recorded_at)
+                    VALUES ('ev_ghost', 'app', 'ev_ghost', 'PURCHASE', 'vc_1', 1000, 'KRW', '2026-11-02T00:00:00.000Z', '2026-11-02T00:00:00.000Z')`);
+    await tx.query("INSERT INTO settlement_run_event (run_id, event_id, net_amount_krw, refunds_included_krw) VALUES ('run_ghost', 'ev_ghost', 1000, 0)");
+    await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw) VALUES ('run_ghost', 'ev_ghost', 'zzz', 1, 1005)");
+    await postEntry(tx, fixedClock(NOW, 0), { kind: "ADJUSTMENT", sourceRef: "run:run_ghost", createdBy: "usr_settle",
+      postings: [{ account: { kind: "RECEIVABLE" }, amount: 1n }, { account: { kind: "POOL_OPS" }, amount: -1n }] });
     const rv = (await tx.query("SELECT original_run_id, event_id, sequence FROM reversal_run WHERE reversal_id = 'rev_rf_c'")).rows[0];
     await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw, reversal_id) VALUES ($1, $2, 'zzz', $3, -2, 'rev_rf_c')",
       [rv.original_run_id, rv.event_id, rv.sequence + 1]);
     const r = await chk();
-    const net = (await tx.query("SELECT SUM(net_amount_krw)::text AS s FROM settlement_run_event WHERE run_id = $1", [run.run_id])).rows[0].s as string;
     assert.deepEqual(r.ledger.poolMismatches, [
       { kind: "REVERSAL", id: "rev_rf_c", expected: "-100000", actual: "-100002" },
-      { kind: "RUN", id: run.run_id, expected: net, actual: (BigInt(net) + 5n).toString() },
+      { kind: "RUN", id: "run_ghost", expected: "1000", actual: "1005" },
     ]);
   });
 });
