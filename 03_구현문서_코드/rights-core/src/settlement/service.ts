@@ -39,6 +39,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
     const candidates = (await tx.query(
       `SELECT e.event_id, e.event_type, e.integrity_status, e.net_amount_krw::text AS amount,
               COALESCE((SELECT SUM(r.net_amount_krw) FROM revenue_event r WHERE r.related_event_id = e.event_id), 0)::text AS refunded,
+              ARRAY(SELECT r.event_id FROM revenue_event r WHERE r.related_event_id = e.event_id ORDER BY r.event_id)::text[] AS refund_ids,
               s.snapshot_id, rs.pack_id, p.facts_scope_id
          FROM revenue_event e
          LEFT JOIN rights_snapshot rs ON rs.vc_id = e.vc_id
@@ -50,7 +51,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       [input.periodStart, input.periodEnd],
     )).rows;
     const skipped: { eventId: string; reason: string }[] = [];
-    const groups = new Map<string, { eventId: string; net: bigint; refunded: bigint }[]>();
+    const groups = new Map<string, { eventId: string; net: bigint; refunded: bigint; refundIds: string[] }[]>();
     const disputed = new Map<string, boolean>();
     for (const c of candidates) {
       const net = BigInt(c.amount) - BigInt(c.refunded);
@@ -67,7 +68,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
         continue;
       }
       const g = groups.get(c.snapshot_id) ?? [];
-      g.push({ eventId: c.event_id, net, refunded: BigInt(c.refunded) });
+      g.push({ eventId: c.event_id, net, refunded: BigInt(c.refunded), refundIds: c.refund_ids as string[] });
       groups.set(c.snapshot_id, g);
     }
     const runs: string[] = [];
@@ -77,6 +78,9 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       for (const e of groups.get(snapshotId)!) {
         await tx.query("INSERT INTO settlement_run_event (run_id, event_id, net_amount_krw, refunds_included_krw) VALUES ($1,$2,$3,$4)",
           [runId, e.eventId, e.net.toString(), e.refunded.toString()]);
+        for (const refundId of e.refundIds) {
+          await tx.query("INSERT INTO settlement_run_event_refund (run_id, event_id, refund_event_id) VALUES ($1,$2,$3)", [runId, e.eventId, refundId]);
+        }
       }
       await d.jobs.send(tx, "settle-run", { runId });
       runs.push(runId);

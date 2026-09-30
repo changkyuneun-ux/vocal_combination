@@ -83,3 +83,38 @@ test("reverse-event is idempotent per refund id", async () => {
   const after2 = await w.db.pool.query("SELECT count(*)::int AS n FROM allocation_line");
   assert.equal(after2.rows[0].n, before.rows[0].n);
 });
+
+test("a refund counted in the batch net is never reversed, even if its job runs after confirmation", async () => {
+  await purchase(w, "ev_e", "vc_1", "10000");
+  await refund("rf_e1", "ev_e", "1000");
+  await createBatch(d, w.users.ops, { batchId: "bat_race", ...P });
+  const h = jobHandlers(d);
+  await jobs.drain({ "settle-run": h["settle-run"], "verify-run": h["verify-run"] });
+  await confirmBatch(d, w.users.settle, "bat_race");
+  const inc = await w.db.pool.query("SELECT refund_event_id FROM settlement_run_event_refund WHERE event_id = 'ev_e'");
+  assert.deepEqual(inc.rows.map((r) => r.refund_event_id), ["rf_e1"]);
+  await refund("rf_e2", "ev_e", "500");
+  await jobs.drain(jobHandlers(d));
+  const rev = await w.db.pool.query("SELECT refund_event_id FROM reversal_run WHERE event_id = 'ev_e' ORDER BY sequence");
+  assert.deepEqual(rev.rows.map((r) => r.refund_event_id), ["rf_e2"]);
+  assert.equal(await net("ev_e"), 10000n - 1000n - 500n);
+  await reverseEventJob(d, { refundEventId: "rf_e1" });
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM reversal_run WHERE event_id = 'ev_e'")).rows[0].n, 1);
+});
+
+test("a reversal exceeding the settled amount is rejected, audited in its own transaction, and rethrown", async () => {
+  await purchase(w, "ev_f", "vc_1", "4000");
+  await createBatch(d, w.users.ops, { batchId: "bat_rej", ...P });
+  await jobs.drain(jobHandlers(d));
+  await confirmBatch(d, w.users.settle, "bat_rej");
+  // 수집 서비스의 누적 상한을 우회한(= 버그를 흉내 낸) 초과 환불 행.
+  await w.db.pool.query(
+    `INSERT INTO revenue_event (event_id, source_system, source_event_id, event_type, related_event_id, net_amount_krw, currency, occurred_at, recorded_at)
+     VALUES ('rf_f1','app','rf_f1','REFUND','ev_f',4001,'KRW','2026-03-10T00:00:00.000Z',$1)`, [w.clock.now()]);
+  await assert.rejects(reverseEventJob(d, { refundEventId: "rf_f1" }), (e: { code?: string }) => e.code === "REFUND_EXCEEDS_SETTLED");
+  const a = await w.db.pool.query("SELECT entity_id, after_json FROM audit_log WHERE action_name = 'REVERSAL_REJECTED'");
+  assert.equal(a.rows.length, 1);
+  assert.equal(a.rows[0].entity_id, "rf_f1");
+  assert.ok(JSON.stringify(a.rows[0].after_json).includes("REV_EXCEEDS_REMAINING"));
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM reversal_run WHERE event_id = 'ev_f'")).rows[0].n, 0);
+});

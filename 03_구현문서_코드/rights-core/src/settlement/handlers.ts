@@ -3,7 +3,9 @@ import type { JobHandler, JobName } from "../platform/jobs.ts";
 import { attest } from "../engine-bridge/attest.ts";
 import { evaluateRun, verifyRun, type RunEvent } from "../engine-bridge/settle.ts";
 import { reverseEvent } from "../engine-bridge/reverse.ts";
-import { refundedTotal, revenueRow } from "../revenue/service.ts";
+import { revenueRow } from "../revenue/service.ts";
+import { DomainError } from "../platform/errors.ts";
+import type { Tx } from "../platform/db.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
 const SETTLER = "sys_settler";
@@ -67,19 +69,20 @@ export async function verifyRunJob(d: SettleDeps, data: { runId: string }): Prom
 
 /**
  * refund-recorded(통합 설계 10.2-8): 원 이벤트가 살아 있는 run에 있으면 그 run을 잠근다.
- * 이미 이 환불까지 반영했으면 끝, 확정 전이면 VOIDED·이벤트 해제(다음 배치가 새 순액으로 평가), 확정이면 reverse-event.
+ * 이 환불 id가 run의 순액에 포함돼 있으면 끝(합계 비교가 아니라 id로 판단 — 지연된 작업이 이중 반영하지 않도록),
+ * 확정 전이면 VOIDED·이벤트 해제(다음 배치가 새 순액으로 평가), 확정이면 reverse-event.
  */
 export async function refundRecorded(d: SettleDeps, data: { refundEventId: string }): Promise<void> {
   await d.db.tx(async (tx) => {
     const refund = await revenueRow(tx, data.refundEventId);
     const original = refund.relatedEventId!;
     const live = (await tx.query(
-      "SELECT r.run_id, r.status, x.refunds_included_krw::text AS inc FROM settlement_run_event x JOIN settlement_run r ON r.run_id = x.run_id WHERE x.event_id = $1 AND x.active",
+      "SELECT x.run_id FROM settlement_run_event x WHERE x.event_id = $1 AND x.active",
       [original],
     )).rows[0];
     if (live === undefined) return;
     const run = (await tx.query("SELECT status FROM settlement_run WHERE run_id = $1 FOR UPDATE", [live.run_id])).rows[0];
-    if (BigInt(live.inc) >= (await refundedTotal(tx, original))) return;
+    if (await includedInNet(tx, live.run_id, original, data.refundEventId)) return;
     if (run.status === "CONFIRMED") {
       await d.jobs.send(tx, "reverse-event", { refundEventId: data.refundEventId });
       return;
@@ -93,6 +96,26 @@ export async function refundRecorded(d: SettleDeps, data: { refundEventId: strin
 
 /** reverse-event(통합 설계 10.2-9): 환불 id로 멱등, 원 이벤트 행을 잠가 직렬화, 이전 역분개를 빠짐없이 넘긴다. */
 export async function reverseEventJob(d: SettleDeps, data: { refundEventId: string }): Promise<void> {
+  try {
+    await reverseInTx(d, data);
+  } catch (e) {
+    // 정산액 초과는 (id 기반 포함 판단 이후에는) 버그 신호다. 롤백과 무관하게 운영자가 보도록 별도 트랜잭션으로 감사에 남긴다.
+    if (e instanceof DomainError && e.code === "REFUND_EXCEEDS_SETTLED") {
+      await d.db.tx((tx) => audit(tx, d.clock, {
+        actor: SETTLER, action: "REVERSAL_REJECTED", entityType: "revenue_event", entityId: data.refundEventId, after: { code: e.code, diagnostics: e.diagnostics },
+      }));
+    }
+    throw e;
+  }
+}
+
+/** 환불 id가 run 이벤트의 순액에 이미 포함됐는지(배치 생성 시 기록한 id 목록). */
+async function includedInNet(tx: Tx, runId: string, eventId: string, refundEventId: string): Promise<boolean> {
+  const r = await tx.query("SELECT 1 FROM settlement_run_event_refund WHERE run_id = $1 AND event_id = $2 AND refund_event_id = $3", [runId, eventId, refundEventId]);
+  return (r.rowCount ?? 0) > 0;
+}
+
+async function reverseInTx(d: SettleDeps, data: { refundEventId: string }): Promise<void> {
   await d.db.tx(async (tx) => {
     const refund = await revenueRow(tx, data.refundEventId);
     const original = refund.relatedEventId!;
@@ -103,6 +126,7 @@ export async function reverseEventJob(d: SettleDeps, data: { refundEventId: stri
     if (x === undefined) return;
     const done = await tx.query("SELECT 1 FROM reversal_run WHERE refund_event_id = $1", [data.refundEventId]);
     if ((done.rowCount ?? 0) > 0) return;
+    if (await includedInNet(tx, x.run_id, original, data.refundEventId)) return;
     const reversalId = `rev_${data.refundEventId}`;
     const r = await reverseEvent(d.ctx, tx, { originalRunId: x.run_id, eventId: original, refundEventId: data.refundEventId, amount: BigInt(refund.amountKrw), reversalId });
     await tx.query(
