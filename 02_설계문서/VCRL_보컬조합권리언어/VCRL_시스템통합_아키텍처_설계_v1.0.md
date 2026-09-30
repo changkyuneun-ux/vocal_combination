@@ -609,3 +609,36 @@ I-2a 최종 리뷰에서 I-2b로 넘긴 항목이다.
 7. **운영 마이그레이션·pg-boss 설치 스크립트**: 지금은 테스트 템플릿 DB를 만들 때만 마이그레이션과 pg-boss 스키마 설치(`installJobSchema`)를 돌린다. 운영 DB용 마이그레이션 실행·pg-boss 스키마 설치·`rc_app` 권한 부여 스크립트가 필요하다.
 8. **커넥션 풀과 워커 동시 수**: 워커 기본값(배치 20·동시 4, 큐 4개 → 최대 16 핸들러)이 DB 풀(`max: 10`)을 HTTP·Outbox와 나눠 쓴다. 풀 크기를 환경 변수로 받거나 워커 동시 수에 맞춘다.
 9. **어댑터 연결 순서**: 정정(revision)을 보내는 실제 결제 어댑터는 6번(대체 규칙) 이후에 붙인다(그 전에는 `REVISION_UNSUPPORTED`로 계속 거부된다).
+
+---
+
+## 11. I-2b 원장·지급 설계 결정 (2026-09-30)
+
+### 11.1 범위
+
+- 포함: 복식 원장(분개·전기, 확정 배치·역분개 반영), 보류 해제, 지급 지시(최소지급 이월·초기 지급 보류·원천징수), 지급 사업자(PSP) 연동 인터페이스와 가짜 어댑터(멱등 전송·결과 불명 재조회·webhook inbox), 권리자 명세 API, 발행 사전 검사와 발행 봉인 격리, 10.5 선행 과제(1 운영자 run 무효화·재큐잉, 3 미반영 환불 점검, 4 배치 일괄 INSERT, 5 INSERT 경로 가드, 6 `source_revision` 대체, 7 운영 마이그레이션·pg-boss 설치 스크립트, 8 DB 풀 크기).
+- 제외: 실제 PSP·은행 연동과 계약, 세무 신고 파일, 다통화, 매출 채권의 대금 회수(collection) 대사, KMS·DB 차원 직무 분리·Outbox 재시도·봉인 조회 인증(I-2c), 10.5-9(어댑터 연결은 실제 어댑터 도입 때).
+
+### 11.2 결정
+
+1. **정산 불가 조합(제품 결정)**: 발행 트랜잭션에서 활성 정책과 발행 봉인으로 가상 이벤트(정책 범위의 첫 이벤트 유형, 금액 1,000,000)를 vcrl `evaluate`로 미리 평가해 진단이 나오면 422 `ISSUE_NOT_SETTLEABLE`로 발행을 거부한다(트랜잭션 롤백). 이미 발행된 조합의 run이 엔진 진단으로 `FAILED`가 되면 그 발행 봉인을 **격리**(`quarantine`)하고, 이후 배치는 그 봉인의 이벤트를 `ENGINE_FAILED`로 건너뛴다. 운영자(`SPACE_SETTLE`)가 격리를 해제하면 다시 후보가 된다. 봉인된 입력에 대한 엔진 진단은 결정적이므로 재평가해도 같은 결과다.
+2. **복식 원장**: 계정(`ledger_account`) 종류 `RECEIVABLE`, `POOL_PLATFORM`, `POOL_OPS`, `POOL_FAN`, `POOL_OTHER`, `PARTY_PAYABLE`(권리자별), `HOLD`(사유별), `WITHHOLDING_TAX`, `PSP_CLEARING`, `CASH`. 금액 부호는 차변 +, 대변 −. 분개(`journal_entry`) 하나의 전기(`posting`) 합은 0이어야 하며 커밋 시점 지연 제약 트리거로 강제한다. 분개는 `source_ref` UNIQUE로 멱등이고 추가만 허용한다. 잔액은 전기의 합이다(부채 계정의 잔액은 −합).
+3. **tier1 버킷 → 계정**: 권리 풀 버킷(`policy.body.tier1.rights`)은 라인·보류로 내려가므로 계정이 없다. 나머지는 `platform → POOL_PLATFORM`, `ops → POOL_OPS`, `fan → POOL_FAN`, 그 밖의 이름 → `POOL_OTHER`(계정 이름에 버킷 이름).
+4. **원장 반영**: 배치 확정 트랜잭션이 `post-batch` 작업을 보내고, 처리기는 확정 run마다 분개 하나(`SETTLEMENT`, `source_ref = run:<run_id>`)를 쓴다. 이벤트마다 `RECEIVABLE +순매출`, 비권리 풀 `−금액`, 라인 `PARTY_PAYABLE(party) −금액`, 보류 `HOLD(reason) −금액`. 역분개는 `reverse-event` 트랜잭션 안에서 반대 부호 분개(`REVERSAL`, `source_ref = rev:<reversal_id>`)를 함께 쓴다.
+5. **보류 해제**(`SPACE_SETTLE`): 운영자가 권리자별 배분(합 = 보류액)을 지정해 해제한다. `FRAUD_REVIEW`는 봉인 입력으로 무결성 `CLEAR`를 가정해 다시 평가한 배분을 제안하는 조회 API를 둔다(제안일 뿐 적용은 운영자). 분개 `HOLD_RELEASE`: `HOLD(reason) +보류액`, `PARTY_PAYABLE(p) −배분`. 보류 하나는 한 번만 해제된다. **해제된 보류를 나중에 역분개**하면 보류 계정 대신 해제 배분 비율(최대 잔여법, 동률 party_id 오름차순)로 해당 권리자 미지급금에서 뺀다.
+6. **지급 지시**(`payout-run`, 운영자가 기준 시각을 지정): 권리자별 미지급금 잔액이 지급 대상액이다(이월은 잔액에 자연히 남는다). 다음이면 지시를 `CARRIED`(최소 지급액 미만·잔액 0 이하) 또는 `HELD`(첫 지급 가능 시각 + 초기 보류 일수 이전, 계좌 없음, KYC 미확인)로 남기고 분개하지 않는다. 지급할 때 원천징수 = ⌊총액 × 세율 bps / 10000 / 10⌋ × 10(10원 미만 절사), 분개 `PAYOUT`: `PARTY_PAYABLE +총액`, `WITHHOLDING_TAX −원천세`, `PSP_CLEARING −실지급액`. 기본 정책: 최소 지급액 10,000원, 초기 보류 30일, 세율 `DOMESTIC_INDIVIDUAL 330`·`DOMESTIC_CORP 0`·`FOREIGN 2200`·`EXEMPT 0` bps(설정 가능, **운영 전 세무 확인 필요**).
+7. **PSP**: `PayoutProvider { submit(instruction, idempotencyKey) → ACCEPTED|PAID|FAILED|UNKNOWN; status(providerRef) }`. 지급 지시의 멱등 키는 `payout:<instruction_id>`. `submit-payout` 작업이 전송하고, `UNKNOWN`이면 새로 보내지 않고 `poll-payout`을 지연 전송해 재조회한다. webhook은 `psp_webhook_inbox`(`provider_event_id` UNIQUE)에 저장하고 `apply-psp-result`로 처리한다. `PAID` → 분개 `PAYOUT_SETTLED`(`PSP_CLEARING +실지급액`, `CASH −실지급액`), `FAILED` → 분개 `PAYOUT_FAILED`(`PAYOUT` 분개의 반대). 결과 적용은 지시 상태 전이 가드로 한 번만 일어난다. 가짜 어댑터는 금액·키에 따라 성공·실패·불명을 결정적으로 흉내 낸다.
+8. **명세**: `GET /parties/:id/statements?from&to` — 기간 시작 잔액, 발생(정산), 역분개, 보류 해제 수령, 지급(총액·원천세·실지급), 지급 실패 복원, 기간 끝 잔액. 모두 전기에서 계산한다.
+9. **운영자 run 조작**(`SPACE_SETTLE`): `POST /runs/:id/void`(`PENDING`·`CALCULATED`·`VERIFIED` → `VOIDED`, 이벤트 해제), `POST /runs/:id/requeue`(`PENDING` → `settle-run`, `CALCULATED` → `verify-run` 재전송).
+10. **점검 API**: `GET /settlement/invariants` — (a) 반영되지 않은 환불(원 이벤트가 살아 있는 `CONFIRMED` run에 있는데 포함 환불 목록에도 역분개에도 없는 환불), (b) 원장 불변식(분개 합 0, `RECEIVABLE` 잔액 = 확정 순매출 − 역분개, 권리 풀 = 미지급금 + 보류 + 원천세 + PSP 정산 중 + 현금 − 비권리 풀 제외분), (c) 오래 멈춘 run(`PENDING`·`CALCULATED`가 기준 시간 초과).
+11. **`source_revision` 대체**: 새 revision은 같은 유형·같은 `vc_id`여야 하고, 이전 revision에 환불이 있으면 422 `REVISION_HAS_REFUNDS`. 기록 시 `revenue_supersede(old, new)`를 남기고 `revision-recorded` 작업을 보낸다. 처리: 이전 revision이 살아 있는 run에 없으면 없음(배치는 대체된 이벤트를 후보에서 뺀다), 확정 전 run이면 run 무효화, 확정 run이면 이전 revision의 남은 정산액 전액을 `CORRECTION` 역분개(역분개 식별 이벤트 = 새 revision)하고 새 revision은 다음 배치에서 정산된다. 10.2-2의 `REVISION_UNSUPPORTED`는 이 규칙으로 대체한다.
+12. **INSERT 경로 가드**: `settlement_batch`는 `OPEN`으로만, `settlement_run`은 `PENDING`·디지스트·검증 필드 NULL·배치 `OPEN`일 때만, `settlement_run_event`는 run이 `PENDING`일 때만, `line_seq = 1` 라인·보류는 run이 `PENDING`일 때만, `line_seq > 1`은 run이 `CONFIRMED`일 때만 INSERT된다.
+13. **배치 일괄 INSERT**: run·run 이벤트·포함 환불을 `unnest` 배열로 한 번에 넣어 전역 배치 잠금 보유 시간을 줄인다.
+14. **운영 스크립트·설정**: `npm run migrate`(소유자 역할로 마이그레이션, pg-boss 스키마 설치·큐 생성, `rc_app` 권한), DB 풀 크기 `RC_DB_POOL_MAX`(기본 20). 템플릿 DB 해시에 작업 이름 목록을 넣는다(큐가 템플릿에서 생성되므로).
+
+### 11.3 완료 기준
+
+- 원장: 모든 분개 합 0, 확정·역분개·해제·지급·성공·실패가 올바른 계정에 전기, `source_ref` 멱등.
+- 보류 해제·해제 후 역분개, 지급(최소액 이월, 초기 보류, 원천징수 절사, 음수 잔액 이월, 멱등 재전송, webhook 중복, 불명 → 재조회, 실패 복원), 명세 합계 = 전기 합계.
+- 사전 검사: 정산 불가 조합 발행 422. 격리: 이후 배치 건너뜀, 해제 후 재대상.
+- 선행 과제 각각의 테스트. 시나리오: 3만 건 정산 뒤 원장 반영·보류 일부 해제·지급(가짜 PSP 성공·실패·불명 섞음) → 원장 불변식과 명세 합계 대조, 처리 시간 리포트.
