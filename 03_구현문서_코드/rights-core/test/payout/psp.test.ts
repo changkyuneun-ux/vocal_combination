@@ -79,6 +79,10 @@ test("fake provider is deterministic by amount and idempotency key and records e
   assert.deepEqual(f.webhook("k1"), { providerEventId: "evt_k1", providerRef: ok.providerRef, status: "PAID" });
   assert.equal(f.webhook("k2").status, "FAILED");
   assert.throws(() => f.webhook("never"));
+  // 같은 멱등 키를 다른 금액·계좌로 다시 쓰면 거부한다(호출은 기록된다).
+  await assert.rejects(f.submit(i(10_001n), "k1"), /idempotency key k1/);
+  await assert.rejects(f.submit({ ...i(10_000n), accountRef: "other" }, "k1"), /idempotency key k1/);
+  f.calls.splice(-2);
   assert.deepEqual(f.calls.map((c) => `${c.op} ${c.key}`), ["submit k1", "submit k1", "status k1", "submit k2", "status k2", "submit k3", "status k3", "status never"]);
 });
 
@@ -277,6 +281,92 @@ test("a payout the provider never settles stops polling after 10 attempts with a
   assert.deepEqual(await entries(id), [`PAYOUT payout:${id}`]);
 });
 
+const instrRun = async (p: PayoutDeps, partyId: string, gross: bigint) => {
+  const runId = `psp-${++runSeq}`;
+  await adjust(`adj:${runId}`, partyId, gross);
+  await createPayoutRun(p, w.users.settle, { payoutRunId: runId, asOf: clock.now() });
+  return `po_${runId}_${partyId}`;
+};
+const marker = async (id: string) => (await w.db.pool.query(
+  "SELECT submit_attempted_at IS NOT NULL AS attempted, submit_unknown_at IS NOT NULL AS unknown FROM payout_instruction WHERE instruction_id = $1", [id])).rows[0];
+const auditCount = async (action: string, id: string) => (await w.db.pool.query(
+  "SELECT count(*)::int AS n FROM audit_log WHERE action_name = $1 AND entity_id = $2", [action, id])).rows[0].n as number;
+
+test("a submit that reached the PSP before a crash is never failed locally after the token is cleared: the retry polls and pays once", async () => {
+  const f = fakeProvider();
+  let crash = true;
+  const crashing: PayoutProvider = {
+    submit: async (i, k) => { const r = await f.submit(i, k); if (crash) throw new Error("worker crashed after the PSP accepted"); return r; },
+    status: (ref, k) => f.status(ref, k),
+  };
+  const jobs = recordingJobs();
+  const p: PayoutDeps = { db: w.db, clock, jobs, provider: crashing };
+  const g = findGross(150_000n, (x) => plain(net(x, 330)));
+  const id = await instrRun(p, "pty_member_a", g);
+  await assert.rejects(submitPayout(p, { instructionId: id }), /crashed/);
+  assert.equal((await instr(id)).status, "PENDING");
+  assert.deepEqual(await marker(id), { attempted: true, unknown: false }, "the attempt marker was committed before the PSP call");
+  // 운영자가 계좌 토큰을 지운 뒤 작업이 재시도된다(기록용 큐의 submit-payout).
+  await profile("pty_member_a", "DOMESTIC_INDIVIDUAL", null);
+  crash = false;
+  await jobs.drain(payoutJobHandlers(p));
+  assert.equal((await instr(id)).status, "PAID");
+  assert.deepEqual(await entries(id), [`PAYOUT payout:${id}`, `PAYOUT_SETTLED settled:${id}`], "no PAYOUT_FAILED");
+  assert.deepEqual(f.calls.map((c) => c.op), ["submit", "status"], "the retry re-queries by idempotency key instead of resending");
+  assert.equal(await payable("pty_member_a"), 0n);
+  await profile("pty_member_a", "DOMESTIC_INDIVIDUAL");
+  assert.equal(await trialSum(), 0n);
+});
+
+test("a status call that throws counts as UNKNOWN and polling continues", async () => {
+  const f = fakeProvider();
+  let throwsLeft = 2;
+  const flaky: PayoutProvider = {
+    submit: (i, k) => f.submit(i, k),
+    status: async (ref, k) => { if (throwsLeft-- > 0) throw new Error("psp timeout"); return f.status(ref, k); },
+  };
+  const jobs = recordingJobs();
+  const p: PayoutDeps = { db: w.db, clock, jobs, provider: flaky };
+  const id = await instrRun(p, "pty_label", findGross(150_000n, plain));
+  await jobs.drain(payoutJobHandlers(p));
+  assert.equal((await instr(id)).status, "PAID");
+  assert.deepEqual(jobs.sent.filter((j) => j.name === "poll-payout").map((j) => j.data.attempt), ["1", "2", "3"]);
+  assert.deepEqual(await entries(id), [`PAYOUT payout:${id}`, `PAYOUT_SETTLED settled:${id}`]);
+});
+
+test("a provider ref different from the stored one is audited, the stored ref is kept, and other-ref webhooks are not forwarded", async () => {
+  const f = fakeProvider();
+  const odd: PayoutProvider = { submit: (i, k) => f.submit(i, k), status: async () => ({ status: "PAID", providerRef: "other_ref" }) };
+  const jobs = recordingJobs();
+  const p: PayoutDeps = { db: w.db, clock, jobs, provider: odd };
+  const id = await instrRun(p, "pty_agency", findGross(150_000n, plain));
+  await submitPayout(p, { instructionId: id });
+  const ref = (await instr(id)).provider_ref;
+  assert.equal(ref, f.webhook(`payout:${id}`).providerRef);
+  assert.deepEqual(await w.db.tx((tx) => recordWebhook(tx, clock, jobs, { providerEventId: "evt_other", providerRef: "other_ref", status: "PAID", payload: {} })), { created: true });
+  await pollPayout(p, { instructionId: id });
+  const s = await instr(id);
+  assert.deepEqual([s.status, s.provider_ref], ["PAID", ref]);
+  assert.equal(await auditCount("PAYOUT_REF_MISMATCH", id), 1);
+  assert.equal(jobs.sent.filter((j) => j.name === "apply-psp-result").length, 0);
+  assert.equal((await w.db.pool.query("SELECT processed_at FROM psp_webhook_inbox WHERE provider_event_id = 'evt_other'")).rows[0].processed_at, null);
+});
+
+test("reaching a final state marks the instruction's unprocessed webhooks processed", async () => {
+  const e = env();
+  const id = await instrRun(e.p, "pty_author_c", findGross(150_000n, plain));
+  await submitPayout(e.p, { instructionId: id });
+  const hook = e.provider.webhook(`payout:${id}`);
+  await w.db.tx((tx) => recordWebhook(tx, clock, e.jobs, { ...hook, payload: {} }));
+  await pollPayout(e.p, { instructionId: id });
+  assert.equal((await instr(id)).status, "PAID");
+  assert.ok((await w.db.pool.query("SELECT processed_at FROM psp_webhook_inbox WHERE provider_event_id = $1", [hook.providerEventId])).rows[0].processed_at);
+  await e.jobs.drain(payoutJobHandlers(e.p));
+  assert.deepEqual(await entries(id), [`PAYOUT payout:${id}`, `PAYOUT_SETTLED settled:${id}`]);
+  assert.equal(await auditCount("PAYOUT_RESULT_CONFLICT", id), 0);
+  assert.equal(await trialSum(), 0n);
+});
+
 test("a payout whose account token was removed after the run fails without calling the provider", async () => {
   const e = env();
   const g = findGross(150_000n, plain);
@@ -288,6 +378,7 @@ test("a payout whose account token was removed after the run fails without calli
   await e.jobs.drain(payoutJobHandlers(e.p));
   assert.equal((await instr(id)).status, "FAILED");
   assert.deepEqual(ops(e), []);
+  assert.deepEqual(await marker(id), { attempted: false, unknown: false }, "never sent, so a local failure is safe");
   assert.equal(await payable("pty_cmo"), -g);
   await profile("pty_cmo", "EXEMPT");
   assert.equal(await trialSum(), 0n);

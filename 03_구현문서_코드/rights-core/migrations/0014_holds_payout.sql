@@ -57,7 +57,9 @@ CREATE TABLE payout_instruction (
   idempotency_key  TEXT NOT NULL UNIQUE,
   provider_ref     TEXT NULL,
   entry_id         BIGINT NULL REFERENCES journal_entry,
-  settled_entry_id BIGINT NULL REFERENCES journal_entry,
+  settled_entry_id BIGINT NULL REFERENCES journal_entry,   -- 결과 분개: PAID면 PAYOUT_SETTLED, FAILED면 PAYOUT_FAILED
+  submit_attempted_at TIMESTAMPTZ NULL CHECK (submit_attempted_at = date_trunc('milliseconds', submit_attempted_at)), -- PSP 전송 직전에 커밋(이후 로컬 실패 금지)
+  submit_unknown_at   TIMESTAMPTZ NULL CHECK (submit_unknown_at = date_trunc('milliseconds', submit_unknown_at)),     -- submit 결과 불명(poll-payout이 재조회 중)
   created_at       TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
   UNIQUE (payout_run_id, party_id),
   CHECK (net_krw = gross_krw - withholding_krw),
@@ -76,7 +78,7 @@ BEGIN
 END $$;
 
 -- 지시: PENDING → SUBMITTED|PAID|FAILED, SUBMITTED → PAID|FAILED. CARRIED·HELD는 어떤 변경도 없고, PAID·FAILED는 끝 상태.
--- provider_ref·settled_entry_id는 NULL → 값 한 번만. 그 밖의 열은 바꾸지 않는다.
+-- provider_ref·settled_entry_id·submit_attempted_at·submit_unknown_at은 NULL → 값 한 번만. 그 밖의 열은 바꾸지 않는다.
 CREATE FUNCTION rc_payout_instruction_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF OLD.status IN ('CARRIED','HELD') THEN
@@ -88,12 +90,14 @@ BEGIN
     RAISE EXCEPTION 'payout_instruction %: status % -> % rejected', OLD.instruction_id, OLD.status, NEW.status USING ERRCODE = 'RC001';
   END IF;
   IF (OLD.provider_ref IS NOT NULL AND NEW.provider_ref IS DISTINCT FROM OLD.provider_ref)
-     OR (OLD.settled_entry_id IS NOT NULL AND NEW.settled_entry_id IS DISTINCT FROM OLD.settled_entry_id) THEN
-    RAISE EXCEPTION 'payout_instruction %: provider_ref and settled_entry_id are write-once', OLD.instruction_id USING ERRCODE = 'RC001';
+     OR (OLD.settled_entry_id IS NOT NULL AND NEW.settled_entry_id IS DISTINCT FROM OLD.settled_entry_id)
+     OR (OLD.submit_attempted_at IS NOT NULL AND NEW.submit_attempted_at IS DISTINCT FROM OLD.submit_attempted_at)
+     OR (OLD.submit_unknown_at IS NOT NULL AND NEW.submit_unknown_at IS DISTINCT FROM OLD.submit_unknown_at) THEN
+    RAISE EXCEPTION 'payout_instruction %: provider_ref, settled_entry_id, submit_attempted_at and submit_unknown_at are write-once', OLD.instruction_id USING ERRCODE = 'RC001';
   END IF;
-  IF (to_jsonb(NEW) - ARRAY['status','provider_ref','settled_entry_id'])
-     <> (to_jsonb(OLD) - ARRAY['status','provider_ref','settled_entry_id']) THEN
-    RAISE EXCEPTION 'payout_instruction %: only status, provider_ref and settled_entry_id may change', OLD.instruction_id USING ERRCODE = 'RC001';
+  IF (to_jsonb(NEW) - ARRAY['status','provider_ref','settled_entry_id','submit_attempted_at','submit_unknown_at'])
+     <> (to_jsonb(OLD) - ARRAY['status','provider_ref','settled_entry_id','submit_attempted_at','submit_unknown_at']) THEN
+    RAISE EXCEPTION 'payout_instruction %: only status, provider_ref, settled_entry_id, submit_attempted_at and submit_unknown_at may change', OLD.instruction_id USING ERRCODE = 'RC001';
   END IF;
   RETURN NEW;
 END $$;
@@ -107,7 +111,8 @@ CREATE TRIGGER payout_instruction_no_delete BEFORE DELETE ON payout_instruction 
 
 GRANT SELECT, INSERT ON party_payout_profile, payout_run, payout_instruction TO rc_app;
 GRANT UPDATE (tax_type, payout_account_ref, kyc_verified, updated_at) ON party_payout_profile TO rc_app;
-GRANT UPDATE (status, provider_ref, settled_entry_id) ON payout_instruction TO rc_app;
+GRANT UPDATE (status, provider_ref, settled_entry_id, submit_attempted_at, submit_unknown_at) ON payout_instruction TO rc_app;
+COMMENT ON COLUMN payout_instruction.settled_entry_id IS 'result entry: PAYOUT_SETTLED when PAID, PAYOUT_FAILED when FAILED';
 GRANT SELECT ON payout_policy TO rc_app;
 
 -- 지급 결과(통합 설계 11.2-7): provider_ref는 한 지시에만 속한다(webhook이 지시를 찾는 열).
