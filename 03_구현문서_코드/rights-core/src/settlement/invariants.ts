@@ -13,7 +13,7 @@ export type InvariantReport = {
     unpostedReversals: string[];
     /**
      * 정산 행 자체의 풀 합 검사(RECEIVABLE 대조의 독립 근거): 분개된 run마다 Σ run 이벤트 순액 = Σ 풀 라인(line_seq = 1),
-     * 분개된 역분개마다 Σ 풀 라인 = −(식별 환불 이벤트 금액). 어긋난 것만 나열한다.
+     * 분개된 역분개마다 Σ 풀 라인 = −(식별 환불 이벤트 금액), CORRECTION(식별 이벤트가 새 revision)이면 −(남은 정산액 전액). 어긋난 것만 나열한다.
      */
     poolMismatches: { kind: "RUN" | "REVERSAL"; id: string; expected: string; actual: string }[];
     /** 비교한 양쪽 값(진단용): RECEIVABLE 잔액과 정산 쪽 합, 권리 쪽 계정 전기 합과 −(권리 풀 라인 합). */
@@ -95,9 +95,9 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
     `SELECT reversal_id FROM reversal_run v
       WHERE NOT EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id) ORDER BY reversal_id`)).rows.map((x) => x.reversal_id as string);
 
-  // 역분개의 기대 풀 합은 식별 환불 이벤트 금액의 음수다(reverse-event는 환불 금액 그대로 역분개하고, 초과면 거부한다).
-  // Task 8의 CORRECTION 역분개는 식별 이벤트가 새 revision이고 금액이 이전 revision의 남은 정산액 전액이므로, 그때는
-  // 사유별로 나눠 CORRECTION은 기대값을 "원 run 이벤트 순액 + 그 이벤트의 앞선 역분개 풀 합"의 음수(남은 정산액 전액)로 계산해야 한다.
+  // 역분개의 기대 풀 합은 사유별로 다르다. 식별 이벤트가 환불이면(REFUND) 환불 금액의 음수다(reverse-event는 환불 금액 그대로
+  // 역분개하고, 초과면 거부한다). 식별 이벤트가 새 revision이면(CORRECTION, 11.2-11) 이전 revision의 남은 정산액 전액이므로
+  // −(원 run 이벤트 순액 + 그 이벤트의 앞선(sequence가 작은) 역분개 풀 합)이다.
   const mismatches = (await tx.query(
     `WITH posted_run AS (
        SELECT r.run_id FROM settlement_run r WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'run:' || r.run_id)
@@ -108,10 +108,16 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
        LEFT JOIN (SELECT run_id, SUM(amount_krw) AS pool FROM pool_line WHERE line_seq = 1 GROUP BY run_id) l USING (run_id)
       WHERE n.net <> COALESCE(l.pool, 0)
      UNION ALL
-     SELECT 'REVERSAL', v.reversal_id, (-e.net_amount_krw)::text, COALESCE(l.pool, 0)::text
-       FROM reversal_run v JOIN revenue_event e ON e.event_id = v.refund_event_id
-       LEFT JOIN (SELECT reversal_id, SUM(amount_krw) AS pool FROM pool_line WHERE reversal_id IS NOT NULL GROUP BY reversal_id) l USING (reversal_id)
-      WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id) AND -e.net_amount_krw <> COALESCE(l.pool, 0)
+     SELECT 'REVERSAL', t.reversal_id, t.expected::text, t.actual::text FROM (
+       SELECT v.reversal_id, COALESCE(l.pool, 0) AS actual,
+              CASE WHEN e.event_type = 'REFUND' THEN -e.net_amount_krw
+                   ELSE -(x.net_amount_krw + COALESCE((SELECT SUM(pl.amount_krw) FROM pool_line pl JOIN reversal_run pv ON pv.reversal_id = pl.reversal_id
+                            WHERE pv.original_run_id = v.original_run_id AND pv.event_id = v.event_id AND pv.sequence < v.sequence), 0)) END AS expected
+         FROM reversal_run v JOIN revenue_event e ON e.event_id = v.refund_event_id
+         JOIN settlement_run_event x ON x.run_id = v.original_run_id AND x.event_id = v.event_id
+         LEFT JOIN (SELECT reversal_id, SUM(amount_krw) AS pool FROM pool_line WHERE reversal_id IS NOT NULL GROUP BY reversal_id) l USING (reversal_id)
+        WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id)
+     ) t WHERE t.expected <> t.actual
      ORDER BY 1, 2`)).rows.map((x) => ({ kind: x.kind as "RUN" | "REVERSAL", id: x.id as string, expected: x.expected as string, actual: x.actual as string }));
 
   const ledgerSide = (await tx.query(

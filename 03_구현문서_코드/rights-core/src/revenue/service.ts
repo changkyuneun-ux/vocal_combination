@@ -14,6 +14,9 @@ export type RevenueRow = RevenueInput & { sourceRevision: number; integrity: "CL
 export type RefundHook = (tx: Tx, refundEventId: string) => Promise<void>;
 /** 환불 후속 작업이 필요 없는 호출자를 위한 명시적 no-op. */
 export const noRefundHook: RefundHook = async () => {};
+export type RevisionHook = (tx: Tx, newEventId: string) => Promise<void>;
+/** 대체 후속 작업이 필요 없는 호출자를 위한 명시적 no-op. */
+export const noRevisionHook: RevisionHook = async () => {};
 
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const AMOUNT = /^[1-9]\d*$/;
@@ -67,14 +70,20 @@ const samePayload = (a: RevenueRow, b: RevenueInput) =>
   a.occurredAt === b.occurredAt && a.integrity === (b.integrity ?? "CLEAR") && a.vcId === b.vcId && a.relatedEventId === b.relatedEventId;
 
 /**
- * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409, 같은 source 이벤트의 다른 revision이면 422 REVISION_UNSUPPORTED.
- * 환불은 배치 잠금(SHARED)을 잡고, 원 이벤트별 advisory lock으로 직렬화하고 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
+ * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409.
+ * source_revision 대체(11.2-11): 같은 source 이벤트의 더 높은 revision은 최신 revision을 대체한다 — 같은 유형·같은 vc_id(422 REVISION_MISMATCH,
+ * 환불의 revision은 받지 않는다), 최신 revision에 환불이 없어야 한다(422 REVISION_HAS_REFUNDS). 낮거나 같은 번호의 새 revision은 422 REVISION_OUT_OF_ORDER.
+ * 새로 기록된 대체에만 revenue_supersede를 남기고 onRevision을 호출한다.
+ * 환불은 배치 잠금(SHARED)을 잡고, 원 이벤트별 advisory lock으로 직렬화하고, 대체된 원 이벤트는 거부(422 EVENT_SUPERSEDED)하고,
+ * 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
  */
-export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund: RefundHook): Promise<{ eventId: string; created: boolean }> {
+export async function ingestRevenue(
+  tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund: RefundHook, onRevision: RevisionHook,
+): Promise<{ eventId: string; created: boolean }> {
   requireRole(actor, "SYSTEM");
   validate(input);
   const revision = input.sourceRevision ?? 1;
-  // 잠금은 revision을 뺀 source 키로 잡는다: 같은 source 이벤트의 다른 revision 동시 수집도 직렬화해야 아래 거부가 성립한다.
+  // 잠금은 revision을 뺀 source 키로 잡는다: 같은 source 이벤트의 다른 revision 동시 수집도 직렬화해야 아래 판단이 성립한다.
   await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('rev:' || $1, 0))", [JSON.stringify([input.sourceSystem, input.sourceEventId])]);
   const recorded = (await tx.query(
     "SELECT * FROM revenue_event WHERE source_system = $1 AND source_event_id = $2 ORDER BY source_revision",
@@ -85,10 +94,24 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
     if (!samePayload(toRow(existing), input)) throw conflict("IDEMPOTENCY_MISMATCH", `source key ${input.sourceSystem}/${input.sourceEventId}/${revision} was recorded with different content`);
     return { eventId: existing.event_id, created: false };
   }
-  // 대체(supersede) 규칙은 I-2b에서 정한다. 그 전에는 새 revision을 받으면 두 revision이 모두 매출로 잡혀 이중 계상되므로 거부한다(통합 설계 10.2-2).
-  if (recorded.length > 0) {
-    throw new DomainError("REVISION_UNSUPPORTED", 422,
-      `source event ${input.sourceSystem}/${input.sourceEventId} is already recorded at revision ${recorded.map((r) => r.source_revision).join(",")}; revision ${revision} cannot be accepted until supersede rules exist`);
+  const latest = recorded.length > 0 ? toRow(recorded[recorded.length - 1]) : undefined;
+  if (latest !== undefined) {
+    const key = `${input.sourceSystem}/${input.sourceEventId}`;
+    if (revision <= latest.sourceRevision) {
+      throw new DomainError("REVISION_OUT_OF_ORDER", 422, `source event ${key} is at revision ${latest.sourceRevision}; revision ${revision} is not newer`);
+    }
+    if (latest.eventType === "REFUND" || input.eventType === "REFUND") {
+      throw new DomainError("REVISION_MISMATCH", 422, `source event ${key}: refunds follow their original and cannot be revised`);
+    }
+    if (latest.eventType !== input.eventType || latest.vcId !== input.vcId) {
+      throw new DomainError("REVISION_MISMATCH", 422,
+        `source event ${key} revision ${revision} (${input.eventType} ${input.vcId}) must keep the type and vc of revision ${latest.sourceRevision} (${latest.eventType} ${latest.vcId})`);
+    }
+    // 환불 수집과 같은 원 이벤트 잠금: 대체 판단과 그 이벤트에 대한 환불 기록을 직렬화한다.
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('refund:' || $1, 0))", [latest.eventId]);
+    if ((await refundedTotal(tx, latest.eventId)) > 0n) {
+      throw new DomainError("REVISION_HAS_REFUNDS", 422, `revision ${latest.sourceRevision} of ${key} (${latest.eventId}) has refunds and cannot be superseded`);
+    }
   }
   if (input.eventType === "REFUND") {
     // 진행 중인 배치 생성이 있으면 끝날 때까지 기다린다(환불은 배치 순액에 포함되거나, 배치 커밋 뒤에 기록된다).
@@ -96,6 +119,10 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
     await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('refund:' || $1, 0))", [input.relatedEventId]);
     const original = await revenueRow(tx, input.relatedEventId!);
     if (original.eventType === "REFUND") throw bad("a refund must reference a PURCHASE or RESALE");
+    const successor = (await tx.query("SELECT new_event_id FROM revenue_supersede WHERE old_event_id = $1", [original.eventId])).rows[0];
+    if (successor !== undefined) {
+      throw new DomainError("EVENT_SUPERSEDED", 422, `${original.eventId} was superseded by ${successor.new_event_id}; refund the live revision instead`);
+    }
     const total = (await refundedTotal(tx, original.eventId)) + BigInt(input.amountKrw);
     if (total > BigInt(original.amountKrw)) {
       throw new DomainError("REFUND_EXCEEDS_ORIGINAL", 422, `refunds ${total} exceed original ${original.amountKrw} of ${original.eventId}`);
@@ -108,6 +135,11 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
       input.amountKrw, input.currency, input.integrity ?? "CLEAR", input.occurredAt, clock.now()],
   );
   await audit(tx, clock, { actor: actor.userId, action: "REVENUE_RECORDED", entityType: "revenue_event", entityId: input.eventId, after: { type: input.eventType, amount: input.amountKrw } });
+  if (latest !== undefined) {
+    await tx.query("INSERT INTO revenue_supersede (old_event_id, new_event_id, recorded_at) VALUES ($1,$2,$3)", [latest.eventId, input.eventId, clock.now()]);
+    await audit(tx, clock, { actor: actor.userId, action: "REVENUE_SUPERSEDED", entityType: "revenue_event", entityId: latest.eventId, after: { by: input.eventId, revision } });
+    await onRevision(tx, input.eventId);
+  }
   if (input.eventType === "REFUND") await onRefund(tx, input.eventId);
   return { eventId: input.eventId, created: true };
 }

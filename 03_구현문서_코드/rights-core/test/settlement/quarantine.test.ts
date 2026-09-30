@@ -4,7 +4,7 @@ import { recordingJobs } from "../../src/platform/jobs.ts";
 import { batchView, createBatch, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { releaseQuarantine } from "../../src/settlement/quarantine.ts";
-import { ingestRevenue, noRefundHook } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRefundHook, noRevisionHook } from "../../src/revenue/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -19,7 +19,7 @@ await issueCombo(w, "vc_2", "b", "a");
 // 정책 범위(events: [PRIMARY]) 밖의 RESALE → vc_1의 run은 엔진 진단 ALLOC_SCOPE_MISMATCH로 FAILED.
 await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
   eventId: "ev_r", sourceSystem: "app", sourceEventId: "ev_r", eventType: "RESALE", vcId: "vc_1", amountKrw: "4000", currency: "KRW", occurredAt: "2026-03-05T00:00:00.000Z",
-}, noRefundHook));
+}, noRefundHook, noRevisionHook));
 await purchase(w, "ev_ok", "vc_2", "5000");
 
 const quarantines = async () => (await q(

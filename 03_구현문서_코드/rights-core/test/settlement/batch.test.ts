@@ -9,7 +9,7 @@ import pg from "pg";
 import { createUser, loadActor } from "../../src/platform/actor.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { openDispute, closeDispute } from "../../src/registry/disputes.ts";
-import { ingestRevenue, noRefundHook } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRefundHook, noRevisionHook } from "../../src/revenue/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -95,7 +95,7 @@ test("an open dispute skips the scope's events; they are picked up after the dis
 test("an engine failure (event type outside the policy scope) marks the run FAILED and releases its events", async () => {
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "ev_3r", sourceSystem: "app", sourceEventId: "ev_3r", eventType: "RESALE", vcId: "vc_3", amountKrw: "4000", currency: "KRW", occurredAt: "2026-03-05T00:00:00.000Z",
-  }, noRefundHook));
+  }, noRefundHook, noRevisionHook));
   const b = await createBatch(d, w.users.ops, { batchId: "bat_4", ...P });
   assert.equal(b.runs.length, 1);
   await jobs.drain(jobHandlers(d));

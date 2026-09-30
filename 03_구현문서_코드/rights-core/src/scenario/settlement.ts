@@ -5,7 +5,7 @@ import type { Db } from "../platform/db.ts";
 import { startBossJobs, JOB_NAMES, type JobHandler, type JobName } from "../platform/jobs.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { ingestRevenue, type RevenueInput } from "../revenue/service.ts";
-import { confirmBatch, createBatch, refundHook } from "../settlement/service.ts";
+import { confirmBatch, createBatch, refundHook, revisionHook } from "../settlement/service.ts";
 import { jobHandlers } from "../settlement/handlers.ts";
 import { payoutJobHandlers } from "../payout/handlers.ts";
 import { fakeProvider } from "../payout/fake-provider.ts";
@@ -84,7 +84,8 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
     for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
     await jobs.work(handlers as Record<JobName, JobHandler>);
     const onRefund = refundHook(jobs);
-    const ingest = (input: RevenueInput) => db.tx((tx) => ingestRevenue(tx, clock, u.ingest, input, onRefund)).then(() => {});
+    const onRevision = revisionHook(jobs);
+    const ingest = (input: RevenueInput) => db.tx((tx) => ingestRevenue(tx, clock, u.ingest, input, onRefund, onRevision)).then(() => {});
 
     // 2. 매출: 발행 봉인이 있는 조합에서 시드 난수로 고른다(정산 불가 조합은 사전 검사로 발행되지 않았다).
     const rand = mulberry32(opts.seed);

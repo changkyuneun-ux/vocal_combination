@@ -2,7 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Clock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
-import { ingestRevenue } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRevisionHook } from "../../src/revenue/service.ts";
 import { registerParty } from "../../src/registry/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
@@ -148,7 +148,7 @@ test("the same payoutRunId is rejected with 409 and writes nothing", async () =>
 test("a refund after payout leaves a negative payable that is carried; an earlier asOf never pays the same balance twice", async () => {
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_1", sourceSystem: "app", sourceEventId: "rf_1", eventType: "REFUND", relatedEventId: "ev_1", amountKrw: "123456", currency: "KRW", occurredAt: "2026-04-05T00:00:00.000Z",
-  }, refundHook(jobs)));
+  }, refundHook(jobs), noRevisionHook));
   await jobs.drain(jobHandlers(d));
   const owedA = await payable("pty_member_a");
   assert.ok(owedA > 0n, "member_a now owes (debit balance)");

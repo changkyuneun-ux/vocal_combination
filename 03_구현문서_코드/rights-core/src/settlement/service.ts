@@ -9,7 +9,7 @@ import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { attest } from "../engine-bridge/attest.ts";
 import { sealDocument } from "../engine-bridge/seal-store.ts";
 import { openDisputeInScope } from "../issuance/service.ts";
-import type { RefundHook } from "../revenue/service.ts";
+import type { RefundHook, RevisionHook } from "../revenue/service.ts";
 
 export type SettleDeps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
 export type BatchView = {
@@ -27,6 +27,9 @@ export async function releaseRunEvents(tx: Tx, runId: string): Promise<number> {
 /**
  * 배치 생성(통합 설계 10.2-3): 기간 안의 미배정 구매·재판매를 순액으로 발행 봉인별로 묶어 run을 만들고 settle-run을 보낸다.
  * 순액 0·발행 봉인 없음·해제되지 않은 격리(ENGINE_FAILED, 11.2-1)·열린 분쟁은 건너뛰고 사유를 남긴다(다음 배치의 후보로 남는다).
+ * source_revision 대체(11.2-11): 대체된 이벤트는 후보가 아니다. 새 revision은 같은 source 이벤트의 이전 revision이 확정 전 run에
+ * 살아 있거나, 확정 run에 있는데 남은 정산액의 CORRECTION 역분개가 아직 없으면 REVISION_PENDING으로 건너뛴다(이중 계상 방지 —
+ * revision-recorded가 무효화·역분개를 끝내면 다음 배치의 후보가 된다).
  */
 export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId: string; periodStart: string; periodEnd: string }) {
   requireRole(actor, "SPACE_OPS");
@@ -45,13 +48,23 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
               COALESCE((SELECT SUM(r.net_amount_krw) FROM revenue_event r WHERE r.related_event_id = e.event_id), 0)::text AS refunded,
               ARRAY(SELECT r.event_id FROM revenue_event r WHERE r.related_event_id = e.event_id ORDER BY r.event_id)::text[] AS refund_ids,
               s.snapshot_id, rs.pack_id, p.facts_scope_id,
-              EXISTS (SELECT 1 FROM quarantine q WHERE q.snapshot_id = s.snapshot_id AND q.released_at IS NULL) AS quarantined
+              EXISTS (SELECT 1 FROM quarantine q WHERE q.snapshot_id = s.snapshot_id AND q.released_at IS NULL) AS quarantined,
+              EXISTS (SELECT 1 FROM revenue_event o
+                        JOIN revenue_supersede sp ON sp.old_event_id = o.event_id
+                        JOIN settlement_run_event ox ON ox.event_id = o.event_id AND ox.active
+                        JOIN settlement_run orun ON orun.run_id = ox.run_id
+                       WHERE o.source_system = e.source_system AND o.source_event_id = e.source_event_id AND o.source_revision < e.source_revision
+                         AND (orun.status <> 'CONFIRMED'
+                              OR (NOT EXISTS (SELECT 1 FROM reversal_run v WHERE v.refund_event_id = sp.new_event_id)
+                                  AND ox.net_amount_krw + COALESCE((SELECT SUM(pl.amount_krw) FROM pool_line pl
+                                        WHERE pl.run_id = ox.run_id AND pl.event_id = ox.event_id AND pl.reversal_id IS NOT NULL), 0) > 0))) AS revision_pending
          FROM revenue_event e
          LEFT JOIN rights_snapshot rs ON rs.vc_id = e.vc_id
          LEFT JOIN issue_seal s ON s.snapshot_id = rs.snapshot_id
          LEFT JOIN vocal_pack p ON p.pack_id = rs.pack_id
         WHERE e.event_type IN ('PURCHASE','RESALE') AND e.occurred_at >= $1 AND e.occurred_at < $2
           AND NOT EXISTS (SELECT 1 FROM settlement_run_event x WHERE x.event_id = e.event_id AND x.active)
+          AND NOT EXISTS (SELECT 1 FROM revenue_supersede sx WHERE sx.old_event_id = e.event_id)
         ORDER BY e.event_id`,
       [input.periodStart, input.periodEnd],
     )).rows;
@@ -62,6 +75,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       const net = BigInt(c.amount) - BigInt(c.refunded);
       let reason: string | undefined;
       if (net === 0n) reason = "FULLY_REFUNDED";
+      else if (c.revision_pending) reason = "REVISION_PENDING";
       else if (c.snapshot_id === null) reason = "NO_ISSUE_SEAL";
       else if (c.quarantined) reason = "ENGINE_FAILED";
       else {
@@ -155,4 +169,9 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
 /** 환불이 기록된 트랜잭션에서 refund-recorded 작업을 보낸다(revenue는 settlement를 모른다). */
 export function refundHook(jobs: Jobs): RefundHook {
   return (tx, refundEventId) => jobs.send(tx, "refund-recorded", { refundEventId });
+}
+
+/** 대체(새 revision)가 기록된 트랜잭션에서 revision-recorded 작업을 보낸다(통합 설계 11.2-11). */
+export function revisionHook(jobs: Jobs): RevisionHook {
+  return (tx, newEventId) => jobs.send(tx, "revision-recorded", { newEventId });
 }

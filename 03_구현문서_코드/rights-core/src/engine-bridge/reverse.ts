@@ -11,9 +11,12 @@ export type ReversalRows = {
   holdings: { bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW"; amount: bigint }[];
 };
 
-/** 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 vcrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9). */
+/**
+ * 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 vcrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9).
+ * reason: 환불은 REFUND(식별 이벤트 = 환불), source_revision 대체는 CORRECTION(식별 이벤트 = 새 revision, 11.2-11).
+ */
 export async function reverseEvent(
-  ctx: BridgeCtx, tx: Tx, input: { originalRunId: string; eventId: string; refundEventId: string; amount: bigint; reversalId: string },
+  ctx: BridgeCtx, tx: Tx, input: { originalRunId: string; eventId: string; refundEventId: string; reason: "REFUND" | "CORRECTION"; amount: bigint; reversalId: string },
 ): Promise<ReversalRows> {
   const run = (await tx.query(
     "SELECT r.result_digest, s.policy_digest FROM settlement_run r JOIN issue_seal s ON s.snapshot_id = r.snapshot_id WHERE r.run_id = $1",
@@ -29,7 +32,7 @@ export async function reverseEvent(
   for (const p of priorRows) priors.push((await loadSealed(ctx, tx, p.result_digest)) as ReversalResult);
   const r = reverse({
     original, policy, eventId: input.eventId, priors, runId: input.reversalId,
-    refund: { id: input.refundEventId, reason: "REFUND", amount: input.amount.toString() },
+    refund: { id: input.refundEventId, reason: input.reason, amount: input.amount.toString() },
   });
   if (!r.ok) {
     if (r.errors.some((e) => e.code === "REV_EXCEEDS_REMAINING")) throw invalid("REFUND_EXCEEDS_SETTLED", "refund exceeds the settled amount", r.errors);

@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { recordingJobs } from "../../src/platform/jobs.ts";
-import { ingestRevenue } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRevisionHook } from "../../src/revenue/service.ts";
 import { registerParty } from "../../src/registry/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
@@ -41,7 +41,7 @@ const trialSum = async () => (await w.db.tx((tx) => trialBalance(tx))).reduce((a
 const sumOf = (a: Record<string, string>) => Object.values(a).reduce((s, v) => s + BigInt(v), 0n);
 const refund = (eventId: string, relatedEventId: string, amountKrw: string) => w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
   eventId, sourceSystem: "app", sourceEventId: eventId, eventType: "REFUND", relatedEventId, amountKrw, currency: "KRW", occurredAt: "2026-05-05T00:00:00.000Z",
-}, refundHook(jobs)));
+}, refundHook(jobs), noRevisionHook));
 
 let fSuggestion: Record<string, string> = {};
 

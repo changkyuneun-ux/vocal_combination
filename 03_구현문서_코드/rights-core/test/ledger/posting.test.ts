@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { recordingJobs } from "../../src/platform/jobs.ts";
-import { ingestRevenue } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRevisionHook } from "../../src/revenue/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { postConfirmedRun } from "../../src/settlement/posting.ts";
@@ -39,7 +39,7 @@ test("confirmation posts one balanced SETTLEMENT entry per run via post-batch", 
 test("a reversal posts the opposite entry in the same transaction", async () => {
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_1", sourceSystem: "app", sourceEventId: "rf_1", eventType: "REFUND", relatedEventId: "ev_1", amountKrw: "10000", currency: "KRW", occurredAt: "2026-03-05T00:00:00.000Z",
-  }, refundHook(jobs)));
+  }, refundHook(jobs), noRevisionHook));
   await jobs.drain(jobHandlers(d));
   const kinds = await w.db.pool.query("SELECT kind FROM journal_entry ORDER BY entry_id");
   assert.deepEqual(kinds.rows.map((r) => r.kind), ["SETTLEMENT", "REVERSAL"]);
@@ -60,7 +60,7 @@ test("a reversal that runs before post-batch writes SETTLEMENT first; post-batch
   await confirmBatch(d, w.users.settle, "bat_m");
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_3", sourceSystem: "app", sourceEventId: "rf_3", eventType: "REFUND", relatedEventId: "ev_3", amountKrw: "2000", currency: "KRW", occurredAt: "2026-04-03T00:00:00.000Z",
-  }, refundHook(jobs)));
+  }, refundHook(jobs), noRevisionHook));
   await jobs.drain(noPost());
   const run = (await w.db.pool.query("SELECT run_id FROM settlement_run_event WHERE event_id = 'ev_3'")).rows[0].run_id;
   const ids = await w.db.pool.query("SELECT kind, entry_id::int AS id FROM journal_entry WHERE source_ref IN ($1, 'rev:rev_rf_3') ORDER BY entry_id", [`run:${run}`]);

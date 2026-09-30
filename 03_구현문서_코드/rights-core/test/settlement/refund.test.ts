@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { recordingJobs } from "../../src/platform/jobs.ts";
-import { ingestRevenue } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRevisionHook } from "../../src/revenue/service.ts";
 import { batchView, confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers, reverseEventJob } from "../../src/settlement/handlers.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
@@ -13,7 +13,7 @@ const d: SettleDeps = { db: w.db, ctx: w.ctx, clock: w.clock, jobs };
 const P = { periodStart: "2026-03-01T00:00:00.000Z", periodEnd: "2026-04-01T00:00:00.000Z" };
 const refund = (id: string, original: string, amount: string) => w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
   eventId: id, sourceSystem: "app", sourceEventId: id, eventType: "REFUND", relatedEventId: original, amountKrw: amount, currency: "KRW", occurredAt: "2026-03-10T00:00:00.000Z",
-}, refundHook(jobs)));
+}, refundHook(jobs), noRevisionHook));
 const net = async (eventId: string) => {
   const r = await w.db.pool.query(
     `SELECT COALESCE(SUM(p.amount_krw), 0)::text AS pool FROM pool_line p JOIN settlement_run r ON r.run_id = p.run_id

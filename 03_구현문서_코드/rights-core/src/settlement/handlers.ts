@@ -2,13 +2,14 @@ import { audit } from "../platform/audit.ts";
 import type { JobHandler, JobName } from "../platform/jobs.ts";
 import { attest } from "../engine-bridge/attest.ts";
 import { evaluateRun, verifyRun, type RunEvent } from "../engine-bridge/settle.ts";
-import { reverseEvent } from "../engine-bridge/reverse.ts";
 import { revenueRow } from "../revenue/service.ts";
 import type { Tx } from "../platform/db.ts";
 import { lockBatching } from "../platform/locks.ts";
-import { DomainError, notFound } from "../platform/errors.ts";
-import { postBatch, postConfirmedRun, postReversal } from "./posting.ts";
+import { DomainError } from "../platform/errors.ts";
+import { postBatch } from "./posting.ts";
 import { quarantineSeal } from "./quarantine.ts";
+import { writeReversal } from "./reversal.ts";
+import { revisionRecorded } from "./revision.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
 const SETTLER = "sys_settler";
@@ -137,38 +138,7 @@ async function reverseInTx(d: SettleDeps, data: { refundEventId: string }): Prom
     const done = await tx.query("SELECT 1 FROM reversal_run WHERE refund_event_id = $1", [data.refundEventId]);
     if ((done.rowCount ?? 0) > 0) return;
     if (await includedInNet(tx, x.run_id, original, data.refundEventId)) return;
-    const reversalId = `rev_${data.refundEventId}`;
-    const r = await reverseEvent(d.ctx, tx, { originalRunId: x.run_id, eventId: original, refundEventId: data.refundEventId, amount: BigInt(refund.amountKrw), reversalId });
-    await tx.query(
-      "INSERT INTO reversal_run (reversal_id, original_run_id, event_id, sequence, refund_event_id, result_digest, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-      [reversalId, x.run_id, original, r.sequence, data.refundEventId, r.resultDigest, d.clock.now()],
-    );
-    const seq = r.sequence + 1;
-    for (const p of r.pool) {
-      await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw, reversal_id) VALUES ($1,$2,$3,$4,$5,$6)",
-        [x.run_id, original, p.bucket, seq, p.amount.toString(), reversalId]);
-    }
-    for (const l of r.lines) {
-      const orig = (await tx.query(
-        "SELECT line_id FROM allocation_line WHERE run_id = $1 AND event_id = $2 AND party_id = $3 AND role = $4 AND bucket = $5 AND line_seq = $6 AND line_kind = 'SETTLE'",
-        [x.run_id, original, l.party, l.role, l.bucket, l.reversesLineSeq],
-      )).rows[0];
-      if (orig === undefined) throw notFound("original allocation line", `${x.run_id}/${original}/${l.party}/${l.role}/${l.bucket}/${l.reversesLineSeq}`);
-      await tx.query(
-        `INSERT INTO allocation_line (run_id, event_id, party_id, role, bucket, line_seq, line_kind, amount_krw, reversal_of_line_id, reversal_id)
-         VALUES ($1,$2,$3,$4,$5,$6,'REVERSAL',$7,$8,$9)`,
-        [x.run_id, original, l.party, l.role, l.bucket, l.lineSeq, l.amount.toString(), orig.line_id, reversalId],
-      );
-    }
-    for (const h of r.holdings) {
-      await tx.query("INSERT INTO unallocated_holding (run_id, event_id, bucket, reason, line_seq, amount_krw, reversal_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-        [x.run_id, original, h.bucket, h.reason, seq, h.amount.toString(), reversalId]);
-    }
-    // 반대 부호 분개(통합 설계 11.2-4): 역분개 행과 같은 트랜잭션. post-batch보다 먼저 올 수 있으므로
-    // 원 run의 SETTLEMENT 분개를 먼저 보장한다(멱등) — REVERSAL은 항상 SETTLEMENT 뒤에 쓰인다.
-    await postConfirmedRun(tx, d.clock, x.run_id);
-    await postReversal(tx, d.clock, reversalId);
-    await audit(tx, d.clock, { actor: SETTLER, action: "EVENT_REVERSED", entityType: "reversal_run", entityId: reversalId, after: { sequence: r.sequence, amount: refund.amountKrw } });
+    await writeReversal(d, tx, { runId: x.run_id, eventId: original, identEventId: data.refundEventId, reason: "REFUND", amount: BigInt(refund.amountKrw) });
   });
 }
 
@@ -177,6 +147,7 @@ export function jobHandlers(d: SettleDeps): Partial<Record<JobName, JobHandler>>
     "settle-run": (data) => settleRun(d, { runId: data.runId! }),
     "verify-run": (data) => verifyRunJob(d, { runId: data.runId! }),
     "refund-recorded": (data) => refundRecorded(d, { refundEventId: data.refundEventId! }),
+    "revision-recorded": (data) => revisionRecorded(d, { newEventId: data.newEventId! }),
     "reverse-event": (data) => reverseEventJob(d, { refundEventId: data.refundEventId! }),
     "post-batch": (data) => postBatch(d, { batchId: data.batchId! }),
   };

@@ -2,7 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
-import { ingestRevenue, noRefundHook } from "../../src/revenue/service.ts";
+import { ingestRevenue, noRefundHook, noRevisionHook } from "../../src/revenue/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers, refundRecorded } from "../../src/settlement/handlers.ts";
 import { invariants, invariantsInTx, type InvariantReport } from "../../src/settlement/invariants.ts";
@@ -80,7 +80,7 @@ test("a refund that is neither included nor reversed shows up until refund-recor
   // 확정 run의 이벤트에 환불을 기록하되 refund-recorded를 보내지 않는다(작업 유실을 흉내).
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_lost", sourceSystem: "app", sourceEventId: "rf_lost", eventType: "REFUND", relatedEventId: "ev_s", amountKrw: "5000", currency: "KRW", occurredAt: "2026-09-12T00:00:00.000Z",
-  }, noRefundHook));
+  }, noRefundHook, noRevisionHook));
   const run = (await w.db.pool.query("SELECT run_id FROM settlement_run WHERE batch_id = 'bat_sep'")).rows[0].run_id as string;
   const r = await check("2026-09-13T00:00:00.000Z");
   assert.deepEqual(r.unreflectedRefunds, [{ refundEventId: "rf_lost", originalEventId: "ev_s", runId: run, rejected: false }]);
@@ -100,7 +100,7 @@ test("a refund already included in a run's net, or on an event of an unconfirmed
   await purchase(w, "ev_i", "vc_1", "30000", "2026-10-01T00:00:00.000Z");
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_i", sourceSystem: "app", sourceEventId: "rf_i", eventType: "REFUND", relatedEventId: "ev_i", amountKrw: "1000", currency: "KRW", occurredAt: "2026-10-02T00:00:00.000Z",
-  }, refundHook(jobs)));
+  }, refundHook(jobs), noRevisionHook));
   await jobs.drain(jobHandlers(d));
   await createBatch(d, w.users.ops, { batchId: "bat_oct", periodStart: "2026-10-01T00:00:00.000Z", periodEnd: "2026-11-01T00:00:00.000Z" });
   await jobs.drain(jobHandlers(d));
@@ -108,7 +108,7 @@ test("a refund already included in a run's net, or on an event of an unconfirmed
   // 확정 전 run의 이벤트에 대한 환불(작업 없음)은 (a) 대상이 아니다.
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId: "rf_v", sourceSystem: "app", sourceEventId: "rf_v", eventType: "REFUND", relatedEventId: "ev_i", amountKrw: "1000", currency: "KRW", occurredAt: "2026-10-03T00:00:00.000Z",
-  }, noRefundHook));
+  }, noRefundHook, noRevisionHook));
   const r = await check("2026-09-10T01:00:00.000Z");
   assert.deepEqual(r.unreflectedRefunds, []);
   await confirmBatch(d, w.users.settle, "bat_oct");

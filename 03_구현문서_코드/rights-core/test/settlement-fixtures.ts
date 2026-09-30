@@ -6,7 +6,7 @@ import type { BridgeCtx } from "../src/engine-bridge/context.ts";
 import type { IssueSeal } from "../src/engine-bridge/issue.ts";
 import * as policy from "../src/policy/service.ts";
 import * as issuance from "../src/issuance/service.ts";
-import { ingestRevenue, noRefundHook } from "../src/revenue/service.ts";
+import { ingestRevenue, noRefundHook, noRevisionHook } from "../src/revenue/service.ts";
 import { recordingJobs } from "../src/platform/jobs.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../src/settlement/service.ts";
 import { jobHandlers } from "../src/settlement/handlers.ts";
@@ -64,7 +64,7 @@ export async function purchase(
 ): Promise<void> {
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId, sourceSystem: "app", sourceEventId: eventId, eventType: "PURCHASE", vcId, amountKrw, currency: "KRW", occurredAt, integrity,
-  }, noRefundHook));
+  }, noRefundHook, noRevisionHook));
 }
 
 export type LedgerPhase = "settled" | "released" | "reversed" | "paid" | "repaid";
@@ -103,7 +103,7 @@ export async function ledgerFlow(w: SettlementWorld, onPhase: (phase: LedgerPhas
   for (const [id, rel, amt] of [["rf_f", "ev_f", "40000"], ["rf_c", "ev_c", "100000"], ["rf_g", "ev_g", "10000"]] as const) {
     await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
       eventId: id, sourceSystem: "app", sourceEventId: id, eventType: "REFUND", relatedEventId: rel, amountKrw: amt, currency: "KRW", occurredAt: "2026-04-05T00:00:00.000Z",
-    }, refundHook(jobs)));
+    }, refundHook(jobs), noRevisionHook));
   }
   await jobs.drain(jobHandlers(dV));
   await onPhase("reversed");
