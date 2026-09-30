@@ -13,7 +13,7 @@ import { mulberry32 } from "./prng.ts";
 
 export type SettlementReport = {
   purchases: number; refundsPre: number; refundsPost: number; runs: number; verified: number;
-  /** FAILED run 수와 진단 코드별 run 수(한 멤버가 모든 슬롯을 부른 조합은 performer cap(50%) 때문에 ALLOC_INFEASIBLE). */
+  /** FAILED run 수와 진단 코드별 run 수. 정산 불가 조합은 발행 사전 검사(11.2-1)로 거부되므로 0이어야 한다. */
   failedRuns: number; failedReasons: Record<string, number>;
   ingestMs: number; batchMs: number; settleMs: number; reverseMs: number;
   conservationOk: boolean; verifyMismatches: number; reversals: number; reversalNetZeroOk: boolean;
@@ -24,13 +24,13 @@ export type SettlementReport = {
 };
 
 /**
- * 정산 통과 조건: 불일치 0, 보존식, 전액 환불 순합 0, FAILED가 아닌 run은 모두 VERIFIED(→ 확정),
- * FAILED run의 진단은 ALLOC_INFEASIBLE뿐이고 모든 FAILED run이 그 진단을 가진다(진단 없는 실패를 놓치지 않는다),
+ * 정산 통과 조건: 불일치 0, 보존식, 전액 환불 순합 0, 모든 run이 VERIFIED(→ 확정),
+ * FAILED run 0·진단 0(정산 불가 조합은 발행 사전 검사(11.2-1)로 거부되어 발행되지 않는다),
  * 역분개 수 = 확정 후 환불 수·거부 0, 재시도 소진 작업 0.
  */
 export const settlementPass = (s: SettlementReport): boolean =>
-  s.verifyMismatches === 0 && s.conservationOk && s.reversalNetZeroOk && s.verified + s.failedRuns === s.runs && s.verified > 0 &&
-  Object.keys(s.failedReasons).every((c) => c === "ALLOC_INFEASIBLE") && (s.failedReasons.ALLOC_INFEASIBLE ?? 0) === s.failedRuns &&
+  s.verifyMismatches === 0 && s.conservationOk && s.reversalNetZeroOk && s.verified === s.runs && s.verified > 0 &&
+  s.failedRuns === 0 && Object.keys(s.failedReasons).length === 0 &&
   s.reversals === s.refundsPost && s.reversalRejected === 0 && s.failedJobs === 0;
 
 const BATCH = "bat_2026_03";
@@ -86,7 +86,7 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
     const onRefund = refundHook(jobs);
     const ingest = (input: RevenueInput) => db.tx((tx) => ingestRevenue(tx, clock, u.ingest, input, onRefund)).then(() => {});
 
-    // 2. 매출: 발행 봉인이 있는 조합에서 시드 난수로 고른다(ALLOC_INFEASIBLE 조합도 거르지 않는다).
+    // 2. 매출: 발행 봉인이 있는 조합에서 시드 난수로 고른다(정산 불가 조합은 사전 검사로 발행되지 않았다).
     const rand = mulberry32(opts.seed);
     const vcIds = (await db.pool.query("SELECT rs.vc_id FROM rights_snapshot rs JOIN issue_seal s ON s.snapshot_id = rs.snapshot_id ORDER BY rs.vc_id"))
       .rows.map((r) => r.vc_id as string);

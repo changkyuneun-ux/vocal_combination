@@ -19,6 +19,8 @@ test("mulberry32 is deterministic", () => {
 test("reduced scenario (200 combinations): all seals re-derive, dispute flow passes", async () => {
   const r = await runScenario({ db, ctx }, { n: 200, seed: 7 });
   assert.equal(r.issued, 200);
+  // 한 멤버가 모든 슬롯을 부른 조합(멤버 3명·슬롯 4개면 3/81)은 사전 검사로 거부되고 다음 조합으로 넘어간다.
+  assert.ok(r.rejected > 0 && r.rejected < 200, String(r.rejected));
   assert.equal(r.auditMismatches, 0);
   assert.equal(r.factsRederiveOk, true);
   assert.equal(r.disputeFlowOk, true);

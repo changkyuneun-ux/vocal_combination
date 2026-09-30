@@ -8,6 +8,7 @@ import type { Tx } from "../platform/db.ts";
 import { lockBatching } from "../platform/locks.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import { postBatch, postConfirmedRun, postReversal } from "./posting.ts";
+import { quarantineSeal } from "./quarantine.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
 const SETTLER = "sys_settler";
@@ -30,6 +31,8 @@ export async function settleRun(d: SettleDeps, data: { runId: string }): Promise
     if (!r.ok) {
       await tx.query("UPDATE settlement_run SET status = 'FAILED', diagnostics = $2 WHERE run_id = $1", [data.runId, JSON.stringify(r.diagnostics)]);
       await releaseRunEvents(tx, data.runId);
+      // 격리(통합 설계 11.2-1): 봉인된 입력에 대한 엔진 진단은 결정적이므로 해제 전까지 이 봉인의 이벤트는 배치가 건너뛴다.
+      await quarantineSeal(tx, d.clock, { snapshotId: run.snapshot_id, runId: data.runId, diagnostics: r.diagnostics });
       await audit(tx, d.clock, { actor: SETTLER, action: "RUN_FAILED", entityType: "settlement_run", entityId: data.runId, after: { codes: r.diagnostics.map((x) => x.code) } });
       return;
     }

@@ -12,12 +12,13 @@ const { ctx, cleanup } = tempBridge();
 after(async () => { await db.close(); await fresh.drop(); cleanup(); });
 
 test("reduced settlement scenario: 100 issues, 300 purchases, refunds before and after confirmation", async () => {
-  await runScenario({ db, ctx }, { n: 100, seed: 7 });
+  const i = await runScenario({ db, ctx }, { n: 100, seed: 7 });
+  assert.equal(i.issued, 100);
   const r = await runSettlementScenario({ db, ctx, appUrl: fresh.appUrl }, { purchases: 300, seed: 7 });
-  // 한 멤버가 모든 슬롯을 부른 조합은 performer cap(50%) 때문에 ALLOC_INFEASIBLE로 실패한다(알려진 제품 발견).
-  assert.equal(r.verified + r.failedRuns, r.runs, JSON.stringify(r));
-  assert.deepEqual(Object.keys(r.failedReasons).filter((c) => c !== "ALLOC_INFEASIBLE"), []);
-  assert.equal(r.failedReasons.ALLOC_INFEASIBLE ?? 0, r.failedRuns, "every FAILED run is attributed to ALLOC_INFEASIBLE");
+  // 정산 불가 조합(한 멤버가 모든 슬롯)은 발행 사전 검사로 거부되므로 FAILED run이 없다.
+  assert.equal(r.failedRuns, 0, JSON.stringify(r));
+  assert.deepEqual(r.failedReasons, {});
+  assert.equal(r.verified, r.runs, JSON.stringify(r));
   assert.ok(r.verified > 0);
   assert.equal(r.verifyMismatches, 0);
   assert.equal(r.conservationOk, true);
@@ -29,15 +30,15 @@ test("reduced settlement scenario: 100 issues, 300 purchases, refunds before and
   assert.equal(settlementPass(r), true, JSON.stringify(r));
 });
 
-test("settlementPass requires every FAILED run to carry ALLOC_INFEASIBLE", () => {
+test("settlementPass requires no FAILED runs (unsettleable combinations are rejected at issue)", () => {
   const ok: SettlementReport = {
-    purchases: 10, refundsPre: 1, refundsPost: 1, runs: 5, verified: 3, failedRuns: 2, failedReasons: { ALLOC_INFEASIBLE: 2 },
+    purchases: 10, refundsPre: 1, refundsPost: 1, runs: 3, verified: 3, failedRuns: 0, failedReasons: {},
     ingestMs: 0, batchMs: 0, settleMs: 0, reverseMs: 0, conservationOk: true, verifyMismatches: 0, reversals: 1, reversalNetZeroOk: true,
     reversalRejected: 0, failedJobs: 0,
   };
   assert.equal(settlementPass(ok), true);
-  assert.equal(settlementPass({ ...ok, failedReasons: { ALLOC_INFEASIBLE: 1 } }), false, "one FAILED run without a diagnostic");
-  assert.equal(settlementPass({ ...ok, failedReasons: {} }), false, "FAILED runs without any diagnostic");
-  assert.equal(settlementPass({ ...ok, failedReasons: { ALLOC_INFEASIBLE: 2, ALLOC_OTHER: 1 } }), false);
-  assert.equal(settlementPass({ ...ok, runs: 3, verified: 3, failedRuns: 0, failedReasons: {} }), true);
+  assert.equal(settlementPass({ ...ok, runs: 5, failedRuns: 2, failedReasons: { ALLOC_INFEASIBLE: 2 } }), false, "FAILED runs fail the scenario");
+  assert.equal(settlementPass({ ...ok, runs: 4, failedRuns: 1, failedReasons: {} }), false, "a FAILED run without a diagnostic");
+  assert.equal(settlementPass({ ...ok, failedReasons: { ALLOC_INFEASIBLE: 1 } }), false, "a diagnostic without a FAILED run");
+  assert.equal(settlementPass({ ...ok, runs: 4 }), false, "a run that is neither VERIFIED nor FAILED");
 });

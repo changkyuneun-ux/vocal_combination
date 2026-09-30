@@ -31,12 +31,22 @@ export async function sealDocument(
 /** 봉인 문서를 읽는다. 캐시에 없으면 JSONB 사본 또는 blob에서 읽고 digest를 다시 계산해 대조한다. */
 export async function loadSealed(ctx: BridgeCtx, tx: Tx, digest: string): Promise<unknown> {
   if (ctx.cache.has(digest)) return ctx.cache.get(digest);
+  const value = await readSealedUncached(ctx, tx, digest);
+  deepFreeze(value);
+  ctx.cache.set(digest, value);
+  return value;
+}
+
+/**
+ * 캐시를 채우지 않고 읽는다(캐시에 있으면 그 값). 같은 트랜잭션에서 방금 봉인한 문서를 읽을 때 쓴다:
+ * 트랜잭션이 롤백되면 봉인되지 않은 값이 캐시에 남기 때문이다(sealDocument와 같은 이유).
+ */
+export async function readSealedUncached(ctx: BridgeCtx, tx: Tx, digest: string): Promise<unknown> {
+  if (ctx.cache.has(digest)) return ctx.cache.get(digest);
   const row = (await tx.query("SELECT content, storage_uri FROM sealed_document WHERE digest = $1", [digest])).rows[0];
   if (row === undefined) throw notFound("sealed document", digest);
   const value: unknown = row.content ?? JSON.parse(new TextDecoder().decode(await ctx.blobs.get(row.storage_uri)));
   if (digestOf(value) !== digest) throw new DomainError("SEAL_CORRUPT", 500, `sealed document ${digest} does not match its digest`);
-  deepFreeze(value);
-  ctx.cache.set(digest, value);
   return value;
 }
 

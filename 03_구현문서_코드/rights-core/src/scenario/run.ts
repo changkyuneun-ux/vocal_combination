@@ -15,7 +15,8 @@ import { mulberry32 } from "./prng.ts";
 import { SONG, seedSyntheticSong } from "./synthetic-song.ts";
 
 export type ScenarioReport = {
-  issued: number; p50Ms: number; p95Ms: number; maxMs: number; totalMs: number;
+  /** 발행된 조합 수(요청한 n). rejected = 사전 검사(11.2-1)로 거부된 시도 수(한 멤버가 모든 슬롯을 부른 조합 등). */
+  issued: number; rejected: number; p50Ms: number; p95Ms: number; maxMs: number; totalMs: number;
   /** 서로 다른 투영 digest 수(as_of가 발행마다 달라 issued와 같아야 한다). */
   distinctProjections: number;
   /** 서로 다른 (vectors, paths) 조합 수 = 실질적으로 다른 조합 수(멤버 3명·슬롯 4개면 최대 81). */
@@ -68,10 +69,19 @@ export async function runScenario(deps: { db: Db; ctx: BridgeCtx }, opts: { n: n
   const rand = mulberry32(opts.seed);
   const times: number[] = [];
   const started = performance.now();
-  for (let i = 0; i < opts.n; i++) {
+  // 사전 검사로 거부되면(ISSUE_NOT_SETTLEABLE) rejected로 세고 다음 조합으로 넘어간다. n건이 발행될 때까지, 시도는 최대 2n.
+  let rejected = 0;
+  for (let i = 0; times.length < opts.n; i++) {
+    if (i >= 2 * opts.n) throw new Error(`only ${times.length} of ${opts.n} combinations issued in ${i} attempts (${rejected} rejected)`);
     const input = combination(rand, i);
     const t0 = performance.now();
-    await db.tx((tx) => issuance.issue(ctx, tx, clock, u.issuer, input));
+    try {
+      await db.tx((tx) => issuance.issue(ctx, tx, clock, u.issuer, input));
+    } catch (e) {
+      if (!(e instanceof DomainError && e.code === "ISSUE_NOT_SETTLEABLE")) throw e;
+      rejected++;
+      continue;
+    }
     times.push(performance.now() - t0);
   }
   const totalMs = performance.now() - started;
@@ -94,7 +104,7 @@ export async function runScenario(deps: { db: Db; ctx: BridgeCtx }, opts: { n: n
 
   const disputeFlowOk = await disputeFlow(db, ctx, clock, u);
   return {
-    issued: snaps.length, p50Ms: pct(times, 50), p95Ms: pct(times, 95), maxMs: times[times.length - 1]!, totalMs,
+    issued: snaps.length, rejected, p50Ms: pct(times, 50), p95Ms: pct(times, 95), maxMs: times[times.length - 1]!, totalMs,
     distinctProjections, distinctVectorSets, auditMismatches, factsRederiveOk, disputeFlowOk,
   };
 }
@@ -109,7 +119,11 @@ async function disputeFlow(db: Db, ctx: BridgeCtx, clock: ReturnType<typeof fixe
       return e instanceof DomainError && e.code === code;
     }
   };
-  const input = { packId: SONG.pack, vcId: "vc_dispute", assignments: SONG.slots.map((s) => ({ slotId: s.id, stemId: `stm_b_${s.id}` })), members: { pty_member_b: 10000 } };
+  // 두 멤버 조합(한 멤버 조합은 사전 검사로 거부된다): 앞 두 슬롯은 b, 뒤 두 슬롯은 c.
+  const input = {
+    packId: SONG.pack, vcId: "vc_dispute",
+    assignments: SONG.slots.map((s, k) => ({ slotId: s.id, stemId: `stm_${k < 2 ? "b" : "c"}_${s.id}` })), members: { pty_member_b: 5000, pty_member_c: 5000 },
+  };
   await db.tx((tx) => openDispute(tx, clock, { disputeId: "dsp_scenario", targetType: "RIGHT_CLAIM", targetId: "c_own_b", reason: "scenario" }));
   await processOutbox(db, issuance.OUTBOX_HANDLERS, clock);
   const paused = (await db.pool.query("SELECT status FROM vocal_pack WHERE pack_id = $1", [SONG.pack])).rows[0].status === "PAUSED";

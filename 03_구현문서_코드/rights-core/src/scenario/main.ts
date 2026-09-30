@@ -21,7 +21,7 @@ try {
   const ctx = createBridgeCtx(createFsBlobStore(blobRoot));
   const report = await runScenario({ db, ctx }, { n: Number(values.n), seed: Number(values.seed) });
   console.log(JSON.stringify({ ...report, p50Ms: +report.p50Ms.toFixed(2), p95Ms: +report.p95Ms.toFixed(2), maxMs: +report.maxMs.toFixed(2), totalMs: Math.round(report.totalMs) }, null, 2));
-  let pass = report.auditMismatches === 0 && report.factsRederiveOk && report.disputeFlowOk;
+  let pass = report.issued === Number(values.n) && report.auditMismatches === 0 && report.factsRederiveOk && report.disputeFlowOk;
   if (settle !== undefined) {
     const s = await runSettlementScenario({ db, ctx, appUrl: fresh.appUrl }, { purchases: settle, seed: Number(values.seed) });
     const ms = (x: number) => Math.round(x);

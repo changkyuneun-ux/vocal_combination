@@ -6,6 +6,7 @@ import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { checkPackActivation, type Declared } from "../engine-bridge/activation.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { sealIssue, type IssueSeal } from "../engine-bridge/issue.ts";
+import { preflightIssue } from "../engine-bridge/preflight.ts";
 import { activePolicyForPack } from "../policy/service.ts";
 import type { OutboxHandlers } from "../platform/outbox.ts";
 
@@ -80,7 +81,10 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
 
 export type IssueInput = { packId: string; vcId: string; assignments: { slotId: string; stemId: string }[]; members: Record<string, number> };
 
-/** F3(통합 설계 5.3, 9.3-6·7): 한 트랜잭션에서 스냅샷을 쓰고 발행 봉인을 만든다. 하나라도 실패하면 아무것도 남지 않는다. */
+/**
+ * F3(통합 설계 5.3, 9.3-6·7): 한 트랜잭션에서 스냅샷을 쓰고 발행 봉인을 만든다. 하나라도 실패하면 아무것도 남지 않는다.
+ * 봉인 직후 사전 검사(11.2-1)에서 엔진 진단이 나오면 422 ISSUE_NOT_SETTLEABLE.
+ */
 export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: IssueInput): Promise<IssueSeal> {
   requireRole(actor, "ISSUER");
   const pack = await packRow(tx, input.packId, "SHARE");
@@ -134,6 +138,9 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
     await tx.query("INSERT INTO snapshot_member_pct (snapshot_id, party_id, pct_bps) VALUES ($1,$2,$3)", [snapshotId, party, bps]);
   }
   const seal = await sealIssue(ctx, tx, { snapshotId, factsDigest: active.factsDigest, policyDigest: active.policyDigest, usageMs, members: input.members, issuedAt });
+  // 사전 검사(통합 설계 11.2-1): 정산할 수 없는 조합은 발행하지 않는다. 던지면 트랜잭션이 롤백돼 스냅샷·봉인 행이 남지 않는다.
+  const diags = await preflightIssue(ctx, tx, seal);
+  if (diags.length > 0) throw invalid("ISSUE_NOT_SETTLEABLE", `combination ${input.vcId} cannot be settled under ${active.policyId}@${active.version}`, diags);
   await audit(tx, clock, { actor: actor.userId, action: "ISSUED", entityType: "rights_snapshot", entityId: snapshotId, after: { projection: seal.projectionDigest } });
   return seal;
 }

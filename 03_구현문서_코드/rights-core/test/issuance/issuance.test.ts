@@ -50,8 +50,8 @@ test("issue writes the snapshot and an issue seal whose projection matches the u
 });
 
 test("identical combinations share the members seal; projections differ only by as_of", async () => {
-  const a = await db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_2", "b", "b")));
-  const b = await db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_3", "b", "b")));
+  const a = await db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_2", "b", "a")));
+  const b = await db.tx((tx) => issuance.issue(ctx, tx, clock, users.issuer, combo("vc_3", "b", "a")));
   assert.equal(a.membersDigest, b.membersDigest);
   assert.notEqual(a.asOf, b.asOf);
   assert.notEqual(a.projectionDigest, b.projectionDigest);

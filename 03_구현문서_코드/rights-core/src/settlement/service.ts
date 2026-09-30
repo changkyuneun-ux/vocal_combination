@@ -25,7 +25,7 @@ export async function releaseRunEvents(tx: Tx, runId: string): Promise<void> {
 
 /**
  * 배치 생성(통합 설계 10.2-3): 기간 안의 미배정 구매·재판매를 순액으로 발행 봉인별로 묶어 run을 만들고 settle-run을 보낸다.
- * 순액 0·발행 봉인 없음·열린 분쟁은 건너뛰고 사유를 남긴다(다음 배치의 후보로 남는다).
+ * 순액 0·발행 봉인 없음·해제되지 않은 격리(ENGINE_FAILED, 11.2-1)·열린 분쟁은 건너뛰고 사유를 남긴다(다음 배치의 후보로 남는다).
  */
 export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId: string; periodStart: string; periodEnd: string }) {
   requireRole(actor, "SPACE_OPS");
@@ -43,7 +43,8 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       `SELECT e.event_id, e.event_type, e.integrity_status, e.net_amount_krw::text AS amount,
               COALESCE((SELECT SUM(r.net_amount_krw) FROM revenue_event r WHERE r.related_event_id = e.event_id), 0)::text AS refunded,
               ARRAY(SELECT r.event_id FROM revenue_event r WHERE r.related_event_id = e.event_id ORDER BY r.event_id)::text[] AS refund_ids,
-              s.snapshot_id, rs.pack_id, p.facts_scope_id
+              s.snapshot_id, rs.pack_id, p.facts_scope_id,
+              EXISTS (SELECT 1 FROM quarantine q WHERE q.snapshot_id = s.snapshot_id AND q.released_at IS NULL) AS quarantined
          FROM revenue_event e
          LEFT JOIN rights_snapshot rs ON rs.vc_id = e.vc_id
          LEFT JOIN issue_seal s ON s.snapshot_id = rs.snapshot_id
@@ -61,6 +62,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
       let reason: string | undefined;
       if (net === 0n) reason = "FULLY_REFUNDED";
       else if (c.snapshot_id === null) reason = "NO_ISSUE_SEAL";
+      else if (c.quarantined) reason = "ENGINE_FAILED";
       else {
         if (!disputed.has(c.facts_scope_id)) disputed.set(c.facts_scope_id, await openDisputeInScope(tx, c.facts_scope_id));
         if (disputed.get(c.facts_scope_id)) reason = "FACTS_DISPUTE_OPEN";
