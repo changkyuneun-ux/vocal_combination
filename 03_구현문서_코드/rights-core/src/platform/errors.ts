@@ -1,5 +1,5 @@
 export type Diagnostic = { code: string; path: string; message: string };
-export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 422 | 500;
+export type HttpStatus = 400 | 401 | 403 | 404 | 409 | 422 | 500 | 503;
 
 /** 서비스 계층의 업무 오류. HTTP 계층은 status와 code, diagnostics를 그대로 응답한다. */
 export class DomainError extends Error {

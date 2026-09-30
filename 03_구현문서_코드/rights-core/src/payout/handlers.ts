@@ -1,6 +1,8 @@
+import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
+import { conflict, notFound } from "../platform/errors.ts";
 import type { JobHandler, JobName, Jobs } from "../platform/jobs.ts";
 import type { AccountKey, AccountKind } from "../ledger/accounts.ts";
 import { postEntry } from "../ledger/journal.ts";
@@ -76,6 +78,41 @@ export async function submitPayout(d: PayoutDeps, data: { instructionId: string 
       await audit(tx, d.clock, { actor: ACTOR, action: "PAYOUT_SUBMIT_UNKNOWN", entityType: "payout_instruction", entityId: i.instructionId, after: { reason: r.reason ?? null } });
     }
     await applyProviderResult(tx, d.clock, d.jobs, i, r, 1);
+  });
+}
+
+/**
+ * 운영자 재전송(SPACE_SETTLE): 멈춘 지시(PENDING·SUBMITTED이고 submit_attempted_at이 있다 — PSP에 보냈거나 보냈을 수 있다)를
+ * 같은 멱등 키로 provider.submit에 다시 보내고 결과를 보통 경로(applyProviderResult)로 반영한다. 트랜잭션 밖에서 부르며 감사 PAYOUT_RESUBMITTED를 남긴다.
+ * provider가 예외를 던지면 UNKNOWN으로 보고 poll-payout을 다시 건다. 같은 키라 PSP는 한 번만 지급한다.
+ */
+export async function resubmitPayout(d: PayoutDeps, actor: Actor, instructionId: string): Promise<{ instructionId: string; providerStatus: ProviderResult["status"]; status: string }> {
+  requireRole(actor, "SPACE_SETTLE");
+  const plan = await d.db.tx(async (tx) => {
+    const i = await loadInstruction(tx, instructionId, true);
+    if (i === undefined) throw notFound("payout instruction", instructionId);
+    if (!isOpen(i) || !i.submitAttempted) throw conflict("NOT_RESUBMITTABLE", `instruction ${instructionId} is ${i.status}${i.submitAttempted ? "" : " and was never sent"}`);
+    const acct = (await tx.query("SELECT payout_account_ref FROM party_payout_profile WHERE party_id = $1", [i.partyId])).rows[0];
+    const accountRef = (acct?.payout_account_ref ?? null) as string | null;
+    if (accountRef === null) throw conflict("NO_ACCOUNT", `party ${i.partyId} has no payout account token`);
+    return { i, accountRef };
+  });
+  let r: ProviderResult;
+  try {
+    r = await d.provider.submit(
+      { instructionId, partyId: plan.i.partyId, accountRef: plan.accountRef, amountKrw: plan.i.net }, plan.i.idempotencyKey);
+  } catch (e) {
+    r = { status: "UNKNOWN", reason: `submit failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  return d.db.tx(async (tx) => {
+    const i = await loadInstruction(tx, instructionId, true);
+    if (i === undefined) throw notFound("payout instruction", instructionId);
+    await audit(tx, d.clock, { actor: actor.userId, action: "PAYOUT_RESUBMITTED", entityType: "payout_instruction", entityId: instructionId, after: { from: i.status, providerStatus: r.status, reason: r.reason ?? null } });
+    if (isOpen(i)) {
+      if (r.status === "UNKNOWN") await tx.query("UPDATE payout_instruction SET submit_unknown_at = $2 WHERE instruction_id = $1 AND submit_unknown_at IS NULL", [instructionId, d.clock.now()]);
+      await applyProviderResult(tx, d.clock, d.jobs, i, r, 1);
+    }
+    return { instructionId, providerStatus: r.status, status: (await loadInstruction(tx, instructionId, false))!.status };
   });
 }
 

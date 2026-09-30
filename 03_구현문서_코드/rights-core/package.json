@@ -9,6 +9,7 @@
     "test": "node --test --test-concurrency=4 \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "serve": "node src/http/main.ts",
+    "migrate": "node src/platform/migrate-cli.ts",
     "prescenario": "npm run build --prefix ../vcrl",
     "scenario": "node src/scenario/main.ts"
   },

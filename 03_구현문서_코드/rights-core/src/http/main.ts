@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { systemClock } from "../platform/clock.ts";
-import { createDb } from "../platform/db.ts";
+import { createDb, poolMaxFromEnv } from "../platform/db.ts";
 import { startOutboxPoller } from "../platform/outbox.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
@@ -13,7 +13,7 @@ import { providerFromEnv } from "../payout/provider.ts";
 import { buildServer } from "./server.ts";
 
 const url = process.env.DATABASE_URL ?? "postgres://rc_app:rc_app@localhost:54329/rights_core";
-const db = createDb(url);
+const db = createDb(url, { max: poolMaxFromEnv(process.env) });
 // 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다.
 const blobDir = process.env.BLOB_DIR ?? fileURLToPath(new URL("../../.blobs/", import.meta.url));
 const ctx = createBridgeCtx(createFsBlobStore(blobDir));
@@ -25,7 +25,7 @@ const jobs = await startBossJobs(url, workOptionsFromEnv(process.env));
 const handlers = { ...jobHandlers({ db, ctx, clock: systemClock, jobs }), ...payoutJobHandlers({ db, clock: systemClock, jobs, provider }) };
 for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
 await jobs.work(handlers as Record<JobName, JobHandler>);
-const app = buildServer({ db, ctx, clock: systemClock, jobs });
+const app = buildServer({ db, ctx, clock: systemClock, jobs, provider, ...(process.env.RC_PSP_SECRET === undefined ? {} : { pspSecret: process.env.RC_PSP_SECRET }) });
 const stop = startOutboxPoller(db, OUTBOX_HANDLERS, systemClock, 1000);
 const port = Number(process.env.PORT ?? 8080);
 await app.listen({ port, host: "127.0.0.1" });
