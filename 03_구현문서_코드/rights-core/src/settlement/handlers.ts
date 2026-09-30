@@ -4,8 +4,9 @@ import { attest } from "../engine-bridge/attest.ts";
 import { evaluateRun, verifyRun, type RunEvent } from "../engine-bridge/settle.ts";
 import { reverseEvent } from "../engine-bridge/reverse.ts";
 import { revenueRow } from "../revenue/service.ts";
-import { DomainError } from "../platform/errors.ts";
 import type { Tx } from "../platform/db.ts";
+import { lockBatching } from "../platform/locks.ts";
+import { DomainError, notFound } from "../platform/errors.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
 const SETTLER = "sys_settler";
@@ -74,6 +75,8 @@ export async function verifyRunJob(d: SettleDeps, data: { runId: string }): Prom
  */
 export async function refundRecorded(d: SettleDeps, data: { refundEventId: string }): Promise<void> {
   await d.db.tx(async (tx) => {
+    // 진행 중인 배치 생성이 커밋될 때까지 기다린 뒤 살아 있는 run을 찾는다.
+    await lockBatching(tx, "SHARED");
     const refund = await revenueRow(tx, data.refundEventId);
     const original = refund.relatedEventId!;
     const live = (await tx.query(
@@ -99,13 +102,16 @@ export async function reverseEventJob(d: SettleDeps, data: { refundEventId: stri
   try {
     await reverseInTx(d, data);
   } catch (e) {
-    // 정산액 초과는 (id 기반 포함 판단 이후에는) 버그 신호다. 롤백과 무관하게 운영자가 보도록 별도 트랜잭션으로 감사에 남긴다.
-    if (e instanceof DomainError && e.code === "REFUND_EXCEEDS_SETTLED") {
-      await d.db.tx((tx) => audit(tx, d.clock, {
+    // 정산액 초과는 (id 기반 포함 판단 이후에는) 버그 신호다. 결정적이라 재시도해도 같으므로, 역분개는 쓰지 않고
+    // 운영자가 보도록 별도 트랜잭션으로 한 번만 감사에 남긴 뒤 작업을 끝낸다.
+    if (!(e instanceof DomainError && e.code === "REFUND_EXCEEDS_SETTLED")) throw e;
+    await d.db.tx(async (tx) => {
+      const seen = await tx.query("SELECT 1 FROM audit_log WHERE action_name = 'REVERSAL_REJECTED' AND entity_type = 'revenue_event' AND entity_id = $1", [data.refundEventId]);
+      if ((seen.rowCount ?? 0) > 0) return;
+      await audit(tx, d.clock, {
         actor: SETTLER, action: "REVERSAL_REJECTED", entityType: "revenue_event", entityId: data.refundEventId, after: { code: e.code, diagnostics: e.diagnostics },
-      }));
-    }
-    throw e;
+      });
+    });
   }
 }
 
@@ -140,9 +146,10 @@ async function reverseInTx(d: SettleDeps, data: { refundEventId: string }): Prom
     }
     for (const l of r.lines) {
       const orig = (await tx.query(
-        "SELECT line_id FROM allocation_line WHERE run_id = $1 AND event_id = $2 AND party_id = $3 AND role = $4 AND bucket = $5 AND line_seq = $6",
+        "SELECT line_id FROM allocation_line WHERE run_id = $1 AND event_id = $2 AND party_id = $3 AND role = $4 AND bucket = $5 AND line_seq = $6 AND line_kind = 'SETTLE'",
         [x.run_id, original, l.party, l.role, l.bucket, l.reversesLineSeq],
       )).rows[0];
+      if (orig === undefined) throw notFound("original allocation line", `${x.run_id}/${original}/${l.party}/${l.role}/${l.bucket}/${l.reversesLineSeq}`);
       await tx.query(
         `INSERT INTO allocation_line (run_id, event_id, party_id, role, bucket, line_seq, line_kind, amount_krw, reversal_of_line_id, reversal_id)
          VALUES ($1,$2,$3,$4,$5,$6,'REVERSAL',$7,$8,$9)`,

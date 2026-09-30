@@ -2,6 +2,7 @@ import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
+import { lockBatching } from "../platform/locks.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 
 export type RevenueType = "PURCHASE" | "RESALE" | "REFUND";
@@ -64,7 +65,7 @@ const samePayload = (a: RevenueRow, b: RevenueInput) =>
 
 /**
  * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409.
- * 환불은 원 이벤트별 advisory lock으로 직렬화하고 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
+ * 환불은 배치 잠금(SHARED)을 잡고, 원 이벤트별 advisory lock으로 직렬화하고 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
  */
 export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund?: RefundHook): Promise<{ eventId: string; created: boolean }> {
   requireRole(actor, "SYSTEM");
@@ -80,6 +81,8 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
     return { eventId: existing.event_id, created: false };
   }
   if (input.eventType === "REFUND") {
+    // 진행 중인 배치 생성이 있으면 끝날 때까지 기다린다(환불은 배치 순액에 포함되거나, 배치 커밋 뒤에 기록된다).
+    await lockBatching(tx, "SHARED");
     await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('refund:' || $1, 0))", [input.relatedEventId]);
     const original = await revenueRow(tx, input.relatedEventId!);
     if (original.eventType === "REFUND") throw bad("a refund must reference a PURCHASE or RESALE");

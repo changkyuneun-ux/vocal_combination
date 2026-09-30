@@ -4,6 +4,7 @@ import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { Jobs } from "../platform/jobs.ts";
+import { lockBatching } from "../platform/locks.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { attest } from "../engine-bridge/attest.ts";
 import { sealDocument } from "../engine-bridge/seal-store.ts";
@@ -33,6 +34,8 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
   }
   if (input.periodStart >= input.periodEnd) throw invalid("INVALID_PERIOD", `periodStart ${input.periodStart} must be before periodEnd ${input.periodEnd}`);
   return d.db.tx(async (tx) => {
+    // 첫 문장: 동시에 기록 중인 환불이 커밋되기를 기다리고, 이 배치가 커밋될 때까지 새 환불 기록을 막는다.
+    await lockBatching(tx, "EXCLUSIVE");
     const now = d.clock.now();
     await tx.query("INSERT INTO settlement_batch (batch_id, period_start, period_end, executed_by, created_at) VALUES ($1,$2,$3,$4,$5)",
       [input.batchId, input.periodStart, input.periodEnd, actor.userId, now]);
