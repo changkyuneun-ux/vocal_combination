@@ -1,7 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import pg from "pg";
+import { installJobSchema } from "./jobs.ts";
 import { MIGRATIONS_DIR, migrate } from "./migrate.ts";
+
+const PG_BOSS_VERSION: string = createRequire(import.meta.url)("pg-boss/package.json").version;
 
 export const ADMIN_URL = process.env.RC_ADMIN_URL ?? "postgres://rc:rc@localhost:54329/rights_core";
 const APP_CREDENTIALS = process.env.RC_APP_CREDENTIALS ?? "rc_app:rc_app";
@@ -21,9 +25,10 @@ export function appUrlFor(name: string): string {
   return u.toString();
 }
 
-/** 마이그레이션 내용이 바뀌면 템플릿 이름도 바뀐다(낡은 템플릿을 쓰지 않는다). */
+/** 마이그레이션 내용이나 pg-boss 버전이 바뀌면 템플릿 이름도 바뀐다(낡은 템플릿을 쓰지 않는다). */
 function templateName(): string {
   const h = createHash("sha256");
+  h.update(`pg-boss@${PG_BOSS_VERSION}`);
   for (const f of readdirSync(MIGRATIONS_DIR).filter((x) => x.endsWith(".sql")).sort()) {
     h.update(f).update(readFileSync(`${MIGRATIONS_DIR}/${f}`));
   }
@@ -51,6 +56,8 @@ export async function createFreshDatabase(adminUrl: string): Promise<{ name: str
         } finally {
           await c.end();
         }
+        // 소유자 역할로 pg-boss 스키마·큐를 설치한다. 설치 연결이 모두 닫힌 뒤 이름을 바꾼다.
+        await installJobSchema(withDb(adminUrl, building));
         await admin.query(`ALTER DATABASE ${building} RENAME TO ${tpl}`);
       } catch (e) {
         await admin.query(`DROP DATABASE IF EXISTS ${building} WITH (FORCE)`).catch(() => undefined);
