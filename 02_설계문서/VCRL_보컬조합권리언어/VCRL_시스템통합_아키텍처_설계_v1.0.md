@@ -464,7 +464,7 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 
 | 항목 | 결정 시점 |
 |---|---|
-| 작업 큐 제품(graphile-worker·pg-boss 등) | I-2 구현 계획(I-1은 Outbox 인프로세스 폴러로 충분, 9절) |
+| ~~작업 큐 제품~~ **pg-boss로 결정**(10.2-1) | — |
 | ~~`party_type` ↔ VCRL `party_kind` 대응표~~ **확정**(9.3, 데이터모델 v2.8 `party`) | — |
 | 정산 그룹 단위 집계 전략(run 수 폭증 대응) | 3단계 성능 실측 후 |
 | 비`ISSUE_TIME` 결합 시점의 기준 시점 결정 규칙 | 해당 채널 도입 시 |
@@ -540,3 +540,32 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 4. **`dispute_closed` 핸들러**: 종결 이벤트는 쌓이기만 한다. 재고정 후보 계산·백오피스 작업 목록(3.3)으로 연결한다.
 5. **봉인 조회 인증**: `GET /seals/:digest`·`GET /issues/:id/audit`은 신원 없이 읽고 PRIVATE claim이 든 facts도 돌려준다(서버는 127.0.0.1 바인딩). 인증과 가시성 필터(공개본 S5)를 붙인다.
 6. **울타리·직무 분리를 DB 트리거로**: 봉인 울타리와 서명 역할 검사는 서비스 코드에만 있다. `rc_app`은 `right_claim`·`mandate`에 과거 시각의 행을 직접 INSERT할 수 있으므로, `sealed_through` 검사와 직무 분리 검사를 트리거로 옮긴다.
+
+---
+
+## 10. I-2a 정산 코어 설계 결정 (2026-09-30)
+
+### 10.1 범위
+
+- I-2를 셋으로 나눈다: **I-2a 정산 코어**(수익 수집, 정산 배치·run, 역분개 연결), **I-2b 원장·지급**(복식 원장, 보류 해제, 지급 지시, 최소지급 이월, 원천징수, PSP, 명세), **I-2c 운영 보강**(9.6: KMS, DB 트리거 직무 분리·봉인 시점 차단, Outbox 재시도·실패 격리, 봉인 조회 인증).
+- I-2a 포함: `revenue`(멱등 수집, 환불 한도), `settlement`(배치 생성·그룹화·건너뜀 기록, `settle-run`·`verify-run` 작업, 배치 확정), 역분개(`refund-recorded`·`reverse-event` 작업), 작업 큐, 최소 HTTP API, 시나리오 확장.
+- I-2a 제외: 원장·보류 해제·지급·세무·명세(I-2b), 9.6 전체(I-2c), 수동 정정(`CORRECTION`)·부정 확정(`FRAUD`) 역분개 API(엔진은 지원, 시스템 API는 I-2b), `USAGE_TIME` 등 비`ISSUE_TIME` 결합.
+
+### 10.2 결정
+
+1. **작업 큐 = pg-boss**(8절 미결 해소). 스키마 `pgboss`는 템플릿 DB를 만들 때 소유자 역할로 설치하고 `rc_app`에 권한을 준다. 작업은 상태 변경과 **같은 트랜잭션**에서 보낸다(pg-boss `send`의 사용자 실행기 옵션, 지원되지 않으면 Outbox→작업 중계). 작업 이름: `settle-run`, `verify-run`, `refund-recorded`, `reverse-event`. 처리기는 순수한 서비스 함수이고 각자 트랜잭션을 연다(재시도 안전: 상태를 잠그고 확인한 뒤 이미 처리됐으면 아무것도 하지 않는다). 기존 Outbox 폴러는 그대로 두고 전환은 I-2c에서 한다.
+2. **수익 이벤트**: `PURCHASE`(엔진 `PRIMARY`)·`RESALE`·`REFUND`, 통화 KRW만, 금액은 양의 정수(환불도 양수, 방향은 유형이 나타낸다). 멱등 키 `(source_system, source_event_id, source_revision)` — 같은 키·같은 내용이면 기존 id를 돌려주고, 같은 키·다른 내용이면 409 `IDEMPOTENCY_MISMATCH`. 환불은 `related_event_id`로 원 구매·재판매를 가리키고, 원 이벤트별 누적 환불 ≤ 원 금액(아니면 422 `REFUND_EXCEEDS_ORIGINAL`). 같은 원 이벤트의 환불은 트랜잭션 advisory lock으로 직렬화한다.
+3. **배치 생성**(`SPACE_OPS`): 기간 `[start, end)`의 구매·재판매 중 살아 있는 run에 속하지 않은 이벤트를 고른다. 순액 = 원 금액 − 그때까지 기록된 환불 합. 순액 0 → 건너뜀 `FULLY_REFUNDED`, `vc_id`의 발행 봉인 없음 → `NO_ISSUE_SEAL`, 그 facts 범위에 열린 분쟁 → `FACTS_DISPUTE_OPEN`. 건너뛴 이벤트는 `settlement_batch_skip`에 사유와 함께 남고 다음 배치의 후보로 남는다(보류 행은 만들지 않는다 — 시스템 보류의 원장 표현은 I-2b). 나머지를 **발행 봉인(스냅샷)별로 묶어** run 하나씩 만들고(`run_<batch>_<snapshot>`), 이벤트별 순액과 포함한 환불 합을 `settlement_run_event`에 고정한 뒤 `settle-run` 작업을 보낸다.
+4. **배치 상태**는 `OPEN`/`CONFIRMED` 둘이다. 진행 상황(계산 중·검증 대기·확정 가능)은 run 상태에서 계산한다.
+5. **`settle-run`**: run을 잠그고 `PENDING`이 아니면 끝낸다. 발행 봉인의 facts·정책·투영·멤버와 고정된 순액 이벤트(id 순)로 vcrl `evaluate` → events·결과 봉인 → 풀 라인·라인·보류 INSERT → `CALCULATED`, 실행 신원 `sys_settler`가 `result_digest`에 서명(`SPACE_OPS`) → `verify-run` 전송. 엔진 진단이면 `FAILED`와 진단 저장, 이벤트를 풀어 다음 배치로 보낸다.
+6. **`verify-run`**: run을 잠그고 `CALCULATED`가 아니면 끝낸다. 봉인된 입력과 스냅샷 사용량·발행 봉인 기준 시점으로 vcrl `verifyAllocationResult` → 불일치 없으면 검증 신원 `sys_verifier`가 서명(`PLATFORM`)하고 `VERIFIED`, 있으면 `VOIDED`·진단·감사 경보, 이벤트를 푼다. `sys_verifier ≠ sys_settler`를 DB `CHECK`로 강제한다.
+7. **배치 확정**(`SPACE_SETTLE`, 배치 생성자와 다른 사람): 살아 있는 run(`FAILED`·`VOIDED` 제외)이 하나 이상이고 모두 `VERIFIED`여야 한다. 모든 run → `CONFIRMED`, 배치 매니페스트(`{format: "rc-batch-manifest/1", batch_id, results: 정렬된 result_digest}`)를 봉인하고 확정자가 서명, `batch_manifest_digest` 기록. 확정된 run의 이벤트는 계속 "살아 있음"으로 남아 다시 배치되지 않는다.
+8. **환불 처리**(`refund-recorded`): 원 이벤트가 살아 있는 run에 없으면 아무것도 하지 않는다(다음 배치가 순액으로 처리). 있으면 run을 잠그고, 그 run이 이미 이 환불까지 반영했으면(`refunds_included ≥ 누적 환불`) 끝낸다. run이 `CONFIRMED`가 아니면 `VOIDED`로 만들고 모든 이벤트를 풀어 다음 배치가 새 순액으로 다시 평가하게 한다. `CONFIRMED`면 `reverse-event`를 보낸다.
+9. **역분개**(`reverse-event`): 환불 id로 이미 역분개했으면 끝낸다(멱등). 원 이벤트의 `settlement_run_event` 행을 잠가 같은 이벤트의 역분개를 직렬화하고, 그 이벤트의 이전 역분개 봉인을 순서대로 `priors`로 넘겨 vcrl `reverse`(`reason = REFUND`, 금액 = 환불액, `run_id = reversal_id`)를 호출한다. 결과를 봉인하고 `reversal_run(original_run_id, event_id, sequence, refund_event_id UNIQUE)`와 음수 풀 라인·`REVERSAL` 라인(`reversal_of_line_id` = 원 라인)·음수 보류를 기록한다. DB 행은 **원 run_id + `line_seq = sequence + 1` + `reversal_id`**로 키를 잡는다(원 run의 라인 유일키와 충돌하지 않는다). 확정된 run의 보류는 I-2a에서 해제되지 않으므로(모두 `HELD`), 이미 해제된 보류의 역분개 규칙은 I-2b에서 정한다.
+10. **신원**: 역할에 `SPACE_OPS`·`SPACE_SETTLE`·`SYSTEM`을 더한다. 결제 어댑터는 `SYSTEM` 역할 신원(`sys_ingest`)으로 수익을 넣는다. 작업 처리 신원 `sys_settler`·`sys_verifier`는 개발용 서명키를 갖는다(운영은 KMS — I-2c).
+
+### 10.3 완료 기준
+
+- 멱등 수집·환불 한도, 그룹화·건너뜀, 분쟁 게이트, 직무 분리, 작업 재시도 안전, 검증 불일치 → `VOIDED`가 통합 테스트로 통과한다.
+- 환불 3경로(배치 전 = 순액, 확정 전 = run 무효화 후 재평가, 확정 후 = 역분개)와 확정 후 부분 → 잔액 전액 환불의 순합 0.
+- 시나리오: I-1의 1만 조합에 매출 약 3만 건·환불 일부를 더해 배치 하나를 끝까지 처리하고, 보존식(Σ 라인 + 보류 + 비권리 풀 = Σ 순매출), 모든 run 재계산 불일치 0, 역분개 순합, 처리 시간을 리포트한다.
