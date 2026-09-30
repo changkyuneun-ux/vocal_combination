@@ -27,3 +27,10 @@ test("src/revenue does not import settlement (dependency runs settlement -> reve
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });
+
+test("src/ledger does not import settlement or payout (dependency runs settlement/payout -> ledger)", () => {
+  const offenders = walk(join(SRC, "ledger"))
+    .filter((p) => /from\s+["'][^"']*\/(settlement|payout)\//.test(readFileSync(p, "utf8")))
+    .map((p) => relative(SRC, p));
+  assert.deepEqual(offenders, []);
+});

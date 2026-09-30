@@ -2,8 +2,8 @@ import { PgBoss, type Db as BossDb, type JobResult } from "pg-boss";
 import pg from "pg";
 import type { Tx } from "./db.ts";
 
-export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "reverse-event";
-export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "reverse-event"];
+export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "reverse-event" | "post-batch";
+export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "reverse-event", "post-batch"];
 export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>): Promise<void> };
 export type JobHandler = (data: Record<string, string>) => Promise<void>;
 export type BossJobs = Jobs & { work(handlers: Record<JobName, JobHandler>): Promise<void>; drainIdle(timeoutMs: number): Promise<void>; stop(): Promise<void> };

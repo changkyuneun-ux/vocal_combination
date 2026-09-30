@@ -131,6 +131,8 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
     await tx.query("UPDATE settlement_batch SET status = 'CONFIRMED', confirmed_by = $2, confirmed_at = $3, batch_manifest_digest = $4 WHERE batch_id = $1",
       [batchId, actor.userId, d.clock.now(), sealed.digest]);
     await audit(tx, d.clock, { actor: actor.userId, action: "BATCH_CONFIRMED", entityType: "settlement_batch", entityId: batchId, after: { manifest: sealed.digest } });
+    // 원장 반영(통합 설계 11.2-4): 확정과 같은 트랜잭션에서 작업을 넣는다.
+    await d.jobs.send(tx, "post-batch", { batchId });
     return { manifestDigest: sealed.digest };
   });
 }

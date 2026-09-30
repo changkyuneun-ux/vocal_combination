@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import pg from "pg";
-import { installJobSchema } from "./jobs.ts";
+import { installJobSchema, JOB_NAMES } from "./jobs.ts";
 import { MIGRATIONS_DIR, migrate } from "./migrate.ts";
 
 const PG_BOSS_VERSION: string = createRequire(import.meta.url)("pg-boss/package.json").version;
@@ -25,10 +25,11 @@ export function appUrlFor(name: string): string {
   return u.toString();
 }
 
-/** 마이그레이션 내용이나 pg-boss 버전이 바뀌면 템플릿 이름도 바뀐다(낡은 템플릿을 쓰지 않는다). */
+/** 마이그레이션 내용, pg-boss 버전, 작업 이름 목록(큐는 템플릿에서 만든다 — 11.2-14)이 바뀌면 템플릿 이름도 바뀐다(낡은 템플릿을 쓰지 않는다). */
 function templateName(): string {
   const h = createHash("sha256");
   h.update(`pg-boss@${PG_BOSS_VERSION}`);
+  h.update(`jobs:${JOB_NAMES.join(",")}`);
   for (const f of readdirSync(MIGRATIONS_DIR).filter((x) => x.endsWith(".sql")).sort()) {
     h.update(f).update(readFileSync(`${MIGRATIONS_DIR}/${f}`));
   }
