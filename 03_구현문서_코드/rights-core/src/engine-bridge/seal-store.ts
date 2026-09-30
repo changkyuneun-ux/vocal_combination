@@ -3,7 +3,7 @@ import type { Tx } from "../platform/db.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 
-export type SealKind = "facts" | "allocation" | "projection" | "members";
+export type SealKind = "facts" | "allocation" | "projection" | "members" | "events" | "allocation_result" | "reversal_result" | "manifest";
 export type Sealed = { digest: string; kind: SealKind; docId?: string; docVersion?: string; format?: string };
 
 const INLINE_LIMIT = 64 * 1024;

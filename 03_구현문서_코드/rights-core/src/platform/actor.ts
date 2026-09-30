@@ -3,7 +3,7 @@ import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { DomainError } from "./errors.ts";
 
-export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER";
+export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM";
 export type Actor = { userId: string; roles: ReadonlySet<Role> };
 
 /** 사용자와 역할을 만들고 개발용 Ed25519 키를 발급한다(운영은 KMS — 통합 설계 6.4). */
