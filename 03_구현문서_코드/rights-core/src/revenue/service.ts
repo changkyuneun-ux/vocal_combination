@@ -16,7 +16,13 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const AMOUNT = /^[1-9]\d*$/;
 const bad = (m: string) => invalid("INVALID_REVENUE", m);
 
+const ID = /^[A-Za-z0-9._-]+$/;
+const isId = (v: unknown) => typeof v === "string" && ID.test(v);
+
 function validate(i: RevenueInput): void {
+  for (const k of ["eventId", "sourceSystem", "sourceEventId"] as const) if (!isId(i[k])) throw bad(`${k} must match ${ID}`);
+  for (const k of ["vcId", "relatedEventId"] as const) if (i[k] !== undefined && !isId(i[k])) throw bad(`${k} must match ${ID}`);
+  if (i.sourceRevision !== undefined && !(Number.isSafeInteger(i.sourceRevision) && i.sourceRevision >= 1)) throw bad("sourceRevision must be a positive safe integer");
   if (!["PURCHASE", "RESALE", "REFUND"].includes(i.eventType)) throw bad(`eventType ${String(i.eventType)}`);
   if (typeof i.amountKrw !== "string" || !AMOUNT.test(i.amountKrw)) throw bad("amountKrw must be a positive integer string");
   if (i.currency !== "KRW") throw bad("only KRW is supported");
@@ -63,6 +69,7 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
   requireRole(actor, "SYSTEM");
   validate(input);
   const revision = input.sourceRevision ?? 1;
+  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`rev:${input.sourceSystem}/${input.sourceEventId}/${revision}`]);
   const existing = (await tx.query(
     "SELECT * FROM revenue_event WHERE source_system = $1 AND source_event_id = $2 AND source_revision = $3",
     [input.sourceSystem, input.sourceEventId, revision],
