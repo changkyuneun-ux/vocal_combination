@@ -29,7 +29,11 @@ export async function loadPayoutPolicy(tx: Tx): Promise<PayoutPolicy> {
 
 export type ProfileView = { taxType: TaxType; payoutAccountRef: string | null; kycVerified: boolean; firstPayableAt: string };
 
-/** 지급 판정(통합 설계 11.2-6): 보류 사유가 있으면 HELD, 총액이 최소 지급액 미만(0 이하 포함)이면 CARRIED, 아니면 PENDING. */
+/**
+ * 지급 판정(통합 설계 11.2-6): 보류 사유가 있으면 HELD, 총액이 최소 지급액 미만(0 이하 포함)이면 CARRIED, 아니면 PENDING.
+ * 프로필 상태(존재·계좌·KYC·세금 유형)는 asOf 시점이 아니라 실행 시점의 현재 값으로 판정한다(프로필은 이력을 두지 않는다).
+ * 초기 보류만 asOf와 first_payable_at을 비교한다.
+ */
 export function decide(policy: PayoutPolicy, asOf: string, gross: bigint, prof: ProfileView | undefined):
   { status: "HELD"; reason: HoldReason } | { status: "CARRIED" } | { status: "PENDING"; withholding: bigint } {
   if (prof === undefined) return { status: "HELD", reason: "NO_PROFILE" };

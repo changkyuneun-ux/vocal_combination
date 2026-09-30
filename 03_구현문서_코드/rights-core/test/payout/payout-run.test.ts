@@ -95,15 +95,17 @@ test("a payout run holds, carries and pays according to the policy, and posts on
   await profile("pty_author_c", "DOMESTIC_INDIVIDUAL", "psp_tok_ac", true); // 초기 보류는 4월 19일까지
   nowIso = "2026-04-10T00:00:00.000Z";
 
-  await assert.rejects(createPayoutRun(p, w.users.ops, { payoutRunId: "pr_1", asOf: "2026-04-01T00:00:00.000Z" }), { code: "ROLE_REQUIRED", status: 403 });
-  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr_1", asOf: "2026-04-10T00:00:00.001Z" }), { code: "INVALID_AS_OF", status: 422 });
-  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr_1", asOf: "2026-04-01" }), { code: "INVALID_INSTANT", status: 422 });
+  await assert.rejects(createPayoutRun(p, w.users.ops, { payoutRunId: "pr-1", asOf: "2026-04-01T00:00:00.000Z" }), { code: "ROLE_REQUIRED", status: 403 });
+  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr-1", asOf: "2026-04-10T00:00:00.001Z" }), { code: "INVALID_AS_OF", status: 422 });
+  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr-1", asOf: "2026-04-01" }), { code: "INVALID_INSTANT", status: 422 });
   await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr/1", asOf: "2026-04-01T00:00:00.000Z" }), { code: "INVALID_ID", status: 422 });
+  // '_'는 instruction_id(po_<run>_<party>)의 구분자이므로 run id에 쓸 수 없다.
+  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr_1", asOf: "2026-04-01T00:00:00.000Z" }), { code: "INVALID_ID", status: 422 });
 
   const before = { label: await payable("pty_label"), author_b: await payable("pty_author_b"), cmo: await payable("pty_cmo") };
-  const r = await createPayoutRun(p, w.users.settle, { payoutRunId: "pr_1", asOf: "2026-04-01T00:00:00.000Z" });
+  const r = await createPayoutRun(p, w.users.settle, { payoutRunId: "pr-1", asOf: "2026-04-01T00:00:00.000Z" });
   assert.deepEqual(r.counts, { PENDING: 2, HELD: 4, CARRIED: 1 });
-  const ins = await instructions("pr_1");
+  const ins = await instructions("pr-1");
   assert.deepEqual(Object.keys(ins), ["pty_agency", "pty_author_b", "pty_author_c", "pty_cmo", "pty_label", "pty_member_a", "pty_member_b"]);
   assert.deepEqual([ins.pty_label.status, ins.pty_label.hold_reason, ins.pty_label.g], ["HELD", "NO_PROFILE", "345679"]);
   assert.deepEqual([ins.pty_agency.status, ins.pty_agency.hold_reason], ["HELD", "NO_ACCOUNT"]);
@@ -113,10 +115,10 @@ test("a payout run holds, carries and pays according to the policy, and posts on
   for (const k of ["pty_label", "pty_agency", "pty_cmo", "pty_author_c", "pty_author_b"]) assert.equal(ins[k].e, null, k);
   assert.deepEqual([ins.pty_member_a.status, ins.pty_member_a.g, ins.pty_member_a.wh, ins.pty_member_a.n], ["PENDING", "172840", "5700", "167140"]);
   assert.deepEqual([ins.pty_member_b.status, ins.pty_member_b.g, ins.pty_member_b.wh, ins.pty_member_b.n], ["PENDING", "172839", "38020", "134819"]);
-  assert.equal(ins.pty_member_a.instruction_id, "po_pr_1_pty_member_a");
-  assert.equal(ins.pty_member_a.idempotency_key, "payout:po_pr_1_pty_member_a");
+  assert.equal(ins.pty_member_a.instruction_id, "po_pr-1_pty_member_a");
+  assert.equal(ins.pty_member_a.idempotency_key, "payout:po_pr-1_pty_member_a");
 
-  const e = (await w.db.pool.query("SELECT kind, entry_id::text AS id, occurred_at FROM journal_entry WHERE source_ref = 'payout:po_pr_1_pty_member_a'")).rows[0];
+  const e = (await w.db.pool.query("SELECT kind, entry_id::text AS id, occurred_at FROM journal_entry WHERE source_ref = 'payout:po_pr-1_pty_member_a'")).rows[0];
   assert.equal(e.kind, "PAYOUT");
   assert.equal(e.id, ins.pty_member_a.e);
   const postings = (await w.db.pool.query("SELECT account_id, amount_krw::text AS a FROM posting WHERE entry_id = $1 ORDER BY account_id", [e.id])).rows;
@@ -131,14 +133,14 @@ test("a payout run holds, carries and pays according to the policy, and posts on
   assert.equal(await payable("pty_author_b"), before.author_b, "carried balance stays");
   assert.equal(await payable("pty_cmo"), before.cmo);
   assert.equal(await trialSum(), 0n);
-  assert.deepEqual(submits(), ["po_pr_1_pty_member_a", "po_pr_1_pty_member_b"]);
-  const a = await w.db.pool.query("SELECT after_json FROM audit_log WHERE action_name = 'PAYOUT_RUN_CREATED' AND entity_id = 'pr_1'");
+  assert.deepEqual(submits(), ["po_pr-1_pty_member_a", "po_pr-1_pty_member_b"]);
+  const a = await w.db.pool.query("SELECT after_json FROM audit_log WHERE action_name = 'PAYOUT_RUN_CREATED' AND entity_id = 'pr-1'");
   assert.equal(a.rowCount, 1);
 });
 
 test("the same payoutRunId is rejected with 409 and writes nothing", async () => {
   const entries = (await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry")).rows[0].n;
-  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr_1", asOf: "2026-04-02T00:00:00.000Z" }), { code: "PAYOUT_RUN_EXISTS", status: 409 });
+  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr-1", asOf: "2026-04-02T00:00:00.000Z" }), { code: "PAYOUT_RUN_EXISTS", status: 409 });
   assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry")).rows[0].n, entries);
   assert.equal(submits().length, 2);
 });
@@ -151,9 +153,9 @@ test("a refund after payout leaves a negative payable that is carried; an earlie
   const owedA = await payable("pty_member_a");
   assert.ok(owedA > 0n, "member_a now owes (debit balance)");
   nowIso = "2026-04-12T00:00:00.000Z";
-  // asOf(4/5)는 pr_1 기준 시각(4/1) 뒤지만 pr_1의 PAYOUT 분개(4/10) 앞이다. 이미 지급한 금액은 다시 지급하지 않는다.
-  const r = await createPayoutRun(p, w.users.settle, { payoutRunId: "pr_2", asOf: "2026-04-05T00:00:00.000Z" });
-  const ins = await instructions("pr_2");
+  // asOf(4/5)는 pr-1 기준 시각(4/1) 뒤지만 pr-1의 PAYOUT 분개(4/10) 앞이다. 이미 지급한 금액은 다시 지급하지 않는다.
+  const r = await createPayoutRun(p, w.users.settle, { payoutRunId: "pr-2", asOf: "2026-04-05T00:00:00.000Z" });
+  const ins = await instructions("pr-2");
   assert.deepEqual([ins.pty_member_a.status, ins.pty_member_a.g, ins.pty_member_a.wh, ins.pty_member_a.n], ["CARRIED", (-owedA).toString(), "0", (-owedA).toString()]);
   assert.equal(ins.pty_member_b.status, "CARRIED");
   assert.ok(BigInt(ins.pty_member_b.g) < 0n);
@@ -169,15 +171,15 @@ test("carried balances accumulate and are paid in a later run once they reach th
   const owedA = await payable("pty_member_a");
   const acBal = await payable("pty_author_c");
   nowIso = "2026-06-01T00:00:00.000Z";
-  await createPayoutRun(p, w.users.settle, { payoutRunId: "pr_3", asOf: "2026-06-01T00:00:00.000Z" });
-  const ins = await instructions("pr_3");
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "pr-3", asOf: "2026-06-01T00:00:00.000Z" });
+  const ins = await instructions("pr-3");
   assert.deepEqual([ins.pty_author_b.status, ins.pty_author_b.g, ins.pty_author_b.wh, ins.pty_author_b.n], ["PENDING", "12000", "0", "12000"]);
   assert.deepEqual([ins.pty_member_a.status, ins.pty_member_a.g], ["PENDING", (-owedA).toString()]);
   assert.equal(BigInt(ins.pty_member_a.wh), computeWithholding(-owedA, 330));
   assert.deepEqual([ins.pty_author_c.status, ins.pty_author_c.g], ["PENDING", (-acBal).toString()], "initial hold is over");
   assert.equal(ins.pty_label.status, "HELD");
   for (const k of ["pty_author_b", "pty_member_a", "pty_member_b", "pty_author_c"]) assert.equal(await payable(k), 0n, k);
-  assert.deepEqual(submits().slice(2), ["po_pr_3_pty_author_b", "po_pr_3_pty_author_c", "po_pr_3_pty_member_a", "po_pr_3_pty_member_b"]);
+  assert.deepEqual(submits().slice(2), ["po_pr-3_pty_author_b", "po_pr-3_pty_author_c", "po_pr-3_pty_member_a", "po_pr-3_pty_member_b"]);
   assert.equal(await trialSum(), 0n);
 });
 
@@ -187,19 +189,46 @@ test("concurrent payout runs are serialized so a balance is paid once", async ()
   const owed = await payable("pty_member_a");
   assert.ok(owed < -10000n);
   await Promise.all([
-    createPayoutRun(p, w.users.settle, { payoutRunId: "pr_4a", asOf: "2026-07-01T00:00:00.000Z" }),
-    createPayoutRun(p, w.users.settle, { payoutRunId: "pr_4b", asOf: "2026-07-01T00:00:00.000Z" }),
+    createPayoutRun(p, w.users.settle, { payoutRunId: "pr-4a", asOf: "2026-07-01T00:00:00.000Z" }),
+    createPayoutRun(p, w.users.settle, { payoutRunId: "pr-4b", asOf: "2026-07-01T00:00:00.000Z" }),
   ]);
   const paid = (await w.db.pool.query(
-    "SELECT payout_run_id, gross_krw::text AS g FROM payout_instruction WHERE party_id = 'pty_member_a' AND payout_run_id IN ('pr_4a','pr_4b') AND status = 'PENDING'")).rows;
+    "SELECT payout_run_id, gross_krw::text AS g FROM payout_instruction WHERE party_id = 'pty_member_a' AND payout_run_id IN ('pr-4a','pr-4b') AND status = 'PENDING'")).rows;
   assert.equal(paid.length, 1);
   assert.equal(paid[0].g, (-owed).toString());
   assert.equal(await payable("pty_member_a"), 0n);
   assert.equal(await trialSum(), 0n);
 });
 
+test("a run whose asOf is earlier than a previous run's asOf is rejected, so clawed-back money is not paid again", async () => {
+  const at = (iso: string): Clock => ({ now: () => iso });
+  const post = (ref: string, iso: string, amount: bigint) => w.db.tx((tx) => postEntry(tx, at(iso), {
+    kind: "ADJUSTMENT", sourceRef: ref, createdBy: "usr_settle",
+    postings: [{ account: { kind: "RECEIVABLE" }, amount }, { account: { kind: "PARTY_PAYABLE", partyId: "pty_author_b" }, amount: -amount }],
+  }));
+  assert.equal(await payable("pty_author_b"), 0n);
+  await post("adj:regress-credit", "2026-07-02T00:00:00.000Z", 100_000n); // 7/2 발생 100,000
+  await post("adj:regress-claw", "2026-07-20T00:00:00.000Z", -40_000n); // 7/20 환수 −40,000
+  nowIso = "2026-08-01T00:00:00.000Z";
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "pr-5", asOf: "2026-08-01T00:00:00.000Z" });
+  assert.deepEqual([(await instructions("pr-5")).pty_author_b.status, (await instructions("pr-5")).pty_author_b.g], ["PENDING", "60000"]);
+  assert.equal(await payable("pty_author_b"), 0n);
+  const entries = (await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry")).rows[0].n;
+  const sent = submits().length;
+  // asOf 7/15로 다시 실행하면 7/20 환수가 빠져 40,000을 다시 지급하게 된다 → 거부.
+  await assert.rejects(createPayoutRun(p, w.users.settle, { payoutRunId: "pr-6", asOf: "2026-07-15T00:00:00.000Z" }), { code: "AS_OF_REGRESSED", status: 422 });
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM payout_run WHERE payout_run_id = 'pr-6'")).rows[0].n, 0);
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM journal_entry")).rows[0].n, entries);
+  assert.equal(submits().length, sent);
+  assert.equal(await payable("pty_author_b"), 0n);
+  // 같은 asOf는 허용된다(이미 지급한 잔액은 0으로 남는다).
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "pr-7", asOf: "2026-08-01T00:00:00.000Z" });
+  assert.deepEqual([(await instructions("pr-7")).pty_author_b.status, (await instructions("pr-7")).pty_author_b.g], ["CARRIED", "0"]);
+  assert.equal(await trialSum(), 0n);
+});
+
 test("payout_instruction state guard: allowed transitions only, write-once provider fields, identity columns immutable", async () => {
-  const id = "po_pr_3_pty_author_b";
+  const id = "po_pr-3_pty_author_b";
   const q = (sql: string) => w.db.pool.query(sql, [id]);
   await assert.rejects(q("UPDATE payout_instruction SET status = 'CARRIED' WHERE instruction_id = $1"), { code: "RC001" });
   await assert.rejects(q("UPDATE payout_instruction SET gross_krw = 1, net_krw = 1 WHERE instruction_id = $1"));
@@ -209,9 +238,9 @@ test("payout_instruction state guard: allowed transitions only, write-once provi
   await q("UPDATE payout_instruction SET status = 'PAID' WHERE instruction_id = $1");
   await assert.rejects(q("UPDATE payout_instruction SET status = 'FAILED' WHERE instruction_id = $1"), { code: "RC001" });
   await assert.rejects(q("DELETE FROM payout_instruction WHERE instruction_id = $1"));
-  const held = "po_pr_1_pty_label";
+  const held = "po_pr-1_pty_label";
   await assert.rejects(w.db.pool.query("UPDATE payout_instruction SET status = 'PENDING' WHERE instruction_id = $1", [held]), { code: "RC001" });
   await assert.rejects(w.db.pool.query("UPDATE payout_instruction SET provider_ref = 'x' WHERE instruction_id = $1", [held]), { code: "RC001" });
-  await assert.rejects(w.db.pool.query("UPDATE payout_run SET as_of = as_of WHERE payout_run_id = 'pr_1'"));
+  await assert.rejects(w.db.pool.query("UPDATE payout_run SET as_of = as_of WHERE payout_run_id = 'pr-1'"));
   await assert.rejects(w.db.pool.query("UPDATE payout_policy SET min_payout_krw = 1"));
 });

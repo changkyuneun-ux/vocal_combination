@@ -11,7 +11,8 @@ export type PayoutDeps = { db: Db; clock: Clock; jobs: Jobs };
 export type InstructionStatus = "PENDING" | "CARRIED" | "HELD";
 
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const RUN_ID = /^[A-Za-z0-9._-]{1,100}$/;
+/** '_'는 instruction_id(po_<run>_<party>)의 구분자이므로 run id에 허용하지 않는다(지시 id가 모호해지지 않도록). */
+const RUN_ID = /^[A-Za-z0-9.-]{1,100}$/;
 
 /**
  * 지급 프로필(통합 설계 11.2-6, SPACE_SETTLE): 없으면 만들고(first_payable_at = 지금), 있으면 세금 유형·계좌 토큰·KYC·수정 시각만 바꾼다.
@@ -49,11 +50,12 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
  * 앞선 지급의 분개가 이번 asOf보다 늦게 기록됐어도 같은 잔액을 두 번 지급하지 않는다.
  * HELD·CARRIED는 분개하지 않는다(잔액이 그대로 이월된다). PENDING은 분개 PAYOUT과 submit-payout 작업을 같은 트랜잭션에서 쓴다.
  * 동시 실행은 트랜잭션 advisory lock(payout:run)으로 직렬화한다 — 뒤 실행은 앞 실행의 PAYOUT을 본 뒤 잔액을 읽는다.
+ * asOf는 이전 실행들의 최대 asOf보다 앞설 수 없다(422 AS_OF_REGRESSED — 잠금 안에서 검사).
  */
 export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payoutRunId: string; asOf: string }) {
   requireRole(actor, "SPACE_SETTLE");
   if (typeof input.payoutRunId !== "string" || !RUN_ID.test(input.payoutRunId) || input.payoutRunId === "__proto__") {
-    throw invalid("INVALID_ID", "payoutRunId must match [A-Za-z0-9._-]{1,100}");
+    throw invalid("INVALID_ID", "payoutRunId must match [A-Za-z0-9.-]{1,100} (no '_')");
   }
   if (typeof input.asOf !== "string" || !INSTANT.test(input.asOf) || new Date(input.asOf).toISOString() !== input.asOf) {
     throw invalid("INVALID_INSTANT", `${input.asOf} must be ms UTC ISO`);
@@ -63,6 +65,11 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
     const now = d.clock.now();
     // 미래 기준 시각은 초기 보류를 앞당기므로 거부한다.
     if (input.asOf > now) throw invalid("INVALID_AS_OF", `asOf ${input.asOf} is after now ${now}`);
+    // 기준 시각은 뒤로 가지 않는다: 앞 실행의 asOf 뒤에 기록된 환수(역분개)가 이전 asOf로는 빠져 이미 환수한 돈을 다시 지급하게 된다.
+    const last = (await tx.query("SELECT max(as_of) AS m FROM payout_run")).rows[0].m as Date | null;
+    if (last !== null && input.asOf < last.toISOString()) {
+      throw invalid("AS_OF_REGRESSED", `asOf ${input.asOf} is before the latest payout run asOf ${last.toISOString()}`);
+    }
     try {
       await tx.query("INSERT INTO payout_run (payout_run_id, as_of, created_by, created_at) VALUES ($1,$2,$3,$4)", [input.payoutRunId, input.asOf, actor.userId, now]);
     } catch (err) {
