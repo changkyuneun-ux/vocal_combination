@@ -8,6 +8,7 @@ import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { attest } from "../engine-bridge/attest.ts";
 import { sealDocument } from "../engine-bridge/seal-store.ts";
 import { openDisputeInScope } from "../issuance/service.ts";
+import type { RefundHook } from "../revenue/service.ts";
 
 export type SettleDeps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
 export type BatchView = {
@@ -125,4 +126,9 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
     await audit(tx, d.clock, { actor: actor.userId, action: "BATCH_CONFIRMED", entityType: "settlement_batch", entityId: batchId, after: { manifest: sealed.digest } });
     return { manifestDigest: sealed.digest };
   });
+}
+
+/** 환불이 기록된 트랜잭션에서 refund-recorded 작업을 보낸다(revenue는 settlement를 모른다). */
+export function refundHook(jobs: Jobs): RefundHook {
+  return (tx, refundEventId) => jobs.send(tx, "refund-recorded", { refundEventId });
 }
