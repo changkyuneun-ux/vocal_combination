@@ -3,6 +3,7 @@ import type { Tx } from "../platform/db.ts";
 import { conflict, notFound } from "../platform/errors.ts";
 import { poolAccountFor } from "../ledger/accounts.ts";
 import { postEntry, type PostingInput } from "../ledger/journal.ts";
+import { splitByWeights } from "../ledger/split.ts";
 import type { SettleDeps } from "./service.ts";
 
 const SYSTEM = "sys_settler";
@@ -40,7 +41,7 @@ export async function postConfirmedRun(tx: Tx, clock: Clock, runId: string): Pro
 
 /**
  * 역분개의 REVERSAL 분개(통합 설계 11.2-4·5). 역분개 행의 금액은 음수이므로 부호를 뒤집어 쓴다.
- * 이미 해제된 보류의 역분개는 Task 2가 이 함수를 확장해 해제 배분 비율로 권리자 미지급금에서 뺀다.
+ * 원 보류가 이미 해제됐으면(hold_release) 그 보류의 역분개 금액은 해제 배분 비율로 권리자 미지급금에 전기한다.
  */
 export async function postReversal(tx: Tx, clock: Clock, reversalId: string): Promise<void> {
   const rv = (await tx.query("SELECT original_run_id, event_id, sequence FROM reversal_run WHERE reversal_id = $1", [reversalId])).rows[0];
@@ -55,8 +56,23 @@ export async function postReversal(tx: Tx, clock: Clock, reversalId: string): Pr
   for (const l of (await tx.query("SELECT party_id, amount_krw::text AS a FROM allocation_line WHERE reversal_id = $1 ORDER BY line_id", [reversalId])).rows) {
     postings.push({ account: { kind: "PARTY_PAYABLE", partyId: l.party_id }, amount: -BigInt(l.a), eventId: rv.event_id, runId });
   }
-  for (const h of (await tx.query("SELECT reason, amount_krw::text AS a FROM unallocated_holding WHERE reversal_id = $1 ORDER BY holding_id", [reversalId])).rows) {
-    postings.push({ account: { kind: "HOLD", reason: h.reason }, amount: -BigInt(h.a), eventId: rv.event_id, runId });
+  const holds = (await tx.query(
+    `SELECT h.reason, h.amount_krw::text AS a, hr.allocation
+       FROM unallocated_holding h
+       LEFT JOIN unallocated_holding o ON o.run_id = h.run_id AND o.event_id = h.event_id AND o.bucket = h.bucket AND o.reason = h.reason AND o.line_seq = 1
+       LEFT JOIN hold_release hr ON hr.holding_id = o.holding_id
+      WHERE h.reversal_id = $1 ORDER BY h.holding_id`, [reversalId])).rows;
+  for (const h of holds) {
+    const amount = -BigInt(h.a);
+    if (h.allocation === null) {
+      postings.push({ account: { kind: "HOLD", reason: h.reason }, amount, eventId: rv.event_id, runId });
+      continue;
+    }
+    // 해제된 보류: 보류 계정 대신 해제 배분 비율로 권리자 미지급금에서 뺀다(최대 잔여법, 동률 party_id 오름차순).
+    const weights = Object.entries(h.allocation as Record<string, string>).map(([key, v]) => ({ key, weight: BigInt(v) }));
+    for (const [partyId, part] of splitByWeights(amount, weights)) {
+      postings.push({ account: { kind: "PARTY_PAYABLE", partyId }, amount: part, eventId: rv.event_id, runId });
+    }
   }
   await postEntry(tx, clock, { kind: "REVERSAL", sourceRef: `rev:${reversalId}`, createdBy: SYSTEM, postings });
 }

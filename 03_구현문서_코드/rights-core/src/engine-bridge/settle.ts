@@ -17,7 +17,7 @@ export type RunEvaluation = { ok: true; eventsDigest: string; resultDigest: stri
 
 type SealInputs = { policy: AllocationDocument; facts: Awaited<ReturnType<typeof loadFacts>>; projection: ProjectionIr; snapshot: Snapshot; asOf: string; knownAt: string };
 
-async function sealInputs(ctx: BridgeCtx, tx: Tx, snapshotId: string): Promise<SealInputs> {
+export async function sealInputs(ctx: BridgeCtx, tx: Tx, snapshotId: string): Promise<SealInputs> {
   const s = (await tx.query("SELECT * FROM issue_seal WHERE snapshot_id = $1", [snapshotId])).rows[0];
   if (s === undefined) throw notFound("issue seal", snapshotId);
   return {
