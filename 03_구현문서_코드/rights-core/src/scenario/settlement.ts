@@ -79,7 +79,8 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
   try {
     const d = { db, ctx, clock, jobs };
     const handlers = jobHandlers(d);
-    for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
+    // submit-payout 처리기는 I-2b Task 4가 연결한다(이 시나리오는 아직 지급을 만들지 않는다).
+    for (const n of JOB_NAMES) if (handlers[n] === undefined && n !== "submit-payout") throw new Error(`missing job handler: ${n}`);
     await jobs.work(handlers as Record<JobName, JobHandler>);
     const onRefund = refundHook(jobs);
     const ingest = (input: RevenueInput) => db.tx((tx) => ingestRevenue(tx, clock, u.ingest, input, onRefund)).then(() => {});
