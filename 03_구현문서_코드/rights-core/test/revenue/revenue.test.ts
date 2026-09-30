@@ -76,7 +76,7 @@ test("concurrent duplicate deliveries serialize on the source key", async () => 
 
 test("identifiers and revision are validated", async () => {
   for (const bad of [{ sourceRevision: 0 }, { sourceRevision: 1.5 }, { sourceRevision: 2 ** 60 }, { eventId: "" }, { eventId: "a:b" },
-    { sourceSystem: "" }, { sourceEventId: "a b" }, { vcId: "" }]) {
+    { sourceSystem: "" }, { sourceEventId: "x".repeat(201) }, { vcId: "" }]) {
     await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ eventId: "ev_v", sourceEventId: "v", ...bad }))), { code: "INVALID_REVENUE", status: 422 });
   }
   await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, { eventId: "ev_v", sourceSystem: "app", sourceEventId: "v", eventType: "REFUND", relatedEventId: "", amountKrw: "1", currency: "KRW", occurredAt: "2026-03-03T00:00:00.000Z" })), { code: "INVALID_REVENUE" });
@@ -89,4 +89,10 @@ test("replayed refund with other content mismatches; RESALE is refundable; FLAGG
     amountKrw: "40", currency: "KRW" as const, occurredAt: "2026-03-03T00:00:00.000Z" };
   assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, r))).created, true);
   await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, { ...r, amountKrw: "41" })), { code: "IDEMPOTENCY_MISMATCH", status: 409 });
+});
+
+test("external source identifiers may contain punctuation", async () => {
+  const p = purchase({ eventId: "ev_ext", sourceEventId: "pay:2026/03=x" });
+  assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, p))).created, true);
+  assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, p))).created, false);
 });
