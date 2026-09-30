@@ -11,14 +11,14 @@ import { freshDb } from "./helpers.ts";
 import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge } from "./fixtures.ts";
 
 export type SettlementWorld = {
-  db: Db; ctx: BridgeCtx; clock: Clock;
+  db: Db; adminUrl: string; ctx: BridgeCtx; clock: Clock;
   users: Record<"rights" | "editor" | "approver" | "activator" | "issuer" | "ops" | "settle" | "ingest", Actor>;
   drop(): Promise<void>;
 };
 
 /** 정산 가능한 세계: 곡·정책·팩이 활성이고, 정산 역할 사용자와 시스템 신원이 있다. 정책 events는 [PRIMARY]. */
 export async function settlementWorld(): Promise<SettlementWorld> {
-  const { db, drop } = await freshDb();
+  const { db, adminUrl, drop } = await freshDb();
   const { ctx, cleanup } = tempBridge();
   const clock = fixedClock("2026-02-01T00:00:00.000Z", 1000);
   const base = fixedClock(T0, 0);
@@ -39,7 +39,7 @@ export async function settlementWorld(): Promise<SettlementWorld> {
     await policy.activatePolicy(ctx, tx, clock, users.activator, r);
     await issuance.activatePack(ctx, tx, clock, users.activator, PACK);
   });
-  return { db, ctx, clock, users, async drop() { await drop(); cleanup(); } };
+  return { db, adminUrl, ctx, clock, users, async drop() { await drop(); cleanup(); } };
 }
 
 export async function issueCombo(w: SettlementWorld, vcId: string, a: "a" | "b" = "a", b: "a" | "b" = "b"): Promise<IssueSeal> {
