@@ -22,6 +22,8 @@ export async function postConfirmedRun(tx: Tx, clock: Clock, runId: string): Pro
   const run = (await tx.query("SELECT status FROM settlement_run WHERE run_id = $1 FOR SHARE", [runId])).rows[0];
   if (run === undefined) throw notFound("run", runId);
   if (run.status !== "CONFIRMED") throw conflict("INVALID_STATE", `run ${runId} is ${run.status}`);
+  // 이미 쓴 분개면 run 행을 다시 읽지 않는다(역분개·보류 해제가 매번 부르는 보장 호출 — 통합 설계 11.4).
+  if (((await tx.query("SELECT 1 FROM journal_entry WHERE source_ref = $1", [`run:${runId}`])).rowCount ?? 0) > 0) return;
   const rights = await rightsBucket(tx, runId);
   const postings: PostingInput[] = [];
   for (const e of (await tx.query("SELECT event_id, net_amount_krw::text AS net FROM settlement_run_event WHERE run_id = $1 ORDER BY event_id", [runId])).rows) {
@@ -100,8 +102,27 @@ export async function postReversal(tx: Tx, clock: Clock, reversalId: string): Pr
   }
 }
 
-/** post-batch 처리기: 배치의 CONFIRMED run마다 분개(멱등). */
+/** post-batch에서 동시에 분개하는 run 수(run마다 자기 트랜잭션). 풀(기본 10)의 일부만 쓴다. */
+export const POST_CONCURRENCY = 4;
+
+/**
+ * post-batch 처리기: 배치의 CONFIRMED run마다 분개(멱등). run 분개는 서로 독립이므로 POST_CONCURRENCY개 트랜잭션으로 나눠 쓴다
+ * (한 줄로 쓰면 run 9490개에 21.6초 — 통합 설계 11.4). 한 run이 실패하면 남은 run을 더 시작하지 않고 작업을 실패시킨다(재시도는 멱등).
+ */
 export async function postBatch(d: SettleDeps, data: { batchId: string }): Promise<void> {
-  const runs = (await d.db.pool.query("SELECT run_id FROM settlement_run WHERE batch_id = $1 AND status = 'CONFIRMED' ORDER BY run_id", [data.batchId])).rows;
-  for (const r of runs) await d.db.tx((tx) => postConfirmedRun(tx, d.clock, r.run_id));
+  const runs = (await d.db.pool.query("SELECT run_id FROM settlement_run WHERE batch_id = $1 AND status = 'CONFIRMED' ORDER BY run_id", [data.batchId])).rows.map((r) => r.run_id as string);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < runs.length) {
+      const runId = runs[next++]!;
+      try {
+        await d.db.tx((tx) => postConfirmedRun(tx, d.clock, runId));
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(POST_CONCURRENCY, runs.length) }, worker));
 }

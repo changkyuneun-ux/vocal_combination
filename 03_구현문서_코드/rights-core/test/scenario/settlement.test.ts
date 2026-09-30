@@ -33,7 +33,7 @@ test("reduced settlement scenario: 100 issues, 300 purchases, refunds before and
 test("settlementPass requires no FAILED runs (unsettleable combinations are rejected at issue)", () => {
   const ok: SettlementReport = {
     purchases: 10, refundsPre: 1, refundsPost: 1, runs: 3, verified: 3, failedRuns: 0, failedReasons: {},
-    ingestMs: 0, batchMs: 0, settleMs: 0, reverseMs: 0, conservationOk: true, verifyMismatches: 0, reversals: 1, reversalNetZeroOk: true,
+    ingestMs: 0, batchMs: 0, settleMs: 0, postMs: 0, reverseMs: 0, conservationOk: true, verifyMismatches: 0, reversals: 1, reversalNetZeroOk: true,
     reversalRejected: 0, failedJobs: 0,
   };
   assert.equal(settlementPass(ok), true);

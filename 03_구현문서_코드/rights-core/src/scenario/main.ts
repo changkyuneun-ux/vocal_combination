@@ -8,8 +8,9 @@ import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
 import { runScenario } from "./run.ts";
 import { runSettlementScenario, settlementPass } from "./settlement.ts";
+import { ledgerPass, runLedgerScenario } from "./ledger.ts";
 
-// --settle <구매 건수>(예: 30000)를 주면 I-1 시나리오 뒤에 정산 시나리오(I-2a)를 이어서 돌린다.
+// --settle <구매 건수>(예: 30000)를 주면 I-1 시나리오 뒤에 정산 시나리오(I-2a)와 원장·지급 시나리오(I-2b)를 이어서 돌린다.
 const { values } = parseArgs({ options: { n: { type: "string", default: "10000" }, seed: { type: "string", default: "20260929" }, settle: { type: "string" } } });
 const settle = values.settle === undefined ? undefined : Number(values.settle);
 if (settle !== undefined && !(Number.isSafeInteger(settle) && settle > 0)) throw new Error(`--settle must be a positive integer, got ${values.settle}`);
@@ -25,8 +26,15 @@ try {
   if (settle !== undefined) {
     const s = await runSettlementScenario({ db, ctx, appUrl: fresh.appUrl }, { purchases: settle, seed: Number(values.seed) });
     const ms = (x: number) => Math.round(x);
-    console.log(JSON.stringify({ ...s, ingestMs: ms(s.ingestMs), batchMs: ms(s.batchMs), settleMs: ms(s.settleMs), reverseMs: ms(s.reverseMs) }, null, 2));
+    console.log(JSON.stringify({ ...s, ingestMs: ms(s.ingestMs), batchMs: ms(s.batchMs), settleMs: ms(s.settleMs), postMs: ms(s.postMs), reverseMs: ms(s.reverseMs) }, null, 2));
     pass = pass && settlementPass(s);
+    const l = await runLedgerScenario({ db, ctx, appUrl: fresh.appUrl }, { seed: Number(values.seed) });
+    const ms2 = (x: number) => +x.toFixed(1);
+    console.log(JSON.stringify({
+      ...l, releaseMs: ms(l.releaseMs), payoutMs: ms(l.payoutMs), resultMs: ms(l.resultMs), repayMs: ms(l.repayMs), invariantsMs: ms(l.invariantsMs),
+      statementsMs: ms2(l.statementsMs), busyParty: { ...l.busyParty, statementMs: ms2(l.busyParty.statementMs) },
+    }, null, 2));
+    pass = pass && ledgerPass(l);
   }
   console.log(pass ? "SCENARIO PASS" : "SCENARIO FAIL");
   process.exitCode = pass ? 0 : 1;

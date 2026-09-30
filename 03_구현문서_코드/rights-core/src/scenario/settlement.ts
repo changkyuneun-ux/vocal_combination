@@ -15,7 +15,10 @@ export type SettlementReport = {
   purchases: number; refundsPre: number; refundsPost: number; runs: number; verified: number;
   /** FAILED run 수와 진단 코드별 run 수. 정산 불가 조합은 발행 사전 검사(11.2-1)로 거부되므로 0이어야 한다. */
   failedRuns: number; failedReasons: Record<string, number>;
-  ingestMs: number; batchMs: number; settleMs: number; reverseMs: number;
+  ingestMs: number; batchMs: number; settleMs: number;
+  /** 확정 뒤 post-batch(확정 run마다 SETTLEMENT 분개, I-2b 11.2-4) 처리 시간. */
+  postMs: number;
+  reverseMs: number;
   conservationOk: boolean; verifyMismatches: number; reversals: number; reversalNetZeroOk: boolean;
   /** 정산액 초과로 거부된 역분개(REVERSAL_REJECTED 감사) 수. 0이어야 한다. */
   reversalRejected: number;
@@ -40,7 +43,7 @@ const DRAIN_MS = 30 * 60 * 1000;
 const INGEST_CONCURRENCY = 8;
 
 /** items를 동시에 최대 limit개씩 처리한다(순서는 보장하지 않는다). */
-async function inParallel<T>(items: readonly T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+export async function inParallel<T>(items: readonly T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let next = 0;
   const worker = async () => {
     while (next < items.length) await fn(items[next++]!);
@@ -49,7 +52,7 @@ async function inParallel<T>(items: readonly T[], limit: number, fn: (item: T) =
 }
 
 /** 시드 난수로 섞은 사본(Fisher–Yates). */
-function shuffled<T>(rand: () => number, xs: readonly T[]): T[] {
+export function shuffled<T>(rand: () => number, xs: readonly T[]): T[] {
   const a = [...xs];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -161,6 +164,10 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
 
     // 7. 확정(생성자 usr_ops와 다른 usr_settle).
     await confirmBatch(d, u.settle, BATCH);
+    // 7-1. 원장 반영: 확정 트랜잭션이 보낸 post-batch를 실제 pg-boss로 처리한다(확정 후 환불 전에 끝내 따로 잰다).
+    const tp = performance.now();
+    await jobs.drainIdle(DRAIN_MS);
+    const postMs = performance.now() - tp;
 
     // 8. 확정 후 환불: 확정된 이벤트의 3%. 절반은 남은 순액 전부를 두 번에 나눠, 나머지는 한 번 부분 환불.
     const confirmed = (await db.pool.query(
@@ -208,7 +215,7 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
 
     return {
       purchases: purchases.length, refundsPre: pre.length, refundsPost, runs, verified, failedRuns, failedReasons,
-      ingestMs, batchMs, settleMs, reverseMs, conservationOk, verifyMismatches, reversals, reversalNetZeroOk, reversalRejected, failedJobs,
+      ingestMs, batchMs, settleMs, postMs, reverseMs, conservationOk, verifyMismatches, reversals, reversalNetZeroOk, reversalRejected, failedJobs,
     };
   } finally {
     await jobs.stop();

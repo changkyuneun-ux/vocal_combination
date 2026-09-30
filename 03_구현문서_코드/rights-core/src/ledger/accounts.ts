@@ -23,11 +23,13 @@ export async function ensureAccounts(tx: Tx, keys: AccountKey[]): Promise<void> 
   const uniq = new Map<string, AccountKey>();
   for (const k of keys) uniq.set(accountId(k), k);
   if (uniq.size === 0) return;
-  const ks = [...uniq.values()];
+  // 계정 id 순으로 넣는다: 동시에 같은 새 계정들을 만드는 트랜잭션이 서로 다른 순서로 행을 잡아 교착하지 않도록.
+  const ids = [...uniq.keys()].sort();
+  const ks = ids.map((id) => uniq.get(id)!);
   await tx.query(
     `INSERT INTO ledger_account (account_id, kind, party_id, reason, bucket)
      SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[]) ON CONFLICT (account_id) DO NOTHING`,
-    [[...uniq.keys()], ks.map((k) => k.kind), ks.map((k) => k.partyId ?? null), ks.map((k) => k.reason ?? null), ks.map((k) => k.bucket ?? null)],
+    [ids, ks.map((k) => k.kind), ks.map((k) => k.partyId ?? null), ks.map((k) => k.reason ?? null), ks.map((k) => k.bucket ?? null)],
   );
 }
 

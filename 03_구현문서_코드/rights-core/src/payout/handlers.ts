@@ -9,8 +9,11 @@ import { postEntry } from "../ledger/journal.ts";
 import type { PayoutProvider, ProviderResult } from "./provider.ts";
 import type { PayoutDeps as RunDeps } from "./service.ts";
 
-/** 지급 작업 의존성: 지급 실행과 같은 db·clock·jobs에 PSP 어댑터. (SettleDeps도 그대로 넘길 수 있다.) */
-export type PayoutDeps = RunDeps & { provider: PayoutProvider };
+/**
+ * 지급 작업 의존성: 지급 실행과 같은 db·clock·jobs에 PSP 어댑터. (SettleDeps도 그대로 넘길 수 있다.)
+ * pollDelaySeconds: poll-payout 지연(기본 POLL_DELAY_SECONDS). 가짜 PSP로 도는 시나리오가 실제 대기 없이 재조회하도록 줄인다.
+ */
+export type PayoutDeps = RunDeps & { provider: PayoutProvider; pollDelaySeconds?: number };
 
 const ACTOR = "sys_payout";
 /** poll-payout 지연(초)과 최대 조회 횟수. 횟수는 pg-boss 재시도가 아니라 작업 데이터의 attempt로 센다. */
@@ -77,7 +80,7 @@ export async function submitPayout(d: PayoutDeps, data: { instructionId: string 
       await tx.query("UPDATE payout_instruction SET submit_unknown_at = $2 WHERE instruction_id = $1 AND submit_unknown_at IS NULL", [i.instructionId, d.clock.now()]);
       await audit(tx, d.clock, { actor: ACTOR, action: "PAYOUT_SUBMIT_UNKNOWN", entityType: "payout_instruction", entityId: i.instructionId, after: { reason: r.reason ?? null } });
     }
-    await applyProviderResult(tx, d.clock, d.jobs, i, r, 1);
+    await applyProviderResult(tx, d, i, r, 1);
   });
 }
 
@@ -108,7 +111,7 @@ export async function resubmitPayout(d: PayoutDeps, actor: Actor, instructionId:
     await audit(tx, d.clock, { actor: actor.userId, action: "PAYOUT_RESUBMITTED", entityType: "payout_instruction", entityId: instructionId, after: { from: i.status, providerStatus: r.status, reason: r.reason ?? null } });
     if (isOpen(i)) {
       if (r.status === "UNKNOWN") await tx.query("UPDATE payout_instruction SET submit_unknown_at = $2 WHERE instruction_id = $1 AND submit_unknown_at IS NULL", [instructionId, d.clock.now()]);
-      await applyProviderResult(tx, d.clock, d.jobs, i, r, 1);
+      await applyProviderResult(tx, d, i, r, 1);
     }
     return { instructionId, providerStatus: r.status, status: (await loadInstruction(tx, instructionId, false))!.status };
   });
@@ -132,7 +135,7 @@ export async function pollPayout(d: PayoutDeps, data: { instructionId: string; a
   await d.db.tx(async (tx) => {
     const i = await loadInstruction(tx, data.instructionId, true);
     if (i === undefined || !isOpen(i)) return;
-    await applyProviderResult(tx, d.clock, d.jobs, i, r, attempt + 1);
+    await applyProviderResult(tx, d, i, r, attempt + 1);
   });
 }
 
@@ -209,7 +212,8 @@ async function acceptRef(tx: Tx, clock: Clock, i: Instruction, ref: string | und
 }
 
 /** submit·poll 결과 반영(잠긴 열린 지시). nextAttempt는 다음 poll-payout의 시도 번호. */
-async function applyProviderResult(tx: Tx, clock: Clock, jobs: Jobs, i: Instruction, r: ProviderResult, nextAttempt: number): Promise<void> {
+async function applyProviderResult(tx: Tx, d: PayoutDeps, i: Instruction, r: ProviderResult, nextAttempt: number): Promise<void> {
+  const { clock, jobs } = d;
   if (r.status === "PAID" || r.status === "FAILED") {
     await applyResult(tx, clock, i, { status: r.status, ...(r.providerRef === undefined ? {} : { providerRef: r.providerRef }), ...(r.reason === undefined ? {} : { reason: r.reason }) });
     return;
@@ -228,7 +232,7 @@ async function applyProviderResult(tx: Tx, clock: Clock, jobs: Jobs, i: Instruct
     await audit(tx, clock, { actor: ACTOR, action: "PAYOUT_STUCK", entityType: "payout_instruction", entityId: i.instructionId, after: { polls: MAX_POLLS, lastStatus: r.status, reason: r.reason ?? null } });
     return;
   }
-  await jobs.send(tx, "poll-payout", { instructionId: i.instructionId, attempt: String(nextAttempt) }, { startAfterSeconds: POLL_DELAY_SECONDS });
+  await jobs.send(tx, "poll-payout", { instructionId: i.instructionId, attempt: String(nextAttempt) }, { startAfterSeconds: d.pollDelaySeconds ?? POLL_DELAY_SECONDS });
 }
 
 /** 참조를 방금 알게 된 열린 지시에 대해, 먼저 도착해 처리되지 않은 webhook을 apply-psp-result로 넘긴다. */
