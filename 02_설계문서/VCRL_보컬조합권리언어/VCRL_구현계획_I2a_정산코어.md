@@ -893,6 +893,7 @@ import { recordingJobs } from "../../src/platform/jobs.ts";
 import { batchView, confirmBatch, createBatch, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers, settleRun } from "../../src/settlement/handlers.ts";
 import { openDispute, closeDispute } from "../../src/registry/disputes.ts";
+import { ingestRevenue } from "../../src/revenue/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -916,7 +917,8 @@ test("createBatch groups events by issue seal, skips unissued ones and enqueues 
   assert.deepEqual(jobs.sent.map((j) => j.name), ["settle-run", "settle-run"]);
   const events = await w.db.pool.query("SELECT run_id, event_id, net_amount_krw::text AS net FROM settlement_run_event ORDER BY event_id");
   assert.deepEqual(events.rows.map((r) => [r.event_id, r.net]), [["ev_1a", "10000"], ["ev_1b", "1001"], ["ev_2a", "5000"]]);
-  await assert.rejects(createBatch(d, w.users.ops, { batchId: "bat_dup", ...P }).then((x) => { if (x.runs.length > 0) throw new Error("re-batched"); }).then(() => { throw Object.assign(new Error("no runs"), { code: "OK_EMPTY" }); }), { code: "OK_EMPTY" });
+  const dup = await createBatch(d, w.users.ops, { batchId: "bat_dup", ...P });
+  assert.deepEqual(dup.runs, [], "events already in a live run are not re-batched");
 });
 
 test("settle and verify jobs run to VERIFIED with conserved lines and two distinct signers", async () => {
@@ -965,19 +967,6 @@ test("an open dispute skips the scope's events; they are picked up after the dis
   assert.equal(b3.runs.length, 1);
 });
 
-test("an engine failure marks the run FAILED and releases its events", async () => {
-  await issueCombo(w, "vc_3");
-  await purchase(w, "ev_3f", "vc_3", "4000");
-  const b = await createBatch(d, w.users.ops, { batchId: "bat_4", ...P });
-  const runId = b.runs.find((r) => r.includes("vc_3"))!;
-  await w.db.pool.query("SELECT 1");
-  // 정책 범위 밖 이벤트로 실패를 만들기 위해 RESALE을 섞는 대신, 순액을 조작할 수 없으므로 FLAGGED 등 정상 경로만 있다.
-  // 여기서는 settleRun 전에 issue_seal이 가리키는 정책이 RESALE을 받지 않음을 이용한다: RESALE 이벤트를 별도로 넣어 배치한다.
-  assert.ok(runId);
-});
-```
-(마지막 테스트는 Step 3 구현 전에 다음으로 **교체**한다 — 위 초안은 실패 경로를 만들 수 없다: `RESALE` 이벤트는 정책 `events: [PRIMARY]` 범위 밖이라 `ALLOC_SCOPE_MISMATCH`로 run이 `FAILED`가 된다.)
-```ts
 test("an engine failure (event type outside the policy scope) marks the run FAILED and releases its events", async () => {
   await issueCombo(w, "vc_3");
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
@@ -995,7 +984,7 @@ test("an engine failure (event type outside the policy scope) marks the run FAIL
   assert.equal(v.progress, "EMPTY");
 });
 ```
-(`ingestRevenue` import를 파일 상단에 추가한다: `import { ingestRevenue } from "../../src/revenue/service.ts";`. 첫 테스트의 마지막 `assert.rejects(...)` 문장도 다음으로 바꾼다: `const dup = await createBatch(d, w.users.ops, { batchId: "bat_dup", ...P }); assert.deepEqual(dup.runs, [], "events already in a live run are not re-batched");`)
+(`RESALE`은 픽스처 정책 `events: [PRIMARY]` 범위 밖이라 `ALLOC_SCOPE_MISMATCH`로 run이 `FAILED`가 된다.)
 
 - [ ] **Step 2: 실패 확인**
 
@@ -1006,17 +995,13 @@ Expected: FAIL (모듈 없음).
 
 `rights-core/src/engine-bridge/attest.ts`의 `AttestRole`을 Interfaces의 정의로 바꾼다.
 
-`rights-core/src/settlement/service.ts`:
-```ts
-import { canonicalize } from "vcrl/core";
-```
-주의: `settlement`는 vcrl을 import할 수 없다(아키텍처 테스트). 매니페스트는 `sealDocument`로 봉인하면 되므로 위 import는 쓰지 않는다. 파일 전체:
+`rights-core/src/settlement/service.ts`(vcrl은 import하지 않는다 — 매니페스트는 `sealDocument`로 봉인한다):
 ```ts
 import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
-import { conflict, invalid, notFound } from "../platform/errors.ts";
+import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { attest } from "../engine-bridge/attest.ts";
@@ -1122,7 +1107,7 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
     const b = (await tx.query("SELECT status, executed_by FROM settlement_batch WHERE batch_id = $1 FOR UPDATE", [batchId])).rows[0];
     if (b === undefined) throw notFound("batch", batchId);
     if (b.status !== "OPEN") throw conflict("INVALID_STATE", `batch ${batchId} is ${b.status}`);
-    if (b.executed_by === actor.userId) throw conflict("SOD_VIOLATION", `${actor.userId} created batch ${batchId}`);
+    if (b.executed_by === actor.userId) throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} created batch ${batchId}`);
     const runs = (await tx.query(
       "SELECT run_id, status, result_digest FROM settlement_run WHERE batch_id = $1 AND status NOT IN ('FAILED','VOIDED') ORDER BY run_id FOR UPDATE", [batchId],
     )).rows;
@@ -1140,7 +1125,6 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
   });
 }
 ```
-(`SOD_VIOLATION`은 403이어야 한다 — `conflict` 대신 `new DomainError("SOD_VIOLATION", 403, ...)`를 쓴다. 파일 상단 import에 `DomainError`를 추가한다.)
 
 `rights-core/src/settlement/handlers.ts`:
 ```ts
@@ -1224,7 +1208,7 @@ export function jobHandlers(d: SettleDeps): Partial<Record<JobName, JobHandler>>
 - [ ] **Step 5: 통과 확인**
 
 Run: `cd rights-core && node --test test/settlement/batch.test.ts && npm test 2>&1 | grep -E "^not ok|^ℹ (tests|pass|fail)" && npx tsc -p tsconfig.json && echo TSC_OK`
-Expected: batch 6 PASS, 전체 fail 0, `TSC_OK`.
+Expected: batch 6 PASS(불일치 테스트 포함), 전체 fail 0, `TSC_OK`.
 
 - [ ] **Step 6: 커밋**
 
