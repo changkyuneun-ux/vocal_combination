@@ -68,3 +68,13 @@ test("non-Ed25519 public keys never verify", () => {
   assert.equal(verifyAttestation(good, rsa), false);
   assert.equal(verifyAttestation(good, ec), false);
 });
+
+test("PLATFORM (platform verifier) is an attestation role and verifies like any other", () => {
+  const keys = { sys_verifier: bob.pub };
+  const att = signAttestation({ signer: "sys_verifier", role: "PLATFORM", over: D, privateKeyPem: bob.priv });
+  assert.deepEqual(checkAttestations([att], D, keys), []);
+  assert.deepEqual(checkAttestations([{ ...att, role: "SPACE_OPS" }], D, keys).map((d) => d.code), ["CORE_SIGNATURE_INVALID"]);
+  assert.deepEqual(checkAttestations([{ ...att, role: "PLATFORMX" as never }], D, keys).map((d) => d.code), ["CORE_ENUM_UNKNOWN"]);
+  // 내장 SoD 규칙은 바꾸지 않는다: PLATFORM은 어느 쌍에도 들지 않는다.
+  assert.deepEqual(checkSod([att, { ...att, role: "SPACE_OPS" }]), []);
+});

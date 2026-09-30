@@ -148,7 +148,7 @@
 
 ### 3.6 서명과 증명
 
-- `attestations[]`: `{ signer: PartyRef, role: EDITOR | APPROVER | WORK_APPROVER | ACTIVATOR, over: digest, alg: "Ed25519", sig }`.
+- `attestations[]`: `{ signer: PartyRef, role: EDITOR | APPROVER | WORK_APPROVER | ACTIVATOR | SPACE_OPS | SPACE_SETTLE | PLATFORM, over: digest, alg: "Ed25519", sig }`. 정본 목록은 Enum `attestation_role`(12.2·12.58).
 - 서명 공개키는 party 레지스트리에 등록한다.
 - SoD 규칙은 `approval` 모듈이 선언하고 코어 검증기가 강제한다. 서브프로젝트 3 이전까지는 코어 검증기에 다음 두 규칙을 내장한다: `distinct(EDITOR, ACTIVATOR)`, `distinct(SPACE_OPS, SPACE_SETTLE)`.
 
@@ -491,7 +491,7 @@ manifest/
 ## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `03_구현문서_코드/vcrl`)
 
 1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
-2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE` 포함). 정본은 `src/core/enums.ts`.
+2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE`, `PLATFORM` 포함 — `PLATFORM`은 12.58). 정본은 `src/core/enums.ts`.
 3. **IR 수치 표기**: 봉투의 `version`도 문자열이다(`"1"`). 유리수는 기약분수 `"n/d"`(정수도 `"1/1"`).
 4. **의존 순환**: 의존은 낮은 rank로만 허용하므로 순환은 `CORE_DEP_DIRECTION`으로 보고한다. `CORE_DEP_CYCLE`은 두지 않는다.
 5. **오류 코드 정본**: `spec/error-codes.md`. `FACTS_DUPLICATE_ID`, `FACTS_UNKNOWN_ENTITY`, `FACTS_EDGE_KIND`, `FACTS_USAGE_INVALID`, `FACTS_CLAIMANT_DRIFT`(v2.7 `CLAIMANT_DRIFT` 대응)를 추가했다.
@@ -547,3 +547,4 @@ manifest/
 55. **역분개 결과 IR `vcrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). 이번 `refund.id`가 이전 역분개의 `refund.id`와 같으면 `REV_CHAIN_BROKEN`(`$.refund.id`, 중복 환불 id)이다. `verifyReversal({original, policy, priors}, given)`은 재계산 대조(객체·format·digest 대조 규칙(trace 비교 없음)). 엔진은 priors의 순서·일관성은 강제하지만 완전성(이전 역분개를 빠짐없이 넘겼는지)은 알 수 없다. 누락·동시 호출 방지는 호출자(시스템) 책임이다.
 56. **섀도 리포트 `vcrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 리포트 최상위 `currency`는 모든 쌍 정책의 공통 `policy.body.scope.currency`이고, 어느 쌍의 baseline·candidate 정책 통화가 평가에 성공한 첫 쌍의 통화와 다르면 `SHADOW_CURRENCY_MISMATCH`(`$.pairs[i]`)다(통화를 섞어 합산하지 않는다). 필드는 `format, currency, pairs, parties, buckets, holdings, totals, report_digest`. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
 57. **스키마·적합성 (1-E)**: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`. 적합성 `conformance/reversal/`(부분 환불 두 번 뒤 한도 초과 거부, 잔액 전액으로 순합 0; 부정 보류 전액 역분개). CLI 명령은 추가하지 않았다.
+58. **서명 역할 `PLATFORM` (I-2a)**: Enum `attestation_role`에 `PLATFORM`(플랫폼 검증자)을 더했다. 권리 코어(`rights-core`)의 `verify-run`이 정산 결과를 재계산 대조한 뒤 검증 신원(`sys_verifier`)이 `result_digest`에 이 역할로 서명한다(통합 설계 10.2-6). 서명 메시지(`vcrl-attest/1`)는 역할 문자열을 그대로 묶으므로 서명·검증 규칙은 다른 역할과 같고, `checkAttestations`는 이제 `PLATFORM`을 `CORE_ENUM_UNKNOWN` 없이 받는다. 내장 SoD(`BUILTIN_SOD`)는 바꾸지 않았다(검증자 ≠ 실행자는 권리 코어가 DB `CHECK`로 강제한다). 값 추가만이므로 기존 IR·digest(스모크 digest 포함)는 변하지 않는다.
