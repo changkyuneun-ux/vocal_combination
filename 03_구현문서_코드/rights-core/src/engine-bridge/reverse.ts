@@ -35,7 +35,11 @@ export async function reverseEvent(
     refund: { id: input.refundEventId, reason: input.reason, amount: input.amount.toString() },
   });
   if (!r.ok) {
-    if (r.errors.some((e) => e.code === "REV_EXCEEDS_REMAINING")) throw invalid("REFUND_EXCEEDS_SETTLED", "refund exceeds the settled amount", r.errors);
+    if (r.errors.some((e) => e.code === "REV_EXCEEDS_REMAINING")) {
+      throw input.reason === "REFUND"
+        ? invalid("REFUND_EXCEEDS_SETTLED", "refund exceeds the settled amount", r.errors)
+        : invalid("CORRECTION_EXCEEDS_SETTLED", "correction exceeds the remaining settled amount", r.errors);
+    }
     throw new DomainError("REVERSAL_FAILED", 500, `reversal of ${input.eventId} failed`, r.errors);
   }
   const sealed = await sealDocument(ctx, tx, { kind: "reversal_result", value: r.value, docId: input.reversalId, format: r.value.format });

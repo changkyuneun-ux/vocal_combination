@@ -5,6 +5,11 @@ import { invalid } from "../platform/errors.ts";
 export type InvariantReport = {
   /** rejected: REVERSAL_REJECTED 감사가 있다(역분개가 거부됨 — 작업 유실과 구분). */
   unreflectedRefunds: { refundEventId: string; originalEventId: string; runId: string; rejected: boolean }[];
+  /**
+   * 반영되지 않은 대체(11.2-11): 이전 revision이 살아 있는 CONFIRMED run에 남은 정산액 > 0으로 있는데 새 revision id의 CORRECTION 역분개가 없다.
+   * rejected: CORRECTION_REJECTED 감사가 있다(역분개가 거부됨 — 작업 유실·대기와 구분).
+   */
+  unreflectedRevisions: { newEventId: string; oldEventId: string; runId: string; remaining: string; rejected: boolean }[];
   ledger: {
     entriesUnbalanced: number; receivableMatchesSettlement: boolean; rightsConserved: boolean;
     /** CONFIRMED인데 아직 SETTLEMENT 분개(run:<id>)가 없는 run(post-batch 대기). 실패가 아니라 따로 보고한다. */
@@ -31,6 +36,7 @@ const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS ri
 /**
  * 정산·원장 점검(통합 설계 11.2-10). 원장은 보류 해제·지급 뒤 정산 행의 거울이 아니므로 모든 정상 상태에서 성립하는 식으로 본다.
  * (a) 반영되지 않은 환불: 원 이벤트가 살아 있는 CONFIRMED run에 있는데 그 run 이벤트의 포함 환불에도, 역분개에도 없는 환불.
+ *     반영되지 않은 대체: 이전 revision이 살아 있는 CONFIRMED run에 남은 정산액 > 0으로 있는데 새 revision의 CORRECTION 역분개가 없다.
  * (b) 원장:
  *   - entriesUnbalanced: 전기 합 ≠ 0인 분개 수(0이어야 한다 — 트리거의 rc.bal_last 우회도 여기서 잡힌다).
  *   - receivableMatchesSettlement: RECEIVABLE 잔액 = Σ(분개된 run의 run 이벤트 순액) + Σ(분개된 역분개의 풀 라인 합, 음수).
@@ -83,6 +89,20 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
         AND NOT EXISTS (SELECT 1 FROM settlement_run_event_refund f WHERE f.run_id = x.run_id AND f.event_id = x.event_id AND f.refund_event_id = r.event_id)
         AND NOT EXISTS (SELECT 1 FROM reversal_run v WHERE v.refund_event_id = r.event_id)
       ORDER BY r.event_id`)).rows.map((x) => ({ refundEventId: x.refund as string, originalEventId: x.original as string, runId: x.run_id as string, rejected: x.rejected as boolean }));
+
+  const unreflectedRev = (await tx.query(
+    `SELECT t.* FROM (
+       SELECT sp.new_event_id, sp.old_event_id, x.run_id,
+              x.net_amount_krw + COALESCE((SELECT SUM(pl.amount_krw) FROM pool_line pl
+                WHERE pl.run_id = x.run_id AND pl.event_id = x.event_id AND pl.reversal_id IS NOT NULL), 0) AS remaining,
+              EXISTS (SELECT 1 FROM audit_log a WHERE a.action_name = 'CORRECTION_REJECTED' AND a.entity_type = 'revenue_event' AND a.entity_id = sp.new_event_id) AS rejected
+         FROM revenue_supersede sp
+         JOIN settlement_run_event x ON x.event_id = sp.old_event_id AND x.active
+         JOIN settlement_run s ON s.run_id = x.run_id AND s.status = 'CONFIRMED'
+        WHERE NOT EXISTS (SELECT 1 FROM reversal_run v WHERE v.refund_event_id = sp.new_event_id)
+     ) t WHERE t.remaining > 0 ORDER BY t.new_event_id`)).rows.map((x) => ({
+    newEventId: x.new_event_id as string, oldEventId: x.old_event_id as string, runId: x.run_id as string, remaining: String(x.remaining), rejected: x.rejected as boolean,
+  }));
 
   const unbalanced = (await tx.query(
     "SELECT count(*)::int AS n FROM (SELECT entry_id FROM posting GROUP BY entry_id HAVING SUM(amount_krw) <> 0) t")).rows[0].n as number;
@@ -145,6 +165,7 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
 
   return {
     unreflectedRefunds: unreflected,
+    unreflectedRevisions: unreflectedRev,
     ledger: {
       entriesUnbalanced: unbalanced,
       receivableMatchesSettlement: ledgerSide.receivable === settlementSide.receivable,

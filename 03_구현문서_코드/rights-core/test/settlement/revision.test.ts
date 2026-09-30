@@ -1,5 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import pg from "pg";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { ingestRevenue, noRefundHook } from "../../src/revenue/service.ts";
@@ -9,7 +10,7 @@ import { revisionRecorded } from "../../src/settlement/revision.ts";
 import { releaseHold } from "../../src/settlement/holds.ts";
 import { invariants, invariantsInTx, type InvariantReport } from "../../src/settlement/invariants.ts";
 import { suggestFraudRelease } from "../../src/engine-bridge/fraud-release.ts";
-import { issueCombo, settlementWorld } from "../settlement-fixtures.ts";
+import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
 after(() => w.drop());
@@ -18,9 +19,9 @@ const d: SettleDeps = { db: w.db, ctx: w.ctx, clock: w.clock, jobs };
 const P = { periodStart: "2026-03-01T00:00:00.000Z", periodEnd: "2026-04-01T00:00:00.000Z" };
 
 /** source 이벤트 `src`의 revision `rev`를 `eventId`로 수집한다(설정된 훅으로). */
-const revise = (eventId: string, src: string, rev: number, amountKrw: string, integrity: "CLEAR" | "FLAGGED" = "CLEAR") =>
+const revise = (eventId: string, src: string, rev: number, amountKrw: string, integrity: "CLEAR" | "FLAGGED" = "CLEAR", vcId = "vc_1") =>
   w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
-    eventId, sourceSystem: "app", sourceEventId: src, sourceRevision: rev, eventType: "PURCHASE", vcId: "vc_1",
+    eventId, sourceSystem: "app", sourceEventId: src, sourceRevision: rev, eventType: "PURCHASE", vcId,
     amountKrw, currency: "KRW", occurredAt: "2026-03-05T00:00:00.000Z", integrity,
   }, refundHook(jobs), revisionHook(jobs)));
 /** 확정 run의 풀 라인 합(원 결과 + 역분개). */
@@ -34,6 +35,7 @@ const receivable = async (...eventIds: string[]) => BigInt((await w.db.pool.quer
 const clean = async (label: string) => {
   const r: InvariantReport = await invariants(w.db, fixedClock("2026-08-01T00:00:00.000Z", 0), { stuckAfterMinutes: 60 * 24 * 365 });
   assert.deepEqual(r.unreflectedRefunds, [], label);
+  assert.deepEqual(r.unreflectedRevisions, [], label);
   assert.equal(r.ledger.entriesUnbalanced, 0, label);
   assert.equal(r.ledger.receivableMatchesSettlement, true, `${label}: ${r.ledger.receivable} vs ${r.ledger.settledReceivable}`);
   assert.equal(r.ledger.rightsConserved, true, `${label}: ${r.ledger.rightsBalance} vs ${r.ledger.rightsPooled}`);
@@ -52,7 +54,15 @@ const settle = async () => {
   return b;
 };
 
+/** run 하나의 상태. */
+const runStatus = async (runId: string) => (await w.db.pool.query("SELECT status FROM settlement_run WHERE run_id = $1", [runId])).rows[0].status as string;
+const only = (names: (keyof ReturnType<typeof jobHandlers>)[]) => {
+  const h = jobHandlers(d);
+  return Object.fromEntries(names.map((k) => [k, h[k]]));
+};
+
 await issueCombo(w, "vc_1");
+await issueCombo(w, "vc_2", "b", "a");
 
 test("supersede before any batch: only the new revision is settled", async () => {
   await revise("ev_a1", "pay_a", 1, "10000");
@@ -84,6 +94,7 @@ test("supersede before confirmation voids the run; the new revision waits, then 
   const diag = (await w.db.pool.query("SELECT diagnostics FROM settlement_run WHERE run_id = $1", [b1.runs[0]])).rows[0].diagnostics;
   assert.equal(diag[0].code, "SUPERSEDED_BEFORE_CONFIRMATION");
   assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM settlement_run_event WHERE event_id = 'ev_b1' AND active")).rows[0].n, 0);
+  await assert.rejects(confirmBatch(d, w.users.settle, "bat_b1"), { code: "BATCH_EMPTY", status: 409 });
   const b = await settle();
   const events = (await w.db.pool.query("SELECT event_id FROM settlement_run_event WHERE run_id = ANY($1)", [b.runs])).rows.map((r) => r.event_id);
   assert.deepEqual(events, ["ev_b2"]);
@@ -181,17 +192,115 @@ test("concurrent supersede deliveries and handler runs reverse exactly once", as
 });
 
 test("the pool check expects a CORRECTION to take back exactly the remaining settled amount", async () => {
+  await revise("ev_p1", "pay_p", 1, "2500");
+  await settle();
+  await revise("ev_p2", "pay_p", 2, "2000");
+  await jobs.drain(jobHandlers(d));
+  await settle();
+  await clean("pool check setup");
   const c = await w.db.pool.connect();
   try {
     await c.query("BEGIN");
-    const x = (await c.query("SELECT original_run_id, bucket FROM reversal_run v JOIN pool_line p USING (reversal_id) WHERE v.reversal_id = 'rev_ev_c2' LIMIT 1")).rows[0];
-    await c.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw, reversal_id) VALUES ($1,'ev_c1',$2,99,-1,'rev_ev_c2')", [x.original_run_id, x.bucket]);
+    const x = (await c.query("SELECT original_run_id, bucket FROM reversal_run v JOIN pool_line p USING (reversal_id) WHERE v.reversal_id = 'rev_ev_p2' LIMIT 1")).rows[0];
+    await c.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw, reversal_id) VALUES ($1,'ev_p1',$2,99,-1,'rev_ev_p2')", [x.original_run_id, x.bucket]);
     const r = await invariantsInTx(c, fixedClock("2026-08-01T00:00:00.000Z", 0));
-    assert.deepEqual(r.ledger.poolMismatches, [{ kind: "REVERSAL", id: "rev_ev_c2", expected: "-10001", actual: "-10002" }]);
+    assert.deepEqual(r.ledger.poolMismatches, [{ kind: "REVERSAL", id: "rev_ev_p2", expected: "-2500", actual: "-2501" }]);
   } finally {
     await c.query("ROLLBACK");
     c.release();
   }
+});
+
+test("a revision voids its PENDING or CALCULATED run; the queued settle-run/verify-run then do nothing", async () => {
+  await revise("ev_q1", "pay_q", 1, "1500");
+  const bq = await createBatch(d, w.users.ops, { batchId: "bat_q", ...P });
+  assert.equal(await runStatus(bq.runs[0]!), "PENDING");
+  await revise("ev_q2", "pay_q", 2, "1400");
+  await jobs.drain(only(["revision-recorded"]));
+  assert.equal(await runStatus(bq.runs[0]!), "VOIDED");
+  await jobs.drain(jobHandlers(d));
+  assert.equal(await runStatus(bq.runs[0]!), "VOIDED");
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM pool_line WHERE run_id = $1", [bq.runs[0]])).rows[0].n, 0);
+
+  await revise("ev_k1", "pay_k", 1, "1600");
+  const bk = await createBatch(d, w.users.ops, { batchId: "bat_k", ...P });
+  assert.deepEqual(bk.skipped, [], "ev_q2 is settled here too once its old run is void");
+  const kRun = bk.runs[0]!;
+  await jobs.drain(only(["settle-run"]));
+  assert.equal(await runStatus(kRun), "CALCULATED");
+  await revise("ev_k2", "pay_k", 2, "1700");
+  await jobs.drain(only(["revision-recorded"]));
+  assert.equal(await runStatus(kRun), "VOIDED");
+  await jobs.drain(jobHandlers(d));
+  assert.equal(await runStatus(kRun), "VOIDED");
+  const diag = (await w.db.pool.query("SELECT diagnostics FROM settlement_run WHERE run_id = $1", [kRun])).rows[0].diagnostics;
+  assert.equal(diag[0].code, "SUPERSEDED_BEFORE_CONFIRMATION");
+  const audits = (await w.db.pool.query("SELECT after_json->>'from' AS f FROM audit_log WHERE action_name = 'RUN_VOIDED_BY_REVISION' AND entity_id = ANY($1) ORDER BY entity_id", [[bq.runs[0], kRun]])).rows;
+  assert.deepEqual(audits.map((a) => a.f).sort(), ["CALCULATED", "PENDING"]);
+  const b = await settle();
+  const events = (await w.db.pool.query("SELECT event_id FROM settlement_run_event WHERE run_id = ANY($1) ORDER BY event_id", [b.runs])).rows.map((r) => r.event_id);
+  assert.deepEqual(events, ["ev_k2", "ev_q2"]);
+  await clean("voided pending/calculated");
+});
+
+test("a revision void of one run leaves the other runs of the batch confirmable", async () => {
+  await revise("ev_m1", "pay_m", 1, "1800");
+  await purchase(w, "ev_m_other", "vc_2", "2200", "2026-03-05T00:00:00.000Z");
+  const b = await createBatch(d, w.users.ops, { batchId: "bat_m", ...P });
+  assert.equal(b.runs.length, 2);
+  await jobs.drain(jobHandlers(d));
+  await revise("ev_m2", "pay_m", 2, "1900");
+  await jobs.drain(jobHandlers(d));
+  const v = await w.db.tx((tx) => batchView(tx, "bat_m"));
+  const byEvent = new Map((await w.db.pool.query("SELECT run_id, event_id FROM settlement_run_event WHERE run_id = ANY($1)", [b.runs])).rows.map((r) => [r.event_id, r.run_id]));
+  assert.deepEqual(Object.fromEntries(v.runs.map((r) => [r.runId, r.status])), { [byEvent.get("ev_m1")]: "VOIDED", [byEvent.get("ev_m_other")]: "VERIFIED" });
+  assert.equal(v.progress, "READY");
+  await confirmBatch(d, w.users.settle, "bat_m");
+  await jobs.drain(jobHandlers(d));
+  assert.equal(await runStatus(byEvent.get("ev_m_other")), "CONFIRMED");
+  assert.equal(await runStatus(byEvent.get("ev_m1")), "VOIDED");
+  await settle();
+  assert.equal(await receivable("ev_m1", "ev_m2", "ev_m_other"), 1900n + 2200n);
+  await clean("partial void");
+});
+
+test("a correction never holds the run lock while waiting for the event row (lock order of releaseHold)", async () => {
+  await revise("ev_l1", "pay_l", 1, "50000", "FLAGGED");
+  await settle();
+  const x = (await w.db.pool.query("SELECT run_id FROM settlement_run_event WHERE event_id = 'ev_l1' AND active")).rows[0].run_id as string;
+  await revise("ev_l2", "pay_l", 2, "40000");
+  // releaseHold의 순서를 흉내 낸다: 이벤트 행 FOR UPDATE → (분개 보장) run FOR SHARE.
+  const a = await w.db.pool.connect();
+  try {
+    await a.query("BEGIN");
+    await a.query("SELECT 1 FROM settlement_run_event WHERE run_id = $1 AND event_id = 'ev_l1' FOR UPDATE", [x]);
+    const pending = revisionRecorded(d, { newEventId: "ev_l2" });
+    await new Promise((r) => setTimeout(r, 300));
+    await a.query("SET LOCAL lock_timeout = '3s'");
+    await a.query("SELECT status FROM settlement_run WHERE run_id = $1 FOR SHARE", [x]);
+    await a.query("COMMIT");
+    await pending;
+  } finally {
+    a.release();
+  }
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM reversal_run WHERE refund_event_id = 'ev_l2'")).rows[0].n, 1);
+  await jobs.drain(jobHandlers(d));
+
+  // 실제 경합: 어느 쪽이 먼저든 교착 없이 끝나고 점검이 깨끗하다(해제가 늦으면 보류가 이미 되돌려져 HOLD_EMPTY).
+  await revise("ev_l3", "pay_l3", 1, "60000", "FLAGGED");
+  await settle();
+  const hold = (await w.db.pool.query("SELECT holding_id::text AS id FROM unallocated_holding WHERE event_id = 'ev_l3' AND line_seq = 1")).rows[0].id as string;
+  const s = await w.db.tx((tx) => suggestFraudRelease(w.ctx, tx, hold));
+  await revise("ev_l4", "pay_l3", 2, "55000");
+  const [rel, rev] = await Promise.allSettled([
+    releaseHold(d, w.users.settle, { holdingId: hold, allocation: s.allocation }), revisionRecorded(d, { newEventId: "ev_l4" }),
+  ]);
+  assert.equal(rev.status, "fulfilled", rev.status === "rejected" ? String(rev.reason) : "");
+  if (rel.status === "rejected") assert.equal(rel.reason.code, "HOLD_EMPTY");
+  await jobs.drain(jobHandlers(d));
+  await settle();
+  assert.equal(await receivable("ev_l1", "ev_l2", "ev_l3", "ev_l4"), 40000n + 55000n);
+  await clean("release vs correction");
 });
 
 test("a first revision or an unknown id does nothing", async () => {
@@ -202,4 +311,34 @@ test("a first revision or an unknown id does nothing", async () => {
   await revisionRecorded(d, { newEventId: "ev_z1" });
   await revisionRecorded(d, { newEventId: "ev_nope" });
   assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM audit_log")).rows[0].n, before);
+});
+
+test("a correction exceeding the settled amount is rejected once: audited, no reversal, reported as unreflected", async () => {
+  await revise("ev_x1", "pay_x", 1, "3000");
+  await settle();
+  const x = (await w.db.pool.query("SELECT run_id FROM settlement_run_event WHERE event_id = 'ev_x1' AND active")).rows[0].run_id as string;
+  // 버그를 흉내 낸다: 관리자 연결에서 트리거를 끄고 run 이벤트 순액을 봉인 결과보다 1 크게 바꾼다(끝에 되돌린다).
+  const admin = new pg.Client({ connectionString: w.adminUrl });
+  await admin.connect();
+  const tamper = (delta: number) => admin.query(
+    `BEGIN; SET LOCAL session_replication_role = replica;
+     UPDATE settlement_run_event SET net_amount_krw = net_amount_krw + ${delta} WHERE event_id = 'ev_x1'; COMMIT;`);
+  try {
+    await tamper(1);
+    await revise("ev_x2", "pay_x", 2, "2000");
+    await revisionRecorded(d, { newEventId: "ev_x2" });
+    await jobs.drain(jobHandlers(d));
+    const a = await w.db.pool.query("SELECT after_json FROM audit_log WHERE action_name = 'CORRECTION_REJECTED' AND entity_id = 'ev_x2'");
+    assert.equal(a.rows.length, 1);
+    assert.equal(a.rows[0].after_json.code, "CORRECTION_EXCEEDS_SETTLED");
+    assert.ok(JSON.stringify(a.rows[0].after_json).includes("REV_EXCEEDS_REMAINING"));
+    assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM reversal_run WHERE refund_event_id = 'ev_x2'")).rows[0].n, 0);
+    const r = await invariants(w.db, fixedClock("2026-08-01T00:00:00.000Z", 0));
+    assert.deepEqual(r.unreflectedRevisions, [{ newEventId: "ev_x2", oldEventId: "ev_x1", runId: x, remaining: "3001", rejected: true }]);
+    const b = await createBatch(d, w.users.ops, { batchId: "bat_x", ...P });
+    assert.deepEqual(b.skipped, [{ eventId: "ev_x2", reason: "REVISION_PENDING" }]);
+  } finally {
+    await tamper(-1);
+    await admin.end();
+  }
 });

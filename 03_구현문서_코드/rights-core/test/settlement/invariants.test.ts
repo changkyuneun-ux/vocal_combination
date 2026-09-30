@@ -29,6 +29,7 @@ const rolledBack = async <T>(fn: (tx: Tx, check: () => Promise<InvariantReport>)
 };
 const clean = (r: InvariantReport, label: string) => {
   assert.deepEqual(r.unreflectedRefunds, [], label);
+  assert.deepEqual(r.unreflectedRevisions, [], label);
   assert.equal(r.ledger.entriesUnbalanced, 0, label);
   assert.equal(r.ledger.receivableMatchesSettlement, true, label);
   assert.equal(r.ledger.rightsConserved, true, label);
