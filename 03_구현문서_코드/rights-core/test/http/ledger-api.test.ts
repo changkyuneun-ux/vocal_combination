@@ -70,7 +70,7 @@ test("confirm -> hold suggestion and release -> profiles over HTTP", async () =>
   assert.equal((await req("PUT", "/parties/pty_member_a/payout-profile", "usr_ops", body("DOMESTIC_INDIVIDUAL"))).statusCode, 403);
   assert.equal((await req("PUT", "/parties/pty_member_a/payout-profile", "usr_settle", { taxType: "NOPE", kycVerified: true })).statusCode, 422);
   for (const p of PARTIES) {
-    const r = await req("PUT", `/parties/${p}/payout-profile`, "usr_settle", { ...body(p.startsWith("pty_member") ? "DOMESTIC_INDIVIDUAL" : "EXEMPT"), payoutAccountRef: `tok_${p}` });
+    const r = await req("PUT", `/parties/${p}/payout-profile`, "usr_settle2", { ...body(p.startsWith("pty_member") ? "DOMESTIC_INDIVIDUAL" : "EXEMPT"), payoutAccountRef: `tok_${p}` });
     assert.equal(r.statusCode, 200, r.body);
   }
 });
@@ -94,6 +94,18 @@ test("payout run -> webhook (secret, duplicate) -> results", async () => {
   assert.equal((await send({ "x-psp-secret": "wrong" })).statusCode, 401);
   const bad = await app.inject({ method: "POST", url: "/psp/webhook", headers: { "x-psp-secret": SECRET }, payload: { providerEventId: "e" } });
   assert.equal(bad.statusCode, 400);
+  // 식별자 길이(1~200자)와 status 열거형: 어긋나면 400이고 inbox에 아무것도 쓰지 않는다.
+  const inboxRows = async () => (await w.db.pool.query("SELECT count(*)::int AS n FROM psp_webhook_inbox")).rows[0].n as number;
+  const before = await inboxRows();
+  for (const payload of [
+    { ...hook, providerEventId: "e".repeat(201) }, { ...hook, providerEventId: "" },
+    { ...hook, providerRef: "r".repeat(201) }, { ...hook, providerRef: "" },
+    { ...hook, status: "SETTLED" }, { ...hook, status: 1 },
+  ]) {
+    const r = await app.inject({ method: "POST", url: "/psp/webhook", headers: { "x-psp-secret": SECRET }, payload });
+    assert.equal(r.statusCode, 400, JSON.stringify(payload).slice(0, 80));
+  }
+  assert.equal(await inboxRows(), before);
   const first = await send({ "x-psp-secret": SECRET });
   assert.equal(first.statusCode, 201, first.body);
   assert.equal((await send({ "x-psp-secret": SECRET })).statusCode, 200);
@@ -122,7 +134,7 @@ test("resubmit a stuck payout with the same idempotency key: PAID exactly once",
 
   assert.equal((await req("POST", `/payouts/${id}/resubmit`, "usr_ops", {})).statusCode, 403);
   // 프로필의 계좌 토큰이 바뀌어도 재전송은 처음 보낸 토큰을 쓴다.
-  assert.equal((await req("PUT", "/parties/pty_member_a/payout-profile", "usr_settle", { taxType: "DOMESTIC_INDIVIDUAL", payoutAccountRef: "tok_CHANGED", kycVerified: true })).statusCode, 200);
+  assert.equal((await req("PUT", "/parties/pty_member_a/payout-profile", "usr_settle2", { taxType: "DOMESTIC_INDIVIDUAL", payoutAccountRef: "tok_CHANGED", kycVerified: true })).statusCode, 200);
   assert.equal((await req("POST", `/payouts/${id}/resubmit`, undefined, {})).statusCode, 401);
   assert.equal((await req("POST", "/payouts/po_nope/resubmit", "usr_settle", {})).statusCode, 404);
   const r = await req("POST", `/payouts/${id}/resubmit`, "usr_settle", {});
@@ -243,6 +255,9 @@ test("statements, trial balance and invariants over HTTP", async () => {
   assert.equal(inv.statusCode, 200, inv.body);
   assert.equal(inv.json().ledger.entriesUnbalanced, 0);
   assert.deepEqual(inv.json().unreflectedRefunds, []);
+  const po = inv.json().payouts;
+  assert.deepEqual([po.clearingMatchesOpen, po.cashMatchesPaid, po.withholdingMatches], [true, true, true], JSON.stringify(po.amounts));
+  assert.deepEqual(po.resultConflicts, []);
 });
 
 test("operator run and quarantine routes: 401/403/404", async () => {
@@ -252,4 +267,7 @@ test("operator run and quarantine routes: 401/403/404", async () => {
     assert.equal((await req(method, url, "usr_settle", body)).statusCode, 404, url);
   }
   assert.equal((await req("POST", "/runs/nope/void", "usr_settle", {})).statusCode, 400);
+  // 사유는 500자까지(501자는 본문 검증 400 — 존재 확인 404보다 먼저). 500자는 통과해 404까지 간다.
+  assert.equal((await req("POST", "/runs/nope/void", "usr_settle", { reason: "x".repeat(501) })).statusCode, 400);
+  assert.equal((await req("POST", "/runs/nope/void", "usr_settle", { reason: "x".repeat(500) })).statusCode, 404);
 });

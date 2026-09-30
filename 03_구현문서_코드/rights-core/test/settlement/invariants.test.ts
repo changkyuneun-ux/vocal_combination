@@ -37,6 +37,12 @@ const clean = (r: InvariantReport, label: string) => {
   assert.deepEqual(r.ledger.unpostedReversals, [], label);
   assert.deepEqual(r.ledger.poolMismatches, [], label);
   assert.deepEqual(r.stuckRuns, [], label);
+  assert.deepEqual(r.payouts.stuck, [], label);
+  assert.deepEqual(r.payouts.resultConflicts, [], label);
+  assert.equal(r.payouts.clearingMatchesOpen, true, `${label}: ${r.payouts.amounts.clearing} vs ${r.payouts.amounts.openNet}`);
+  assert.equal(r.payouts.cashMatchesPaid, true, `${label}: ${r.payouts.amounts.cash} vs ${r.payouts.amounts.paidNet}`);
+  assert.equal(r.payouts.withholdingMatches, true, `${label}: ${r.payouts.amounts.withholding} vs ${r.payouts.amounts.withheld}`);
+  assert.equal(r.payouts.unprocessedWebhooks, 0, label);
 };
 
 test("an empty ledger is clean", async () => {
@@ -55,6 +61,11 @@ test("every phase of settle → release → reverse after release → pay (one f
     assert.equal(r.ledger.rightsBalance, r.ledger.rightsPooled, phase);
   });
   assert.deepEqual(seen, ["settled", "released", "reversed", "paid", "repaid"]);
+  // 지급 대사가 실제 금액으로 성립했다(실패 1건은 원천세에서 빠지고, 나머지는 현금으로 나갔다).
+  const p = (await check()).payouts;
+  assert.notEqual(p.amounts.cash, "0");
+  assert.notEqual(p.amounts.withholding, "0");
+  assert.equal(p.amounts.clearing, "0");
   // 흐름에 역분개·해제·실패 지급이 실제로 있었다.
   const kinds = (await w.db.pool.query("SELECT DISTINCT kind FROM journal_entry ORDER BY kind")).rows.map((x) => x.kind);
   assert.deepEqual(kinds, ["HOLD_RELEASE", "PAYOUT", "PAYOUT_FAILED", "PAYOUT_SETTLED", "REVERSAL", "SETTLEMENT"]);
@@ -211,5 +222,48 @@ test("pool sums that disagree with run-event nets or refund amounts are listed",
       { kind: "REVERSAL", id: "rev_rf_c", expected: "-100000", actual: "-100002" },
       { kind: "RUN", id: "run_ghost", expected: "1000", actual: "1005" },
     ]);
+  });
+});
+
+test("payout reconciliation: stray clearing, cash or withholding postings, stuck instructions, conflicts and stale webhooks are reported", async () => {
+  const adj = (tx: Tx, ref: string, postings: Parameters<typeof postEntry>[2]["postings"]) =>
+    postEntry(tx, fixedClock(NOW, 0), { kind: "ADJUSTMENT", sourceRef: ref, createdBy: "usr_settle", postings });
+  await rolledBack(async (tx, chk) => {
+    // PSP 정산 중 → 현금으로, 지시 없이(열린 지시·PAID 지시 어느 쪽과도 맞지 않는다).
+    await adj(tx, "adj:cash", [{ account: { kind: "PSP_CLEARING" }, amount: 700n }, { account: { kind: "CASH" }, amount: -700n }]);
+    const r = (await chk()).payouts;
+    assert.deepEqual([r.clearingMatchesOpen, r.cashMatchesPaid, r.withholdingMatches], [false, false, true]);
+    assert.equal(BigInt(r.amounts.cash) - BigInt(r.amounts.paidNet), 700n);
+  });
+  await rolledBack(async (tx, chk) => {
+    await adj(tx, "adj:wh", [{ account: { kind: "RECEIVABLE" }, amount: 30n }, { account: { kind: "WITHHOLDING_TAX" }, amount: -30n }]);
+    const r = (await chk()).payouts;
+    assert.deepEqual([r.clearingMatchesOpen, r.cashMatchesPaid, r.withholdingMatches], [true, true, false]);
+  });
+  await rolledBack(async (tx, chk) => {
+    // 오래된 열린 지시: 전송 표식이 기준(NOW − 60분)보다 이르다. 분개(entry_id)는 같은 금액의 PAYOUT 분개로 맞춰 대조는 그대로 성립하게 한다.
+    const e = await postEntry(tx, fixedClock("2026-07-31T00:00:00.000Z", 0), { kind: "PAYOUT", sourceRef: "payout:po_old_pty_label", createdBy: "usr_settle", postings: [
+      { account: { kind: "PARTY_PAYABLE", partyId: "pty_label" }, amount: 1000n }, { account: { kind: "PSP_CLEARING" }, amount: -1000n }] });
+    await tx.query("INSERT INTO payout_run (payout_run_id, as_of, created_by, created_at) VALUES ('old', '2026-07-31T00:00:00.000Z', 'usr_settle', '2026-07-31T00:00:00.000Z')");
+    await tx.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, idempotency_key, entry_id, created_at)
+                    VALUES ('po_old_pty_label', 'old', 'pty_label', 1000, 0, 1000, 'PENDING', 'payout:po_old_pty_label', $1, '2026-07-31T00:00:00.000Z')`, [e.entryId]);
+    await tx.query("UPDATE payout_instruction SET status = 'SUBMITTED', submit_attempted_at = '2026-07-31T10:00:00.000Z', submitted_account_ref = 'tok' WHERE instruction_id = 'po_old_pty_label'");
+    const r = (await chk()).payouts;
+    assert.deepEqual(r.stuck, [{ instructionId: "po_old_pty_label", since: "2026-07-31T10:00:00.000Z" }]);
+    assert.equal(r.clearingMatchesOpen, true, "the open instruction's net is in PSP_CLEARING");
+    // 기준 시각보다 최근이어도 PAYOUT_STUCK 감사가 있으면 멈춘 것이다.
+    const recent = (await invariantsInTx(tx, fixedClock(NOW, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts;
+    assert.deepEqual(recent.stuck, []);
+    await tx.query("INSERT INTO audit_log (occurred_at, actor_user_id, action_name, entity_type, entity_id) VALUES (now(), 'sys_payout', 'PAYOUT_STUCK', 'payout_instruction', 'po_old_pty_label')");
+    assert.deepEqual((await invariantsInTx(tx, fixedClock(NOW, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts.stuck.map((x) => x.instructionId), ["po_old_pty_label"]);
+    // 결과 충돌 감사.
+    await tx.query("INSERT INTO audit_log (occurred_at, actor_user_id, action_name, entity_type, entity_id) VALUES (now(), 'sys_payout', 'PAYOUT_RESULT_CONFLICT', 'payout_instruction', 'po_old_pty_label')");
+    assert.deepEqual((await chk()).payouts.resultConflicts, [{ instructionId: "po_old_pty_label" }]);
+  });
+  await rolledBack(async (tx, chk) => {
+    // 미처리 webhook: 기준보다 오래된 것만 센다.
+    await tx.query("INSERT INTO psp_webhook_inbox (provider_event_id, provider_ref, status, payload, received_at) VALUES ('evt_old', 'ref_x', 'PAID', '{}', '2026-07-31T22:59:59.999Z')");
+    await tx.query("INSERT INTO psp_webhook_inbox (provider_event_id, provider_ref, status, payload, received_at) VALUES ('evt_new', 'ref_y', 'PAID', '{}', '2026-07-31T23:30:00.000Z')");
+    assert.equal((await chk()).payouts.unprocessedWebhooks, 1);
   });
 });

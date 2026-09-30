@@ -11,6 +11,13 @@ const str = (b: any, k: string): string => {
   return b[k];
 };
 
+/** 1~200자 문자열(webhook의 PSP 식별자 — inbox 열의 길이 제한과 같다). */
+const id200 = (b: any, k: string): string => {
+  const v = str(b, k);
+  if (v.length === 0 || v.length > 200) throw new DomainError("BAD_REQUEST", 400, `${k} must be 1 to 200 characters`);
+  return v;
+};
+
 function secretMatches(given: unknown, expected: string): boolean {
   if (typeof given !== "string") return false;
   const a = Buffer.from(given), b = Buffer.from(expected);
@@ -20,6 +27,7 @@ function secretMatches(given: unknown, expected: string): boolean {
 /**
  * 지급 API(통합 설계 11.2-14). 운영 라우트는 SPACE_SETTLE(서비스가 검사). 신원(401)이 본문 검증(400)보다 먼저다.
  * POST /psp/webhook은 신원이 없다: 공유 비밀 헤더 x-psp-secret를 deps.pspSecret(env RC_PSP_SECRET)과 비교한다 — 설정이 없으면 503, 다르면 401.
+ * 본문: providerEventId·providerRef는 1~200자 문자열, status는 PAID|FAILED(아니면 400).
  */
 export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
   const d = () => ({ db: deps.db, clock: deps.clock, jobs: deps.jobs });
@@ -47,9 +55,11 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     if (deps.pspSecret === undefined || deps.pspSecret === "") throw new DomainError("PSP_NOT_CONFIGURED", 503, "RC_PSP_SECRET is not configured");
     if (!secretMatches(req.headers["x-psp-secret"], deps.pspSecret)) throw new DomainError("BAD_SECRET", 401, "x-psp-secret is missing or wrong");
     const b: any = req.body;
-    const status = str(b, "status");
+    const providerEventId = id200(b, "providerEventId");
+    const providerRef = id200(b, "providerRef");
+    const status = b?.status;
     if (status !== "PAID" && status !== "FAILED") throw new DomainError("BAD_REQUEST", 400, "status must be PAID or FAILED");
-    const w = { providerEventId: str(b, "providerEventId"), providerRef: str(b, "providerRef"), status, payload: b.payload ?? b } as const;
+    const w = { providerEventId, providerRef, status, payload: b.payload ?? b } as const;
     const r = await deps.db.tx((tx) => recordWebhook(tx, deps.clock, deps.jobs, w));
     return reply.status(r.created ? 201 : 200).send(r);
   });

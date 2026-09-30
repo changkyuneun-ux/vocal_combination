@@ -10,6 +10,7 @@ import type { PayoutProvider, ProviderResult } from "../../src/payout/provider.t
 import { providerFromEnv } from "../../src/payout/provider.ts";
 import { fakeProvider } from "../../src/payout/fake-provider.ts";
 import { applyPspResult, payoutJobHandlers, pollPayout, recordWebhook, submitPayout, type PayoutDeps } from "../../src/payout/handlers.ts";
+import { invariants } from "../../src/settlement/invariants.ts";
 import { settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -24,7 +25,7 @@ const env = (provider = fakeProvider()): Env => {
   return { jobs, provider, p: { db: w.db, clock, jobs, provider } };
 };
 const profile = (partyId: string, taxType: string, payoutAccountRef: string | null = `tok_${partyId}`) =>
-  w.db.tx((tx) => setPayoutProfile(tx, profileClock, w.users.settle, { partyId, taxType, payoutAccountRef, kycVerified: true }));
+  w.db.tx((tx) => setPayoutProfile(tx, profileClock, w.users.settle2, { partyId, taxType, payoutAccountRef, kycVerified: true }));
 const adjust = (ref: string, partyId: string, amount: bigint) => w.db.tx((tx) => postEntry(tx, clock, {
   kind: "ADJUSTMENT", sourceRef: ref, createdBy: "usr_settle",
   postings: [{ account: { kind: "RECEIVABLE" }, amount }, { account: { kind: "PARTY_PAYABLE", partyId }, amount: -amount }],
@@ -402,4 +403,64 @@ test("psp_webhook_inbox: only processed_at changes, once; no deletes", async () 
     await admin.end();
   }
   await assert.rejects(q("INSERT INTO psp_webhook_inbox (provider_event_id, provider_ref, status, payload, received_at) VALUES ('evt_ms', 'r', 'PAID', '{}', '2026-06-01T00:00:00.0001Z')"));
+});
+
+test("a token changed after the run is never sent: the instruction fails locally (ACCOUNT_CHANGED) and the balance is restored", async () => {
+  const e = env();
+  const g = findGross(150_000n, plain);
+  const id = await instrRun(e.p, "pty_author_b", g);
+  // 실행 뒤(지시 created_at보다 늦게) usr_settle2가 토큰을 바꾼다 — 냉각·직무 분리 판정을 거치지 않은 토큰.
+  await w.db.tx((tx) => setPayoutProfile(tx, clock, w.users.settle2, { partyId: "pty_author_b", taxType: "EXEMPT", payoutAccountRef: "tok_hijack", kycVerified: true }));
+  await e.jobs.drain(payoutJobHandlers(e.p));
+  assert.equal((await instr(id)).status, "FAILED");
+  assert.deepEqual(e.provider.calls.filter((c) => c.key === `payout:${id}`), [], "the provider was never called for it");
+  assert.deepEqual(await marker(id), { attempted: false, unknown: false });
+  const a = (await w.db.pool.query("SELECT after_json FROM audit_log WHERE action_name = 'PAYOUT_FAILED' AND entity_id = $1", [id])).rows[0].after_json;
+  assert.equal(a.reason, "ACCOUNT_CHANGED");
+  assert.equal(await payable("pty_author_b"), -g);
+  await profile("pty_author_b", "EXEMPT");
+  assert.equal(await trialSum(), 0n);
+});
+
+test("a PAID webhook after a FAILED result is a result conflict, and invariants lists it", async () => {
+  const e = env();
+  const g = findGross(150_000n, (x) => x % 97n === 0n); // 면세: 실지급액 = 총액, 97의 배수 → 가짜 PSP가 FAILED
+  const id = await instrRun(e.p, "pty_author_c", g);
+  await e.jobs.drain(payoutJobHandlers(e.p));
+  const failed = await instr(id);
+  assert.equal(failed.status, "FAILED");
+  assert.ok(failed.provider_ref);
+  await w.db.tx((tx) => recordWebhook(tx, clock, e.jobs, { providerEventId: `evt_late_paid_${id}`, providerRef: failed.provider_ref, status: "PAID", payload: {} }));
+  await e.jobs.drain(payoutJobHandlers(e.p));
+  assert.equal((await instr(id)).status, "FAILED", "the final state does not change");
+  assert.equal(await auditCount("PAYOUT_RESULT_CONFLICT", id), 1);
+  const r = await invariants(w.db, fixedClock("2026-06-01T01:00:00.000Z", 0), { stuckAfterMinutes: 60 * 24 * 365 });
+  assert.ok(r.payouts.resultConflicts.some((x) => x.instructionId === id), JSON.stringify(r.payouts.resultConflicts));
+  // 목록 = PAYOUT_RESULT_CONFLICT 감사가 있는 지시 전부(앞선 테스트의 늦은 FAILED webhook 포함).
+  const audited = (await w.db.pool.query("SELECT DISTINCT entity_id FROM audit_log WHERE action_name = 'PAYOUT_RESULT_CONFLICT' ORDER BY entity_id")).rows.map((x) => ({ instructionId: x.entity_id }));
+  assert.deepEqual(r.payouts.resultConflicts, audited);
+  await adjust(`adj:restore-${id}`, "pty_author_c", -g); // 복원된 잔액을 치워 다음 테스트의 실행에 섞이지 않게 한다.
+});
+
+test("payout reconciliation: accounts match the instructions, and stuck instructions and stale unprocessed webhooks are listed", async () => {
+  const at = "2026-08-01T00:00:00.000Z";
+  const r = (await invariants(w.db, fixedClock(at, 0))).payouts;
+  assert.equal(r.clearingMatchesOpen, true, `${r.amounts.clearing} vs ${r.amounts.openNet}`);
+  assert.equal(r.cashMatchesPaid, true, `${r.amounts.cash} vs ${r.amounts.paidNet}`);
+  assert.equal(r.withholdingMatches, true, `${r.amounts.withholding} vs ${r.amounts.withheld}`);
+  assert.notEqual(r.amounts.clearing, "0", "the never-settled instruction is still in PSP_CLEARING");
+  assert.notEqual(r.amounts.cash, "0");
+  assert.notEqual(r.amounts.withholding, "0");
+  const open = (await w.db.pool.query("SELECT instruction_id FROM payout_instruction WHERE status IN ('PENDING','SUBMITTED') ORDER BY instruction_id")).rows.map((x) => x.instruction_id);
+  assert.ok(open.length > 0);
+  assert.deepEqual(r.stuck.map((x) => x.instructionId).sort(), open, "every open instruction is older than an hour before the check");
+  const stuckAudited = (await w.db.pool.query("SELECT entity_id FROM audit_log WHERE action_name = 'PAYOUT_STUCK'")).rows[0].entity_id;
+  assert.ok(open.includes(stuckAudited));
+  // 기준 시각 안쪽이면 PAYOUT_STUCK 감사가 있는 지시만 남는다.
+  const fresh = (await invariants(w.db, fixedClock(at, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts;
+  assert.deepEqual(fresh.stuck.map((x) => x.instructionId), [stuckAudited]);
+  assert.equal(fresh.unprocessedWebhooks, 0);
+  const stale = (await w.db.pool.query("SELECT count(*)::int AS n FROM psp_webhook_inbox WHERE processed_at IS NULL")).rows[0].n;
+  assert.ok(stale > 0, "the other-ref and owner-inserted webhooks are unprocessed");
+  assert.equal(r.unprocessedWebhooks, stale);
 });

@@ -50,7 +50,8 @@ const lockRef = (tx: Tx, ref: string) => tx.query("SELECT pg_advisory_xact_lock(
  * 커밋한다, (2) 트랜잭션 밖에서 provider.submit(멱등 키 payout:<id>), (3) 새 트랜잭션에서 다시 잠가 여전히 PENDING일 때만 반영한다.
  * 표식이 이미 있으면(앞선 시도가 PSP에 보냈을 수 있다) 다시 보내지도, 로컬로 실패시키지도 않는다: 결과 불명(submit_unknown_at)이면
  * 이미 잡힌 poll-payout에 맡기고, 아니면(전송 후 반영 전 중단) poll-payout으로 멱등 키 재조회를 시작한다.
- * 한 번도 보내지 않았고 계좌 토큰이 지워졌으면 PSP를 부르지 않고 FAILED로 끝낸다(잔액은 PAYOUT_FAILED로 복원된다).
+ * 한 번도 보내지 않았고 계좌 토큰이 지워졌거나(NO_ACCOUNT) 지급 실행 뒤에 바뀌었으면(ACCOUNT_CHANGED — 냉각·직무 분리 판정을 거치지 않은 토큰)
+ * PSP를 부르지 않고 FAILED로 끝낸다(잔액은 PAYOUT_FAILED로 복원된다).
  * provider가 예외를 던지면 작업이 실패하고, 재시도는 표식을 보고 재조회로 넘어간다.
  */
 export async function submitPayout(d: PayoutDeps, data: { instructionId: string }): Promise<void> {
@@ -61,10 +62,17 @@ export async function submitPayout(d: PayoutDeps, data: { instructionId: string 
       if (!i.submitUnknown) await d.jobs.send(tx, "poll-payout", { instructionId: i.instructionId, attempt: "1" });
       return null;
     }
-    const acct = (await tx.query("SELECT payout_account_ref FROM party_payout_profile WHERE party_id = $1", [i.partyId])).rows[0];
+    const acct = (await tx.query(
+      `SELECT p.payout_account_ref, p.account_changed_at > x.created_at AS changed
+         FROM payout_instruction x LEFT JOIN party_payout_profile p ON p.party_id = x.party_id WHERE x.instruction_id = $1`, [i.instructionId])).rows[0];
     const accountRef = (acct?.payout_account_ref ?? null) as string | null;
     if (accountRef === null) {
       await applyResult(tx, d.clock, i, { status: "FAILED", reason: "NO_ACCOUNT" });
+      return null;
+    }
+    // 지급 실행 뒤 계좌 토큰이 바뀌었으면 냉각 기간·직무 분리 판정을 거치지 않은 토큰이므로 보내지 않는다(잔액 복원, 다음 실행에서 다시 판정).
+    if (acct.changed === true) {
+      await applyResult(tx, d.clock, i, { status: "FAILED", reason: "ACCOUNT_CHANGED" });
       return null;
     }
     await tx.query("UPDATE payout_instruction SET submit_attempted_at = $2, submitted_account_ref = $3 WHERE instruction_id = $1", [i.instructionId, d.clock.now(), accountRef]);

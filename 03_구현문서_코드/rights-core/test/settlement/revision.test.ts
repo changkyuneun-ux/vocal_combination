@@ -42,6 +42,10 @@ const clean = async (label: string) => {
   assert.deepEqual(r.ledger.unpostedConfirmedRuns, [], label);
   assert.deepEqual(r.ledger.unpostedReversals, [], label);
   assert.deepEqual(r.ledger.poolMismatches, [], label);
+  assert.deepEqual(r.payouts.stuck, [], label);
+  assert.deepEqual(r.payouts.resultConflicts, [], label);
+  assert.equal(r.payouts.clearingMatchesOpen && r.payouts.cashMatchesPaid && r.payouts.withholdingMatches, true, `${label}: ${JSON.stringify(r.payouts.amounts)}`);
+  assert.equal(r.payouts.unprocessedWebhooks, 0, label);
 };
 let n = 0;
 /** 배치 생성 → settle·verify → 확정 → post-batch. */

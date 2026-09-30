@@ -7,7 +7,7 @@ import { registerParty } from "../../src/registry/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { balance, postEntry, trialBalance } from "../../src/ledger/journal.ts";
-import { computeWithholding } from "../../src/payout/policy.ts";
+import { computeWithholding, loadPayoutPolicy } from "../../src/payout/policy.ts";
 import { createPayoutRun, setPayoutProfile, type PayoutDeps } from "../../src/payout/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
@@ -37,7 +37,7 @@ const payable = (partyId: string) => w.db.tx((tx) => balance(tx, { kind: "PARTY_
 const bal = (kind: "WITHHOLDING_TAX" | "PSP_CLEARING") => w.db.tx((tx) => balance(tx, { kind }));
 const trialSum = async () => (await w.db.tx((tx) => trialBalance(tx))).reduce((a, r) => a + r.balance, 0n);
 const profile = (partyId: string, taxType: string, payoutAccountRef: string | null, kycVerified: boolean) =>
-  w.db.tx((tx) => setPayoutProfile(tx, payClock, w.users.settle, { partyId, taxType, payoutAccountRef, kycVerified }));
+  w.db.tx((tx) => setPayoutProfile(tx, payClock, w.users.settle2, { partyId, taxType, payoutAccountRef, kycVerified }));
 const instructions = async (runId: string) => {
   const r = await w.db.pool.query(
     `SELECT party_id, gross_krw::text AS g, withholding_krw::text AS wh, net_krw::text AS n, status, hold_reason, idempotency_key, instruction_id, entry_id::text AS e
@@ -243,4 +243,88 @@ test("payout_instruction state guard: allowed transitions only, write-once provi
   await assert.rejects(w.db.pool.query("UPDATE payout_instruction SET provider_ref = 'x' WHERE instruction_id = $1", [held]), { code: "RC001" });
   await assert.rejects(w.db.pool.query("UPDATE payout_run SET as_of = as_of WHERE payout_run_id = 'pr-1'"));
   await assert.rejects(w.db.pool.query("UPDATE payout_policy SET min_payout_krw = 1"));
+});
+
+test("payout_instruction INSERT guard: only PENDING, CARRIED or HELD, with every PSP field NULL", async () => {
+  const entry = (await w.db.pool.query("SELECT entry_id::text AS e FROM payout_instruction WHERE instruction_id = 'po_pr-1_pty_member_a'")).rows[0].e as string;
+  let n = 0;
+  const ins = (status: string, extra: Record<string, unknown> = {}) => {
+    n++;
+    const cols: Record<string, unknown> = {
+      instruction_id: `po_guard${n}_x`, payout_run_id: "pr-1", party_id: "pty_fan", gross_krw: 1000, withholding_krw: 0, net_krw: 1000, status,
+      hold_reason: status === "HELD" ? "NO_PROFILE" : null, idempotency_key: `payout:po_guard${n}_x`,
+      entry_id: status === "CARRIED" || status === "HELD" ? null : entry, created_at: "2026-08-01T00:00:00.000Z", ...extra,
+    };
+    const keys = Object.keys(cols);
+    return w.db.pool.query(`INSERT INTO payout_instruction (${keys.join(", ")}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(", ")})`, keys.map((k) => cols[k]));
+  };
+  const c = await w.db.pool.connect();
+  try {
+    await c.query("BEGIN");
+    // 허용: PENDING·CARRIED·HELD, PSP 필드 NULL. (롤백한다)
+    for (const s of ["PENDING", "CARRIED", "HELD"]) {
+      await c.query("INSERT INTO payout_run (payout_run_id, as_of, created_by, created_at) VALUES ($1, '2026-08-01T00:00:00.000Z', 'usr_settle', '2026-08-01T00:00:00.000Z')", [`ok-${s}`]);
+      await c.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, created_at)
+        VALUES ($1, $2, 'pty_fan', 1000, 0, 1000, $3, $4, $5, $6, '2026-08-01T00:00:00.000Z')`,
+      [`po_ok-${s}_x`, `ok-${s}`, s, s === "HELD" ? "NO_PROFILE" : null, `payout:po_ok-${s}_x`, s === "PENDING" ? entry : null]);
+    }
+  } finally {
+    await c.query("ROLLBACK");
+    c.release();
+  }
+  await assert.rejects(ins("SUBMITTED"), { code: "RC001" });
+  await assert.rejects(ins("PAID", { settled_entry_id: entry }), { code: "RC001" });
+  await assert.rejects(ins("FAILED", { settled_entry_id: entry }), { code: "RC001" });
+  await assert.rejects(ins("PENDING", { provider_ref: "psp_x" }), { code: "RC001" });
+  await assert.rejects(ins("PENDING", { settled_entry_id: entry }), { code: "RC001" });
+  await assert.rejects(ins("PENDING", { submit_attempted_at: "2026-08-01T00:00:00.000Z", submitted_account_ref: "tok" }), { code: "RC001" });
+  await assert.rejects(ins("PENDING", { submit_unknown_at: "2026-08-01T00:00:00.000Z" }), { code: "RC001" });
+  assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM payout_instruction WHERE instruction_id LIKE 'po_guard%'")).rows[0].n, 0);
+});
+
+test("account change control: a new token cools for 72 hours, and the user who changed it cannot run the payout that pays it", async () => {
+  assert.equal((await w.db.tx((tx) => loadPayoutPolicy(tx))).accountCoolingHours, 72, "default cooling");
+  const row = async () => (await w.db.pool.query(
+    "SELECT payout_account_ref AS ref, account_changed_at AS at, account_changed_by AS by FROM party_payout_profile WHERE party_id = 'pty_author_b'")).rows[0];
+  const before = await row();
+  assert.equal(before.by, "usr_settle2");
+  // 토큰 없이(KYC·세금 유형만) 바꾸면 변경 기록은 그대로다.
+  nowIso = "2026-08-30T00:00:00.000Z";
+  await w.db.tx((tx) => setPayoutProfile(tx, payClock, w.users.settle, { partyId: "pty_author_b", taxType: "EXEMPT", kycVerified: true }));
+  await profile("pty_author_b", "EXEMPT", "psp_tok_ab", true); // 같은 토큰
+  assert.deepEqual(await row(), before, "same token: account_changed_at/by unchanged");
+  // DB도 토큰 변경 없이 변경 기록을 바꾸지 못하게 한다.
+  await assert.rejects(w.db.pool.query("UPDATE party_payout_profile SET account_changed_at = '2020-01-01T00:00:00.000Z' WHERE party_id = 'pty_author_b'"), { code: "RC001" });
+  await assert.rejects(w.db.pool.query("UPDATE party_payout_profile SET account_changed_by = 'usr_settle' WHERE party_id = 'pty_author_b'"), { code: "RC001" });
+
+  // usr_settle2가 9/1에 토큰을 바꾼다: 변경 기록과 감사(이전·새 토큰).
+  nowIso = "2026-09-01T00:00:00.000Z";
+  await profile("pty_author_b", "EXEMPT", "psp_tok_ab_new", true);
+  const changed = await row();
+  assert.deepEqual([changed.ref, changed.at.toISOString(), changed.by], ["psp_tok_ab_new", "2026-09-01T00:00:00.000Z", "usr_settle2"]);
+  const a = (await w.db.pool.query(
+    "SELECT after_json FROM audit_log WHERE action_name = 'PAYOUT_PROFILE_SET' AND entity_id = 'pty_author_b' ORDER BY audit_id DESC LIMIT 1")).rows[0].after_json;
+  assert.equal(a.accountChanged, true);
+  assert.deepEqual(a.before, { taxType: "EXEMPT", payoutAccountRef: "psp_tok_ab", kycVerified: true });
+  assert.deepEqual(a.after, { taxType: "EXEMPT", payoutAccountRef: "psp_tok_ab_new", kycVerified: true });
+
+  await adjust("adj:cool", "pty_author_b", 50_000n);
+  const status = async (runId: string) => { const i = (await instructions(runId)).pty_author_b; return [i.status, i.hold_reason]; };
+  // 24시간 뒤 기준 시각: 냉각 중.
+  nowIso = "2026-09-02T00:00:00.000Z";
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "cool-1", asOf: "2026-09-02T00:00:00.000Z" });
+  assert.deepEqual(await status("cool-1"), ["HELD", "ACCOUNT_COOLING"]);
+  // 72시간 − 1ms: 여전히 냉각 중.
+  nowIso = "2026-09-05T00:00:00.000Z";
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "cool-2", asOf: "2026-09-03T23:59:59.999Z" });
+  assert.deepEqual(await status("cool-2"), ["HELD", "ACCOUNT_COOLING"]);
+  // 냉각이 끝났어도 토큰을 바꾼 usr_settle2가 실행하면 직무 분리로 보류.
+  await createPayoutRun(p, w.users.settle2, { payoutRunId: "cool-3", asOf: "2026-09-04T00:00:00.000Z" });
+  assert.deepEqual(await status("cool-3"), ["HELD", "ACCOUNT_SOD"]);
+  assert.equal(await payable("pty_author_b"), -50_000n, "held: nothing paid yet");
+  // 냉각이 끝나고 다른 사용자(usr_settle)가 실행하면 지급된다.
+  await createPayoutRun(p, w.users.settle, { payoutRunId: "cool-4", asOf: "2026-09-04T00:00:00.000Z" });
+  assert.deepEqual(await status("cool-4"), ["PENDING", null]);
+  assert.equal(await payable("pty_author_b"), 0n);
+  assert.equal(await trialSum(), 0n);
 });

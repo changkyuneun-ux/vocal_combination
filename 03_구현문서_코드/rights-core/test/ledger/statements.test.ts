@@ -20,6 +20,7 @@ const B = (s: string) => BigInt(s);
 const assertIdentity = (s: Statement) => {
   assert.equal(B(s.closing), B(s.opening) + B(s.settled) + B(s.reversed) + B(s.holdReleased) + B(s.adjusted) - B(s.payoutGross) + B(s.payoutFailedRestored), `${s.partyId} ${s.from}..${s.to}`);
   assert.equal(B(s.payoutGross), B(s.withholding) + B(s.payoutNet), `${s.partyId} payout split`);
+  assert.equal(B(s.payoutFailedRestored), B(s.withholdingRestored) + B(s.netRestored), `${s.partyId} restored split`);
 };
 
 const phases: string[] = [];
@@ -65,6 +66,12 @@ test("each figure comes from the settlement, release, reversal and payout record
   assert.equal(B(jul.wh), computeWithholding(B(jul.g), 330));
   assert.ok(B(jul.wh) > 0n);
   assert.equal(B(s.payoutNet), B(jun.n) + B(jul.n));
+  // 실패한 6월 지시의 원천세·실지급은 복원으로 따로 보인다: 권리자가 실제로 원천징수·수령한 것은 7월 지시뿐이다.
+  assert.equal(B(s.withholdingRestored), B(jun.wh));
+  assert.ok(B(jun.wh) > 0n);
+  assert.equal(B(s.netRestored), B(jun.n));
+  assert.equal(B(s.withholding) - B(s.withholdingRestored), B(jul.wh));
+  assert.equal(B(s.payoutNet) - B(s.netRestored), B(jul.n));
   assert.equal(B(s.opening), 0n);
   assert.equal(s.adjusted, "0", "the flow has no adjustments");
   assert.equal(B(s.closing), B(s.settled) + B(s.reversed) + B(s.holdReleased) - B(jul.g));
@@ -81,7 +88,7 @@ test("period statements split the flow at the phase boundaries and chain opening
   for (let i = 1; i < parts.length; i++) assert.equal(parts[i]!.opening, parts[i - 1]!.closing);
   assert.equal(parts.at(-1)!.closing, whole.closing);
   const total = (k: keyof Statement) => parts.reduce((a, s) => a + B(s[k]), 0n).toString();
-  for (const k of ["settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored"] as const) assert.equal(total(k), whole[k], k);
+  for (const k of ["settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored", "withholdingRestored", "netRestored"] as const) assert.equal(total(k), whole[k], k);
   const [before, mar, apr, jun, jul] = parts;
   assert.deepEqual([before!.opening, before!.closing, before!.settled], ["0", "0", "0"]);
   assert.equal(mar!.settled, whole.settled);
@@ -92,6 +99,8 @@ test("period statements split the flow at the phase boundaries and chain opening
   assert.equal(jun!.payoutGross, jun!.payoutFailedRestored, "June: paid then restored");
   assert.equal(jun!.closing, jun!.opening);
   assert.equal(jul!.payoutFailedRestored, "0");
+  assert.deepEqual([jul!.withholdingRestored, jul!.netRestored], ["0", "0"]);
+  assert.equal(jun!.withholdingRestored, whole.withholdingRestored);
   assert.equal(jul!.payoutGross, jul!.opening);
   assert.equal(jul!.closing, "0");
 });
@@ -111,12 +120,15 @@ test("an entry at exactly `from` is inside the period and one at exactly `to` is
 test("every party's statements sum to the payout instructions and to the ledger", async () => {
   let gross = 0n;
   let wh = 0n;
+  let whEffective = 0n;
   for (const p of await payableParties()) {
     const s = await stmt(p, START, END);
     assertIdentity(s);
     gross += B(s.payoutGross);
     wh += B(s.withholding);
+    whEffective += B(s.withholding) - B(s.withholdingRestored);
   }
+  assert.equal(whEffective, -(await w.db.tx((tx) => balance(tx, { kind: "WITHHOLDING_TAX" }))), "withholding net of failures = the ledger's withholding liability");
   assert.equal(gross, await sum("SELECT COALESCE(SUM(gross_krw),0)::text AS s FROM payout_instruction WHERE entry_id IS NOT NULL", []));
   assert.equal(wh, -(await w.db.tx((tx) => balance(tx, { kind: "WITHHOLDING_TAX" }))) + await sum(
     "SELECT COALESCE(SUM(withholding_krw),0)::text AS s FROM payout_instruction WHERE status = 'FAILED'", []), "failed withholding is restored in the ledger");
@@ -125,7 +137,7 @@ test("every party's statements sum to the payout instructions and to the ledger"
 test("a party without an account has an all-zero statement; unknown parties and bad input are rejected", async () => {
   await w.db.tx((tx) => registerParty(tx, w.clock, { partyId: "pty_quiet", partyType: "AUTHOR", displayName: "quiet" }));
   const z = await stmt("pty_quiet", START, END);
-  for (const k of ["opening", "settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored", "adjusted", "closing"] as const) assert.equal(z[k], "0", k);
+  for (const k of ["opening", "settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored", "withholdingRestored", "netRestored", "adjusted", "closing"] as const) assert.equal(z[k], "0", k);
   await assert.rejects(stmt("pty_nobody", START, END), { status: 404 });
   await assert.rejects(stmt("pty_member_a", "2026-01-01", END), { code: "INVALID_INSTANT", status: 422 });
   await assert.rejects(stmt("pty_member_a", START, "2026-13-01T00:00:00.000Z"), { code: "INVALID_INSTANT", status: 422 });

@@ -5,6 +5,8 @@ import { conflict, invalid, notFound } from "../platform/errors.ts";
 import type { JobName } from "../platform/jobs.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
+/** 무효화 사유의 최대 길이(진단·감사에 그대로 들어간다). */
+export const MAX_VOID_REASON = 500;
 const VOIDABLE = new Set(["PENDING", "CALCULATED", "VERIFIED"]);
 const REQUEUE_JOB: Record<string, JobName> = { PENDING: "settle-run", CALCULATED: "verify-run" };
 
@@ -21,7 +23,9 @@ async function lockRun(tx: Tx, runId: string): Promise<string> {
  */
 export async function voidRun(d: SettleDeps, actor: Actor, runId: string, reason: string) {
   requireRole(actor, "SPACE_SETTLE");
-  if (typeof reason !== "string" || reason.trim().length === 0) throw invalid("INVALID_REASON", "reason must be a non-empty string");
+  if (typeof reason !== "string" || reason.trim().length === 0 || reason.length > MAX_VOID_REASON) {
+    throw invalid("INVALID_REASON", `reason must be a non-empty string of at most ${MAX_VOID_REASON} characters`);
+  }
   return d.db.tx(async (tx) => {
     const from = await lockRun(tx, runId);
     if (!VOIDABLE.has(from)) throw conflict("INVALID_STATE", `run ${runId} is ${from}`);

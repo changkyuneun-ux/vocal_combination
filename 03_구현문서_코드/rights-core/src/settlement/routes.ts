@@ -5,7 +5,7 @@ import { requireRole } from "../platform/actor.ts";
 import { suggestFraudRelease } from "../engine-bridge/fraud-release.ts";
 import { releaseHold } from "./holds.ts";
 import { invariants } from "./invariants.ts";
-import { requeueRun, voidRun } from "./operator.ts";
+import { MAX_VOID_REASON, requeueRun, voidRun } from "./operator.ts";
 import { releaseQuarantine } from "./quarantine.ts";
 import { batchView, confirmBatch, createBatch } from "./service.ts";
 
@@ -52,7 +52,7 @@ export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
     const actor = await withActor(deps, req, async (_tx, a) => a);
     requireRole(actor, "SPACE_SETTLE");
     const reason = (req.body as any)?.reason;
-    if (typeof reason !== "string" || reason === "") throw new DomainError("BAD_REQUEST", 400, "reason must be a non-empty string");
+    if (typeof reason !== "string" || reason === "" || reason.length > MAX_VOID_REASON) throw new DomainError("BAD_REQUEST", 400, `reason must be a non-empty string of at most ${MAX_VOID_REASON} characters`);
     return voidRun(d(), actor, req.params.id, reason);
   });
   app.post<{ Params: { id: string } }>("/runs/:id/requeue", async (req) => {

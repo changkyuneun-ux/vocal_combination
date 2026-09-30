@@ -34,3 +34,10 @@ test("src/ledger does not import settlement or payout (dependency runs settlemen
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });
+
+test("src/payout does not import settlement (settlement/invariants reads payout/reconcile, so the dependency runs settlement -> payout)", () => {
+  const offenders = walk(join(SRC, "payout"))
+    .filter((p) => /from\s+["'][^"']*\/settlement\//.test(readFileSync(p, "utf8")))
+    .map((p) => relative(SRC, p));
+  assert.deepEqual(offenders, []);
+});

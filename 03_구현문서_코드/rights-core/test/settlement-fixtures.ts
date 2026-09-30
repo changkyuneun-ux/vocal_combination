@@ -21,11 +21,14 @@ import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge
 
 export type SettlementWorld = {
   db: Db; adminUrl: string; ctx: BridgeCtx; clock: Clock;
-  users: Record<"rights" | "editor" | "approver" | "activator" | "issuer" | "ops" | "settle" | "ingest", Actor>;
+  users: Record<"rights" | "editor" | "approver" | "activator" | "issuer" | "ops" | "settle" | "settle2" | "ingest", Actor>;
   drop(): Promise<void>;
 };
 
-/** 정산 가능한 세계: 곡·정책·팩이 활성이고, 정산 역할 사용자와 시스템 신원이 있다. 정책 events는 [PRIMARY]. */
+/**
+ * 정산 가능한 세계: 곡·정책·팩이 활성이고, 정산 역할 사용자와 시스템 신원이 있다. 정책 events는 [PRIMARY].
+ * settle2(usr_settle2)는 두 번째 SPACE_SETTLE 사용자다: 지급 프로필(계좌 토큰)을 바꾸는 사람과 지급 실행자(settle)를 나눈다(ACCOUNT_SOD).
+ */
 export async function settlementWorld(): Promise<SettlementWorld> {
   const { db, adminUrl, drop } = await freshDb();
   const { ctx, cleanup } = tempBridge();
@@ -34,13 +37,13 @@ export async function settlementWorld(): Promise<SettlementWorld> {
   const users = await db.tx(async (tx) => {
     await seedSong(tx, base);
     const u = await seedUsers(tx, base);
-    for (const [id, role] of [["usr_ops", "SPACE_OPS"], ["usr_settle", "SPACE_SETTLE"]] as const) {
+    for (const [id, role] of [["usr_ops", "SPACE_OPS"], ["usr_settle", "SPACE_SETTLE"], ["usr_settle2", "SPACE_SETTLE"]] as const) {
       await createUser(tx, base, { userId: id, displayName: id, roles: [role] });
     }
     await ensureSystemIdentities(tx, base);
     await issuance.createPack(tx, clock, u.rights, { packId: PACK, packCode: "NOVA", title: "Nova", factsScopeId: SCOPE });
     await issuance.setPackClaimants(tx, clock, u.rights, PACK, DECLARED);
-    return { ...u, ops: await loadActor(tx, "usr_ops"), settle: await loadActor(tx, "usr_settle"), ingest: await loadActor(tx, "sys_ingest") };
+    return { ...u, ops: await loadActor(tx, "usr_ops"), settle: await loadActor(tx, "usr_settle"), settle2: await loadActor(tx, "usr_settle2"), ingest: await loadActor(tx, "sys_ingest") };
   });
   await db.tx(async (tx) => {
     const r = await policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_nova", packId: PACK, sourceText: POLICY_TEXT });
@@ -110,7 +113,7 @@ export async function ledgerFlow(w: SettlementWorld, onPhase: (phase: LedgerPhas
 
   for (const [partyId, taxType] of [["pty_member_a", "DOMESTIC_INDIVIDUAL"], ["pty_member_b", "DOMESTIC_INDIVIDUAL"], ["pty_label", "EXEMPT"], ["pty_agency", "EXEMPT"],
     ["pty_cmo", "EXEMPT"], ["pty_author_b", "EXEMPT"], ["pty_author_c", "EXEMPT"]] as const) {
-    await w.db.tx((tx) => setPayoutProfile(tx, profileClock, w.users.settle, { partyId, taxType, payoutAccountRef: `tok_${partyId}`, kycVerified: true }));
+    await w.db.tx((tx) => setPayoutProfile(tx, profileClock, w.users.settle2, { partyId, taxType, payoutAccountRef: `tok_${partyId}`, kycVerified: true }));
   }
   const base = fakeProvider();
   const failB: PayoutProvider = {

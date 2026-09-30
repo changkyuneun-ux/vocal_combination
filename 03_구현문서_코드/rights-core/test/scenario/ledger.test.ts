@@ -27,6 +27,7 @@ test("reduced ledger scenario: 100 issues, 300 purchases → posting, fraud rele
   assert.deepEqual(r.invariants, {
     unreflectedRefunds: 0, unreflectedRevisions: 0, entriesUnbalanced: 0, receivableMatchesSettlement: true, rightsConserved: true,
     unpostedConfirmedRuns: 0, unpostedReversals: 0, poolMismatches: 0, stuckRuns: 0,
+    payoutStuck: 0, payoutResultConflicts: 0, clearingMatchesOpen: true, cashMatchesPaid: true, withholdingMatches: true, payoutUnprocessedWebhooks: 0,
   });
   // 보류 절반 해제(제안대로)
   assert.ok(r.fraudHolds > 0 && r.released > 0, j);
@@ -71,6 +72,12 @@ test("ledgerPass rejects any broken invariant, identity, duplicate or missing pa
     ["rights pool", { ...ok, invariants: { ...ok.invariants, rightsConserved: false } }],
     ["unreflected refund", { ...ok, invariants: { ...ok.invariants, unreflectedRefunds: 1 } }],
     ["unposted run", { ...ok, invariants: { ...ok.invariants, unpostedConfirmedRuns: 1 } }],
+    ["stuck payout", { ...ok, invariants: { ...ok.invariants, payoutStuck: 1 } }],
+    ["payout result conflict", { ...ok, invariants: { ...ok.invariants, payoutResultConflicts: 1 } }],
+    ["clearing", { ...ok, invariants: { ...ok.invariants, clearingMatchesOpen: false } }],
+    ["cash", { ...ok, invariants: { ...ok.invariants, cashMatchesPaid: false } }],
+    ["withholding", { ...ok, invariants: { ...ok.invariants, withholdingMatches: false } }],
+    ["stale webhook", { ...ok, invariants: { ...ok.invariants, payoutUnprocessedWebhooks: 1 } }],
     ["statement identity", { ...ok, statementIdentityFailures: 1 }],
     ["statement closing", { ...ok, statementClosingMismatches: 1 }],
     ["statement payout total", { ...ok, statementPayoutGrossKrw: "1" }],

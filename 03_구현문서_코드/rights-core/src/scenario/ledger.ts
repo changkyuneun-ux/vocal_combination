@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { loadActor } from "../platform/actor.ts";
+import { createUser, loadActor } from "../platform/actor.ts";
 import { fixedClock } from "../platform/clock.ts";
 import type { Db } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
@@ -43,6 +43,8 @@ export type LedgerReport = {
   invariants: {
     unreflectedRefunds: number; unreflectedRevisions: number; entriesUnbalanced: number; receivableMatchesSettlement: boolean; rightsConserved: boolean;
     unpostedConfirmedRuns: number; unpostedReversals: number; poolMismatches: number; stuckRuns: number;
+    /** 지급 대사(점검 API의 payouts): 멈춘 지시·결과 충돌 수, 계정 대조 셋, 오래된 미처리 webhook 수. */
+    payoutStuck: number; payoutResultConflicts: number; clearingMatchesOpen: boolean; cashMatchesPaid: boolean; withholdingMatches: boolean; payoutUnprocessedWebhooks: number;
   };
   statements: number; statementIdentityFailures: number; statementClosingMismatches: number;
   statementPayoutGrossKrw: string; instructionPayoutGrossKrw: string; statementWithholdingKrw: string; instructionWithholdingKrw: string;
@@ -51,7 +53,7 @@ export type LedgerReport = {
 };
 
 /**
- * 원장·지급 통과 조건(I-2b 11.3): 점검 API의 원장 불변식·미반영 0, 명세 항등식·기말 잔액·지급 총액 대조, 계정 대조,
+ * 원장·지급 통과 조건(I-2b 11.3): 점검 API의 원장 불변식·미반영 0·지급 대사(멈춘 지시·결과 충돌·미처리 webhook 0, 계정 대조 true), 명세 항등식·기말 잔액·지급 총액 대조, 계정 대조,
  * webhook 중복 무시·결과 중복 적용 0·충돌·경보 0, 열린 지시·미처리 webhook·재시도 소진 작업 0,
  * 그리고 해제·성공·실패·불명·보류·이월 경로가 실제로 지나갔을 것.
  */
@@ -59,6 +61,7 @@ export const ledgerPass = (r: LedgerReport): boolean => {
   const v = r.invariants;
   return v.unreflectedRefunds === 0 && v.unreflectedRevisions === 0 && v.entriesUnbalanced === 0 && v.receivableMatchesSettlement && v.rightsConserved &&
     v.unpostedConfirmedRuns === 0 && v.unpostedReversals === 0 && v.poolMismatches === 0 && v.stuckRuns === 0 &&
+    v.payoutStuck === 0 && v.payoutResultConflicts === 0 && v.clearingMatchesOpen && v.cashMatchesPaid && v.withholdingMatches && v.payoutUnprocessedWebhooks === 0 &&
     r.statements === r.parties && r.parties > 0 && r.statementIdentityFailures === 0 && r.statementClosingMismatches === 0 &&
     r.statementPayoutGrossKrw === r.instructionPayoutGrossKrw && r.statementWithholdingKrw === r.instructionWithholdingKrw && r.accountsOk &&
     r.webhookDuplicates > 0 && r.webhookDuplicatesIgnored === r.webhookDuplicates && r.duplicateResults === 0 && r.resultConflicts === 0 && r.payoutAlerts === 0 &&
@@ -98,6 +101,11 @@ export async function runLedgerScenario(deps: { db: Db; ctx: BridgeCtx; appUrl: 
   const profileClock = fixedClock("2026-01-01T00:00:00.000Z", 0);
   const rand = mulberry32(opts.seed + 1);
   const settle = await db.tx((tx) => loadActor(tx, "usr_settle"));
+  // 계좌 토큰을 등록하는 사용자는 지급 실행자(usr_settle)와 달라야 한다(ACCOUNT_SOD, 11.2-6).
+  const accounts = await db.tx(async (tx) => {
+    await createUser(tx, profileClock, { userId: "usr_settle2", displayName: "usr_settle2", roles: ["SPACE_SETTLE"] });
+    return loadActor(tx, "usr_settle2");
+  });
 
   // 지급 결과 계획은 프로필을 정한 뒤 채운다(가짜 PSP는 첫 submit 때 규칙을 읽는다).
   const plan = new Map<string, "FAILED" | "UNKNOWN_THEN_PAID">();
@@ -149,7 +157,7 @@ export async function runLedgerScenario(deps: { db: Db; ctx: BridgeCtx; appUrl: 
     if (individual.length < 2) throw new Error(`need at least 2 individual payees to mix payout outcomes, got ${individual.length}`);
     await db.tx(async (tx) => {
       for (const p of parties) {
-        await setPayoutProfile(tx, profileClock, settle, {
+        await setPayoutProfile(tx, profileClock, accounts, {
           partyId: p, taxType: corp.includes(p) ? "DOMESTIC_CORP" : "DOMESTIC_INDIVIDUAL", payoutAccountRef: `tok_${p}`, kycVerified: !kycPending.includes(p),
         });
       }
@@ -212,7 +220,8 @@ export async function runLedgerScenario(deps: { db: Db; ctx: BridgeCtx; appUrl: 
       statements.push(s);
       const n = (x: string) => BigInt(x);
       const expected = n(s.opening) + n(s.settled) + n(s.reversed) + n(s.holdReleased) + n(s.adjusted) - n(s.payoutGross) + n(s.payoutFailedRestored);
-      if (expected !== n(s.closing) || s.opening !== "0" || n(s.payoutNet) + n(s.withholding) !== n(s.payoutGross)) statementIdentityFailures++;
+      if (expected !== n(s.closing) || s.opening !== "0" || n(s.payoutNet) + n(s.withholding) !== n(s.payoutGross)
+        || n(s.netRestored) + n(s.withholdingRestored) !== n(s.payoutFailedRestored)) statementIdentityFailures++;
       const actual = -(await db.tx((tx) => balance(tx, { kind: "PARTY_PAYABLE", partyId: p }, to)));
       if (actual !== n(s.closing)) statementClosingMismatches++;
     }
@@ -267,6 +276,9 @@ export async function runLedgerScenario(deps: { db: Db; ctx: BridgeCtx; appUrl: 
         entriesUnbalanced: inv.ledger.entriesUnbalanced, receivableMatchesSettlement: inv.ledger.receivableMatchesSettlement, rightsConserved: inv.ledger.rightsConserved,
         unpostedConfirmedRuns: inv.ledger.unpostedConfirmedRuns.length, unpostedReversals: inv.ledger.unpostedReversals.length,
         poolMismatches: inv.ledger.poolMismatches.length, stuckRuns: inv.stuckRuns.length,
+        payoutStuck: inv.payouts.stuck.length, payoutResultConflicts: inv.payouts.resultConflicts.length,
+        clearingMatchesOpen: inv.payouts.clearingMatchesOpen, cashMatchesPaid: inv.payouts.cashMatchesPaid, withholdingMatches: inv.payouts.withholdingMatches,
+        payoutUnprocessedWebhooks: inv.payouts.unprocessedWebhooks,
       },
       statements: statements.length, statementIdentityFailures, statementClosingMismatches,
       statementPayoutGrossKrw: sum((s) => s.payoutGross), instructionPayoutGrossKrw: instr.g,

@@ -17,6 +17,8 @@ const RUN_ID = /^[A-Za-z0-9.-]{1,100}$/;
 /**
  * 지급 프로필(통합 설계 11.2-6, SPACE_SETTLE): 없으면 만들고(first_payable_at = 지금), 있으면 세금 유형·계좌 토큰·KYC·수정 시각만 바꾼다.
  * payoutAccountRef를 생략하면 기존 값을 두고, null이면 지운다. 계좌 토큰은 PSP 쪽 토큰이다(원문 계좌번호가 아니다).
+ * 계좌 토큰이 바뀌면(처음 등록·지움 포함) account_changed_at·account_changed_by를 지금·이 사용자로 쓴다 — 지급 실행의 냉각 기간
+ * (ACCOUNT_COOLING)과 직무 분리(ACCOUNT_SOD) 판정에 쓴다. 감사 PAYOUT_PROFILE_SET에 이전 값과 새 값(토큰·세금 유형·KYC)을 남긴다.
  */
 export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
   input: { partyId: string; taxType: string; payoutAccountRef?: string | null; kycVerified: boolean }) {
@@ -31,16 +33,39 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
   if (party === undefined) throw notFound("party", input.partyId);
   if (party.party_type === "FAN" || party.party_type === "PLATFORM") throw invalid("INVALID_PARTY", `${input.partyId} is not a rights holder party`);
   const now = clock.now();
-  const r = (await tx.query(
-    `INSERT INTO party_payout_profile (party_id, tax_type, payout_account_ref, kyc_verified, first_payable_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $5)
-     ON CONFLICT (party_id) DO UPDATE SET tax_type = EXCLUDED.tax_type,
-       payout_account_ref = CASE WHEN $6 THEN party_payout_profile.payout_account_ref ELSE EXCLUDED.payout_account_ref END,
-       kyc_verified = EXCLUDED.kyc_verified, updated_at = EXCLUDED.updated_at
-     RETURNING first_payable_at, payout_account_ref`,
-    [input.partyId, input.taxType, ref ?? null, input.kycVerified, now, ref === undefined])).rows[0];
-  const view = { partyId: input.partyId, taxType: input.taxType, hasAccount: r.payout_account_ref !== null, kycVerified: input.kycVerified, firstPayableAt: (r.first_payable_at as Date).toISOString() };
-  await audit(tx, clock, { actor: actor.userId, action: "PAYOUT_PROFILE_SET", entityType: "party_payout_profile", entityId: input.partyId, after: view });
+  const load = async () => (await tx.query(
+    "SELECT tax_type, payout_account_ref, kyc_verified FROM party_payout_profile WHERE party_id = $1 FOR UPDATE", [input.partyId])).rows[0] as
+    { tax_type: string; payout_account_ref: string | null; kyc_verified: boolean } | undefined;
+  let old = await load();
+  let firstPayableAt: Date | undefined;
+  let newRef: string | null = ref ?? null;
+  if (old === undefined) {
+    const ins = (await tx.query(
+      `INSERT INTO party_payout_profile (party_id, tax_type, payout_account_ref, kyc_verified, first_payable_at, updated_at, account_changed_at, account_changed_by)
+       VALUES ($1, $2, $3, $4, $5, $5, $6, $7) ON CONFLICT (party_id) DO NOTHING RETURNING first_payable_at`,
+      [input.partyId, input.taxType, newRef, input.kycVerified, now, newRef === null ? null : now, newRef === null ? null : actor.userId])).rows[0];
+    if (ins !== undefined) firstPayableAt = ins.first_payable_at;
+    else old = await load(); // 동시에 다른 트랜잭션이 먼저 만들었다 → 갱신 경로.
+  }
+  if (old !== undefined) {
+    newRef = ref === undefined ? old.payout_account_ref : ref;
+    const changed = newRef !== old.payout_account_ref;
+    firstPayableAt = (await tx.query(
+      `UPDATE party_payout_profile SET tax_type = $2, payout_account_ref = $3, kyc_verified = $4, updated_at = $5,
+         account_changed_at = CASE WHEN $6 THEN $5 ELSE account_changed_at END, account_changed_by = CASE WHEN $6 THEN $7 ELSE account_changed_by END
+       WHERE party_id = $1 RETURNING first_payable_at`,
+      [input.partyId, input.taxType, newRef, input.kycVerified, now, changed, actor.userId])).rows[0].first_payable_at;
+  }
+  const accountChanged = old === undefined ? newRef !== null : newRef !== old.payout_account_ref;
+  const view = { partyId: input.partyId, taxType: input.taxType, hasAccount: newRef !== null, kycVerified: input.kycVerified, firstPayableAt: (firstPayableAt as Date).toISOString() };
+  await audit(tx, clock, {
+    actor: actor.userId, action: "PAYOUT_PROFILE_SET", entityType: "party_payout_profile", entityId: input.partyId,
+    after: {
+      ...view, accountChanged,
+      before: old === undefined ? null : { taxType: old.tax_type, payoutAccountRef: old.payout_account_ref, kycVerified: old.kyc_verified },
+      after: { taxType: input.taxType, payoutAccountRef: newRef, kycVerified: input.kycVerified },
+    },
+  });
   return view;
 }
 
@@ -48,6 +73,7 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
  * 지급 실행(통합 설계 11.2-6, SPACE_SETTLE): PARTY_PAYABLE 계정이 있는 권리자마다 지시 하나를 만든다. 한 트랜잭션.
  * 총액 = 미지급금 부채 잔액(asOf 이전 전기의 −합). 단 이미 쓴 PAYOUT·PAYOUT_FAILED 분개는 시각과 무관하게 넣는다 —
  * 앞선 지급의 분개가 이번 asOf보다 늦게 기록됐어도 같은 잔액을 두 번 지급하지 않는다.
+ * 보류 판정(decide)에는 계좌 토큰 냉각 기간(ACCOUNT_COOLING)과 직무 분리(ACCOUNT_SOD — 실행자가 그 권리자의 토큰을 마지막으로 바꾼 사용자)가 있다.
  * HELD·CARRIED는 분개하지 않는다(잔액이 그대로 이월된다). PENDING은 분개 PAYOUT과 submit-payout 작업을 같은 트랜잭션에서 쓴다.
  * 동시 실행은 트랜잭션 advisory lock(payout:run)으로 직렬화한다 — 뒤 실행은 앞 실행의 PAYOUT을 본 뒤 잔액을 읽는다.
  * asOf는 이전 실행들의 최대 asOf보다 앞설 수 없다(422 AS_OF_REGRESSED — 잠금 안에서 검사).
@@ -84,15 +110,19 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
         WHERE a.kind = 'PARTY_PAYABLE' GROUP BY a.party_id ORDER BY a.party_id`, [input.asOf])).rows;
     const parties = balances.map((b) => b.party_id as string);
     const profiles = new Map<string, ProfileView>((await tx.query(
-      "SELECT party_id, tax_type, payout_account_ref, kyc_verified, first_payable_at FROM party_payout_profile WHERE party_id = ANY($1)", [parties])).rows
-      .map((r) => [r.party_id as string, { taxType: r.tax_type, payoutAccountRef: r.payout_account_ref, kycVerified: r.kyc_verified, firstPayableAt: (r.first_payable_at as Date).toISOString() }]));
+      `SELECT party_id, tax_type, payout_account_ref, kyc_verified, first_payable_at, account_changed_at, account_changed_by
+         FROM party_payout_profile WHERE party_id = ANY($1)`, [parties])).rows
+      .map((r) => [r.party_id as string, {
+        taxType: r.tax_type, payoutAccountRef: r.payout_account_ref, kycVerified: r.kyc_verified, firstPayableAt: (r.first_payable_at as Date).toISOString(),
+        accountChangedAt: r.account_changed_at === null ? null : (r.account_changed_at as Date).toISOString(), accountChangedBy: r.account_changed_by,
+      }]));
 
     const rows: { instructionId: string; partyId: string; gross: bigint; withholding: bigint; status: InstructionStatus; holdReason: HoldReason | null; entryId: string | null }[] = [];
     for (const b of balances) {
       const partyId = b.party_id as string;
       const gross = -BigInt(b.s);
       const instructionId = `po_${input.payoutRunId}_${partyId}`;
-      const v = decide(policy, input.asOf, gross, profiles.get(partyId));
+      const v = decide(policy, input.asOf, gross, profiles.get(partyId), actor.userId);
       if (v.status !== "PENDING") {
         rows.push({ instructionId, partyId, gross, withholding: 0n, status: v.status, holdReason: v.status === "HELD" ? v.reason : null, entryId: null });
         continue;

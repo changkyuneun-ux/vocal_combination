@@ -37,6 +37,7 @@ test("voidRun and requeueRun require SPACE_SETTLE; unknown runs are 404", async 
   await assert.rejects(voidRun(d, w.users.settle, "run_nope", "stuck"), { code: "NOT_FOUND" });
   await assert.rejects(requeueRun(d, w.users.settle, "run_nope"), { code: "NOT_FOUND" });
   await assert.rejects(voidRun(d, w.users.settle, runId, "  "), { code: "INVALID_REASON" });
+  await assert.rejects(voidRun(d, w.users.settle, runId, "x".repeat(501)), { code: "INVALID_REASON", status: 422 });
   assert.equal(await status(runId), "PENDING");
 });
 

@@ -1,6 +1,7 @@
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { invalid } from "../platform/errors.ts";
+import { reconcilePayouts, type PayoutReconciliation } from "../payout/reconcile.ts";
 
 export type InvariantReport = {
   /** rejected: REVERSAL_REJECTED 감사가 있다(역분개가 거부됨 — 작업 유실과 구분). */
@@ -25,6 +26,8 @@ export type InvariantReport = {
     receivable: string; settledReceivable: string; rightsBalance: string; rightsPooled: string;
   };
   stuckRuns: { runId: string; status: string; since: string }[];
+  /** 지급 대사(src/payout/reconcile.ts). 정상 흐름에서 stuck·resultConflicts는 비고, 대조 셋은 true, unprocessedWebhooks는 0이다. */
+  payouts: PayoutReconciliation;
 };
 
 export const DEFAULT_STUCK_AFTER_MINUTES = 60;
@@ -45,6 +48,8 @@ const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS ri
  *     = −(분개된 run의 권리 버킷 풀 라인(line_seq = 1) 합 + 분개된 역분개의 권리 버킷 풀 라인 합). 권리 풀로 들어온 돈은
  *     해제·지급·실패·정산으로 이 계정들 사이에서만 움직인다. 양쪽을 원장과 정산 행에서 따로 계산한다.
  * (c) 오래 멈춘 run: PENDING·CALCULATED 중 created_at이 now − stuckAfterMinutes(기본 60)보다 이른 것.
+ * (d) 지급 대사(reconcilePayouts, 같은 기준 시각): 멈춘 지시(열린 지시의 전송 표식이 기준보다 이르거나 PAYOUT_STUCK), 결과 충돌(PAYOUT_RESULT_CONFLICT),
+ *     −PSP_CLEARING = Σ 열린 지시 실지급액, −CASH = Σ PAID 실지급액, −WITHHOLDING_TAX = Σ FAILED가 아닌 분개된 지시의 원천세, 오래된 미처리 webhook 수.
  * 여러 쿼리가 한 시점을 보도록 invariants는 자기 REPEATABLE READ READ ONLY 트랜잭션을 연다.
  */
 export async function invariants(db: Db, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
@@ -177,5 +182,6 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
       rightsBalance: ledgerSide.rights, rightsPooled: settlementSide.rights,
     },
     stuckRuns: stuck,
+    payouts: await reconcilePayouts(tx, cutoff),
   };
 }
