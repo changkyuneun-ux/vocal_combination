@@ -1,0 +1,93 @@
+import type { Clock } from "../platform/clock.ts";
+import type { Tx } from "../platform/db.ts";
+import { invalid } from "../platform/errors.ts";
+
+export type InvariantReport = {
+  unreflectedRefunds: { refundEventId: string; originalEventId: string; runId: string }[];
+  ledger: {
+    entriesUnbalanced: number; receivableMatchesSettlement: boolean; rightsConserved: boolean;
+    /** CONFIRMED인데 아직 SETTLEMENT 분개(run:<id>)가 없는 run(post-batch 대기). 실패가 아니라 따로 보고한다. */
+    unpostedConfirmedRuns: string[];
+    /** 비교한 양쪽 값(진단용): RECEIVABLE 잔액과 정산 쪽 합, 권리 쪽 계정 전기 합과 −(권리 풀 라인 합). */
+    receivable: string; settledReceivable: string; rightsBalance: string; rightsPooled: string;
+  };
+  stuckRuns: { runId: string; status: string; since: string }[];
+};
+
+export const DEFAULT_STUCK_AFTER_MINUTES = 60;
+
+/** run의 권리 풀 버킷(발행 봉인의 정책 tier1.rights). */
+const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS rights
+  FROM settlement_run r JOIN issue_seal s ON s.snapshot_id = r.snapshot_id JOIN sealed_document d ON d.digest = s.policy_digest`;
+
+/**
+ * 정산·원장 점검(통합 설계 11.2-10). 원장은 보류 해제·지급 뒤 정산 행의 거울이 아니므로 모든 정상 상태에서 성립하는 식으로 본다.
+ * (a) 반영되지 않은 환불: 원 이벤트가 살아 있는 CONFIRMED run에 있는데 그 run 이벤트의 포함 환불에도, 역분개에도 없는 환불.
+ * (b) 원장:
+ *   - entriesUnbalanced: 전기 합 ≠ 0인 분개 수(0이어야 한다 — 트리거의 rc.bal_last 우회도 여기서 잡힌다).
+ *   - receivableMatchesSettlement: RECEIVABLE 잔액 = Σ(분개된 run의 run 이벤트 순액) + Σ(분개된 역분개의 풀 라인 합, 음수).
+ *     분개된 run = run:<id> 분개가 있는 run, 분개된 역분개 = rev:<id> 분개가 있는 역분개. 분개 전 CONFIRMED run은 unpostedConfirmedRuns.
+ *   - rightsConserved: 권리 쪽 계정(PARTY_PAYABLE·HOLD·WITHHOLDING_TAX·PSP_CLEARING·CASH) 전기 합
+ *     = −(분개된 run의 권리 버킷 풀 라인(line_seq = 1) 합 + 분개된 역분개의 권리 버킷 풀 라인 합). 권리 풀로 들어온 돈은
+ *     해제·지급·실패·정산으로 이 계정들 사이에서만 움직인다. 양쪽을 원장과 정산 행에서 따로 계산한다.
+ * (c) 오래 멈춘 run: PENDING·CALCULATED 중 created_at이 now − stuckAfterMinutes(기본 60)보다 이른 것.
+ * 일관된 한 시점을 보려면 호출자가 REPEATABLE READ 트랜잭션을 쓴다.
+ */
+export async function invariants(tx: Tx, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
+  const minutes = opts.stuckAfterMinutes ?? DEFAULT_STUCK_AFTER_MINUTES;
+  if (!Number.isSafeInteger(minutes) || minutes < 1) throw invalid("INVALID_THRESHOLD", "stuckAfterMinutes must be a positive integer");
+  const cutoff = new Date(Date.parse(clock.now()) - minutes * 60_000).toISOString();
+
+  const unreflected = (await tx.query(
+    `SELECT r.event_id AS refund, r.related_event_id AS original, x.run_id
+       FROM revenue_event r
+       JOIN settlement_run_event x ON x.event_id = r.related_event_id AND x.active
+       JOIN settlement_run s ON s.run_id = x.run_id AND s.status = 'CONFIRMED'
+      WHERE r.event_type = 'REFUND'
+        AND NOT EXISTS (SELECT 1 FROM settlement_run_event_refund f WHERE f.run_id = x.run_id AND f.event_id = x.event_id AND f.refund_event_id = r.event_id)
+        AND NOT EXISTS (SELECT 1 FROM reversal_run v WHERE v.refund_event_id = r.event_id)
+      ORDER BY r.event_id`)).rows.map((x) => ({ refundEventId: x.refund as string, originalEventId: x.original as string, runId: x.run_id as string }));
+
+  const unbalanced = (await tx.query(
+    "SELECT count(*)::int AS n FROM (SELECT entry_id FROM posting GROUP BY entry_id HAVING SUM(amount_krw) <> 0) t")).rows[0].n as number;
+
+  const unposted = (await tx.query(
+    `SELECT run_id FROM settlement_run r WHERE r.status = 'CONFIRMED'
+        AND NOT EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'run:' || r.run_id) ORDER BY run_id`)).rows.map((x) => x.run_id as string);
+
+  const ledgerSide = (await tx.query(
+    `SELECT COALESCE(SUM(p.amount_krw) FILTER (WHERE a.kind = 'RECEIVABLE'), 0)::text AS receivable,
+            COALESCE(SUM(p.amount_krw) FILTER (WHERE a.kind IN ('PARTY_PAYABLE','HOLD','WITHHOLDING_TAX','PSP_CLEARING','CASH')), 0)::text AS rights
+       FROM posting p JOIN ledger_account a USING (account_id)`)).rows[0];
+
+  const settlementSide = (await tx.query(
+    `WITH posted_run AS (
+       SELECT r.run_id FROM settlement_run r WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'run:' || r.run_id)
+     ), posted_rev AS (
+       SELECT v.reversal_id, v.original_run_id AS run_id FROM reversal_run v WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id)
+     ), run_rights AS (${RUN_RIGHTS} WHERE r.run_id IN (SELECT run_id FROM posted_run UNION SELECT run_id FROM posted_rev))
+     SELECT
+       ((SELECT COALESCE(SUM(x.net_amount_krw), 0) FROM settlement_run_event x JOIN posted_run USING (run_id))
+        + (SELECT COALESCE(SUM(l.amount_krw), 0) FROM pool_line l JOIN posted_rev USING (reversal_id)))::text AS receivable,
+       (-((SELECT COALESCE(SUM(l.amount_krw), 0) FROM pool_line l JOIN posted_run USING (run_id) JOIN run_rights rr USING (run_id)
+            WHERE l.line_seq = 1 AND l.bucket = rr.rights)
+        + (SELECT COALESCE(SUM(l.amount_krw), 0) FROM pool_line l JOIN posted_rev v USING (reversal_id) JOIN run_rights rr ON rr.run_id = v.run_id
+            WHERE l.bucket = rr.rights)))::text AS rights`)).rows[0];
+
+  const stuck = (await tx.query(
+    `SELECT run_id, status, created_at FROM settlement_run WHERE status IN ('PENDING','CALCULATED') AND created_at < $1 ORDER BY created_at, run_id`,
+    [cutoff])).rows.map((x) => ({ runId: x.run_id as string, status: x.status as string, since: (x.created_at as Date).toISOString() }));
+
+  return {
+    unreflectedRefunds: unreflected,
+    ledger: {
+      entriesUnbalanced: unbalanced,
+      receivableMatchesSettlement: ledgerSide.receivable === settlementSide.receivable,
+      rightsConserved: ledgerSide.rights === settlementSide.rights,
+      unpostedConfirmedRuns: unposted,
+      receivable: ledgerSide.receivable, settledReceivable: settlementSide.receivable,
+      rightsBalance: ledgerSide.rights, rightsPooled: settlementSide.rights,
+    },
+    stuckRuns: stuck,
+  };
+}
