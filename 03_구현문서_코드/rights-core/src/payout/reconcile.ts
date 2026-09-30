@@ -1,7 +1,10 @@
 import type { Tx } from "../platform/db.ts";
 
 export type PayoutReconciliation = {
-  /** 열린(PENDING·SUBMITTED) 지시 중 전송 표식(없으면 생성 시각)이 기준 시각보다 이르거나 PAYOUT_STUCK 감사가 있는 것. since = 그 시각. */
+  /**
+   * 멈춘 지시: PENDING은 전송 표식(없으면 생성 시각)이 cutoffs.pending보다, SUBMITTED는 전송 표식이 cutoffs.submitted보다 이른 것,
+   * 또는 PAYOUT_STUCK 감사가 있는 열린 지시. since = 전송 표식(없으면 생성 시각).
+   */
   stuck: { instructionId: string; since: string }[];
   /** PAYOUT_RESULT_CONFLICT 감사가 있는 지시(예: FAILED로 끝난 뒤 PAID 결과 — 이중 지급 위험, 운영자 확인). */
   resultConflicts: { instructionId: string }[];
@@ -19,16 +22,18 @@ export type PayoutReconciliation = {
 
 /**
  * 지급 대사(통합 설계 11.2-10 (d)): 지급 지시와 PSP_CLEARING·CASH·WITHHOLDING_TAX 계정을 대조하고, 멈춘 지시·결과 충돌·미처리 webhook을 찾는다.
- * cutoff(ms UTC ISO)보다 이른 것을 오래된 것으로 본다. 호출자 트랜잭션에서 읽는다(settlement/invariants가 자기 스냅샷 안에서 부른다).
+ * 기준 시각(ms UTC ISO): pending은 PENDING 지시와 미처리 webhook, submitted는 SUBMITTED 지시(PSP 처리 대기라 더 길게 둔다).
+ * 호출자 트랜잭션에서 읽는다(settlement/invariants가 자기 스냅샷 안에서 부른다).
  */
-export async function reconcilePayouts(tx: Tx, cutoff: string): Promise<PayoutReconciliation> {
+export async function reconcilePayouts(tx: Tx, cutoffs: { pending: string; submitted: string }): Promise<PayoutReconciliation> {
   const stuck = (await tx.query(
     `SELECT i.instruction_id, COALESCE(i.submit_attempted_at, i.created_at) AS since
        FROM payout_instruction i
       WHERE i.status IN ('PENDING','SUBMITTED')
-        AND (COALESCE(i.submit_attempted_at, i.created_at) < $1
+        AND ((i.status = 'PENDING' AND COALESCE(i.submit_attempted_at, i.created_at) < $1)
+             OR (i.status = 'SUBMITTED' AND i.submit_attempted_at < $2)
              OR EXISTS (SELECT 1 FROM audit_log a WHERE a.action_name = 'PAYOUT_STUCK' AND a.entity_type = 'payout_instruction' AND a.entity_id = i.instruction_id))
-      ORDER BY 2, 1`, [cutoff])).rows.map((x) => ({ instructionId: x.instruction_id as string, since: (x.since as Date).toISOString() }));
+      ORDER BY 2, 1`, [cutoffs.pending, cutoffs.submitted])).rows.map((x) => ({ instructionId: x.instruction_id as string, since: (x.since as Date).toISOString() }));
 
   const conflicts = (await tx.query(
     `SELECT DISTINCT entity_id FROM audit_log WHERE action_name = 'PAYOUT_RESULT_CONFLICT' AND entity_type = 'payout_instruction' ORDER BY entity_id`))
@@ -46,7 +51,7 @@ export async function reconcilePayouts(tx: Tx, cutoff: string): Promise<PayoutRe
        FROM payout_instruction`)).rows[0];
 
   const unprocessed = (await tx.query(
-    "SELECT count(*)::int AS n FROM psp_webhook_inbox WHERE processed_at IS NULL AND received_at < $1", [cutoff])).rows[0].n as number;
+    "SELECT count(*)::int AS n FROM psp_webhook_inbox WHERE processed_at IS NULL AND received_at < $1", [cutoffs.pending])).rows[0].n as number;
 
   return {
     stuck, resultConflicts: conflicts,

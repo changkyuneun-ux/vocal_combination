@@ -32,11 +32,12 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
   const party = (await tx.query("SELECT party_type FROM party WHERE party_id = $1", [input.partyId])).rows[0];
   if (party === undefined) throw notFound("party", input.partyId);
   if (party.party_type === "FAN" || party.party_type === "PLATFORM") throw invalid("INVALID_PARTY", `${input.partyId} is not a rights holder party`);
-  const now = clock.now();
   const load = async () => (await tx.query(
     "SELECT tax_type, payout_account_ref, kyc_verified FROM party_payout_profile WHERE party_id = $1 FOR UPDATE", [input.partyId])).rows[0] as
     { tax_type: string; payout_account_ref: string | null; kyc_verified: boolean } | undefined;
   let old = await load();
+  // 시각은 행 잠금 뒤에 읽는다(잠금을 기다리는 동안 앞선 지급 실행이 끝나면 변경 시각이 그 실행보다 뒤가 되도록).
+  const now = clock.now();
   let firstPayableAt: Date | undefined;
   let newRef: string | null = ref ?? null;
   if (old === undefined) {
@@ -73,6 +74,8 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
  * 지급 실행(통합 설계 11.2-6, SPACE_SETTLE): PARTY_PAYABLE 계정이 있는 권리자마다 지시 하나를 만든다. 한 트랜잭션.
  * 총액 = 미지급금 부채 잔액(asOf 이전 전기의 −합). 단 이미 쓴 PAYOUT·PAYOUT_FAILED 분개는 시각과 무관하게 넣는다 —
  * 앞선 지급의 분개가 이번 asOf보다 늦게 기록됐어도 같은 잔액을 두 번 지급하지 않는다.
+ * 프로필은 FOR SHARE로 읽는다: 판정하는 동안 계좌 토큰 변경(setPayoutProfile의 FOR UPDATE)은 이 실행이 끝날 때까지 기다린다.
+ * PENDING 지시에는 판정한 토큰(decided_account_ref)을 적는다 — 전송 때 현재 토큰과 다르면 보내지 않는다(ACCOUNT_CHANGED).
  * 보류 판정(decide)에는 계좌 토큰 냉각 기간(ACCOUNT_COOLING)과 직무 분리(ACCOUNT_SOD — 실행자가 그 권리자의 토큰을 마지막으로 바꾼 사용자)가 있다.
  * HELD·CARRIED는 분개하지 않는다(잔액이 그대로 이월된다). PENDING은 분개 PAYOUT과 submit-payout 작업을 같은 트랜잭션에서 쓴다.
  * 동시 실행은 트랜잭션 advisory lock(payout:run)으로 직렬화한다 — 뒤 실행은 앞 실행의 PAYOUT을 본 뒤 잔액을 읽는다.
@@ -111,20 +114,20 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
     const parties = balances.map((b) => b.party_id as string);
     const profiles = new Map<string, ProfileView>((await tx.query(
       `SELECT party_id, tax_type, payout_account_ref, kyc_verified, first_payable_at, account_changed_at, account_changed_by
-         FROM party_payout_profile WHERE party_id = ANY($1)`, [parties])).rows
+         FROM party_payout_profile WHERE party_id = ANY($1) ORDER BY party_id FOR SHARE`, [parties])).rows
       .map((r) => [r.party_id as string, {
         taxType: r.tax_type, payoutAccountRef: r.payout_account_ref, kycVerified: r.kyc_verified, firstPayableAt: (r.first_payable_at as Date).toISOString(),
         accountChangedAt: r.account_changed_at === null ? null : (r.account_changed_at as Date).toISOString(), accountChangedBy: r.account_changed_by,
       }]));
 
-    const rows: { instructionId: string; partyId: string; gross: bigint; withholding: bigint; status: InstructionStatus; holdReason: HoldReason | null; entryId: string | null }[] = [];
+    const rows: { instructionId: string; partyId: string; gross: bigint; withholding: bigint; status: InstructionStatus; holdReason: HoldReason | null; entryId: string | null; decidedAccountRef: string | null }[] = [];
     for (const b of balances) {
       const partyId = b.party_id as string;
       const gross = -BigInt(b.s);
       const instructionId = `po_${input.payoutRunId}_${partyId}`;
       const v = decide(policy, input.asOf, gross, profiles.get(partyId), actor.userId);
       if (v.status !== "PENDING") {
-        rows.push({ instructionId, partyId, gross, withholding: 0n, status: v.status, holdReason: v.status === "HELD" ? v.reason : null, entryId: null });
+        rows.push({ instructionId, partyId, gross, withholding: 0n, status: v.status, holdReason: v.status === "HELD" ? v.reason : null, entryId: null, decidedAccountRef: null });
         continue;
       }
       const e = await postEntry(tx, d.clock, {
@@ -135,15 +138,15 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
           { account: { kind: "PSP_CLEARING" }, amount: -(gross - v.withholding) },
         ],
       });
-      rows.push({ instructionId, partyId, gross, withholding: v.withholding, status: "PENDING", holdReason: null, entryId: e.entryId });
+      rows.push({ instructionId, partyId, gross, withholding: v.withholding, status: "PENDING", holdReason: null, entryId: e.entryId, decidedAccountRef: profiles.get(partyId)!.payoutAccountRef });
     }
     if (rows.length > 0) {
       await tx.query(
-        `INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, created_at)
-         SELECT i, $1, p, g, w, g - w, s, h, 'payout:' || i, e, $2
-           FROM unnest($3::text[], $4::text[], $5::bigint[], $6::bigint[], $7::text[], $8::text[], $9::bigint[]) AS t(i, p, g, w, s, h, e)`,
+        `INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, decided_account_ref, created_at)
+         SELECT i, $1, p, g, w, g - w, s, h, 'payout:' || i, e, a, $2
+           FROM unnest($3::text[], $4::text[], $5::bigint[], $6::bigint[], $7::text[], $8::text[], $9::bigint[], $10::text[]) AS t(i, p, g, w, s, h, e, a)`,
         [input.payoutRunId, now, rows.map((r) => r.instructionId), rows.map((r) => r.partyId), rows.map((r) => r.gross.toString()),
-          rows.map((r) => r.withholding.toString()), rows.map((r) => r.status), rows.map((r) => r.holdReason), rows.map((r) => r.entryId)],
+          rows.map((r) => r.withholding.toString()), rows.map((r) => r.status), rows.map((r) => r.holdReason), rows.map((r) => r.entryId), rows.map((r) => r.decidedAccountRef)],
       );
     }
     for (const r of rows) if (r.status === "PENDING") await d.jobs.send(tx, "submit-payout", { instructionId: r.instructionId });

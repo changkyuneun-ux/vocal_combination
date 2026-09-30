@@ -67,12 +67,14 @@ CREATE TABLE payout_instruction (
   submit_attempted_at TIMESTAMPTZ NULL CHECK (submit_attempted_at = date_trunc('milliseconds', submit_attempted_at)), -- PSP 전송 직전에 커밋(이후 로컬 실패 금지)
   submit_unknown_at   TIMESTAMPTZ NULL CHECK (submit_unknown_at = date_trunc('milliseconds', submit_unknown_at)),     -- submit 결과 불명(poll-payout이 재조회 중)
   submitted_account_ref TEXT NULL,   -- 처음 PSP에 보낸 계좌 토큰(submit_attempted_at과 함께 한 번만 기록). 재전송은 프로필이 아니라 이 값을 쓴다.
+  decided_account_ref TEXT NULL,     -- 지급 실행이 판정(냉각·직무 분리)한 계좌 토큰. PENDING 지시에만 INSERT 때 한 번 쓴다. 전송 때 현재 토큰과 다르면 보내지 않는다.
   created_at       TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
   UNIQUE (payout_run_id, party_id),
   CHECK (net_krw = gross_krw - withholding_krw),
   CHECK ((status IN ('CARRIED','HELD')) = (entry_id IS NULL)),
   CHECK ((status = 'HELD') = (hold_reason IS NOT NULL)),
-  CHECK ((submit_attempted_at IS NULL) = (submitted_account_ref IS NULL))
+  CHECK ((submit_attempted_at IS NULL) = (submitted_account_ref IS NULL)),
+  CHECK ((entry_id IS NULL) = (decided_account_ref IS NULL))
 );
 CREATE INDEX payout_instruction_party ON payout_instruction (party_id);
 
@@ -117,11 +119,16 @@ BEGIN
 END $$;
 
 -- INSERT 경로 가드(11.2-12와 같은 방식): 지시는 PENDING·CARRIED·HELD로만 생기고, PSP 쪽 필드(참조·결과 분개·전송 표식·불명·전송 계좌)는 비어 있다.
+-- decided_account_ref는 PENDING일 때만 INSERT에서 쓴다(UPDATE 가드의 '그 밖의 열은 바꾸지 않는다'로 이후 불변, UPDATE 권한도 없다).
 CREATE FUNCTION rc_payout_instruction_insert_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.status NOT IN ('PENDING','CARRIED','HELD') OR NEW.provider_ref IS NOT NULL OR NEW.settled_entry_id IS NOT NULL
      OR NEW.submit_attempted_at IS NOT NULL OR NEW.submit_unknown_at IS NOT NULL OR NEW.submitted_account_ref IS NOT NULL THEN
     RAISE EXCEPTION 'payout_instruction %: must be inserted as PENDING, CARRIED or HELD with provider_ref, settled_entry_id, submit_attempted_at, submit_unknown_at and submitted_account_ref NULL', NEW.instruction_id USING ERRCODE = 'RC001';
+  END IF;
+  -- 판정한 계좌 토큰은 PENDING 지시에만(있어야 하고), CARRIED·HELD에는 없다.
+  IF (NEW.status = 'PENDING') <> (NEW.decided_account_ref IS NOT NULL) THEN
+    RAISE EXCEPTION 'payout_instruction %: decided_account_ref is required for PENDING and forbidden otherwise', NEW.instruction_id USING ERRCODE = 'RC001';
   END IF;
   RETURN NEW;
 END $$;

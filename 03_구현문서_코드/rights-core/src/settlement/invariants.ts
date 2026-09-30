@@ -31,6 +31,10 @@ export type InvariantReport = {
 };
 
 export const DEFAULT_STUCK_AFTER_MINUTES = 60;
+/** 전송된(SUBMITTED) 지급이 멈췄다고 볼 기준(분). PSP 처리는 run보다 오래 걸리므로 따로 둔다(기본 1일). */
+export const DEFAULT_PAYOUT_STUCK_AFTER_MINUTES = 1440;
+export type InvariantOptions = { stuckAfterMinutes?: number; payoutStuckAfterMinutes?: number };
+type Cutoffs = { run: string; payout: string };
 
 /** run의 권리 풀 버킷(발행 봉인의 정책 tier1.rights). */
 const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS rights
@@ -48,12 +52,13 @@ const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS ri
  *     = −(분개된 run의 권리 버킷 풀 라인(line_seq = 1) 합 + 분개된 역분개의 권리 버킷 풀 라인 합). 권리 풀로 들어온 돈은
  *     해제·지급·실패·정산으로 이 계정들 사이에서만 움직인다. 양쪽을 원장과 정산 행에서 따로 계산한다.
  * (c) 오래 멈춘 run: PENDING·CALCULATED 중 created_at이 now − stuckAfterMinutes(기본 60)보다 이른 것.
- * (d) 지급 대사(reconcilePayouts, 같은 기준 시각): 멈춘 지시(열린 지시의 전송 표식이 기준보다 이르거나 PAYOUT_STUCK), 결과 충돌(PAYOUT_RESULT_CONFLICT),
+ * (d) 지급 대사(reconcilePayouts): 멈춘 지시(PENDING은 전송 표식·생성 시각이 stuckAfterMinutes 기준보다, SUBMITTED는 전송 표식이
+ *     payoutStuckAfterMinutes(기본 1440) 기준보다 이르거나 PAYOUT_STUCK), 결과 충돌(PAYOUT_RESULT_CONFLICT),
  *     −PSP_CLEARING = Σ 열린 지시 실지급액, −CASH = Σ PAID 실지급액, −WITHHOLDING_TAX = Σ FAILED가 아닌 분개된 지시의 원천세, 오래된 미처리 webhook 수.
  * 여러 쿼리가 한 시점을 보도록 invariants는 자기 REPEATABLE READ READ ONLY 트랜잭션을 연다.
  */
-export async function invariants(db: Db, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
-  const cutoff = stuckCutoff(clock, opts);
+export async function invariants(db: Db, clock: Clock, opts: InvariantOptions = {}): Promise<InvariantReport> {
+  const cutoff = cutoffs(clock, opts);
   const client = await db.pool.connect();
   let broken: Error | undefined;
   try {
@@ -73,17 +78,23 @@ export async function invariants(db: Db, clock: Clock, opts: { stuckAfterMinutes
  * 호출자 트랜잭션에서 점검한다(호출자가 스냅샷 일관성을 책임진다 — REPEATABLE READ 권장). 테스트는 롤백할 트랜잭션 안의
  * 인위적 상태를 이것으로 본다.
  */
-export async function invariantsInTx(tx: Tx, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
-  return invariantsAt(tx, stuckCutoff(clock, opts));
+export async function invariantsInTx(tx: Tx, clock: Clock, opts: InvariantOptions = {}): Promise<InvariantReport> {
+  return invariantsAt(tx, cutoffs(clock, opts));
 }
 
-function stuckCutoff(clock: Clock, opts: { stuckAfterMinutes?: number }): string {
-  const minutes = opts.stuckAfterMinutes ?? DEFAULT_STUCK_AFTER_MINUTES;
-  if (!Number.isSafeInteger(minutes) || minutes < 1) throw invalid("INVALID_THRESHOLD", "stuckAfterMinutes must be a positive integer");
-  return new Date(Date.parse(clock.now()) - minutes * 60_000).toISOString();
+function cutoffs(clock: Clock, opts: InvariantOptions): Cutoffs {
+  const at = (name: string, minutes: number) => {
+    if (!Number.isSafeInteger(minutes) || minutes < 1) throw invalid("INVALID_THRESHOLD", `${name} must be a positive integer`);
+    return new Date(Date.parse(clock.now()) - minutes * 60_000).toISOString();
+  };
+  return {
+    run: at("stuckAfterMinutes", opts.stuckAfterMinutes ?? DEFAULT_STUCK_AFTER_MINUTES),
+    payout: at("payoutStuckAfterMinutes", opts.payoutStuckAfterMinutes ?? DEFAULT_PAYOUT_STUCK_AFTER_MINUTES),
+  };
 }
 
-async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
+async function invariantsAt(tx: Tx, c: Cutoffs): Promise<InvariantReport> {
+  const cutoff = c.run;
   const unreflected = (await tx.query(
     `SELECT r.event_id AS refund, r.related_event_id AS original, x.run_id,
             EXISTS (SELECT 1 FROM audit_log a WHERE a.action_name = 'REVERSAL_REJECTED' AND a.entity_type = 'revenue_event' AND a.entity_id = r.event_id) AS rejected
@@ -182,6 +193,6 @@ async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
       rightsBalance: ledgerSide.rights, rightsPooled: settlementSide.rights,
     },
     stuckRuns: stuck,
-    payouts: await reconcilePayouts(tx, cutoff),
+    payouts: await reconcilePayouts(tx, { pending: c.run, submitted: c.payout }),
   };
 }

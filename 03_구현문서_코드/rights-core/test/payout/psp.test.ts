@@ -453,14 +453,55 @@ test("payout reconciliation: accounts match the instructions, and stuck instruct
   assert.notEqual(r.amounts.withholding, "0");
   const open = (await w.db.pool.query("SELECT instruction_id FROM payout_instruction WHERE status IN ('PENDING','SUBMITTED') ORDER BY instruction_id")).rows.map((x) => x.instruction_id);
   assert.ok(open.length > 0);
-  assert.deepEqual(r.stuck.map((x) => x.instructionId).sort(), open, "every open instruction is older than an hour before the check");
+  assert.deepEqual(r.stuck.map((x) => x.instructionId).sort(), open, "every open instruction is older than the thresholds (1 hour PENDING, 1 day SUBMITTED)");
   const stuckAudited = (await w.db.pool.query("SELECT entity_id FROM audit_log WHERE action_name = 'PAYOUT_STUCK'")).rows[0].entity_id;
   assert.ok(open.includes(stuckAudited));
   // 기준 시각 안쪽이면 PAYOUT_STUCK 감사가 있는 지시만 남는다.
-  const fresh = (await invariants(w.db, fixedClock(at, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts;
+  const fresh = (await invariants(w.db, fixedClock(at, 0), { stuckAfterMinutes: 60 * 24 * 365, payoutStuckAfterMinutes: 60 * 24 * 365 })).payouts;
   assert.deepEqual(fresh.stuck.map((x) => x.instructionId), [stuckAudited]);
   assert.equal(fresh.unprocessedWebhooks, 0);
   const stale = (await w.db.pool.query("SELECT count(*)::int AS n FROM psp_webhook_inbox WHERE processed_at IS NULL")).rows[0].n;
   assert.ok(stale > 0, "the other-ref and owner-inserted webhooks are unprocessed");
   assert.equal(r.unprocessedWebhooks, stale);
+});
+
+test("race: a token change that waits on the run's profile lock and commits after it is caught at submit (decided_account_ref), with no provider call", async () => {
+  const e = env();
+  const g = findGross(150_000n, plain);
+  await adjust("adj:race", "pty_agency", g);
+  // 지급 실행 트랜잭션을 지시 INSERT 직후(submit-payout 전송 시점, 커밋 전)에 멈춘다.
+  let reached!: () => void;
+  const atSend = new Promise<void>((res) => { reached = res; });
+  let release!: () => void;
+  const gate = new Promise<void>((res) => { release = res; });
+  const jobs = { ...e.jobs, async send(tx: any, name: any, data: any, opts?: any) { if (name === "submit-payout") { reached(); await gate; } return e.jobs.send(tx, name, data, opts); } };
+  const runId = `psp-${++runSeq}`;
+  const id = `po_${runId}_pty_agency`;
+  const run = createPayoutRun({ ...e.p, jobs }, w.users.settle, { payoutRunId: runId, asOf: clock.now() });
+  await atSend;
+  // 다른 연결에서 토큰을 바꾼다. 실행이 프로필을 FOR SHARE로 잡고 있어 이 변경은 실행이 끝날 때까지 기다린다.
+  // 변경자의 시계는 일부러 실행보다 이르게 둔다(시계 차이) — 시각 비교였다면 놓쳤을 경우다.
+  const early = fixedClock("2026-05-01T00:00:00.000Z", 0);
+  let changed = false;
+  const change = w.db.tx((tx) => setPayoutProfile(tx, early, w.users.settle2, { partyId: "pty_agency", taxType: "EXEMPT", payoutAccountRef: "tok_race", kycVerified: true }))
+    .then(() => { changed = true; });
+  try {
+    await new Promise((res) => setTimeout(res, 200));
+    assert.equal(changed, false, "the token change waits for the run's profile lock");
+  } finally {
+    release(); // 실패해도 멈춘 실행을 풀어 준다.
+  }
+  await run;
+  await change;
+  const row = (await w.db.pool.query("SELECT status, decided_account_ref FROM payout_instruction WHERE instruction_id = $1", [id])).rows[0];
+  assert.deepEqual([row.status, row.decided_account_ref], ["PENDING", "tok_pty_agency"], "the run decided with the old token");
+  await e.jobs.drain(payoutJobHandlers(e.p));
+  assert.equal((await instr(id)).status, "FAILED");
+  assert.deepEqual(e.provider.calls.filter((c) => c.key === `payout:${id}`), [], "never sent to the new, unchecked token");
+  const a = (await w.db.pool.query("SELECT after_json FROM audit_log WHERE action_name = 'PAYOUT_FAILED' AND entity_id = $1", [id])).rows[0].after_json;
+  assert.equal(a.reason, "ACCOUNT_CHANGED");
+  assert.equal(await payable("pty_agency"), -g, "balance restored");
+  await adjust("adj:race-clear", "pty_agency", -g);
+  await profile("pty_agency", "EXEMPT");
+  assert.equal(await trialSum(), 0n);
 });

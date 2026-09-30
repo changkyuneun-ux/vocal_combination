@@ -253,7 +253,8 @@ test("payout_instruction INSERT guard: only PENDING, CARRIED or HELD, with every
     const cols: Record<string, unknown> = {
       instruction_id: `po_guard${n}_x`, payout_run_id: "pr-1", party_id: "pty_fan", gross_krw: 1000, withholding_krw: 0, net_krw: 1000, status,
       hold_reason: status === "HELD" ? "NO_PROFILE" : null, idempotency_key: `payout:po_guard${n}_x`,
-      entry_id: status === "CARRIED" || status === "HELD" ? null : entry, created_at: "2026-08-01T00:00:00.000Z", ...extra,
+      entry_id: status === "CARRIED" || status === "HELD" ? null : entry, decided_account_ref: status === "CARRIED" || status === "HELD" ? null : "tok",
+      created_at: "2026-08-01T00:00:00.000Z", ...extra,
     };
     const keys = Object.keys(cols);
     return w.db.pool.query(`INSERT INTO payout_instruction (${keys.join(", ")}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(", ")})`, keys.map((k) => cols[k]));
@@ -264,9 +265,9 @@ test("payout_instruction INSERT guard: only PENDING, CARRIED or HELD, with every
     // 허용: PENDING·CARRIED·HELD, PSP 필드 NULL. (롤백한다)
     for (const s of ["PENDING", "CARRIED", "HELD"]) {
       await c.query("INSERT INTO payout_run (payout_run_id, as_of, created_by, created_at) VALUES ($1, '2026-08-01T00:00:00.000Z', 'usr_settle', '2026-08-01T00:00:00.000Z')", [`ok-${s}`]);
-      await c.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, created_at)
-        VALUES ($1, $2, 'pty_fan', 1000, 0, 1000, $3, $4, $5, $6, '2026-08-01T00:00:00.000Z')`,
-      [`po_ok-${s}_x`, `ok-${s}`, s, s === "HELD" ? "NO_PROFILE" : null, `payout:po_ok-${s}_x`, s === "PENDING" ? entry : null]);
+      await c.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, decided_account_ref, created_at)
+        VALUES ($1, $2, 'pty_fan', 1000, 0, 1000, $3, $4, $5, $6, $7, '2026-08-01T00:00:00.000Z')`,
+      [`po_ok-${s}_x`, `ok-${s}`, s, s === "HELD" ? "NO_PROFILE" : null, `payout:po_ok-${s}_x`, s === "PENDING" ? entry : null, s === "PENDING" ? "tok" : null]);
     }
   } finally {
     await c.query("ROLLBACK");
@@ -279,6 +280,13 @@ test("payout_instruction INSERT guard: only PENDING, CARRIED or HELD, with every
   await assert.rejects(ins("PENDING", { settled_entry_id: entry }), { code: "RC001" });
   await assert.rejects(ins("PENDING", { submit_attempted_at: "2026-08-01T00:00:00.000Z", submitted_account_ref: "tok" }), { code: "RC001" });
   await assert.rejects(ins("PENDING", { submit_unknown_at: "2026-08-01T00:00:00.000Z" }), { code: "RC001" });
+  // 판정한 계좌 토큰: PENDING에는 반드시, CARRIED·HELD에는 없다. 이후에는 바꿀 수 없다(UPDATE 권한 없음, 가드).
+  await assert.rejects(ins("PENDING", { decided_account_ref: null }), { code: "RC001" });
+  await assert.rejects(ins("HELD", { decided_account_ref: "tok" }), { code: "RC001" });
+  await assert.rejects(ins("CARRIED", { decided_account_ref: "tok" }), { code: "RC001" });
+  assert.equal((await w.db.pool.query("SELECT decided_account_ref AS r FROM payout_instruction WHERE instruction_id = 'po_pr-1_pty_member_a'")).rows[0].r, "psp_tok_a");
+  assert.equal((await w.db.pool.query("SELECT decided_account_ref AS r FROM payout_instruction WHERE instruction_id = 'po_pr-1_pty_label'")).rows[0].r, null);
+  await assert.rejects(w.db.pool.query("UPDATE payout_instruction SET decided_account_ref = 'x' WHERE instruction_id = 'po_pr-1_pty_member_a'"), { code: "42501" });
   assert.equal((await w.db.pool.query("SELECT count(*)::int AS n FROM payout_instruction WHERE instruction_id LIKE 'po_guard%'")).rows[0].n, 0);
 });
 

@@ -245,17 +245,30 @@ test("payout reconciliation: stray clearing, cash or withholding postings, stuck
     const e = await postEntry(tx, fixedClock("2026-07-31T00:00:00.000Z", 0), { kind: "PAYOUT", sourceRef: "payout:po_old_pty_label", createdBy: "usr_settle", postings: [
       { account: { kind: "PARTY_PAYABLE", partyId: "pty_label" }, amount: 1000n }, { account: { kind: "PSP_CLEARING" }, amount: -1000n }] });
     await tx.query("INSERT INTO payout_run (payout_run_id, as_of, created_by, created_at) VALUES ('old', '2026-07-31T00:00:00.000Z', 'usr_settle', '2026-07-31T00:00:00.000Z')");
-    await tx.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, idempotency_key, entry_id, created_at)
-                    VALUES ('po_old_pty_label', 'old', 'pty_label', 1000, 0, 1000, 'PENDING', 'payout:po_old_pty_label', $1, '2026-07-31T00:00:00.000Z')`, [e.entryId]);
+    await tx.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, idempotency_key, entry_id, decided_account_ref, created_at)
+                    VALUES ('po_old_pty_label', 'old', 'pty_label', 1000, 0, 1000, 'PENDING', 'payout:po_old_pty_label', $1, 'tok', '2026-07-31T00:00:00.000Z')`, [e.entryId]);
     await tx.query("UPDATE payout_instruction SET status = 'SUBMITTED', submit_attempted_at = '2026-07-31T10:00:00.000Z', submitted_account_ref = 'tok' WHERE instruction_id = 'po_old_pty_label'");
+    // SUBMITTED는 PSP 처리 대기라 기준이 따로다(payoutStuckAfterMinutes, 기본 1440분): 14시간 전 전송은 아직 멈춘 것이 아니다.
     const r = (await chk()).payouts;
-    assert.deepEqual(r.stuck, [{ instructionId: "po_old_pty_label", since: "2026-07-31T10:00:00.000Z" }]);
+    assert.deepEqual(r.stuck, []);
     assert.equal(r.clearingMatchesOpen, true, "the open instruction's net is in PSP_CLEARING");
+    assert.deepEqual((await invariantsInTx(tx, fixedClock(NOW, 0), { payoutStuckAfterMinutes: 600 })).payouts.stuck,
+      [{ instructionId: "po_old_pty_label", since: "2026-07-31T10:00:00.000Z" }]);
+    assert.deepEqual((await invariantsInTx(tx, fixedClock("2026-08-01T10:00:00.001Z", 0))).payouts.stuck.map((x) => x.instructionId), ["po_old_pty_label"], "older than a day");
+    // PENDING(전송 전)은 run과 같은 기준(stuckAfterMinutes, 기본 60분)이다.
+    const e2 = await postEntry(tx, fixedClock("2026-07-31T22:00:00.000Z", 0), { kind: "PAYOUT", sourceRef: "payout:po_old_pty_agency", createdBy: "usr_settle", postings: [
+      { account: { kind: "PARTY_PAYABLE", partyId: "pty_agency" }, amount: 500n }, { account: { kind: "PSP_CLEARING" }, amount: -500n }] });
+    await tx.query(`INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, idempotency_key, entry_id, decided_account_ref, created_at)
+                    VALUES ('po_old_pty_agency', 'old', 'pty_agency', 500, 0, 500, 'PENDING', 'payout:po_old_pty_agency', $1, 'tok', '2026-07-31T22:00:00.000Z')`, [e2.entryId]);
+    assert.deepEqual((await chk()).payouts.stuck, [{ instructionId: "po_old_pty_agency", since: "2026-07-31T22:00:00.000Z" }]);
+    assert.deepEqual((await invariantsInTx(tx, fixedClock(NOW, 0), { stuckAfterMinutes: 180 })).payouts.stuck, []);
+    await assert.rejects(invariantsInTx(tx, fixedClock(NOW, 0), { payoutStuckAfterMinutes: 0 }), { code: "INVALID_THRESHOLD" });
     // 기준 시각보다 최근이어도 PAYOUT_STUCK 감사가 있으면 멈춘 것이다.
-    const recent = (await invariantsInTx(tx, fixedClock(NOW, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts;
+    const long = { stuckAfterMinutes: 60 * 24 * 365, payoutStuckAfterMinutes: 60 * 24 * 365 };
+    const recent = (await invariantsInTx(tx, fixedClock(NOW, 0), long)).payouts;
     assert.deepEqual(recent.stuck, []);
     await tx.query("INSERT INTO audit_log (occurred_at, actor_user_id, action_name, entity_type, entity_id) VALUES (now(), 'sys_payout', 'PAYOUT_STUCK', 'payout_instruction', 'po_old_pty_label')");
-    assert.deepEqual((await invariantsInTx(tx, fixedClock(NOW, 0), { stuckAfterMinutes: 60 * 24 * 365 })).payouts.stuck.map((x) => x.instructionId), ["po_old_pty_label"]);
+    assert.deepEqual((await invariantsInTx(tx, fixedClock(NOW, 0), long)).payouts.stuck.map((x) => x.instructionId), ["po_old_pty_label"]);
     // 결과 충돌 감사.
     await tx.query("INSERT INTO audit_log (occurred_at, actor_user_id, action_name, entity_type, entity_id) VALUES (now(), 'sys_payout', 'PAYOUT_RESULT_CONFLICT', 'payout_instruction', 'po_old_pty_label')");
     assert.deepEqual((await chk()).payouts.resultConflicts, [{ instructionId: "po_old_pty_label" }]);
