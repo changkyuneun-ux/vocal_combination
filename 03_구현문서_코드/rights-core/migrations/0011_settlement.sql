@@ -11,7 +11,7 @@ CREATE TABLE settlement_batch (
   batch_manifest_digest TEXT NULL REFERENCES sealed_document,
   CHECK (period_end > period_start),
   CHECK (confirmed_by IS NULL OR confirmed_by <> executed_by),
-  CHECK ((status = 'CONFIRMED') = (confirmed_by IS NOT NULL AND batch_manifest_digest IS NOT NULL))
+  CHECK ((status = 'CONFIRMED') = (confirmed_by IS NOT NULL AND confirmed_at IS NOT NULL AND batch_manifest_digest IS NOT NULL))
 );
 
 CREATE TABLE settlement_run (

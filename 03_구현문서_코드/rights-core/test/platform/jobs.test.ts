@@ -1,7 +1,9 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { freshDb } from "../helpers.ts";
-import { recordingJobs, startBossJobs, type JobName } from "../../src/platform/jobs.ts";
+import { recordingJobs, startBossJobs, workOptionsFromEnv, type JobName } from "../../src/platform/jobs.ts";
 
 const { db, drop } = await freshDb();
 after(drop);
@@ -51,4 +53,19 @@ test("pg-boss jobs are sent inside the caller's transaction (rolled back sends n
   } finally {
     await boss.stop();
   }
+});
+
+test("worker options come from RC_JOB_BATCH_SIZE / RC_JOB_CONCURRENCY with defaults 20 and 4", () => {
+  assert.deepEqual(workOptionsFromEnv({}), { batchSize: 20, localConcurrency: 4 });
+  assert.deepEqual(workOptionsFromEnv({ RC_JOB_BATCH_SIZE: "", RC_JOB_CONCURRENCY: "" }), { batchSize: 20, localConcurrency: 4 });
+  assert.deepEqual(workOptionsFromEnv({ RC_JOB_BATCH_SIZE: "50", RC_JOB_CONCURRENCY: "1" }), { batchSize: 50, localConcurrency: 1 });
+  for (const bad of ["0", "-1", "1.5", "x", " 2"]) {
+    assert.throws(() => workOptionsFromEnv({ RC_JOB_BATCH_SIZE: bad }), /RC_JOB_BATCH_SIZE/);
+    assert.throws(() => workOptionsFromEnv({ RC_JOB_CONCURRENCY: bad }), /RC_JOB_CONCURRENCY/);
+  }
+});
+
+test("the server entry point passes env worker options to startBossJobs", () => {
+  const main = readFileSync(fileURLToPath(new URL("../../src/http/main.ts", import.meta.url)), "utf8");
+  assert.match(main, /startBossJobs\(url, workOptionsFromEnv\(process\.env\)\)/);
 });

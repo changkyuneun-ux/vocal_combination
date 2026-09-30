@@ -20,3 +20,10 @@ test("only src/engine-bridge imports vcrl (design 9.2)", () => {
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });
+
+test("src/revenue does not import settlement (dependency runs settlement -> revenue)", () => {
+  const offenders = walk(join(SRC, "revenue"))
+    .filter((p) => /from\s+["'][^"']*\/settlement\//.test(readFileSync(p, "utf8")))
+    .map((p) => relative(SRC, p));
+  assert.deepEqual(offenders, []);
+});

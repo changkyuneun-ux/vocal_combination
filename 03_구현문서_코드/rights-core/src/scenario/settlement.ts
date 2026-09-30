@@ -21,6 +21,16 @@ export type SettlementReport = {
   failedJobs: number;
 };
 
+/**
+ * 정산 통과 조건: 불일치 0, 보존식, 전액 환불 순합 0, FAILED가 아닌 run은 모두 VERIFIED(→ 확정),
+ * FAILED run의 진단은 ALLOC_INFEASIBLE뿐이고 모든 FAILED run이 그 진단을 가진다(진단 없는 실패를 놓치지 않는다),
+ * 역분개 수 = 확정 후 환불 수·거부 0, 재시도 소진 작업 0.
+ */
+export const settlementPass = (s: SettlementReport): boolean =>
+  s.verifyMismatches === 0 && s.conservationOk && s.reversalNetZeroOk && s.verified + s.failedRuns === s.runs && s.verified > 0 &&
+  Object.keys(s.failedReasons).every((c) => c === "ALLOC_INFEASIBLE") && (s.failedReasons.ALLOC_INFEASIBLE ?? 0) === s.failedRuns &&
+  s.reversals === s.refundsPost && s.reversalRejected === 0 && s.failedJobs === 0;
+
 const BATCH = "bat_2026_03";
 const PERIOD_START = "2026-03-01T00:00:00.000Z";
 const PERIOD_END = "2026-04-01T00:00:00.000Z";

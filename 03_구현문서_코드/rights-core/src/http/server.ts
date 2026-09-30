@@ -10,6 +10,7 @@ import { issuanceRoutes } from "../issuance/routes.ts";
 import { sealRoutes } from "./seal-routes.ts";
 import { revenueRoutes } from "../revenue/routes.ts";
 import { settlementRoutes } from "../settlement/routes.ts";
+import { refundHook } from "../settlement/service.ts";
 import type { Jobs } from "../platform/jobs.ts";
 
 export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
@@ -48,7 +49,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   policyRoutes(app, deps);
   issuanceRoutes(app, deps);
   sealRoutes(app, deps);
-  revenueRoutes(app, deps);
+  revenueRoutes(app, deps, refundHook(deps.jobs));
   settlementRoutes(app, deps);
   return app;
 }

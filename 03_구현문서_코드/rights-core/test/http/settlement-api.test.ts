@@ -50,3 +50,14 @@ test("unknown run/batch are 404; /batches validates its body after authenticatio
     assert.equal(r.json().code, "BAD_REQUEST");
   }
 });
+
+test("POST /revenue-events without an object body is a client error, not 500", async () => {
+  const none = await app.inject({ method: "POST", url: "/revenue-events", headers: { "x-actor": "sys_ingest" } });
+  assert.equal(none.statusCode, 422, none.body);
+  assert.equal(none.json().code, "INVALID_REVENUE");
+  for (const payload of ["null", "[]", "5", "\"x\""]) {
+    const r = await app.inject({ method: "POST", url: "/revenue-events", headers: { "x-actor": "sys_ingest", "content-type": "application/json" }, payload });
+    assert.equal(r.statusCode, 422, `${payload}: ${r.body}`);
+    assert.equal(r.json().code, "INVALID_REVENUE");
+  }
+});

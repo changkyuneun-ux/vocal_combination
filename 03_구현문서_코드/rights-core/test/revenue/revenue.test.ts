@@ -28,8 +28,8 @@ test("ingest is idempotent on the source key and rejects a changed payload", asy
   const again = await db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase()));
   assert.deepEqual(again, { eventId: "ev_p1", created: false });
   await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ amountKrw: "9999" }))), { code: "IDEMPOTENCY_MISMATCH", status: 409 });
-  const rev2 = await db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ eventId: "ev_p1r2", sourceRevision: 2, amountKrw: "9999" })));
-  assert.equal(rev2.created, true);
+  // 대체 규칙(I-2b) 전에는 같은 source 이벤트의 새 revision을 받지 않는다(이중 계상 방지).
+  await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ eventId: "ev_p1r2", sourceRevision: 2, amountKrw: "9999" }))), { code: "REVISION_UNSUPPORTED", status: 422 });
   const row = await db.tx((tx) => revenueRow(tx, "ev_p1"));
   assert.equal(row.integrity, "CLEAR");
   assert.equal(row.sourceRevision, 1);
@@ -98,4 +98,23 @@ test("external source identifiers may contain punctuation", async () => {
   const p = purchase({ eventId: "ev_ext", sourceEventId: "pay:2026/03=x" });
   assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, p))).created, true);
   assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, p))).created, false);
+});
+
+test("a source event is accepted at one revision only; replaying that revision stays idempotent", async () => {
+  const r2 = purchase({ eventId: "ev_rv2", sourceEventId: "pay_rv", sourceRevision: 2, amountKrw: "700" });
+  assert.equal((await db.tx((tx) => ingestRevenue(tx, clock, ingest, r2))).created, true);
+  assert.deepEqual(await db.tx((tx) => ingestRevenue(tx, clock, ingest, r2)), { eventId: "ev_rv2", created: false });
+  await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ eventId: "ev_rv1", sourceEventId: "pay_rv", sourceRevision: 1, amountKrw: "700" }))), { code: "REVISION_UNSUPPORTED", status: 422 });
+  // 서로 다른 revision의 동시 수집도 source 키 잠금으로 직렬화되어 하나만 기록된다.
+  const rs = await Promise.allSettled([1, 2].map((rev) => db.tx((tx) => ingestRevenue(tx, clock, ingest, purchase({ eventId: `ev_rc${rev}`, sourceEventId: "pay_rc", sourceRevision: rev })))));
+  assert.deepEqual(rs.map((r) => r.status).sort(), ["fulfilled", "rejected"]);
+  const rejected = rs.find((r) => r.status === "rejected") as PromiseRejectedResult;
+  assert.equal(rejected.reason.code, "REVISION_UNSUPPORTED");
+  assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM revenue_event WHERE source_event_id = 'pay_rc'")).rows[0].n, 1);
+});
+
+test("non-object input is INVALID_REVENUE, not a TypeError", async () => {
+  for (const body of [null, undefined, "x", 5, []]) {
+    await assert.rejects(db.tx((tx) => ingestRevenue(tx, clock, ingest, body as never)), { code: "INVALID_REVENUE", status: 422 });
+  }
 });

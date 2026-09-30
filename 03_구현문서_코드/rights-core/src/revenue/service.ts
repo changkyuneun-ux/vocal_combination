@@ -23,6 +23,7 @@ const ID = /^[A-Za-z0-9._-]+$/;
 const isId = (v: unknown) => typeof v === "string" && ID.test(v);
 
 function validate(i: RevenueInput): void {
+  if (typeof i !== "object" || i === null || Array.isArray(i)) throw bad("body must be a JSON object");
   if (!isId(i.eventId)) throw bad(`eventId must match ${ID}`);
   for (const k of ["sourceSystem", "sourceEventId"] as const) if (typeof i[k] !== "string" || i[k].length < 1 || i[k].length > 200) throw bad(`${k} must be a non-empty string of at most 200 characters`);
   for (const k of ["vcId", "relatedEventId"] as const) if (i[k] !== undefined && !isId(i[k])) throw bad(`${k} must match ${ID}`);
@@ -66,21 +67,28 @@ const samePayload = (a: RevenueRow, b: RevenueInput) =>
   a.occurredAt === b.occurredAt && a.integrity === (b.integrity ?? "CLEAR") && a.vcId === b.vcId && a.relatedEventId === b.relatedEventId;
 
 /**
- * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409.
+ * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409, 같은 source 이벤트의 다른 revision이면 422 REVISION_UNSUPPORTED.
  * 환불은 배치 잠금(SHARED)을 잡고, 원 이벤트별 advisory lock으로 직렬화하고 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
  */
 export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund: RefundHook): Promise<{ eventId: string; created: boolean }> {
   requireRole(actor, "SYSTEM");
   validate(input);
   const revision = input.sourceRevision ?? 1;
-  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('rev:' || $1, 0))", [JSON.stringify([input.sourceSystem, input.sourceEventId, revision])]);
-  const existing = (await tx.query(
-    "SELECT * FROM revenue_event WHERE source_system = $1 AND source_event_id = $2 AND source_revision = $3",
-    [input.sourceSystem, input.sourceEventId, revision],
-  )).rows[0];
+  // 잠금은 revision을 뺀 source 키로 잡는다: 같은 source 이벤트의 다른 revision 동시 수집도 직렬화해야 아래 거부가 성립한다.
+  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('rev:' || $1, 0))", [JSON.stringify([input.sourceSystem, input.sourceEventId])]);
+  const recorded = (await tx.query(
+    "SELECT * FROM revenue_event WHERE source_system = $1 AND source_event_id = $2 ORDER BY source_revision",
+    [input.sourceSystem, input.sourceEventId],
+  )).rows;
+  const existing = recorded.find((r) => r.source_revision === revision);
   if (existing !== undefined) {
     if (!samePayload(toRow(existing), input)) throw conflict("IDEMPOTENCY_MISMATCH", `source key ${input.sourceSystem}/${input.sourceEventId}/${revision} was recorded with different content`);
     return { eventId: existing.event_id, created: false };
+  }
+  // 대체(supersede) 규칙은 I-2b에서 정한다. 그 전에는 새 revision을 받으면 두 revision이 모두 매출로 잡혀 이중 계상되므로 거부한다(통합 설계 10.2-2).
+  if (recorded.length > 0) {
+    throw new DomainError("REVISION_UNSUPPORTED", 422,
+      `source event ${input.sourceSystem}/${input.sourceEventId} is already recorded at revision ${recorded.map((r) => r.source_revision).join(",")}; revision ${revision} cannot be accepted until supersede rules exist`);
   }
   if (input.eventType === "REFUND") {
     // 진행 중인 배치 생성이 있으면 끝날 때까지 기다린다(환불은 배치 순액에 포함되거나, 배치 커밋 뒤에 기록된다).

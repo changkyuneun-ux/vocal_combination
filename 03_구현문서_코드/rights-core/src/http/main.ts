@@ -6,7 +6,7 @@ import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
 import { OUTBOX_HANDLERS } from "../issuance/service.ts";
 import { ensureSystemIdentities } from "../platform/actor.ts";
-import { JOB_NAMES, startBossJobs, type JobHandler, type JobName } from "../platform/jobs.ts";
+import { JOB_NAMES, startBossJobs, workOptionsFromEnv, type JobHandler, type JobName } from "../platform/jobs.ts";
 import { jobHandlers } from "../settlement/handlers.ts";
 import { buildServer } from "./server.ts";
 
@@ -17,7 +17,7 @@ const blobDir = process.env.BLOB_DIR ?? fileURLToPath(new URL("../../.blobs/", i
 const ctx = createBridgeCtx(createFsBlobStore(blobDir));
 // 워커가 쓰는 시스템 신원(sys_ingest·sys_settler·sys_verifier)을 먼저 보장한다.
 await db.tx((tx) => ensureSystemIdentities(tx, systemClock));
-const jobs = await startBossJobs(url);
+const jobs = await startBossJobs(url, workOptionsFromEnv(process.env));
 const handlers = jobHandlers({ db, ctx, clock: systemClock, jobs });
 for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
 await jobs.work(handlers as Record<JobName, JobHandler>);

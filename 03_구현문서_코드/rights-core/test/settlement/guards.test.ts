@@ -97,6 +97,12 @@ test("batch: OPEN → CONFIRMED once; confirmation fields are write-once", async
   await assert.rejects(q("UPDATE settlement_batch SET confirmed_at = $2 WHERE batch_id = $1", [batchId, "2026-04-02T00:00:00.000Z"]), rc001);
 });
 
+test("batch: CONFIRMED requires confirmed_at (CHECK)", async () => {
+  const { batchId } = await newRun();
+  await assert.rejects(q("UPDATE settlement_batch SET status = 'CONFIRMED', confirmed_by = 'usr_ops', batch_manifest_digest = $2 WHERE batch_id = $1", [batchId, D1]),
+    (e: { code?: string }) => e.code === "23514");
+});
+
 test("ensureSystemIdentities is idempotent", async () => {
   const clock = fixedClock("2026-05-01T00:00:00.000Z", 1);
   await w.db.tx((tx) => ensureSystemIdentities(tx, clock));

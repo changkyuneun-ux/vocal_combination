@@ -554,15 +554,19 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 ### 10.2 결정
 
 1. **작업 큐 = pg-boss**(8절 미결 해소). 스키마 `pgboss`는 템플릿 DB를 만들 때 소유자 역할로 설치하고 `rc_app`에 권한을 준다. 작업은 상태 변경과 **같은 트랜잭션**에서 보낸다(pg-boss `send`의 사용자 실행기 옵션, 지원되지 않으면 Outbox→작업 중계). 작업 이름: `settle-run`, `verify-run`, `refund-recorded`, `reverse-event`. 처리기는 순수한 서비스 함수이고 각자 트랜잭션을 연다(재시도 안전: 상태를 잠그고 확인한 뒤 이미 처리됐으면 아무것도 하지 않는다). 기존 Outbox 폴러는 그대로 두고 전환은 I-2c에서 한다.
-2. **수익 이벤트**: `PURCHASE`(엔진 `PRIMARY`)·`RESALE`·`REFUND`, 통화 KRW만, 금액은 양의 정수(환불도 양수, 방향은 유형이 나타낸다). 멱등 키 `(source_system, source_event_id, source_revision)` — 같은 키·같은 내용이면 기존 id를 돌려주고, 같은 키·다른 내용이면 409 `IDEMPOTENCY_MISMATCH`. 환불은 `related_event_id`로 원 구매·재판매를 가리키고, 원 이벤트별 누적 환불 ≤ 원 금액(아니면 422 `REFUND_EXCEEDS_ORIGINAL`). 같은 원 이벤트의 환불은 트랜잭션 advisory lock으로 직렬화한다.
+2. **수익 이벤트**: `PURCHASE`(엔진 `PRIMARY`)·`RESALE`·`REFUND`, 통화 KRW만, 금액은 양의 정수(환불도 양수, 방향은 유형이 나타낸다). 멱등 키 `(source_system, source_event_id, source_revision)` — 같은 키·같은 내용이면 기존 id를 돌려주고, 같은 키·다른 내용이면 409 `IDEMPOTENCY_MISMATCH`. 환불은 `related_event_id`로 원 구매·재판매를 가리키고, 원 이벤트별 누적 환불 ≤ 원 금액(아니면 422 `REFUND_EXCEEDS_ORIGINAL`). 같은 원 이벤트의 환불은 트랜잭션 advisory lock으로 직렬화한다. **`source_revision`**: 대체(supersede) 규칙은 I-2b에서 정한다. 그 전에는 같은 `(source_system, source_event_id)`의 다른 revision이 이미 있으면 422 `REVISION_UNSUPPORTED`로 거부한다(두 revision이 모두 매출로 잡히는 이중 계상 방지). 판단은 revision을 뺀 source 키 advisory lock 아래에서 하고, 같은 키·같은 revision 재전송은 그대로 `created: false`다. 수집 함수는 환불 후속 처리 훅(`onRefund`)을 **필수 인자**로 받는다(생략하면 `refund-recorded`가 조용히 빠지므로, 필요 없는 호출자는 `noRefundHook`을 명시한다). HTTP 조립(`http/server.ts`)이 `refundHook(jobs)`를 넘기고, `revenue`는 `settlement`를 import하지 않는다(아키텍처 테스트).
 3. **배치 생성**(`SPACE_OPS`): 기간 `[start, end)`의 구매·재판매 중 살아 있는 run에 속하지 않은 이벤트를 고른다. 순액 = 원 금액 − 그때까지 기록된 환불 합. 순액 0 → 건너뜀 `FULLY_REFUNDED`, `vc_id`의 발행 봉인 없음 → `NO_ISSUE_SEAL`, 그 facts 범위에 열린 분쟁 → `FACTS_DISPUTE_OPEN`. 건너뛴 이벤트는 `settlement_batch_skip`에 사유와 함께 남고 다음 배치의 후보로 남는다(보류 행은 만들지 않는다 — 시스템 보류의 원장 표현은 I-2b). 나머지를 **발행 봉인(스냅샷)별로 묶어** run 하나씩 만들고(`run_<batch>_<snapshot>`), 이벤트별 순액과 포함한 환불 합을 `settlement_run_event`에 고정한 뒤 `settle-run` 작업을 보낸다.
 4. **배치 상태**는 `OPEN`/`CONFIRMED` 둘이다. 진행 상황(계산 중·검증 대기·확정 가능)은 run 상태에서 계산한다.
 5. **`settle-run`**: run을 잠그고 `PENDING`이 아니면 끝낸다. 발행 봉인의 facts·정책·투영·멤버와 고정된 순액 이벤트(id 순)로 vcrl `evaluate` → events·결과 봉인 → 풀 라인·라인·보류 INSERT → `CALCULATED`, 실행 신원 `sys_settler`가 `result_digest`에 서명(`SPACE_OPS`) → `verify-run` 전송. 엔진 진단이면 `FAILED`와 진단 저장, 이벤트를 풀어 다음 배치로 보낸다.
-6. **`verify-run`**: run을 잠그고 `CALCULATED`가 아니면 끝낸다. 봉인된 입력과 스냅샷 사용량·발행 봉인 기준 시점으로 vcrl `verifyAllocationResult` → 불일치 없으면 검증 신원 `sys_verifier`가 서명(`PLATFORM`)하고 `VERIFIED`, 있으면 `VOIDED`·진단·감사 경보, 이벤트를 푼다. `sys_verifier ≠ sys_settler`를 DB `CHECK`로 강제한다.
+6. **`verify-run`**: run을 잠그고 `CALCULATED`가 아니면 끝낸다. 봉인된 입력과 스냅샷 사용량·발행 봉인 기준 시점으로 vcrl `verifyAllocationResult` → 불일치 없으면 검증 신원 `sys_verifier`가 서명(`PLATFORM` — vcrl Enum `attestation_role` 값, 코어 규격 12.58)하고 `VERIFIED`, 있으면 `VOIDED`·진단·감사 경보, 이벤트를 푼다. `sys_verifier ≠ sys_settler`를 DB `CHECK`로 강제한다.
 7. **배치 확정**(`SPACE_SETTLE`, 배치 생성자와 다른 사람): 살아 있는 run(`FAILED`·`VOIDED` 제외)이 하나 이상이고 모두 `VERIFIED`여야 한다. 모든 run → `CONFIRMED`, 배치 매니페스트(`{format: "rc-batch-manifest/1", batch_id, results: 정렬된 result_digest}`)를 봉인하고 확정자가 서명, `batch_manifest_digest` 기록. 확정된 run의 이벤트는 계속 "살아 있음"으로 남아 다시 배치되지 않는다.
-8. **환불 처리**(`refund-recorded`): 원 이벤트가 살아 있는 run에 없으면 아무것도 하지 않는다(다음 배치가 순액으로 처리). 있으면 run을 잠그고, 그 run이 이미 이 환불까지 반영했으면(`refunds_included ≥ 누적 환불`) 끝낸다. run이 `CONFIRMED`가 아니면 `VOIDED`로 만들고 모든 이벤트를 풀어 다음 배치가 새 순액으로 다시 평가하게 한다. `CONFIRMED`면 `reverse-event`를 보낸다.
+8. **환불 처리**(`refund-recorded`): 원 이벤트가 살아 있는 run에 없으면 아무것도 하지 않는다(다음 배치가 순액으로 처리). 있으면 run을 잠그고, 그 run이 이미 이 환불까지 반영했으면 끝낸다. "이미 반영됨"은 합계 비교가 아니라 **환불 id**로 판단한다: 배치 생성이 순액에 포함한 환불 id를 `settlement_run_event_refund`에 기록하고, 이 환불 id가 거기 있으면 반영된 것이다(합계 비교는 지연된 작업이 뒤늦게 온 다른 환불과 섞여 이중 반영·누락을 낼 수 있다). run이 `CONFIRMED`가 아니면 `VOIDED`로 만들고 모든 이벤트를 풀어 다음 배치가 새 순액으로 다시 평가하게 한다. `CONFIRMED`면 `reverse-event`를 보낸다.
 9. **역분개**(`reverse-event`): 환불 id로 이미 역분개했으면 끝낸다(멱등). 원 이벤트의 `settlement_run_event` 행을 잠가 같은 이벤트의 역분개를 직렬화하고, 그 이벤트의 이전 역분개 봉인을 순서대로 `priors`로 넘겨 vcrl `reverse`(`reason = REFUND`, 금액 = 환불액, `run_id = reversal_id`)를 호출한다. 결과를 봉인하고 `reversal_run(original_run_id, event_id, sequence, refund_event_id UNIQUE)`와 음수 풀 라인·`REVERSAL` 라인(`reversal_of_line_id` = 원 라인)·음수 보류를 기록한다. DB 행은 **원 run_id + `line_seq = sequence + 1` + `reversal_id`**로 키를 잡는다(원 run의 라인 유일키와 충돌하지 않는다). 확정된 run의 보류는 I-2a에서 해제되지 않으므로(모두 `HELD`), 이미 해제된 보류의 역분개 규칙은 I-2b에서 정한다.
 10. **신원**: 역할에 `SPACE_OPS`·`SPACE_SETTLE`·`SYSTEM`을 더한다. 결제 어댑터는 `SYSTEM` 역할 신원(`sys_ingest`)으로 수익을 넣는다. 작업 처리 신원 `sys_settler`·`sys_verifier`는 개발용 서명키를 갖는다(운영은 KMS — I-2c).
+11. **전역 배치 잠금**: `createBatch`는 트랜잭션 advisory lock `settlement:batching`을 EXCLUSIVE로, 환불 수집과 `refund-recorded`는 SHARED로 잡는다. 그러면 환불은 배치가 후보를 읽기 전에 커밋되어 순액에 포함되거나(id 기록, 10.2-8), 배치가 커밋된 뒤에 기록되어 그 `refund-recorded`가 살아 있는 run을 찾는다 — 배치가 읽은 순액과 동시 환불 사이의 틈이 없다. 이벤트별 잠금은 배치가 후보 수(시나리오 3만)만큼 잠금을 잡아 잠금 테이블(`max_locks_per_transaction`)을 넘기고 교착 순서 관리가 필요해 채택하지 않았다. 대가로 배치 생성 동안 환불 기록이 대기한다(10.4, 10.5).
+12. **상태 전이 가드(`0011`)**: `settlement_batch`·`settlement_run`·`settlement_run_event`에 `BEFORE UPDATE` 트리거를 두어 위반을 RC001(409 `APPEND_ONLY`)로 거부한다. 배치는 `OPEN → CONFIRMED` 한 번, 확정 필드(`confirmed_by`·`confirmed_at`·`batch_manifest_digest`)는 NULL → 값 한 번, `CONFIRMED`는 세 필드가 모두 있어야 한다(`CHECK`). run은 `PENDING → CALCULATED|FAILED|VOIDED`, `CALCULATED → VERIFIED|VOIDED`, `VERIFIED → CONFIRMED|VOIDED`만, digest·검증자·검증 시각은 한 번만 쓰고 `diagnostics`는 `FAILED`·`VOIDED` 전이와 같은 UPDATE에서만 쓴다. run_event는 `active`만 `true → false` 한 번, 부모 run이 이미 `FAILED`·`VOIDED`일 때만 바꿀 수 있다. 세 테이블 모두 DELETE를 거부한다. INSERT 경로 가드는 I-2b(10.5).
+13. **시스템 신원 보장**: 서버 시작 시 작업 워커를 붙이기 전에 `ensureSystemIdentities`가 `sys_ingest`·`sys_settler`·`sys_verifier`(`SYSTEM`)를 멱등으로 만든다(동시 시작은 advisory lock으로 직렬화). 워커 처리량은 `RC_JOB_BATCH_SIZE`·`RC_JOB_CONCURRENCY`(기본 20·4, 10.4)로 정한다.
+14. **역분개 거부**: `reverse-event`에서 vcrl이 정산액 초과(`REFUND_EXCEEDS_SETTLED`)로 거부하면 — id 기반 반영 판단(10.2-8) 이후에는 버그 신호이고 결정적이라 재시도해도 같다 — 역분개를 쓰지 않고 별도 트랜잭션으로 `REVERSAL_REJECTED`를 환불 id당 **한 번만** 감사에 남긴 뒤 작업을 완료로 끝낸다(재시도 소진·반복 경보 없음). 시나리오 통과 조건은 이 감사 0건이다.
 
 ### 10.3 완료 기준
 
@@ -574,7 +578,7 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 
 | 항목 | 결과 |
 |---|---|
-| 테스트 | rights-core 102개 통과, vcrl 277개 통과 |
+| 테스트 | rights-core 102개 통과, vcrl 277개 통과 (최종 리뷰 반영 후 110 / 278개) |
 | 시나리오 매출 / 배치 전 환불 / 확정 후 환불 | 30000 / 1500 / 1278건 |
 | run / 검증 통과 / 재계산 불일치 | 9490 / 9136 / 0 |
 | 실패 run(진단) | 354건, 모두 `ALLOC_INFEASIBLE` (아래 제품 발견) |
@@ -586,7 +590,20 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 
 - 실행: `npm run scenario -- --settle 30000`(시드 20260929). I-1 시나리오(1만 조합 발행, 총 33825ms, p50 / p95 / max 3.29 / 3.96 / 20.5 ms, 불일치 0)에 이어 `src/scenario/settlement.ts`가 돌고, 마지막 줄 `SCENARIO PASS`. 전체 1분 52초. 축소판(100 발행·300 매출)은 `test/scenario/settlement.test.ts`.
 - 흐름: 발행 봉인이 있는 조합에서 시드 난수로 구매 3만 건(1,000~50,000원, 2026-03 안에서 증가, 1% `FLAGGED`) → 구매 5%에 배치 전 환불(약 30% 전액) → 배치 `bat_2026_03` 생성 → 실제 pg-boss로 `settle-run`·`verify-run` → 보존식 → `usr_settle` 확정 → 확정 이벤트 3%에 확정 후 환불(절반은 남은 순액을 두 번에 나눠 전액) → 역분개 → 전액 환불 이벤트의 풀·라인·보류 순합 0 확인. 재시도 소진 작업 0건.
-- 통과 조건: 재계산 불일치 0, 보존식, 전액 환불 순합 0, 역분개 수 = 확정 후 환불 수·거부 0, `FAILED`가 아닌 run은 모두 `VERIFIED`(→ 확정), `FAILED` run의 진단은 `ALLOC_INFEASIBLE`뿐.
+- 통과 조건: 재계산 불일치 0, 보존식, 전액 환불 순합 0, 역분개 수 = 확정 후 환불 수·거부 0, `FAILED`가 아닌 run은 모두 `VERIFIED`(→ 확정), `FAILED` run의 진단은 `ALLOC_INFEASIBLE`뿐이고 **모든** `FAILED` run이 그 진단을 가진다(`failedReasons.ALLOC_INFEASIBLE = failedRuns`, 최종 리뷰에서 추가), 재시도 소진 작업 0.
 - **제품 발견 — 단독 가창 조합은 정산 불가**: 합성 곡 정책의 `performer … |> cap(50%)`는 한 멤버에게 연주자 몫의 50%를 넘겨 줄 수 없는데, 한 멤버가 네 슬롯을 모두 부른 조합(81가지 중 3가지)은 나머지를 받을 연주자가 없어 분배가 존재하지 않는다(`ALLOC_INFEASIBLE`). 이 조합의 run 354건(3.7%)이 `FAILED`가 되고, 10.2-5에 따라 이벤트가 풀려 **다음 배치마다 다시 실패한다**. 발행은 막히지 않으므로(발행 시점에는 정산 가능성을 검사하지 않는다) 팔린 매출이 정산되지 않고 남는다. 시나리오는 이 조합을 구매에서 거르지 않고 실패 수를 그대로 기록했다. 해소 방향(정책 작성 시 단독 가창 조합 금지·발행 시점 정산 가능성 검사·cap 초과분의 명시적 귀속 규칙 중 선택)은 제품 결정으로 넘긴다.
+- 최종 리뷰 반영 후 재실행(같은 시드): 매출·환불·run·검증·실패·역분개 수와 모든 통과 조건이 위 표와 같고 `SCENARIO PASS`. 처리 시간은 배치 생성 11504 ms, 정산·검증 36516 ms, 수집 7552 ms, 역분개 3027 ms.
 - 처리량 조정: 워커는 큐마다 `batchSize` 20·`localConcurrency` 4·`burstWhenBatchFull`, 작업별 결과(`perJobResults`)로 돌렸다(기본값 1·1은 작업 하나마다 폴링 간격 0.5초를 쉬어 run 9490개에 두 작업이면 약 2.6시간). `drainIdle`은 `findJobs`(완료된 작업까지 전부 읽음) 대신 `pgboss.job`에서 `created`·`retry`·`active` 상태만 센다.
 - 배치 생성은 후보 3만 건을 한 트랜잭션(전역 배치 잠금 EXCLUSIVE)에서 행 단위 INSERT로 처리해 10.9초 걸렸다. 그동안 환불 기록은 대기한다. 운영 규모에서는 일괄 INSERT나 분할이 필요하다(I-2b 이후 과제).
+
+### 10.5 I-2b 선행 과제
+
+I-2a 최종 리뷰에서 I-2b로 넘긴 항목이다.
+
+1. **운영자 run 무효화·재대기 API**: `VERIFIED`·`CALCULATED` run을 운영자가 `VOIDED`로 돌리고 이벤트를 다음 배치로 보내는 경로, 멈춘 `PENDING` run의 작업 재전송.
+2. **결정적 실패 격리**: 같은 입력으로 반드시 다시 실패하는 run(예: 10.4의 단독 가창 조합 `ALLOC_INFEASIBLE`)의 이벤트를 매 배치 재시도하지 않도록 격리 상태·사유를 두고, 해소(정책 수정·수동 처리) 뒤에만 다시 후보로 올린다.
+3. **미반영 환불 대사 쿼리**: 기록된 환불 중 run 순액(`settlement_run_event_refund`)·run 무효화·역분개(`reversal_run`) 어느 쪽에도 반영되지 않은 것을 찾는 점검 쿼리와 경보.
+4. **배치 일괄 INSERT**: 배치 생성의 행 단위 INSERT(3만 건 10.9초, 그동안 환불 기록 대기)를 일괄 INSERT나 분할로 바꾼다.
+5. **INSERT 경로 가드**: 0011 가드는 UPDATE·DELETE만 막는다. 끝 상태가 아닌 초기 상태로만 INSERT(`settlement_batch` `OPEN`, `settlement_run` `PENDING`, 확정·검증 필드 NULL), 확정된 배치에 run 추가 금지 등을 트리거로 강제한다.
+6. **`source_revision` 대체 규칙**: 10.2-2의 `REVISION_UNSUPPORTED`를 대체(이전 revision 무효화·차액 역분개) 규칙으로 바꾼다.
+7. **운영 마이그레이션·pg-boss 설치 스크립트**: 지금은 테스트 템플릿 DB를 만들 때만 마이그레이션과 pg-boss 스키마 설치(`installJobSchema`)를 돌린다. 운영 DB용 마이그레이션 실행·pg-boss 스키마 설치·`rc_app` 권한 부여 스크립트가 필요하다.

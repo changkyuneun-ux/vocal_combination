@@ -4,14 +4,14 @@ import type { Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 
-export type AttestRole = "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "SPACE_OPS" | "SPACE_SETTLE" | "PLATFORM";
+/** rights-core가 쓰는 서명 역할(vcrl attestation_role의 부분집합 — PLATFORM은 플랫폼 검증자). */
+export type AttestRole = Extract<AttestationRole, "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "SPACE_OPS" | "SPACE_SETTLE" | "PLATFORM">;
 
 /** digest에 대한 역할 서명(vcrl-attest/1)을 남긴다. 개발용 키를 쓴다. */
 export async function attest(_ctx: BridgeCtx, tx: Tx, clock: Clock, a: { userId: string; role: AttestRole; digest: string }): Promise<void> {
   const key = (await tx.query("SELECT key_version, private_pem FROM dev_signing_key WHERE user_id = $1", [a.userId])).rows[0];
   if (key === undefined) throw new DomainError("NO_SIGNING_KEY", 500, `no signing key for ${a.userId}`);
-  // vcrl attestation_role에는 PLATFORM(플랫폼 검증자)이 아직 없다. 서명 메시지는 역할 문자열을 그대로 묶으므로 서명·검증은 동일하다.
-  const att = signAttestation({ signer: a.userId, role: a.role as AttestationRole, over: a.digest, privateKeyPem: key.private_pem });
+  const att = signAttestation({ signer: a.userId, role: a.role, over: a.digest, privateKeyPem: key.private_pem });
   await tx.query(
     "INSERT INTO attestation (digest, signer_id, role, key_version, alg, signature, signed_at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
     [a.digest, a.userId, a.role, key.key_version, att.alg, att.sig, clock.now()],

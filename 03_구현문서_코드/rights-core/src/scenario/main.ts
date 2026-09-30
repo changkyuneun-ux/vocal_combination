@@ -7,17 +7,12 @@ import { ADMIN_URL, createFreshDatabase } from "../platform/dbadmin.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
 import { runScenario } from "./run.ts";
-import { runSettlementScenario, type SettlementReport } from "./settlement.ts";
+import { runSettlementScenario, settlementPass } from "./settlement.ts";
 
 // --settle <구매 건수>(예: 30000)를 주면 I-1 시나리오 뒤에 정산 시나리오(I-2a)를 이어서 돌린다.
 const { values } = parseArgs({ options: { n: { type: "string", default: "10000" }, seed: { type: "string", default: "20260929" }, settle: { type: "string" } } });
 const settle = values.settle === undefined ? undefined : Number(values.settle);
 if (settle !== undefined && !(Number.isSafeInteger(settle) && settle > 0)) throw new Error(`--settle must be a positive integer, got ${values.settle}`);
-
-/** 정산 통과 조건: 불일치 0, 보존식, 전액 환불 순합 0, FAILED가 아닌 run은 모두 VERIFIED(→ 확정), FAILED run의 진단은 ALLOC_INFEASIBLE뿐. */
-const settlementPass = (s: SettlementReport) =>
-  s.verifyMismatches === 0 && s.conservationOk && s.reversalNetZeroOk && s.verified + s.failedRuns === s.runs && s.verified > 0 &&
-  Object.keys(s.failedReasons).every((c) => c === "ALLOC_INFEASIBLE") && s.reversals === s.refundsPost && s.reversalRejected === 0 && s.failedJobs === 0;
 
 const fresh = await createFreshDatabase(ADMIN_URL);
 const db = createDb(fresh.appUrl);

@@ -42,6 +42,21 @@ export async function installJobSchema(adminUrl: string): Promise<void> {
 /** 워커 처리량 설정. 기본값(1·1)은 한 번에 한 작업. batchSize > 1이면 가득 찬 배치가 오는 동안 대기 없이 연속으로 가져온다. */
 export type BossWorkOptions = { batchSize?: number; localConcurrency?: number };
 
+/**
+ * 서버 워커 설정을 환경 변수에서 읽는다: RC_JOB_BATCH_SIZE(기본 20), RC_JOB_CONCURRENCY(기본 4).
+ * 기본값은 I-2a 시나리오에서 쓴 값이다(1·1은 작업마다 폴링 간격만큼 쉰다 — 통합 설계 10.4). 양의 정수가 아니면 시작을 거부한다.
+ */
+export function workOptionsFromEnv(env: Readonly<Record<string, string | undefined>>): Required<BossWorkOptions> {
+  const read = (name: string, dflt: number): number => {
+    const raw = env[name];
+    if (raw === undefined || raw === "") return dflt;
+    const n = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < 1) throw new Error(`${name} must be a positive integer, got ${raw}`);
+    return n;
+  };
+  return { batchSize: read("RC_JOB_BATCH_SIZE", 20), localConcurrency: read("RC_JOB_CONCURRENCY", 4) };
+}
+
 /** rc_app 역할로 pg-boss에 붙는다. 스키마는 installJobSchema가 이미 만들어 두었으므로 만들거나 이관하지 않는다. */
 export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}): Promise<BossJobs> {
   const boss = new PgBoss({ connectionString: appUrl, schema: SCHEMA, migrate: false, createSchema: false, schedule: false });
