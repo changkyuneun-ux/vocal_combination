@@ -1,4 +1,4 @@
-import { PgBoss, type Db as BossDb } from "pg-boss";
+import { PgBoss, type Db as BossDb, type JobResult } from "pg-boss";
 import pg from "pg";
 import type { Tx } from "./db.ts";
 
@@ -12,7 +12,7 @@ export type RecordingJobs = Jobs & { sent: { name: JobName; data: Record<string,
 
 const SCHEMA = "pgboss";
 /** 아직 끝나지 않은 작업 상태(대기·재시도·실행 중). */
-const PENDING_STATES = new Set(["created", "retry", "active"]);
+const PENDING_STATES = ["created", "retry", "active"] as const;
 
 /** 같은 트랜잭션에서 작업을 넣기 위한 실행기(통합 설계 10.2-1). */
 const txExecutor = (tx: Tx): BossDb => ({ executeSql: (text: string, values?: unknown[]) => tx.query(text, values) });
@@ -39,11 +39,16 @@ export async function installJobSchema(adminUrl: string): Promise<void> {
   }
 }
 
+/** 워커 처리량 설정. 기본값(1·1)은 한 번에 한 작업. batchSize > 1이면 가득 찬 배치가 오는 동안 대기 없이 연속으로 가져온다. */
+export type BossWorkOptions = { batchSize?: number; localConcurrency?: number };
+
 /** rc_app 역할로 pg-boss에 붙는다. 스키마는 installJobSchema가 이미 만들어 두었으므로 만들거나 이관하지 않는다. */
-export async function startBossJobs(appUrl: string): Promise<BossJobs> {
+export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}): Promise<BossJobs> {
   const boss = new PgBoss({ connectionString: appUrl, schema: SCHEMA, migrate: false, createSchema: false, schedule: false });
   boss.on("error", (e: unknown) => console.error("pg-boss", e));
   await boss.start();
+  const batchSize = opts.batchSize ?? 1;
+  const localConcurrency = opts.localConcurrency ?? 1;
   let inFlight = 0;
   return {
     async send(tx, name, data) {
@@ -52,26 +57,38 @@ export async function startBossJobs(appUrl: string): Promise<BossJobs> {
     async work(handlers) {
       for (const name of JOB_NAMES) {
         const handler = handlers[name];
-        await boss.work<Record<string, string>>(name, { pollingIntervalSeconds: 0.5 }, async (batch) => {
+        // 작업별 결과: 배치 안의 한 작업이 실패해도 그 작업만 재시도한다(나머지는 완료로 남는다).
+        const options = { pollingIntervalSeconds: 0.5, batchSize, localConcurrency, burstWhenBatchFull: batchSize > 1, perJobResults: true } as const;
+        await boss.work<Record<string, string>, unknown, typeof options>(name, options, async (batch) => {
+          const results: JobResult[] = [];
           for (const job of batch) {
             inFlight++;
             try {
               await handler(job.data);
+              results.push({ id: job.id, status: "completed" });
+            } catch (e) {
+              console.error(`job ${name} ${job.id} failed:`, e instanceof Error ? e.message : e);
+              results.push({ id: job.id, status: "failed", output: { message: e instanceof Error ? e.message : String(e) } });
             } finally {
               inFlight--;
             }
           }
+          return results;
         });
       }
     },
     async drainIdle(timeoutMs) {
+      // 끝나지 않은 작업만 센다(findJobs는 완료된 작업까지 전부 읽어 수만 건이면 느리다).
       const deadline = Date.now() + timeoutMs;
       for (;;) {
-        const lists = await Promise.all(JOB_NAMES.map((n) => boss.findJobs(n)));
-        const pending = lists.reduce((a, jobs) => a + jobs.filter((j) => PENDING_STATES.has(j.state)).length, 0) + inFlight;
+        const r = await boss.getDb().executeSql(
+          `SELECT count(*)::int AS n FROM ${SCHEMA}.job WHERE name = ANY($1) AND state = ANY($2::${SCHEMA}.job_state[])`,
+          [[...JOB_NAMES], [...PENDING_STATES]],
+        );
+        const pending = (r.rows[0].n as number) + inFlight;
         if (pending === 0) return;
         if (Date.now() > deadline) throw new Error(`jobs did not drain within ${timeoutMs}ms (${pending} pending)`);
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((res) => setTimeout(res, 100));
       }
     },
     stop: () => boss.stop({ graceful: true }),
