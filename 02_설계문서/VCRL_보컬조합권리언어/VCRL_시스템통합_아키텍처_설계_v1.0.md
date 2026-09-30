@@ -607,3 +607,5 @@ I-2a 최종 리뷰에서 I-2b로 넘긴 항목이다.
 5. **INSERT 경로 가드**: 0011 가드는 UPDATE·DELETE만 막는다. 끝 상태가 아닌 초기 상태로만 INSERT(`settlement_batch` `OPEN`, `settlement_run` `PENDING`, 확정·검증 필드 NULL), 확정된 배치에 run 추가 금지 등을 트리거로 강제한다.
 6. **`source_revision` 대체 규칙**: 10.2-2의 `REVISION_UNSUPPORTED`를 대체(이전 revision 무효화·차액 역분개) 규칙으로 바꾼다.
 7. **운영 마이그레이션·pg-boss 설치 스크립트**: 지금은 테스트 템플릿 DB를 만들 때만 마이그레이션과 pg-boss 스키마 설치(`installJobSchema`)를 돌린다. 운영 DB용 마이그레이션 실행·pg-boss 스키마 설치·`rc_app` 권한 부여 스크립트가 필요하다.
+8. **커넥션 풀과 워커 동시 수**: 워커 기본값(배치 20·동시 4, 큐 4개 → 최대 16 핸들러)이 DB 풀(`max: 10`)을 HTTP·Outbox와 나눠 쓴다. 풀 크기를 환경 변수로 받거나 워커 동시 수에 맞춘다.
+9. **어댑터 연결 순서**: 정정(revision)을 보내는 실제 결제 어댑터는 6번(대체 규칙) 이후에 붙인다(그 전에는 `REVISION_UNSUPPORTED`로 계속 거부된다).

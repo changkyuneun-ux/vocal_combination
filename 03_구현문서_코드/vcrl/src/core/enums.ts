@@ -1,4 +1,4 @@
-export const ENUM_REGISTRY_VERSION = "1.0";
+export const ENUM_REGISTRY_VERSION = "1.1";
 
 export const ENUMS = {
   module: ["core", "facts", "constraint", "grant", "approval", "allocation"],
