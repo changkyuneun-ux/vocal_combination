@@ -5,7 +5,9 @@ import { recordingJobs } from "../../src/platform/jobs.ts";
 import { ingestRevenue, noRefundHook } from "../../src/revenue/service.ts";
 import { confirmBatch, createBatch, refundHook, type SettleDeps } from "../../src/settlement/service.ts";
 import { jobHandlers, refundRecorded } from "../../src/settlement/handlers.ts";
-import { invariants, type InvariantReport } from "../../src/settlement/invariants.ts";
+import { invariants, invariantsInTx, type InvariantReport } from "../../src/settlement/invariants.ts";
+import { postEntry } from "../../src/ledger/journal.ts";
+import type { Tx } from "../../src/platform/db.ts";
 import { issueCombo, ledgerFlow, purchase, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -13,13 +15,26 @@ after(() => w.drop());
 await issueCombo(w, "vc_1");
 
 const NOW = "2026-08-01T00:00:00.000Z";
-const check = (now = NOW, opts?: { stuckAfterMinutes?: number }) => w.db.tx((tx) => invariants(tx, fixedClock(now, 0), opts));
+const check = (now = NOW, opts?: { stuckAfterMinutes?: number }) => invariants(w.db, fixedClock(now, 0), opts);
+/** 인위적 상태는 롤백할 트랜잭션 안에서 만들고 그 트랜잭션에서 점검한다(다른 테스트를 오염시키지 않도록). */
+const rolledBack = async <T>(fn: (tx: Tx, check: () => Promise<InvariantReport>) => Promise<T>): Promise<T> => {
+  const c = await w.db.pool.connect();
+  try {
+    await c.query("BEGIN");
+    return await fn(c, () => invariantsInTx(c, fixedClock(NOW, 0)));
+  } finally {
+    await c.query("ROLLBACK");
+    c.release();
+  }
+};
 const clean = (r: InvariantReport, label: string) => {
   assert.deepEqual(r.unreflectedRefunds, [], label);
   assert.equal(r.ledger.entriesUnbalanced, 0, label);
   assert.equal(r.ledger.receivableMatchesSettlement, true, label);
   assert.equal(r.ledger.rightsConserved, true, label);
   assert.deepEqual(r.ledger.unpostedConfirmedRuns, [], label);
+  assert.deepEqual(r.ledger.unpostedReversals, [], label);
+  assert.deepEqual(r.ledger.poolMismatches, [], label);
   assert.deepEqual(r.stuckRuns, [], label);
 };
 
@@ -68,8 +83,13 @@ test("a refund that is neither included nor reversed shows up until refund-recor
   }, noRefundHook));
   const run = (await w.db.pool.query("SELECT run_id FROM settlement_run WHERE batch_id = 'bat_sep'")).rows[0].run_id as string;
   const r = await check("2026-09-13T00:00:00.000Z");
-  assert.deepEqual(r.unreflectedRefunds, [{ refundEventId: "rf_lost", originalEventId: "ev_s", runId: run }]);
+  assert.deepEqual(r.unreflectedRefunds, [{ refundEventId: "rf_lost", originalEventId: "ev_s", runId: run, rejected: false }]);
   assert.equal(r.ledger.receivableMatchesSettlement, true);
+  // 역분개가 거부된 환불(REVERSAL_REJECTED 감사)이면 rejected로 구분된다.
+  await rolledBack(async (tx, chk) => {
+    await tx.query("INSERT INTO audit_log (occurred_at, actor_user_id, action_name, entity_type, entity_id) VALUES (now(), 'sys_settler', 'REVERSAL_REJECTED', 'revenue_event', 'rf_lost')");
+    assert.deepEqual((await chk()).unreflectedRefunds.map((x) => [x.refundEventId, x.rejected]), [["rf_lost", true]]);
+  });
   await refundRecorded(d, { refundEventId: "rf_lost" });
   await jobs.drain(jobHandlers(d));   // reverse-event
   clean(await check("2026-09-13T00:00:00.000Z"), "reversed");
@@ -119,18 +139,68 @@ test("PENDING and CALCULATED runs older than the threshold are stuck", async () 
 
 test("entries that bypass the balance trigger are counted and break the matching checks", async () => {
   // 알려진 우회: 같은 트랜잭션에서 rc.bal_last를 새 분개 id로 먼저 두면 지연 트리거가 그 분개를 건너뛴다.
-  const bypass = (ref: string, account: string, amount: string) => w.db.tx(async (tx) => {
+  const bypass = async (tx: Tx, ref: string, account: string, amount: string) => {
     const id = (await tx.query("INSERT INTO journal_entry (kind, source_ref, occurred_at, created_by) VALUES ('ADJUSTMENT', $1, '2026-12-01T00:00:00.000Z', 'usr_settle') RETURNING entry_id", [ref])).rows[0].entry_id;
     await tx.query("SELECT set_config('rc.bal_last', $1, true)", [String(id)]);
     await tx.query("INSERT INTO posting (entry_id, account_id, amount_krw) VALUES ($1, $2, $3)", [id, account, amount]);
+  };
+  await rolledBack(async (tx, chk) => {
+    await bypass(tx, "bad:1", "RECEIVABLE", "7");
+    const r1 = await chk();
+    assert.equal(r1.ledger.entriesUnbalanced, 1);
+    assert.equal(r1.ledger.receivableMatchesSettlement, false);
+    assert.equal(r1.ledger.rightsConserved, true);
+    await bypass(tx, "bad:2", "PARTY_PAYABLE:pty_label", "-3");
+    const r2 = await chk();
+    assert.equal(r2.ledger.entriesUnbalanced, 2);
+    assert.equal(r2.ledger.rightsConserved, false);
   });
-  await bypass("bad:1", "RECEIVABLE", "7");
-  const r1 = await check();
-  assert.equal(r1.ledger.entriesUnbalanced, 1);
-  assert.equal(r1.ledger.receivableMatchesSettlement, false);
-  assert.equal(r1.ledger.rightsConserved, true);
-  await bypass("bad:2", "PARTY_PAYABLE:pty_label", "-3");
-  const r2 = await check();
-  assert.equal(r2.ledger.entriesUnbalanced, 2);
-  assert.equal(r2.ledger.rightsConserved, false);
+});
+
+test("balanced but wrong adjustments break the matching checks without an unbalanced entry", async () => {
+  const adj = (tx: Tx, ref: string, postings: Parameters<typeof postEntry>[2]["postings"]) =>
+    postEntry(tx, fixedClock(NOW, 0), { kind: "ADJUSTMENT", sourceRef: ref, createdBy: "usr_settle", postings });
+  await rolledBack(async (tx, chk) => {
+    await adj(tx, "adj:rights", [{ account: { kind: "POOL_PLATFORM" }, amount: 500n }, { account: { kind: "PARTY_PAYABLE", partyId: "pty_label" }, amount: -500n }]);
+    const r = await chk();
+    assert.equal(r.ledger.entriesUnbalanced, 0);
+    assert.equal(r.ledger.rightsConserved, false);
+    assert.equal(r.ledger.receivableMatchesSettlement, true);
+  });
+  await rolledBack(async (tx, chk) => {
+    await adj(tx, "adj:recv", [{ account: { kind: "RECEIVABLE" }, amount: 500n }, { account: { kind: "POOL_OPS" }, amount: -500n }]);
+    const r = await chk();
+    assert.equal(r.ledger.entriesUnbalanced, 0);
+    assert.equal(r.ledger.receivableMatchesSettlement, false);
+    assert.equal(r.ledger.rightsConserved, true);
+  });
+});
+
+test("a reversal without its REVERSAL entry is listed as unposted", async () => {
+  await rolledBack(async (tx, chk) => {
+    const v = (await tx.query("SELECT original_run_id, event_id, result_digest FROM reversal_run WHERE reversal_id = 'rev_rf_c'")).rows[0];
+    await tx.query(`INSERT INTO revenue_event (event_id, source_system, source_event_id, event_type, related_event_id, net_amount_krw, currency, occurred_at, recorded_at)
+                    VALUES ('rf_ghost', 'app', 'rf_ghost', 'REFUND', $1, 100, 'KRW', '2026-12-01T00:00:00.000Z', '2026-12-01T00:00:00.000Z')`, [v.event_id]);
+    await tx.query("INSERT INTO reversal_run (reversal_id, original_run_id, event_id, sequence, refund_event_id, result_digest, created_at) VALUES ('rev_ghost', $1, $2, 99, 'rf_ghost', $3, '2026-12-01T00:00:00.000Z')",
+      [v.original_run_id, v.event_id, v.result_digest]);
+    const r = await chk();
+    assert.deepEqual(r.ledger.unpostedReversals, ["rev_ghost"]);
+    assert.deepEqual(r.unreflectedRefunds, [], "the ghost refund counts as reversed");
+  });
+});
+
+test("pool sums that disagree with run-event nets or refund amounts are listed", async () => {
+  await rolledBack(async (tx, chk) => {
+    const run = (await tx.query("SELECT run_id, event_id FROM pool_line WHERE line_seq = 1 AND event_id = 'ev_c'")).rows[0];
+    await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw) VALUES ($1, $2, 'zzz', 1, 5)", [run.run_id, run.event_id]);
+    const rv = (await tx.query("SELECT original_run_id, event_id, sequence FROM reversal_run WHERE reversal_id = 'rev_rf_c'")).rows[0];
+    await tx.query("INSERT INTO pool_line (run_id, event_id, bucket, line_seq, amount_krw, reversal_id) VALUES ($1, $2, 'zzz', $3, -2, 'rev_rf_c')",
+      [rv.original_run_id, rv.event_id, rv.sequence + 1]);
+    const r = await chk();
+    const net = (await tx.query("SELECT SUM(net_amount_krw)::text AS s FROM settlement_run_event WHERE run_id = $1", [run.run_id])).rows[0].s as string;
+    assert.deepEqual(r.ledger.poolMismatches, [
+      { kind: "REVERSAL", id: "rev_rf_c", expected: "-100000", actual: "-100002" },
+      { kind: "RUN", id: run.run_id, expected: net, actual: (BigInt(net) + 5n).toString() },
+    ]);
+  });
 });

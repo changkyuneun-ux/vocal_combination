@@ -1,7 +1,8 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { partyStatement, type Statement } from "../../src/ledger/statements.ts";
-import { balance } from "../../src/ledger/journal.ts";
+import { balance, postEntry } from "../../src/ledger/journal.ts";
+import { fixedClock } from "../../src/platform/clock.ts";
 import { registerParty } from "../../src/registry/service.ts";
 import { computeWithholding } from "../../src/payout/policy.ts";
 import { issueCombo, ledgerFlow, LEDGER_PHASE_AT, settlementWorld } from "../settlement-fixtures.ts";
@@ -15,9 +16,9 @@ const END = "2027-01-01T00:00:00.000Z";
 const stmt = (partyId: string, from: string, to: string) => w.db.tx((tx) => partyStatement(tx, partyId, from, to));
 const payableParties = async () => (await w.db.pool.query("SELECT party_id FROM ledger_account WHERE kind = 'PARTY_PAYABLE' ORDER BY party_id")).rows.map((r) => r.party_id as string);
 const B = (s: string) => BigInt(s);
-/** 명세 항등식: closing = opening + settled + reversed + holdReleased − payoutGross + payoutFailedRestored, payoutGross = withholding + payoutNet. */
+/** 명세 항등식: closing = opening + settled + reversed + holdReleased + adjusted − payoutGross + payoutFailedRestored, payoutGross = withholding + payoutNet. */
 const assertIdentity = (s: Statement) => {
-  assert.equal(B(s.closing), B(s.opening) + B(s.settled) + B(s.reversed) + B(s.holdReleased) - B(s.payoutGross) + B(s.payoutFailedRestored), `${s.partyId} ${s.from}..${s.to}`);
+  assert.equal(B(s.closing), B(s.opening) + B(s.settled) + B(s.reversed) + B(s.holdReleased) + B(s.adjusted) - B(s.payoutGross) + B(s.payoutFailedRestored), `${s.partyId} ${s.from}..${s.to}`);
   assert.equal(B(s.payoutGross), B(s.withholding) + B(s.payoutNet), `${s.partyId} payout split`);
 };
 
@@ -65,6 +66,7 @@ test("each figure comes from the settlement, release, reversal and payout record
   assert.ok(B(jul.wh) > 0n);
   assert.equal(B(s.payoutNet), B(jun.n) + B(jul.n));
   assert.equal(B(s.opening), 0n);
+  assert.equal(s.adjusted, "0", "the flow has no adjustments");
   assert.equal(B(s.closing), B(s.settled) + B(s.reversed) + B(s.holdReleased) - B(jul.g));
   assert.deepEqual({ partyId: s.partyId, from: s.from, to: s.to }, { partyId: p, from: START, to: END });
 });
@@ -123,9 +125,25 @@ test("every party's statements sum to the payout instructions and to the ledger"
 test("a party without an account has an all-zero statement; unknown parties and bad input are rejected", async () => {
   await w.db.tx((tx) => registerParty(tx, w.clock, { partyId: "pty_quiet", partyType: "AUTHOR", displayName: "quiet" }));
   const z = await stmt("pty_quiet", START, END);
-  for (const k of ["opening", "settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored", "closing"] as const) assert.equal(z[k], "0", k);
+  for (const k of ["opening", "settled", "reversed", "holdReleased", "payoutGross", "withholding", "payoutNet", "payoutFailedRestored", "adjusted", "closing"] as const) assert.equal(z[k], "0", k);
   await assert.rejects(stmt("pty_nobody", START, END), { status: 404 });
   await assert.rejects(stmt("pty_member_a", "2026-01-01", END), { code: "INVALID_INSTANT", status: 422 });
   await assert.rejects(stmt("pty_member_a", START, "2026-13-01T00:00:00.000Z"), { code: "INVALID_INSTANT", status: 422 });
   await assert.rejects(stmt("pty_member_a", END, START), { code: "INVALID_PERIOD", status: 422 });
+});
+
+test("postings of other entry kinds (ADJUSTMENT) go to `adjusted`, so the identity still holds", async () => {
+  const p = "pty_member_a";
+  const at = "2026-12-15T00:00:00.000Z";
+  const before = await stmt(p, START, END);
+  await w.db.tx((tx) => postEntry(tx, fixedClock(at, 0), {
+    kind: "ADJUSTMENT", sourceRef: "adj:stmt", createdBy: "usr_settle",
+    postings: [{ account: { kind: "RECEIVABLE" }, amount: 1234n }, { account: { kind: "PARTY_PAYABLE", partyId: p }, amount: -1234n }],
+  }));
+  const s = await stmt(p, START, END);
+  assertIdentity(s);
+  assert.equal(s.adjusted, "1234");
+  assert.equal(B(s.closing), B(before.closing) + 1234n);
+  for (const k of ["settled", "reversed", "holdReleased", "payoutGross", "payoutFailedRestored"] as const) assert.equal(s[k], before[k], k);
+  assert.equal((await stmt(p, START, at)).adjusted, "0");
 });

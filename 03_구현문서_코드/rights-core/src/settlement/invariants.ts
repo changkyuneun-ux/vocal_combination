@@ -1,13 +1,21 @@
 import type { Clock } from "../platform/clock.ts";
-import type { Tx } from "../platform/db.ts";
+import type { Db, Tx } from "../platform/db.ts";
 import { invalid } from "../platform/errors.ts";
 
 export type InvariantReport = {
-  unreflectedRefunds: { refundEventId: string; originalEventId: string; runId: string }[];
+  /** rejected: REVERSAL_REJECTED 감사가 있다(역분개가 거부됨 — 작업 유실과 구분). */
+  unreflectedRefunds: { refundEventId: string; originalEventId: string; runId: string; rejected: boolean }[];
   ledger: {
     entriesUnbalanced: number; receivableMatchesSettlement: boolean; rightsConserved: boolean;
     /** CONFIRMED인데 아직 SETTLEMENT 분개(run:<id>)가 없는 run(post-batch 대기). 실패가 아니라 따로 보고한다. */
     unpostedConfirmedRuns: string[];
+    /** REVERSAL 분개(rev:<id>)가 없는 역분개. 역분개와 분개는 한 트랜잭션에서 쓰이므로 비어 있어야 한다. */
+    unpostedReversals: string[];
+    /**
+     * 정산 행 자체의 풀 합 검사(RECEIVABLE 대조의 독립 근거): 분개된 run마다 Σ run 이벤트 순액 = Σ 풀 라인(line_seq = 1),
+     * 분개된 역분개마다 Σ 풀 라인 = −(식별 환불 이벤트 금액). 어긋난 것만 나열한다.
+     */
+    poolMismatches: { kind: "RUN" | "REVERSAL"; id: string; expected: string; actual: string }[];
     /** 비교한 양쪽 값(진단용): RECEIVABLE 잔액과 정산 쪽 합, 권리 쪽 계정 전기 합과 −(권리 풀 라인 합). */
     receivable: string; settledReceivable: string; rightsBalance: string; rightsPooled: string;
   };
@@ -31,22 +39,50 @@ const RUN_RIGHTS = `SELECT r.run_id, d.content->'body'->'tier1'->>'rights' AS ri
  *     = −(분개된 run의 권리 버킷 풀 라인(line_seq = 1) 합 + 분개된 역분개의 권리 버킷 풀 라인 합). 권리 풀로 들어온 돈은
  *     해제·지급·실패·정산으로 이 계정들 사이에서만 움직인다. 양쪽을 원장과 정산 행에서 따로 계산한다.
  * (c) 오래 멈춘 run: PENDING·CALCULATED 중 created_at이 now − stuckAfterMinutes(기본 60)보다 이른 것.
- * 일관된 한 시점을 보려면 호출자가 REPEATABLE READ 트랜잭션을 쓴다.
+ * 여러 쿼리가 한 시점을 보도록 invariants는 자기 REPEATABLE READ READ ONLY 트랜잭션을 연다.
  */
-export async function invariants(tx: Tx, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
+export async function invariants(db: Db, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
+  const cutoff = stuckCutoff(clock, opts);
+  const client = await db.pool.connect();
+  let broken: Error | undefined;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const r = await invariantsAt(client, cutoff);
+    await client.query("COMMIT");
+    return r;
+  } catch (e) {
+    await client.query("ROLLBACK").catch((re: Error) => { broken = re; });
+    throw e;
+  } finally {
+    client.release(broken);
+  }
+}
+
+/**
+ * 호출자 트랜잭션에서 점검한다(호출자가 스냅샷 일관성을 책임진다 — REPEATABLE READ 권장). 테스트는 롤백할 트랜잭션 안의
+ * 인위적 상태를 이것으로 본다.
+ */
+export async function invariantsInTx(tx: Tx, clock: Clock, opts: { stuckAfterMinutes?: number } = {}): Promise<InvariantReport> {
+  return invariantsAt(tx, stuckCutoff(clock, opts));
+}
+
+function stuckCutoff(clock: Clock, opts: { stuckAfterMinutes?: number }): string {
   const minutes = opts.stuckAfterMinutes ?? DEFAULT_STUCK_AFTER_MINUTES;
   if (!Number.isSafeInteger(minutes) || minutes < 1) throw invalid("INVALID_THRESHOLD", "stuckAfterMinutes must be a positive integer");
-  const cutoff = new Date(Date.parse(clock.now()) - minutes * 60_000).toISOString();
+  return new Date(Date.parse(clock.now()) - minutes * 60_000).toISOString();
+}
 
+async function invariantsAt(tx: Tx, cutoff: string): Promise<InvariantReport> {
   const unreflected = (await tx.query(
-    `SELECT r.event_id AS refund, r.related_event_id AS original, x.run_id
+    `SELECT r.event_id AS refund, r.related_event_id AS original, x.run_id,
+            EXISTS (SELECT 1 FROM audit_log a WHERE a.action_name = 'REVERSAL_REJECTED' AND a.entity_type = 'revenue_event' AND a.entity_id = r.event_id) AS rejected
        FROM revenue_event r
        JOIN settlement_run_event x ON x.event_id = r.related_event_id AND x.active
        JOIN settlement_run s ON s.run_id = x.run_id AND s.status = 'CONFIRMED'
       WHERE r.event_type = 'REFUND'
         AND NOT EXISTS (SELECT 1 FROM settlement_run_event_refund f WHERE f.run_id = x.run_id AND f.event_id = x.event_id AND f.refund_event_id = r.event_id)
         AND NOT EXISTS (SELECT 1 FROM reversal_run v WHERE v.refund_event_id = r.event_id)
-      ORDER BY r.event_id`)).rows.map((x) => ({ refundEventId: x.refund as string, originalEventId: x.original as string, runId: x.run_id as string }));
+      ORDER BY r.event_id`)).rows.map((x) => ({ refundEventId: x.refund as string, originalEventId: x.original as string, runId: x.run_id as string, rejected: x.rejected as boolean }));
 
   const unbalanced = (await tx.query(
     "SELECT count(*)::int AS n FROM (SELECT entry_id FROM posting GROUP BY entry_id HAVING SUM(amount_krw) <> 0) t")).rows[0].n as number;
@@ -54,6 +90,29 @@ export async function invariants(tx: Tx, clock: Clock, opts: { stuckAfterMinutes
   const unposted = (await tx.query(
     `SELECT run_id FROM settlement_run r WHERE r.status = 'CONFIRMED'
         AND NOT EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'run:' || r.run_id) ORDER BY run_id`)).rows.map((x) => x.run_id as string);
+
+  const unpostedRev = (await tx.query(
+    `SELECT reversal_id FROM reversal_run v
+      WHERE NOT EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id) ORDER BY reversal_id`)).rows.map((x) => x.reversal_id as string);
+
+  // 역분개의 기대 풀 합은 식별 환불 이벤트 금액의 음수다(reverse-event는 환불 금액 그대로 역분개하고, 초과면 거부한다).
+  // Task 8의 CORRECTION 역분개는 식별 이벤트가 새 revision이고 금액이 이전 revision의 남은 정산액 전액이므로, 그때는
+  // 사유별로 나눠 CORRECTION은 기대값을 "원 run 이벤트 순액 + 그 이벤트의 앞선 역분개 풀 합"의 음수(남은 정산액 전액)로 계산해야 한다.
+  const mismatches = (await tx.query(
+    `WITH posted_run AS (
+       SELECT r.run_id FROM settlement_run r WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'run:' || r.run_id)
+     )
+     SELECT 'RUN' AS kind, p.run_id AS id, n.net::text AS expected, COALESCE(l.pool, 0)::text AS actual
+       FROM posted_run p
+       JOIN (SELECT run_id, SUM(net_amount_krw) AS net FROM settlement_run_event GROUP BY run_id) n USING (run_id)
+       LEFT JOIN (SELECT run_id, SUM(amount_krw) AS pool FROM pool_line WHERE line_seq = 1 GROUP BY run_id) l USING (run_id)
+      WHERE n.net <> COALESCE(l.pool, 0)
+     UNION ALL
+     SELECT 'REVERSAL', v.reversal_id, (-e.net_amount_krw)::text, COALESCE(l.pool, 0)::text
+       FROM reversal_run v JOIN revenue_event e ON e.event_id = v.refund_event_id
+       LEFT JOIN (SELECT reversal_id, SUM(amount_krw) AS pool FROM pool_line WHERE reversal_id IS NOT NULL GROUP BY reversal_id) l USING (reversal_id)
+      WHERE EXISTS (SELECT 1 FROM journal_entry j WHERE j.source_ref = 'rev:' || v.reversal_id) AND -e.net_amount_krw <> COALESCE(l.pool, 0)
+     ORDER BY 1, 2`)).rows.map((x) => ({ kind: x.kind as "RUN" | "REVERSAL", id: x.id as string, expected: x.expected as string, actual: x.actual as string }));
 
   const ledgerSide = (await tx.query(
     `SELECT COALESCE(SUM(p.amount_krw) FILTER (WHERE a.kind = 'RECEIVABLE'), 0)::text AS receivable,
@@ -85,6 +144,8 @@ export async function invariants(tx: Tx, clock: Clock, opts: { stuckAfterMinutes
       receivableMatchesSettlement: ledgerSide.receivable === settlementSide.receivable,
       rightsConserved: ledgerSide.rights === settlementSide.rights,
       unpostedConfirmedRuns: unposted,
+      unpostedReversals: unpostedRev,
+      poolMismatches: mismatches,
       receivable: ledgerSide.receivable, settledReceivable: settlementSide.receivable,
       rightsBalance: ledgerSide.rights, rightsPooled: settlementSide.rights,
     },
