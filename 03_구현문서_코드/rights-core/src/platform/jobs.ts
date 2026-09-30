@@ -7,7 +7,7 @@ export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refun
 export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>): Promise<void> };
 export type JobHandler = (data: Record<string, string>) => Promise<void>;
 export type BossJobs = Jobs & { work(handlers: Record<JobName, JobHandler>): Promise<void>; drainIdle(timeoutMs: number): Promise<void>; stop(): Promise<void> };
-/** 테스트용: 보낸 작업을 트랜잭션 커밋과 무관하게 기록한다. drain은 핸들러를 순서대로 호출하고 새로 쌓인 작업도 처리한다. */
+/** 테스트용: 보낸 작업을 트랜잭션 커밋과 무관하게 기록한다. drain은 핸들러를 순서대로 호출하고 새로 쌓인 작업도 처리한다. 처리기가 없는 작업은 대기로 남는다. */
 export type RecordingJobs = Jobs & { sent: { name: JobName; data: Record<string, string> }[]; drain(handlers: Partial<Record<JobName, JobHandler>>): Promise<number> };
 
 const SCHEMA = "pgboss";
@@ -80,22 +80,23 @@ export async function startBossJobs(appUrl: string): Promise<BossJobs> {
 
 export function recordingJobs(): RecordingJobs {
   const sent: { name: JobName; data: Record<string, string> }[] = [];
-  let cursor = 0;
+  const done: boolean[] = [];
   return {
     sent,
     async send(_tx, name, data) {
       sent.push({ name, data: { ...data } });
+      done.push(false);
     },
     async drain(handlers) {
+      // 처리기가 없는 작업은 소비하지 않고 남겨 두어, 더 넓은 처리기 맵으로 다시 drain할 때 처리한다.
       let n = 0;
-      while (cursor < sent.length) {
-        const job = sent[cursor++]!;
-        const h = handlers[job.name];
-        if (h === undefined) continue;
-        await h(job.data);
+      for (;;) {
+        const i = sent.findIndex((job, k) => !done[k] && handlers[job.name] !== undefined);
+        if (i < 0) return n;
+        done[i] = true;
+        await handlers[sent[i]!.name]!(sent[i]!.data);
         n++;
       }
-      return n;
     },
   };
 }

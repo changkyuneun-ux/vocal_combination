@@ -6,6 +6,8 @@ import { jobHandlers, settleRun, verifyRunJob } from "../../src/settlement/handl
 import { evaluateRun } from "../../src/engine-bridge/settle.ts";
 import { verifyAttestations } from "../../src/engine-bridge/attest.ts";
 import pg from "pg";
+import { createUser, loadActor } from "../../src/platform/actor.ts";
+import { fixedClock } from "../../src/platform/clock.ts";
 import { openDispute, closeDispute } from "../../src/registry/disputes.ts";
 import { ingestRevenue } from "../../src/revenue/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
@@ -55,6 +57,10 @@ test("settle and verify jobs run to VERIFIED with conserved lines and two distin
   assert.deepEqual(signers.rows.map((r) => [r.signer_id, r.role]), [["sys_settler", "SPACE_OPS"], ["sys_verifier", "PLATFORM"]]);
   const digests = (await w.db.pool.query("SELECT result_digest FROM settlement_run WHERE batch_id = 'bat_1'")).rows.map((r) => r.result_digest as string);
   for (const dg of digests) assert.ok(await w.db.tx((tx) => verifyAttestations(tx, dg)), `signatures over ${dg} verify`);
+  const atts = await w.db.pool.query("SELECT count(*)::int AS n FROM attestation");
+  await verifyRunJob(d, { runId: v.runs[0]!.runId });
+  const attsAgain = await w.db.pool.query("SELECT count(*)::int AS n FROM attestation");
+  assert.equal(attsAgain.rows[0].n, atts.rows[0].n, "re-verifying a VERIFIED run writes no second attestation");
   const lines = await w.db.pool.query("SELECT count(*)::int AS n FROM allocation_line WHERE run_id = $1", [v.runs[0]!.runId]);
   await settleRun(d, { runId: v.runs[0]!.runId });
   const again = await w.db.pool.query("SELECT count(*)::int AS n FROM allocation_line WHERE run_id = $1", [v.runs[0]!.runId]);
@@ -121,8 +127,11 @@ test("a verify mismatch (result digest swapped for another sealed result) voids 
   await admin.connect();
   try {
     await admin.query("ALTER TABLE settlement_run DISABLE TRIGGER settlement_run_guard");
-    await admin.query("UPDATE settlement_run SET result_digest = $2 WHERE run_id = $1", [runId, other.resultDigest]);
-    await admin.query("ALTER TABLE settlement_run ENABLE TRIGGER settlement_run_guard");
+    try {
+      await admin.query("UPDATE settlement_run SET result_digest = $2 WHERE run_id = $1", [runId, other.resultDigest]);
+    } finally {
+      await admin.query("ALTER TABLE settlement_run ENABLE TRIGGER settlement_run_guard");
+    }
   } finally {
     await admin.end();
   }
@@ -137,4 +146,25 @@ test("a verify mismatch (result digest swapped for another sealed result) voids 
   assert.deepEqual(audit.rows.map((r) => r.actor), ["sys_verifier"]);
   const v = await w.db.tx((tx) => batchView(tx, "bat_5"));
   assert.equal(v.progress, "EMPTY");
+});
+
+test("createBatch rejects an empty or inverted period before touching the database", async () => {
+  await assert.rejects(createBatch(d, w.users.ops, { batchId: "bat_inv", periodStart: P.periodEnd, periodEnd: P.periodStart }), { code: "INVALID_PERIOD", status: 422 });
+  await assert.rejects(createBatch(d, w.users.ops, { batchId: "bat_inv", periodStart: P.periodStart, periodEnd: P.periodStart }), { code: "INVALID_PERIOD", status: 422 });
+  const n = await w.db.pool.query("SELECT count(*)::int AS n FROM settlement_batch WHERE batch_id = 'bat_inv'");
+  assert.equal(n.rows[0].n, 0);
+});
+
+test("a user holding both SPACE_OPS and SPACE_SETTLE cannot confirm a batch they created", async () => {
+  const both = await w.db.tx(async (tx) => {
+    await createUser(tx, fixedClock("2026-01-01T00:00:00.000Z", 0), { userId: "usr_both", displayName: "usr_both", roles: ["SPACE_OPS", "SPACE_SETTLE"] });
+    return loadActor(tx, "usr_both");
+  });
+  await purchase(w, "ev_1j", "vc_1", "1500", "2026-07-02T00:00:00.000Z");
+  const b = await createBatch(d, both, { batchId: "bat_sod", periodStart: "2026-07-01T00:00:00.000Z", periodEnd: "2026-08-01T00:00:00.000Z" });
+  assert.equal(b.runs.length, 1);
+  await jobs.drain(jobHandlers(d));
+  assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod"))).progress, "READY");
+  await assert.rejects(confirmBatch(d, both, "bat_sod"), { code: "SOD_VIOLATION", status: 403 });
+  assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod"))).status, "OPEN");
 });

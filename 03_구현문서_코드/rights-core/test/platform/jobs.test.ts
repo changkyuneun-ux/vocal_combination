@@ -18,6 +18,25 @@ test("recordingJobs records sends and drains handlers, including jobs sent by ha
   assert.deepEqual(seen, ["settle:r1", "verify:r1"]);
 });
 
+test("recordingJobs.drain with a partial handler map leaves unhandled jobs pending for a later drain", async () => {
+  const jobs = recordingJobs();
+  await db.tx(async (tx) => {
+    await jobs.send(tx, "verify-run", { runId: "v1" });
+    await jobs.send(tx, "settle-run", { runId: "s1" });
+    await jobs.send(tx, "settle-run", { runId: "s2" });
+  });
+  const seen: string[] = [];
+  const handlers = {
+    "settle-run": async (d: Record<string, string>) => { seen.push(`settle:${d.runId}`); },
+    "verify-run": async (d: Record<string, string>) => { seen.push(`verify:${d.runId}`); },
+  };
+  assert.equal(await jobs.drain({ "settle-run": handlers["settle-run"] }), 2);
+  assert.deepEqual(seen, ["settle:s1", "settle:s2"]);
+  assert.equal(await jobs.drain(handlers), 1);
+  assert.deepEqual(seen, ["settle:s1", "settle:s2", "verify:v1"]);
+  assert.equal(await jobs.drain(handlers), 0, "handled jobs are not run twice");
+});
+
 test("pg-boss jobs are sent inside the caller's transaction (rolled back sends never run)", async () => {
   const boss = await startBossJobs((db.pool as any).options.connectionString);
   try {

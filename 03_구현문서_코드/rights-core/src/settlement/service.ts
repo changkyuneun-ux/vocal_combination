@@ -30,6 +30,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
   for (const t of [input.periodStart, input.periodEnd]) {
     if (!INSTANT.test(t) || new Date(t).toISOString() !== t) throw invalid("INVALID_INSTANT", `${t} must be ms UTC ISO`);
   }
+  if (input.periodStart >= input.periodEnd) throw invalid("INVALID_PERIOD", `periodStart ${input.periodStart} must be before periodEnd ${input.periodEnd}`);
   return d.db.tx(async (tx) => {
     const now = d.clock.now();
     await tx.query("INSERT INTO settlement_batch (batch_id, period_start, period_end, executed_by, created_at) VALUES ($1,$2,$3,$4,$5)",
