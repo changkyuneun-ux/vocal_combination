@@ -27,10 +27,16 @@ CREATE TABLE posting (
 CREATE INDEX posting_account ON posting (account_id, entry_id);
 CREATE INDEX posting_entry ON posting (entry_id);
 
--- 분개별 합 0: posting INSERT마다 커밋 시점에 그 분개의 합을 검사한다.
+-- 분개별 합 0: 커밋 시점에 그 분개의 합을 검사한다(PostgreSQL 제약 트리거는 FOR EACH ROW만 가능).
+-- 행마다 합을 다시 세면 분개 크기에 제곱이므로, 트랜잭션 범위 설정 rc.bal_last에 마지막으로 검사한 분개 id를 두고
+-- 같은 분개의 연속된 행은 건너뛴다. 지연 트리거는 INSERT 순서대로 커밋 시점에 실행되고 postEntry는 분개의 전기를
+-- 한 문장으로 넣으므로 분개마다 한 번 계산한다(끼어든 순서면 다시 계산할 뿐 검사를 빠뜨리지 않는다).
+-- 분개 id마다 설정 이름을 만들면 세션에 자리표시 GUC가 계속 쌓이므로 이름 하나만 쓴다.
 CREATE FUNCTION rc_entry_balanced() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE s BIGINT;
 BEGIN
+  IF current_setting('rc.bal_last', true) = NEW.entry_id::text THEN RETURN NULL; END IF;
+  PERFORM set_config('rc.bal_last', NEW.entry_id::text, true);
   SELECT COALESCE(SUM(amount_krw), 0) INTO s FROM posting WHERE entry_id = NEW.entry_id;
   IF s <> 0 THEN
     RAISE EXCEPTION 'journal entry % unbalanced (sum %)', NEW.entry_id, s USING ERRCODE = 'RC001';

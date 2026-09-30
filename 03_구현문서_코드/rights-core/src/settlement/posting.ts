@@ -1,6 +1,6 @@
 import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
-import { notFound } from "../platform/errors.ts";
+import { conflict, notFound } from "../platform/errors.ts";
 import { poolAccountFor } from "../ledger/accounts.ts";
 import { postEntry, type PostingInput } from "../ledger/journal.ts";
 import type { SettleDeps } from "./service.ts";
@@ -16,8 +16,11 @@ async function rightsBucket(tx: Tx, runId: string): Promise<string> {
   return r.rights;
 }
 
-/** 확정 run 하나의 SETTLEMENT 분개(통합 설계 11.2-4). */
+/** 확정 run 하나의 SETTLEMENT 분개(통합 설계 11.2-4). run이 CONFIRMED가 아니면 409. 멱등. */
 export async function postConfirmedRun(tx: Tx, clock: Clock, runId: string): Promise<void> {
+  const run = (await tx.query("SELECT status FROM settlement_run WHERE run_id = $1 FOR SHARE", [runId])).rows[0];
+  if (run === undefined) throw notFound("run", runId);
+  if (run.status !== "CONFIRMED") throw conflict("INVALID_STATE", `run ${runId} is ${run.status}`);
   const rights = await rightsBucket(tx, runId);
   const postings: PostingInput[] = [];
   for (const e of (await tx.query("SELECT event_id, net_amount_krw::text AS net FROM settlement_run_event WHERE run_id = $1 ORDER BY event_id", [runId])).rows) {

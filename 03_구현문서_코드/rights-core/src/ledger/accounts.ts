@@ -18,6 +18,19 @@ export function poolAccountFor(bucket: string): AccountKey {
   return { kind: "POOL_OTHER", bucket };
 }
 
+/** 여러 계정을 한 번의 INSERT로 만든다(이미 있으면 그대로). */
+export async function ensureAccounts(tx: Tx, keys: AccountKey[]): Promise<void> {
+  const uniq = new Map<string, AccountKey>();
+  for (const k of keys) uniq.set(accountId(k), k);
+  if (uniq.size === 0) return;
+  const ks = [...uniq.values()];
+  await tx.query(
+    `INSERT INTO ledger_account (account_id, kind, party_id, reason, bucket)
+     SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[]) ON CONFLICT (account_id) DO NOTHING`,
+    [[...uniq.keys()], ks.map((k) => k.kind), ks.map((k) => k.partyId ?? null), ks.map((k) => k.reason ?? null), ks.map((k) => k.bucket ?? null)],
+  );
+}
+
 export async function ensureAccount(tx: Tx, k: AccountKey): Promise<string> {
   const id = accountId(k);
   await tx.query("INSERT INTO ledger_account (account_id, kind, party_id, reason, bucket) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (account_id) DO NOTHING",

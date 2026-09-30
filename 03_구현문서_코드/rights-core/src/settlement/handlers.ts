@@ -7,7 +7,7 @@ import { revenueRow } from "../revenue/service.ts";
 import type { Tx } from "../platform/db.ts";
 import { lockBatching } from "../platform/locks.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
-import { postBatch, postReversal } from "./posting.ts";
+import { postBatch, postConfirmedRun, postReversal } from "./posting.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
 
 const SETTLER = "sys_settler";
@@ -161,7 +161,9 @@ async function reverseInTx(d: SettleDeps, data: { refundEventId: string }): Prom
       await tx.query("INSERT INTO unallocated_holding (run_id, event_id, bucket, reason, line_seq, amount_krw, reversal_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
         [x.run_id, original, h.bucket, h.reason, seq, h.amount.toString(), reversalId]);
     }
-    // 반대 부호 분개(통합 설계 11.2-4): 역분개 행과 같은 트랜잭션.
+    // 반대 부호 분개(통합 설계 11.2-4): 역분개 행과 같은 트랜잭션. post-batch보다 먼저 올 수 있으므로
+    // 원 run의 SETTLEMENT 분개를 먼저 보장한다(멱등) — REVERSAL은 항상 SETTLEMENT 뒤에 쓰인다.
+    await postConfirmedRun(tx, d.clock, x.run_id);
     await postReversal(tx, d.clock, reversalId);
     await audit(tx, d.clock, { actor: SETTLER, action: "EVENT_REVERSED", entityType: "reversal_run", entityId: reversalId, after: { sequence: r.sequence, amount: refund.amountKrw } });
   });
