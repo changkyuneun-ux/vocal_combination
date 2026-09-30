@@ -1,9 +1,12 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { freshDb } from "../helpers.ts";
-import { fixedClock } from "../../src/platform/clock.ts";
-import { createUser, loadActor } from "../../src/platform/actor.ts";
-import { ingestRevenue, refundedTotal, revenueRow, type RevenueInput } from "../../src/revenue/service.ts";
+import { fixedClock, type Clock } from "../../src/platform/clock.ts";
+import type { Tx } from "../../src/platform/db.ts";
+import { createUser, loadActor, type Actor } from "../../src/platform/actor.ts";
+import { ingestRevenue as ingestWithHook, noRefundHook, refundedTotal, revenueRow, type RefundHook, type RevenueInput } from "../../src/revenue/service.ts";
+// 테스트 편의: 훅을 생략하면 명시적 no-op을 넘긴다(서비스 자체는 훅을 필수로 요구한다).
+const ingestRevenue = (tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, hook: RefundHook = noRefundHook) => ingestWithHook(tx, clock, actor, input, hook);
 
 const { db, drop } = await freshDb();
 after(drop);

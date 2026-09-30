@@ -12,6 +12,8 @@ export type RevenueInput = {
 };
 export type RevenueRow = RevenueInput & { sourceRevision: number; integrity: "CLEAR" | "FLAGGED"; recordedAt: string };
 export type RefundHook = (tx: Tx, refundEventId: string) => Promise<void>;
+/** 환불 후속 작업이 필요 없는 호출자를 위한 명시적 no-op. */
+export const noRefundHook: RefundHook = async () => {};
 
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const AMOUNT = /^[1-9]\d*$/;
@@ -67,7 +69,7 @@ const samePayload = (a: RevenueRow, b: RevenueInput) =>
  * 멱등 수집(통합 설계 10.2-2): 같은 source 키·같은 내용이면 기존 id, 다른 내용이면 409.
  * 환불은 배치 잠금(SHARED)을 잡고, 원 이벤트별 advisory lock으로 직렬화하고 누적 ≤ 원 금액을 강제한 뒤, 새로 기록된 경우에만 onRefund를 호출한다.
  */
-export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund?: RefundHook): Promise<{ eventId: string; created: boolean }> {
+export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund: RefundHook): Promise<{ eventId: string; created: boolean }> {
   requireRole(actor, "SYSTEM");
   validate(input);
   const revision = input.sourceRevision ?? 1;
@@ -98,6 +100,6 @@ export async function ingestRevenue(tx: Tx, clock: Clock, actor: Actor, input: R
       input.amountKrw, input.currency, input.integrity ?? "CLEAR", input.occurredAt, clock.now()],
   );
   await audit(tx, clock, { actor: actor.userId, action: "REVENUE_RECORDED", entityType: "revenue_event", entityId: input.eventId, after: { type: input.eventType, amount: input.amountKrw } });
-  if (input.eventType === "REFUND" && onRefund !== undefined) await onRefund(tx, input.eventId);
+  if (input.eventType === "REFUND") await onRefund(tx, input.eventId);
   return { eventId: input.eventId, created: true };
 }

@@ -6,7 +6,7 @@ import type { BridgeCtx } from "../src/engine-bridge/context.ts";
 import type { IssueSeal } from "../src/engine-bridge/issue.ts";
 import * as policy from "../src/policy/service.ts";
 import * as issuance from "../src/issuance/service.ts";
-import { ingestRevenue } from "../src/revenue/service.ts";
+import { ingestRevenue, noRefundHook } from "../src/revenue/service.ts";
 import { freshDb } from "./helpers.ts";
 import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge } from "./fixtures.ts";
 
@@ -55,5 +55,5 @@ export async function purchase(
 ): Promise<void> {
   await w.db.tx((tx) => ingestRevenue(tx, w.clock, w.users.ingest, {
     eventId, sourceSystem: "app", sourceEventId: eventId, eventType: "PURCHASE", vcId, amountKrw, currency: "KRW", occurredAt, integrity,
-  }));
+  }, noRefundHook));
 }

@@ -5,12 +5,13 @@ import { DECLARED, POLICY_TEXT, T0, seedUsers, tempBridge } from "../fixtures.ts
 import { fixedClock } from "../../src/platform/clock.ts";
 import type { InjectOptions } from "fastify";
 import { buildServer } from "../../src/http/server.ts";
+import { recordingJobs } from "../../src/platform/jobs.ts";
 
 const { db, drop } = await freshDb();
 const { ctx, cleanup } = tempBridge();
 const clock = fixedClock("2026-02-01T00:00:00.000Z", 1000);
 await db.tx((tx) => seedUsers(tx, fixedClock(T0, 0)));
-const app = buildServer({ db, ctx, clock });
+const app = buildServer({ db, ctx, clock, jobs: recordingJobs() });
 after(async () => { await app.close(); await drop(); cleanup(); });
 
 const call = (method: "GET" | "POST" | "PUT", url: string, actor?: string, payload?: object) => {
@@ -125,7 +126,7 @@ test("POST /issues validates the body shape before touching the pack (400 BAD_RE
 });
 
 test("serialization failures and deadlocks map to 409 RETRY", async () => {
-  const probe = buildServer({ db, ctx, clock });
+  const probe = buildServer({ db, ctx, clock, jobs: recordingJobs() });
   for (const code of ["40P01", "40001"]) {
     probe.get(`/probe/${code}`, async () => { throw Object.assign(new Error(`pg ${code}`), { code }); });
   }

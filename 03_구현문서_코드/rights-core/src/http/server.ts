@@ -8,8 +8,11 @@ import { registryRoutes } from "../registry/routes.ts";
 import { policyRoutes } from "../policy/routes.ts";
 import { issuanceRoutes } from "../issuance/routes.ts";
 import { sealRoutes } from "./seal-routes.ts";
+import { revenueRoutes } from "../revenue/routes.ts";
+import { settlementRoutes } from "../settlement/routes.ts";
+import type { Jobs } from "../platform/jobs.ts";
 
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock };
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
@@ -45,5 +48,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   policyRoutes(app, deps);
   issuanceRoutes(app, deps);
   sealRoutes(app, deps);
+  revenueRoutes(app, deps);
+  settlementRoutes(app, deps);
   return app;
 }
