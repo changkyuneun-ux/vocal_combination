@@ -10,7 +10,7 @@ import { setActor, useActor } from "../../app/actor.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
 import { releaseHold } from "../../api/settlement.ts";
 import type { HoldRow, HoldSuggestion } from "../../api/types.ts";
-import { allocationCheck, remainingHold } from "./logic.ts";
+import { allocationCheck, holdDisplayStatus, remainingHold } from "./logic.ts";
 
 const SETTLE_ACTOR = "usr_settle";
 type Line = { party: string; amount: string };
@@ -102,8 +102,7 @@ export function Holds() {
                     <td>{h.holdingId}</td>
                     <td><Link to={`/settlement/runs/${encodeURIComponent(h.runId)}`}>{h.runId}</Link></td>
                     <td>{h.eventId}</td><td>{h.bucket}</td><td>{h.reason}</td><td><Money krw={h.amountKrw} /></td>
-                    {/* 보류 행은 불변(status는 기록 당시 HELD 그대로)이고 해제는 hold_release에 따로 있다 — 해제됐으면 RELEASED로 보여 준다. */}
-                    <td><StatusBadge status={h.release ? "RELEASED" : h.status} /></td>
+                    <td><StatusBadge status={holdDisplayStatus(h)} /></td>
                     <td>{h.release ? <>{h.release.releasedBy} <Instant iso={h.release.releasedAt} /></> : "—"}</td>
                     <td>
                       {h.release ? <span className="muted">해제됨</span> : (

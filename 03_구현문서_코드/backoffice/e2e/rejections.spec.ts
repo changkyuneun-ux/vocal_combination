@@ -56,6 +56,7 @@ test.describe("거부 경로", () => {
   test.afterEach(async ({ request }) => {
     // 4번이 멈춘 submit-payout을 실패해도 다시 연다(초기화도 일시정지를 푼다).
     await api(request, null, "POST", "/dev/jobs/resume", { name: "submit-payout" }).catch(() => undefined);
+    await api(request, null, "POST", "/dev/jobs/resume", { name: "poll-payout" }).catch(() => undefined);
   });
 
   test("1. 정산 불가 조합(멤버 a가 4슬롯 모두) → ISSUE_NOT_SETTLEABLE, 발행 목록 변화 없음", async ({ page, request }) => {
@@ -154,7 +155,9 @@ test.describe("거부 경로", () => {
 
   test("5. 중복 webhook(repeat 2) → 응답 둘 다 성공, webhook 이력 1건, PAYOUT_SETTLED 1건", async ({ page, request }) => {
     test.setTimeout(180_000);
-    await prepareSettled(request);
+    await prepareSettled(request); // reset이 일시정지를 풀므로 준비 뒤에 멈춘다
+    // poll-payout이 webhook보다 먼저 PAID로 만들지 않게 멈춘다(첫 webhook이 반드시 201).
+    await ok(request, null, "POST", "/dev/jobs/pause", { name: "poll-payout" });
     await registerProfiles(request);
     await ok(request, null, "POST", "/dev/clock/advance", { ms: 31 * DAY_MS });
     const now = (await ok<{ now: string }>(request, null, "GET", "/dev/clock")).now;
@@ -175,14 +178,22 @@ test.describe("거부 경로", () => {
     await expect(res.nth(1).locator("td").nth(1)).toHaveText("200");
     await expect(res.nth(1).locator("td").nth(2)).toContainText('"created":false');
 
-    await poll("PAYOUT_SETTLED 분개", async () => (await ok<Paged<unknown>>(request, "usr_settle", "GET", "/ledger/entries?kind=PAYOUT_SETTLED&limit=200")).items.length, (n) => n >= 1, 60_000);
+    // 그 지시의 결과 분개(settledEntryId)가 생길 때까지.
+    const detail = await poll("지시의 PAYOUT_SETTLED 분개",
+      async () => ok<{ status: string; settledEntryId: string | number | null }>(request, "usr_settle", "GET", `/payouts/${encodeURIComponent(target.instructionId)}`),
+      (d) => d.settledEntryId !== null, 60_000);
+    const settledId = String(detail.settledEntryId);
     await page.goto(`/payout/instructions/${encodeURIComponent(target.instructionId)}`);
     const head = page.getByRole("region", { name: `지급 지시 ${target.instructionId}`, exact: true });
     await expect(head.locator(".badge").first()).toHaveText("PAID", { timeout: 30_000 });
+    await expect(head).toContainText(`결과 ${settledId}`);
     await expect(bodyRows(region(page, "webhook 이력"))).toHaveCount(1);
 
+    // 원장: 이 지시를 출처로 한 PAYOUT_SETTLED 분개는 정확히 1건이고 그것이 지시의 결과 분개다.
     await page.goto("/ledger");
     await page.getByLabel("종류 필터").selectOption("PAYOUT_SETTLED");
-    await expect(bodyRows(region(page, "분개 목록"))).toHaveCount(1);
+    const mine = bodyRows(region(page, "분개 목록")).filter({ hasText: target.instructionId });
+    await expect(mine).toHaveCount(1);
+    await expect(mine.locator("td").first()).toHaveText(settledId);
   });
 });

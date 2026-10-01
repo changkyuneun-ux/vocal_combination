@@ -57,3 +57,8 @@ export function remainingHold(hold: HoldLike, all: HoldLike[]): bigint {
     .filter((x) => x.lineSeq > 1 && x.runId === hold.runId && x.eventId === hold.eventId && x.bucket === hold.bucket && x.reason === hold.reason)
     .reduce((a, x) => a + BigInt(x.amountKrw), BigInt(hold.amountKrw));
 }
+
+/** 보류 표시 상태: 보류 행(unallocated_holding)은 불변이라 status가 기록 당시 값(HELD)으로 남고 해제는 hold_release에 따로 있다 — 해제됐으면 RELEASED. */
+export function holdDisplayStatus(h: { status: string; release: unknown }): string {
+  return h.release ? "RELEASED" : h.status;
+}

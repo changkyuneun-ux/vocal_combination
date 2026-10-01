@@ -56,9 +56,15 @@ async function readInstructions(page: Page): Promise<InstructionView[]> {
   return out;
 }
 
+test.afterEach(async ({ request }) => {
+  await api(request, null, "POST", "/dev/jobs/resume", { name: "poll-payout" }).catch(() => undefined);
+});
+
 test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, request }) => {
   test.setTimeout(420_000);
   await resetAll(request);
+  // poll-payout(개발 서버 지연 60초)이 webhook보다 먼저 PAID로 만들지 않도록 멈춘다(SUBMITTED → PAID는 webhook으로만).
+  await ok(request, null, "POST", "/dev/jobs/pause", { name: "poll-payout" });
   const observed: Record<string, unknown> = {};
 
   await test.step("1. 개발 데이터: 합성 곡 불러오기 → 당사자 8명", async () => {
@@ -120,14 +126,8 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
     await expect(region(page, "재도출 대조").getByRole("status")).toContainText("일치");
   });
 
-  const vcIds = await poll("발행 3건", async () => (await ok<Paged<{ vcId: string; createdAt: string }>>(request, "usr_issuer", "GET", `/issues?pack=${PACK}&limit=200`)).items, (xs) => xs.length === 3);
-  // 목록은 최신순일 수 있으니 조합(스템 요약)으로 vcId를 고른다.
-  const vcOf = (combo: number) => {
-    const want = `vc_${PICKS[combo]!.map((m, k) => `${m}${k + 1}`).join("")}mr`;
-    const hit = vcIds.find((v) => v.vcId === want);
-    if (!hit) throw new Error(`발행 목록에 ${want} 없음: ${vcIds.map((v) => v.vcId).join(", ")}`);
-    return hit.vcId;
-  };
+  /** 발행 폼의 기본 vcId 규칙(스템 요약: stm_a_slt_1 → a1, stm_mr → mr)으로 조합의 vcId를 만든다. */
+  const vcOf = (combo: number) => `vc_${PICKS[combo]!.map((m, k) => `${m}${k + 1}`).join("")}mr`;
 
   await test.step("5. 시계 2026-02-10 → 구매 4건(1건 FLAGGED) + 배치 전 부분 환불", async () => {
     await page.goto("/revenue");
@@ -209,7 +209,10 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
     await as(page, "usr_ops"); // 정산 상태 조회는 정산 운영/담당 사용자
     await page.getByRole("button", { name: `${PURCHASES[0].id} 정산 펼치기`, exact: true }).click();
     const list = region(page, "매출 이벤트 목록");
-    await expect(list.getByRole("columnheader", { name: "역분개", exact: true })).toBeVisible();
+    // 펼친 행 안의 역분개 표(중첩 표)에 정확히 1행.
+    const reversals = list.locator("table table").filter({ has: page.getByRole("columnheader", { name: "역분개", exact: true }) });
+    await expect(reversals).toHaveCount(1);
+    await expect(bodyRows(reversals)).toHaveCount(1);
     await expect(list.getByText("역분개가 없습니다.")).toHaveCount(0);
   });
 
@@ -357,5 +360,4 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
   });
 
   test.info().annotations.push({ type: "observed", description: JSON.stringify(observed) });
-  console.log(`[golden-path observed] ${JSON.stringify(observed)}`);
 });
