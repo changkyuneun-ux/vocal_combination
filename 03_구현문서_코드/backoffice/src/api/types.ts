@@ -28,3 +28,34 @@ export type PolicyVersion = {
 export type PolicyVersionDetail = Omit<PolicyVersion, "approved" | "approvedBy"> & { sourceText: string; approvals: { userId: string; role: string; at: string }[] };
 export type CompileResult = { policyId: string; version: number; policyDigest: string; factsDigest: string; canonicalText: string };
 export type SeedResult = { packId: string; factsScopeId: string; policyId: string; policyText: string };
+
+export type PackRow = { packId: string; packCode: string; title: string; factsScopeId: string; status: string; createdAt: string };
+export type PackDetailData = PackRow & {
+  claimants: { partyId: string; claimantRole: string }[];
+  activePolicy: { policyId: string; version: number } | null;
+};
+export type IssueRow = {
+  snapshotId: string; vcId: string; packId: string; policyId: string; policyVersion: number; createdAt: string;
+  factsDigest: string | null; policyDigest: string | null; projectionDigest: string | null; membersDigest: string | null;
+  asOf: string | null; knownAt: string | null; quarantined: boolean;
+};
+export type IssueSeal = { snapshotId: string; factsDigest: string; policyDigest: string; projectionDigest: string; membersDigest: string; asOf: string; knownAt: string };
+export type IssueAudit = {
+  ok: boolean; policyMatch: boolean; expected: IssueSeal;
+  recomputed: { projectionDigest: string; membersDigest: string };
+};
+export type IssueBody = { packId: string; vcId: string; assignments: { slotId: string; stemId: string }[]; members: Record<string, number> };
+export type RevenueEventRow = {
+  eventId: string; sourceSystem: string; sourceEventId: string; sourceRevision: number; eventType: string; vcId: string | null;
+  relatedEventId: string | null; netAmountKrw: string; currency: string; integrityStatus: string; occurredAt: string; recordedAt: string;
+  supersededBy: string | null;
+};
+export type RevenueBody = {
+  eventId: string; sourceSystem: string; sourceEventId: string; sourceRevision?: number; eventType: "PURCHASE" | "RESALE" | "REFUND";
+  vcId?: string; relatedEventId?: string; amountKrw: string; currency: "KRW"; integrity?: "CLEAR" | "FLAGGED"; occurredAt: string;
+};
+export type EventSettlement = {
+  runs: { runId: string; batchId: string; status: string }[];
+  reversals: { reversalId: string; createdAt: string }[];
+  refunds: { eventId: string; netAmountKrw: string }[];
+};

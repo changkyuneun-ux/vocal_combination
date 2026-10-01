@@ -7,6 +7,11 @@ import { Mandates } from "../pages/registry/Mandates.tsx";
 import { Disputes } from "../pages/registry/Disputes.tsx";
 import { Policies } from "../pages/policy/Policies.tsx";
 import { PolicyDetail } from "../pages/policy/PolicyDetail.tsx";
+import { Packs } from "../pages/issuance/Packs.tsx";
+import { PackDetail } from "../pages/issuance/PackDetail.tsx";
+import { Issues } from "../pages/issuance/Issues.tsx";
+import { IssueDetail } from "../pages/issuance/IssueDetail.tsx";
+import { Revenue } from "../pages/revenue/Revenue.tsx";
 import { DevData } from "../pages/dev/DevData.tsx";
 import { Section } from "../components/Section.tsx";
 
@@ -29,11 +34,11 @@ export const routes: RouteDef[] = [
   { path: "/registry/disputes", title: "분쟁", element: <Disputes /> },
   { path: "/policy", title: "정책", element: <Policies /> },
   { path: "/policy/:policyId", title: "정책 상세", element: <PolicyDetail /> },
-  p("/packs", "팩"),
-  p("/packs/:packId", "팩 상세"),
-  p("/issues", "발행"),
-  p("/issues/:snapshotId", "발행 상세"),
-  p("/revenue", "매출"),
+  { path: "/packs", title: "팩", element: <Packs /> },
+  { path: "/packs/:packId", title: "팩 상세", element: <PackDetail /> },
+  { path: "/issues", title: "발행", element: <Issues /> },
+  { path: "/issues/:snapshotId", title: "발행 상세", element: <IssueDetail /> },
+  { path: "/revenue", title: "매출", element: <Revenue /> },
   p("/settlement/batches", "정산 배치"),
   p("/settlement/batches/:batchId", "정산 배치 상세"),
   p("/settlement/runs/:runId", "정산 run 상세"),
