@@ -33,7 +33,7 @@ export function PayoutRunDetail() {
       <Section title={`지급 run ${payoutRunId}`} actions={
         <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
       }>
-        <p><Link to="/payout/runs">← 지급 run 목록</Link></p>
+        <p><Link to="/payout/runs">← 목록으로</Link></p>
         {run && <p>기준 시각 <Instant iso={run.asOf} /> · 실행자 {run.createdBy} · 생성 <Instant iso={run.createdAt} /></p>}
         <ul className="stack" aria-label="지시 상태별 건수">
           {INSTRUCTION_STATUSES.map((s) => <li key={s}><StatusBadge status={s} /> {counts[s]}</li>)}

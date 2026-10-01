@@ -15,7 +15,7 @@ export function Parties() {
   return (
     <>
       <Section title="당사자 목록">
-        <label className="field"><span>유형으로 거르기</span>
+        <label className="field"><span>종류 필터</span>
           <select value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">전체</option>
             {PARTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}

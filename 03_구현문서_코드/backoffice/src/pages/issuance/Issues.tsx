@@ -9,7 +9,7 @@ import { Digest } from "../../components/Digest.tsx";
 import { useList } from "../../api/hooks.ts";
 import type { IssueRow } from "../../api/types.ts";
 
-const dg = (d: string | null) => (d ? <Digest value={d} /> : <span className="muted">—</span>);
+const dg = (d: string | null, label: string) => (d ? <Digest value={d} label={label} /> : <span className="muted">—</span>);
 
 export function IssueTable({ pack, vc }: { pack?: string; vc?: string }) {
   const list = useList<IssueRow>("issues", "/issues", { pack, vc });
@@ -21,10 +21,10 @@ export function IssueTable({ pack, vc }: { pack?: string; vc?: string }) {
           { key: "vcId", label: "vcId", render: (r) => <Link to={`/issues/${encodeURIComponent(r.snapshotId)}`}>{r.vcId}</Link> },
           { key: "packId", label: "팩" },
           { key: "policy", label: "정책 버전", render: (r) => `${r.policyId}@${r.policyVersion}` },
-          { key: "factsDigest", label: "facts", render: (r) => dg(r.factsDigest) },
-          { key: "policyDigest", label: "정책", render: (r) => dg(r.policyDigest) },
-          { key: "projectionDigest", label: "투영", render: (r) => dg(r.projectionDigest) },
-          { key: "membersDigest", label: "멤버", render: (r) => dg(r.membersDigest) },
+          { key: "factsDigest", label: "facts", render: (r) => dg(r.factsDigest, `${r.vcId} facts`) },
+          { key: "policyDigest", label: "정책", render: (r) => dg(r.policyDigest, `${r.vcId} 정책`) },
+          { key: "projectionDigest", label: "투영", render: (r) => dg(r.projectionDigest, `${r.vcId} 투영`) },
+          { key: "membersDigest", label: "멤버", render: (r) => dg(r.membersDigest, `${r.vcId} 멤버`) },
           { key: "quarantined", label: "격리", render: (r) => (r.quarantined ? <span className="badge warn">QUARANTINED</span> : <span className="muted">—</span>) },
           { key: "createdAt", label: "발행(UTC)", render: (r) => <Instant iso={r.createdAt} /> },
         ]} />

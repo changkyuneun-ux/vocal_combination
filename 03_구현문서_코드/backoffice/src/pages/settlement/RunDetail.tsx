@@ -39,8 +39,8 @@ export function RunDetail() {
         {run.data && (
           <dl className="kv">
             <dt>상태</dt><dd><StatusBadge status={run.data.status} /></dd>
-            <dt>이벤트 digest</dt><dd>{run.data.eventsDigest ? <Digest value={run.data.eventsDigest} /> : "—"}</dd>
-            <dt>결과 digest</dt><dd>{run.data.resultDigest ? <Digest value={run.data.resultDigest} /> : "—"}</dd>
+            <dt>이벤트 digest</dt><dd>{run.data.eventsDigest ? <Digest value={run.data.eventsDigest} label="이벤트" /> : "—"}</dd>
+            <dt>결과 digest</dt><dd>{run.data.resultDigest ? <Digest value={run.data.resultDigest} label="결과" /> : "—"}</dd>
           </dl>
         )}
         <p className="muted">진단은 해당 배치 상세의 run 표에 표시됩니다.</p>

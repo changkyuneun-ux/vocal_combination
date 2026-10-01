@@ -37,8 +37,8 @@ function Editor({ hold, remaining, suggestion, suggestionError }: { hold: HoldRo
         <tbody>
           {shown.map((l, i) => (
             <tr key={i}>
-              <td><input aria-label={`보류[${id}] 권리자[${l.party || `새 ${i + 1}`}]`} value={l.party} onChange={(e) => edit(i, { party: e.target.value })} /></td>
-              <td><input aria-label={`보류[${id}] 금액[${l.party || `새 ${i + 1}`}]`} inputMode="numeric" value={l.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></td>
+              <td><input data-testid={`보류-${id}-권리자-${i}`} aria-label={`보류[${id}] 권리자[${l.party || `새 ${i + 1}`}]`} value={l.party} onChange={(e) => edit(i, { party: e.target.value })} /></td>
+              <td><input data-testid={`보류-${id}-금액-${i}`} aria-label={`보류[${id}] 금액[${l.party || `새 ${i + 1}`}]`} inputMode="numeric" value={l.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></td>
               <td><button type="button" className="btn tiny" aria-label={`보류[${id}] 배분삭제[${l.party || `새 ${i + 1}`}]`} onClick={() => setLines(shown.filter((_, j) => j !== i))}>삭제</button></td>
             </tr>
           ))}

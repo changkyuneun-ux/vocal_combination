@@ -29,12 +29,12 @@ export function Assets() {
       <div className="split">
         <Section title="곡 등록">
           <RegisterForm path="/works" submitLabel="곡 등록" invalidate={["works"]}
-            fields={[{ name: "workId", label: "곡 id", type: "text", required: true }, { name: "title", label: "제목", type: "text", required: true }, { name: "iswc", label: "ISWC", type: "text" }]}
+            fields={[{ name: "workId", label: "신규 곡 id", type: "text", required: true }, { name: "title", label: "제목", type: "text", required: true }, { name: "iswc", label: "ISWC", type: "text" }]}
             toBody={compact} />
         </Section>
         <Section title="facts 범위 생성">
           <RegisterForm path="/scopes" invalidate={["scope", "facts"]} submitLabel="범위 생성"
-            fields={[{ name: "factsScopeId", label: "범위 id", type: "text", required: true }, { name: "workId", label: "곡 id", type: "text", required: true }]}
+            fields={[{ name: "factsScopeId", label: "범위 id", type: "text", required: true }, { name: "workId", label: "범위 대상 곡 id", type: "text", required: true }]}
             toBody={compact} />
         </Section>
       </div>
@@ -46,7 +46,7 @@ export function Assets() {
             <dt>곡</dt><dd>{info.data.workId}</dd>
             <dt>마지막 버전</dt><dd>{info.data.lastVersion}</dd>
             <dt>봉인 시각(sealedThrough)</dt><dd><Instant iso={info.data.sealedThrough} /></dd>
-            <dt>최근 facts 봉인</dt><dd>{info.data.latestFactsSeal ? <Digest value={info.data.latestFactsSeal.digest} /> : <span className="muted">없음</span>}</dd>
+            <dt>최근 facts 봉인</dt><dd>{info.data.latestFactsSeal ? <Digest value={info.data.latestFactsSeal.digest} label="최근 facts 봉인" /> : <span className="muted">없음</span>}</dd>
           </dl>
         )}
       </Section>
@@ -59,7 +59,7 @@ export function Assets() {
             <RegisterForm path="/recordings" submitLabel="녹음 등록" invalidate={inv} key={`rec-${info.data?.workId}`}
               fields={[
                 { name: "recordingId", label: "녹음 id", type: "text", required: true },
-                { name: "workId", label: "곡 id", type: "text", required: true, initial: info.data?.workId ?? "" },
+                { name: "workId", label: "녹음 대상 곡 id", type: "text", required: true, initial: info.data?.workId ?? "" },
                 { name: "masterOwnerPartyId", label: "마스터 권리자 id", type: "text", required: true },
                 { name: "versionTitle", label: "버전명", type: "text", required: true }, { name: "isrc", label: "ISRC", type: "text" },
               ]} toBody={compact} />

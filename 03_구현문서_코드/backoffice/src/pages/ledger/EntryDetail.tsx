@@ -15,7 +15,7 @@ export function EntryDetail() {
   return (
     <>
       <Section title={`분개 ${entryId}`}>
-        <p><Link to="/ledger">← 원장</Link></p>
+        <p><Link to="/ledger">← 목록으로</Link></p>
         <ErrorPanel error={q.error} />
         {q.data && (
           <dl className="kv">

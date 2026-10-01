@@ -30,8 +30,8 @@ function VersionRow({ policyId, v }: { policyId: string; v: PolicyVersion }) {
         {v.rebindOfVersion !== null && <span className="muted">재고정(v{v.rebindOfVersion})</span>}
       </div>
       <dl className="kv">
-        <dt>policy digest</dt><dd><Digest value={v.policyDigest} /></dd>
-        <dt>facts digest</dt><dd><Digest value={v.factsDigest} /></dd>
+        <dt>policy digest</dt><dd><Digest value={v.policyDigest} label="policy" /></dd>
+        <dt>facts digest</dt><dd><Digest value={v.factsDigest} label="facts" /></dd>
         <dt>승인자</dt><dd>{v.approvedBy ?? <span className="muted">미승인</span>}</dd>
         <dt>작성</dt><dd>{v.createdBy} <Instant iso={v.createdAt} /></dd>
       </dl>

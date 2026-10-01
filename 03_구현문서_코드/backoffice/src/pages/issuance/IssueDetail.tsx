@@ -22,8 +22,8 @@ function memberShares(doc: unknown): { party: string; share: string }[] {
 }
 
 const sealHref = (d: string) => `/api/seals/${encodeURIComponent(d)}`;
-const SealLink = ({ digest }: { digest: string }) => (
-  <span className="row-actions"><Digest value={digest} /> <a href={sealHref(digest)} target="_blank" rel="noreferrer">봉인 보기</a></span>
+const SealLink = ({ digest, label }: { digest: string; label: string }) => (
+  <span className="row-actions"><Digest value={digest} label={`봉인 ${label}`} /> <a href={sealHref(digest)} target="_blank" rel="noreferrer" aria-label={`봉인[${label}] 보기`}>봉인 보기</a></span>
 );
 const Match = ({ ok }: { ok: boolean }) => <span className={`badge ${ok ? "ok" : "bad"}`}>{ok ? "일치" : "불일치"}</span>;
 
@@ -50,10 +50,10 @@ export function IssueDetail() {
             <table className="data">
               <thead><tr><th scope="col">봉인</th><th scope="col">digest</th></tr></thead>
               <tbody>
-                <tr><td>facts</td><td><SealLink digest={a.expected.factsDigest} /></td></tr>
-                <tr><td>정책</td><td><SealLink digest={a.expected.policyDigest} /></td></tr>
-                <tr><td>투영</td><td><SealLink digest={a.expected.projectionDigest} /></td></tr>
-                <tr><td>멤버</td><td><SealLink digest={a.expected.membersDigest} /></td></tr>
+                <tr><td>facts</td><td><SealLink digest={a.expected.factsDigest} label="facts" /></td></tr>
+                <tr><td>정책</td><td><SealLink digest={a.expected.policyDigest} label="policy" /></td></tr>
+                <tr><td>투영</td><td><SealLink digest={a.expected.projectionDigest} label="투영" /></td></tr>
+                <tr><td>멤버</td><td><SealLink digest={a.expected.membersDigest} label="멤버" /></td></tr>
               </tbody>
             </table>
           </Section>
@@ -62,9 +62,9 @@ export function IssueDetail() {
             <table className="data">
               <thead><tr><th scope="col">항목</th><th scope="col">봉인된 값</th><th scope="col">재도출 값</th><th scope="col">결과</th></tr></thead>
               <tbody>
-                <tr><td>투영</td><td><Digest value={a.expected.projectionDigest} /></td><td><Digest value={a.recomputed.projectionDigest} /></td>
+                <tr><td>투영</td><td><Digest value={a.expected.projectionDigest} label="대조 투영 봉인" /></td><td><Digest value={a.recomputed.projectionDigest} label="대조 투영 재도출" /></td>
                   <td><Match ok={a.expected.projectionDigest === a.recomputed.projectionDigest} /></td></tr>
-                <tr><td>멤버</td><td><Digest value={a.expected.membersDigest} /></td><td><Digest value={a.recomputed.membersDigest} /></td>
+                <tr><td>멤버</td><td><Digest value={a.expected.membersDigest} label="대조 멤버 봉인" /></td><td><Digest value={a.recomputed.membersDigest} label="대조 멤버 재도출" /></td>
                   <td><Match ok={a.expected.membersDigest === a.recomputed.membersDigest} /></td></tr>
               </tbody>
             </table>

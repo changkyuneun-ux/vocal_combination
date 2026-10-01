@@ -35,7 +35,7 @@ export function InstructionDetail() {
         <ErrorPanel error={q.error} />
         {d && (
           <div className="stack">
-            <p><Link to={`/payout/runs/${encodeURIComponent(d.payoutRunId)}`}>← 지급 run {d.payoutRunId}</Link></p>
+            <p><Link to={`/payout/runs/${encodeURIComponent(d.payoutRunId)}`}>← 상위 목록 {d.payoutRunId}</Link></p>
             <p>권리자 {d.partyId} · 상태 <StatusBadge status={d.status} />{d.holdReason && <> · 보류 사유 <strong>{d.holdReason}</strong></>}
               {reason && <> · 실패 사유 <strong>{reason}</strong> <span className="muted">(감사 PAYOUT_FAILED 기록)</span></>}</p>
             <p>총액 <Money krw={d.grossKrw} /> · 원천세 <Money krw={d.withholdingKrw} /> · 실지급 <Money krw={d.netKrw} /></p>

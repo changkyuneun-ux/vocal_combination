@@ -63,7 +63,7 @@ export function BatchDetail() {
         {view.data && (
           <dl className="kv">
             <dt>상태</dt><dd><StatusBadge status={view.data.status} /> <span className="muted">진행: {view.data.progress}</span></dd>
-            <dt>manifest digest</dt><dd>{row?.batchManifestDigest ? <Digest value={row.batchManifestDigest} /> : <span className="muted">{lookupMissing ? "목록 조회 범위 밖" : "—"}</span>}</dd>
+            <dt>manifest digest</dt><dd>{row?.batchManifestDigest ? <Digest value={row.batchManifestDigest} label="manifest" /> : <span className="muted">{lookupMissing ? "목록 조회 범위 밖" : "—"}</span>}</dd>
             <dt>기간(UTC)</dt><dd>{row ? <><Instant iso={row.periodStart} /> ~ <Instant iso={row.periodEnd} /></> : lookupMissing ? "목록 조회 범위 밖" : "—"}</dd>
             <dt>확정</dt><dd>{row?.confirmedBy ? <>{row.confirmedBy} <Instant iso={row.confirmedAt} /></> : lookupMissing ? "목록 조회 범위 밖" : "—"}</dd>
           </dl>
@@ -77,7 +77,7 @@ export function BatchDetail() {
         <p>확정은 정산 담당(SPACE_SETTLE, usr_settle)이 하며 배치 생성자와 달라야 합니다. 현재 사용자: <strong>{actor}</strong></p>
         <button type="button" className="btn primary" disabled={!check.ok || m.isPending} onClick={() => m.mutate(batchId)}>확정</button>
         {!check.ok && <p className="muted" role="status">확정할 수 없음: {check.reason}</p>}
-        {m.isSuccess && <p className="muted" role="status">확정했습니다. manifest <Digest value={m.data.manifestDigest} /></p>}
+        {m.isSuccess && <p className="muted" role="status">확정했습니다. manifest <Digest value={m.data.manifestDigest} label="확정 manifest" /></p>}
         <ErrorPanel error={m.error} />
         {confirmed && (
           <p role="status">원장 반영: {posted} / {confirmedIds.length} run{posted === confirmedIds.length ? " (완료)" : " (진행 중)"}</p>
@@ -97,8 +97,8 @@ export function BatchDetail() {
             { key: "runId", label: "run", render: (r) => <Link to={`/settlement/runs/${encodeURIComponent(r.runId)}`}>{r.runId}</Link> },
             { key: "status", label: "상태", render: (r) => <StatusBadge status={r.status} /> },
             { key: "snapshotId", label: "봉인" }, { key: "eventCount", label: "이벤트 수" },
-            { key: "resultDigest", label: "결과 digest", render: (r) => r.resultDigest ? <Digest value={r.resultDigest} /> : "—" },
-            { key: "diagnostics", label: "진단", render: (r) => <details><summary>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
+            { key: "resultDigest", label: "결과 digest", render: (r) => r.resultDigest ? <Digest value={r.resultDigest} label={`${r.runId} 결과`} /> : "—" },
+            { key: "diagnostics", label: "진단", render: (r) => <details><summary aria-label={`진단[${r.runId}] 보기`}>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
             { key: "verifiedBy", label: "검증자", render: (r) => r.verifiedBy ?? "—" },
             { key: "createdAt", label: "생성(UTC)", render: (r) => <Instant iso={r.createdAt} /> },
           ]} />

@@ -25,7 +25,7 @@ export function Quarantine() {
       <DataTable<QuarantineRow> rows={list.pages} empty="열린 격리가 없습니다."
         columns={[
           { key: "quarantineId", label: "격리" }, { key: "snapshotId", label: "발행 봉인" }, { key: "reason", label: "사유" },
-          { key: "diagnostics", label: "진단", render: (r) => <details><summary>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
+          { key: "diagnostics", label: "진단", render: (r) => <details><summary aria-label={`진단[${r.snapshotId}] 보기`}>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
           { key: "createdAt", label: "생성(UTC)", render: (r) => <Instant iso={r.createdAt} /> },
           { key: "act", label: "작업", render: (r) => (
             <button type="button" className="btn tiny" aria-label={`격리[${r.snapshotId}] 해제`} disabled={m.isPending} onClick={() => m.mutate(r.snapshotId)}>해제</button>

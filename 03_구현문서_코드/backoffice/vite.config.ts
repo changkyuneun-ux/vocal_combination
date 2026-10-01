@@ -8,5 +8,5 @@ export default defineConfig({
       "/api": { target: "http://127.0.0.1:8080", rewrite: (p) => p.replace(/^\/api/, "") },
     },
   },
-  test: { include: ["src/**/*.test.ts"], environment: "node" },
+  test: { include: ["src/**/*.test.ts"], exclude: ["e2e/**", "node_modules/**"], environment: "node" },
 });
