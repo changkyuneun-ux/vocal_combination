@@ -470,7 +470,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 6. 시계 `2026-03-02T00:00:00.000Z` → `usr_ops` 배치 생성(2026-02-01 ~ 2026-03-01) → run이 모두 `VERIFIED`가 될 때까지 화면 자동 갱신을 기다림(`expect.poll` 최대 60초) → `usr_settle` "확정" → 원장 분개 수 = 확정 run 수.
 7. `sys_ingest`로 확정된 구매 하나에 확정 후 환불(전액) → `/settlement/batches/...`가 아니라 `/ledger`에서 `REVERSAL` 분개 1건, 매출 행 펼침에 역분개 표시.
 8. `usr_settle`로 `/settlement/holds`에서 `FRAUD_REVIEW` 보류 "해제 제안 보기" → 제안대로 "해제" → 상태 해제, 시산표 합 0.
-9. `usr_settle2`로 미지급금 권리자 전원 프로필 등록(개인 `DOMESTIC_INDIVIDUAL`, 계좌 토큰 `acct_<party>`, KYC 확인, 첫 지급 가능 2026-01-01) → 냉각 표시 확인 → 시계 `+3일` → 냉각 표시 사라짐. (초기 보류 30일: 첫 지급 가능 2026-01-01이므로 2026-03-05 기준 지남.)
+9. `usr_settle2`로 미지급금 권리자 전원 프로필 등록(개인 `DOMESTIC_INDIVIDUAL`, 계좌 토큰 `acct_<party>`, KYC 확인, 첫 지급 가능 시각은 서버가 등록 시각으로 정함) → 냉각 표시 확인 → 시계 `+30일` → 냉각 표시 사라짐. (`first_payable_at`은 서버가 프로필 첫 등록 시각으로 정한다 — 입력 필드가 아니다. 초기 보류 30일과 냉각 72시간이 모두 지나도록 +30일.)
 10. `/dev/psp`에서 **지급 실행 전에** 권리자 `pty_label`의 결과를 `FAILED`로 지정(권리자별) → `usr_settle`로 지급 실행(asOf = 현재) → 지시 표가 자동 갱신되어 `pty_label`은 `FAILED`, 최소 지급액 이상인 나머지는 `SUBMITTED`, 미만은 `CARRIED` → `/dev/psp`에서 `SUBMITTED` 지시마다 "webhook 보내기"(repeat 1) → 그 지시들 `PAID`. 단언: `PAID` ≥ 1, `FAILED` = 1, `CARRIED` ≥ 1(금액 구성이 이를 만족하지 않으면 5단계 금액을 조정 — 최소 지급액 10,000원을 넘는 권리자와 못 넘는 권리자가 둘 다 생기게), `FAILED` 지시의 금액이 그 권리자 미지급금 잔액으로 복원(원장 화면).
 11. `/statements`에서 `PAID`를 받은 권리자 하나와 `CARRIED` 하나를 골라 대조 표시 둘 다 초록, 헤더 점검 배지 "점검 정상", 대시보드 체크리스트 11단계 모두 완료.
 
