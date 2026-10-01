@@ -152,8 +152,11 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
     check("run.holdings", run.holdings, K.RUN_SUMS_KEYS, K.RUN_SUMS_KEYS);
     // 격리 행은 엔진 진단으로 run이 FAILED일 때만 생기고(settlement/quarantine.ts), 발행 사전 검사가 정산 불가 조합의 발행을 막으므로
     // API로 도달할 경로가 없다. 그래서 비어 있으면 건너뛰되 조용히 넘기지 않고 주석(annotation)으로 남긴다.
-    test.info().annotations.push({ type: "quarantine", description: "격리 행을 만들 수 있는 API 경로가 없어 /quarantine 키 검사는 행이 있을 때만 수행" });
-    checkList("/quarantine", await get(request, "usr_ops", "/quarantine"), K.QUARANTINE_KEYS, [], true);
+    const quarantine = await get<Paged>(request, "usr_ops", "/quarantine");
+    if (quarantine.items.length === 0) {
+      test.info().annotations.push({ type: "quarantine", description: "격리 행을 만들 수 있는 API 경로가 없어 /quarantine 키 검사를 건너뜀(행 없음)" });
+    }
+    checkList("/quarantine", quarantine, K.QUARANTINE_KEYS, [], true);
     checkList("/quarantine?open=true", await get(request, "usr_ops", "/quarantine?open=true"), K.QUARANTINE_KEYS, [], true);
     const hold = checkList("/holds", await get(request, "usr_ops", "/holds"), K.HOLD_KEYS, K.HOLD_AMOUNT_KEYS)!; // FLAGGED 구매가 FRAUD_REVIEW 보류를 만든다.
     {

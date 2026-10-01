@@ -145,7 +145,8 @@ export async function prepareSettled(request: APIRequestContext): Promise<Settle
       const failed = items.filter((r) => r.status === "FAILED");
       if (failed.length > 0) throw new Error(`run이 FAILED: ${failed.map((r) => r.runId).join(", ")}`);
       return items;
-    },    (rs) => rs.length > 0 && rs.every((r) => r.status === "VERIFIED"),
+    },
+    (rs) => rs.length > 0 && rs.every((r) => r.status === "VERIFIED"),
   );
   const runIds = runs.map((r) => r.runId);
 

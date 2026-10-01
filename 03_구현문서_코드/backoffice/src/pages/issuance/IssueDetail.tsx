@@ -51,7 +51,7 @@ export function IssueDetail() {
               <thead><tr><th scope="col">봉인</th><th scope="col">digest</th></tr></thead>
               <tbody>
                 <tr><td>facts</td><td><SealLink digest={a.expected.factsDigest} label="facts" /></td></tr>
-                <tr><td>정책</td><td><SealLink digest={a.expected.policyDigest} label="정책" /></td></tr>
+                <tr><td>정책</td><td><SealLink digest={a.expected.policyDigest} label="policy" /></td></tr>
                 <tr><td>투영</td><td><SealLink digest={a.expected.projectionDigest} label="투영" /></td></tr>
                 <tr><td>멤버</td><td><SealLink digest={a.expected.membersDigest} label="멤버" /></td></tr>
               </tbody>
