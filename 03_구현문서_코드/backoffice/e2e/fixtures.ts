@@ -1,17 +1,26 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test as base, type APIRequestContext, type Page } from "@playwright/test";
 
 /** 백엔드에 직접 호출한다(브라우저는 Vite 프록시 /api를 쓰지만, 검증 보조 호출은 같은 서버의 8080으로 간다). */
 export const BACKEND = "http://127.0.0.1:8080";
 
-/** 사전 조건 확인: 개발 서버가 RC_DEV=1로 떠 있어야 한다(`npm run dev:db -w rights-core`를 한 번 실행했어야 한다). */
-test.beforeAll(async ({ request }) => {
-  const res = await request.get(`${BACKEND}/dev/clock`).catch(() => null);
-  if (res === null || res.status() === 404 || !res.ok()) {
-    throw new Error(
-      `rights-core 개발 서버(${BACKEND}/dev/clock)가 응답하지 않거나 404다. 먼저 docker compose up -d 와 npm run dev:db -w rights-core 를 실행하고 npm run dev --prefix ../rights-core 로 RC_DEV 모드 서버를 띄운다.`,
-    );
-  }
+/**
+ * 사전 조건 확인(워커마다 한 번, 이 test를 쓰는 모든 spec에 자동 적용): 개발 서버가 RC_DEV=1로 떠 있어야 한다
+ * (`npm run dev:db -w rights-core`를 한 번 실행했어야 한다). spec은 @playwright/test가 아니라 이 파일의 test·expect를 import한다.
+ */
+export const test = base.extend<object, { devServerCheck: void }>({
+  devServerCheck: [async ({ playwright }, use) => {
+    const ctx = await playwright.request.newContext();
+    const res = await ctx.get(`${BACKEND}/dev/clock`).catch(() => null);
+    await ctx.dispose();
+    if (res === null || res.status() === 404 || !res.ok()) {
+      throw new Error(
+        `rights-core 개발 서버(${BACKEND}/dev/clock)가 응답하지 않거나 404다. 먼저 docker compose up -d 와 npm run dev:db -w rights-core 를 실행하고 npm run dev --prefix ../rights-core 로 RC_DEV 모드 서버를 띄운다.`,
+      );
+    }
+    await use();
+  }, { auto: true, scope: "worker" }],
 });
+export { expect };
 
 export type ApiResult<T = unknown> = { status: number; body: T };
 
@@ -21,7 +30,7 @@ export async function api<T = unknown>(
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
   if (actor) headers["x-actor"] = actor;
-  const res = await request.fetch(`${BACKEND}${path}`, { method, headers, data: body === undefined ? undefined : body });
+  const res = await request.fetch(`${BACKEND}${path}`, { method, headers, data: body });
   const text = await res.text();
   let parsed: unknown = text;
   try { parsed = text ? JSON.parse(text) : undefined; } catch { /* JSON 아님 */ }
@@ -37,7 +46,7 @@ export async function ok<T = unknown>(
   return r.body;
 }
 
-/** 개발 DB 초기화(시계·사용자 복원 포함). */
+/** 개발 DB 초기화(시계·사용자 복원 포함). /dev/reset은 TRUNCATE 전에 모든 큐를 멈추고 pg-boss offWork가 진행 중 작업을 기다리므로 이전 시나리오의 작업과 경합하지 않는다. */
 export async function resetAll(request: APIRequestContext): Promise<void> {
   await ok(request, null, "POST", "/dev/reset", {});
 }
@@ -125,12 +134,18 @@ export async function prepareSettled(request: APIRequestContext): Promise<Settle
 
   await ok(request, null, "POST", "/dev/clock/set", { at: "2026-04-02T00:00:00.000Z" });
   const batchId = "bat_e2e_1";
-  await ok(request, "usr_ops", "POST", "/batches", { batchId, periodStart: PERIOD_START, periodEnd: PERIOD_END });
+  const created = await ok<{ runs: unknown[]; skipped: unknown[] }>(request, "usr_ops", "POST", "/batches", { batchId, periodStart: PERIOD_START, periodEnd: PERIOD_END });
+  expect(created.runs.length, "발행 조합마다 run 1개").toBe(vcIds.length);
+  expect(created.skipped, "건너뛴 이벤트 없음").toEqual([]);
 
   const runs = await poll(
     "배치의 모든 run이 VERIFIED",
-    async () => (await ok<Paged<{ runId: string; status: string }>>(request, "usr_ops", "GET", `/batches/${batchId}/runs?limit=200`)).items,
-    (rs) => rs.length > 0 && rs.every((r) => r.status === "VERIFIED"),
+    async () => {
+      const items = (await ok<Paged<{ runId: string; status: string }>>(request, "usr_ops", "GET", `/batches/${batchId}/runs?limit=200`)).items;
+      const failed = items.filter((r) => r.status === "FAILED");
+      if (failed.length > 0) throw new Error(`run이 FAILED: ${failed.map((r) => r.runId).join(", ")}`);
+      return items;
+    },    (rs) => rs.length > 0 && rs.every((r) => r.status === "VERIFIED"),
   );
   const runIds = runs.map((r) => r.runId);
 

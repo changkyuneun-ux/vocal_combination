@@ -1,5 +1,5 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
-import { api, ok, poll, prepareSettled, type Settled } from "./fixtures.ts";
+import type { APIRequestContext } from "@playwright/test";
+import { api, expect, ok, poll, prepareSettled, test, type Settled } from "./fixtures.ts";
 import * as K from "../src/api/keys.ts";
 
 const DECIMAL = /^-?\d+$/;
@@ -44,15 +44,26 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
   let s: Settled;
   let instructionId = "";
   let payoutRunId = "";
+  let profiled: string[] = [];
 
   test.beforeAll(async ({ request }) => {
     test.setTimeout(180_000);
     s = await prepareSettled(request);
 
+    // 분쟁: 정산 뒤에 곡 작사 권리 주장을 분쟁으로 연다(열린 분쟁 1건).
+    await ok(request, "usr_editor", "POST", "/disputes", { disputeId: "dsp_e2e_1", targetType: "RIGHT_CLAIM", targetId: "c_lyrics", reason: "e2e contract" });
+    // 역분개: 확정 뒤 환불(sys_ingest) → 역분개가 생길 때까지.
+    await ok(request, "sys_ingest", "POST", "/revenue-events", {
+      eventId: "ev_e2e_rf1", sourceSystem: "app", sourceEventId: "ev_e2e_rf1", eventType: "REFUND", relatedEventId: s.eventIds[0], amountKrw: "5000",
+      currency: "KRW", occurredAt: "2026-04-02T00:00:00.000Z",
+    });
+    await poll("역분개", async () => (await get<Paged>(request, "usr_ops", "/reversals")).items, (xs) => xs.length > 0);
+
     // 지급: 권리자 프로필(계좌 토큰) → 30일 뒤 → 지급 실행 → 지시가 생길 때까지.
     const balances = (await get<Paged>(request, "usr_settle", "/ledger/accounts?limit=200")).items
       .filter((a) => a.partyId !== null && BigInt(a.balance as string) !== 0n).map((a) => a.partyId as string);
     expect(balances.length, "잔액이 있는 권리자").toBeGreaterThan(0);
+    profiled = balances;
     for (const partyId of balances) {
       await ok(request, "usr_settle", "PUT", `/parties/${partyId}/payout-profile`, { taxType: "DOMESTIC_INDIVIDUAL", kycVerified: true, payoutAccountRef: `tok_${partyId}` });
     }
@@ -70,6 +81,8 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
 
   test("플랫폼: users, dev/clock", async ({ request }) => {
     checkList("/users", await get(request, "usr_ops", "/users"), K.USER_KEYS);
+    check("/me", await get(request, "usr_ops", "/me"), K.USER_KEYS);
+    checkList("/audit", await get(request, "usr_ops", "/audit"), K.AUDIT_KEYS);
     check("/dev/clock", await ok(request, null, "GET", "/dev/clock"), K.CLOCK_KEYS);
   });
 
@@ -89,7 +102,7 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
       check(`facts.${name}[0]`, xs[0], keys);
     }
     expect(Array.isArray(facts.disputes)).toBe(true);
-    checkList("/disputes", await get(request, "usr_editor", "/disputes"), K.DISPUTE_KEYS, [], true);
+    checkList("/disputes", await get(request, "usr_editor", "/disputes"), K.DISPUTE_KEYS);
   });
 
   test("정책: policies, versions, version detail", async ({ request }) => {
@@ -137,6 +150,9 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
     const run = check("/runs/:id", await get(request, "usr_ops", `/runs/${s.runIds[0]}`), K.RUN_DETAIL_KEYS);
     check("run.lines", run.lines, K.RUN_SUMS_KEYS, K.RUN_SUMS_KEYS);
     check("run.holdings", run.holdings, K.RUN_SUMS_KEYS, K.RUN_SUMS_KEYS);
+    // 격리 행은 엔진 진단으로 run이 FAILED일 때만 생기고(settlement/quarantine.ts), 발행 사전 검사가 정산 불가 조합의 발행을 막으므로
+    // API로 도달할 경로가 없다. 그래서 비어 있으면 건너뛰되 조용히 넘기지 않고 주석(annotation)으로 남긴다.
+    test.info().annotations.push({ type: "quarantine", description: "격리 행을 만들 수 있는 API 경로가 없어 /quarantine 키 검사는 행이 있을 때만 수행" });
     checkList("/quarantine", await get(request, "usr_ops", "/quarantine"), K.QUARANTINE_KEYS, [], true);
     checkList("/quarantine?open=true", await get(request, "usr_ops", "/quarantine?open=true"), K.QUARANTINE_KEYS, [], true);
     const hold = checkList("/holds", await get(request, "usr_ops", "/holds"), K.HOLD_KEYS, K.HOLD_AMOUNT_KEYS)!; // FLAGGED 구매가 FRAUD_REVIEW 보류를 만든다.
@@ -144,7 +160,7 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
       const sg = check("/holds/:id/suggestion", await get(request, "usr_settle", `/holds/${hold.holdingId}/suggestion`), K.HOLD_SUGGESTION_KEYS, K.HOLD_SUGGESTION_AMOUNT_KEYS);
       for (const [k, v] of Object.entries(sg.allocation as Obj)) expect(v, `suggestion.allocation.${k}`).toMatch(DECIMAL);
     }
-    checkList("/reversals", await get(request, "usr_ops", "/reversals"), K.REVERSAL_KEYS, [], true);
+    checkList("/reversals", await get(request, "usr_ops", "/reversals"), K.REVERSAL_KEYS);
     const inv = await get<Obj>(request, "usr_settle", "/settlement/invariants");
     expect(typeof inv).toBe("object");
   });
@@ -162,7 +178,7 @@ test.describe("API 계약(types.ts ↔ rights-core)", () => {
   test("지급: payout-policy, profile, runs, instructions, payout detail, statements", async ({ request }) => {
     const pol = check("/payout-policy", await get(request, "usr_settle", "/payout-policy"), K.PAYOUT_POLICY_KEYS, K.PAYOUT_POLICY_AMOUNT_KEYS);
     expect(typeof pol.initialHoldDays).toBe("number");
-    const party = ((await get<Paged>(request, "usr_settle", "/ledger/accounts?limit=200")).items.find((a) => a.partyId !== null)!.partyId) as string;
+    const party = profiled[0]!; // 프로필을 만든 권리자
     check("/parties/:id/payout-profile", await get(request, "usr_settle", `/parties/${party}/payout-profile`), K.PAYOUT_PROFILE_KEYS);
     const pr = checkList("/payout-runs", await get(request, "usr_settle", "/payout-runs"), K.PAYOUT_RUN_KEYS)!;
     check("payoutRun.statusCounts", pr.statusCounts, ["PENDING", "SUBMITTED", "PAID", "FAILED", "CARRIED", "HELD"], [], false);
