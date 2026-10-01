@@ -1,6 +1,9 @@
 {
   "name": "vocal-combination-code",
   "private": true,
-  "workspaces": ["vcrl", "rights-core"],
+  "workspaces": ["vcrl", "rights-core", "backoffice"],
+  "scripts": {
+    "dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"
+  },
   "engines": { "node": ">=24" }
 }

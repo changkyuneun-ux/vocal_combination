@@ -1,0 +1,24 @@
+import { describe, expect, it } from "vitest";
+import { formatInstant, formatKrw, shortDigest, sumKrw } from "./format.ts";
+
+describe("format", () => {
+  it("formatKrw", () => {
+    expect(formatKrw("0")).toBe("0원");
+    expect(formatKrw("1234567")).toBe("1,234,567원");
+    expect(formatKrw("-1234")).toBe("−1,234원");
+    expect(formatKrw("12345678901234567890")).toBe("12,345,678,901,234,567,890원");
+    expect(formatKrw("-12345678901234567890")).toBe("−12,345,678,901,234,567,890원");
+  });
+  it("shortDigest", () => {
+    expect(shortDigest("vcrl:sha256:abcdef0123456789ffff")).toBe("abcdef012345");
+    expect(shortDigest("abcdef0123456789")).toBe("abcdef012345");
+  });
+  it("formatInstant keeps UTC", () => {
+    expect(formatInstant("2026-03-01T10:00:00.000Z")).toBe("2026-03-01 10:00:00.000Z");
+  });
+  it("sumKrw", () => {
+    expect(sumKrw(["1", "-3", "10"])).toBe("8");
+    expect(sumKrw([])).toBe("0");
+    expect(sumKrw(["9007199254740993", "1"])).toBe("9007199254740994");
+  });
+});

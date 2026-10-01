@@ -1,0 +1,49 @@
+import { currentActor } from "../app/actor.ts";
+
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  diagnostics: unknown[];
+  constructor(status: number, code: string, message: string, diagnostics: unknown[] = []) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.diagnostics = diagnostics;
+  }
+}
+
+export type Paged<T> = { items: T[]; next: string | null };
+export type Method = "GET" | "POST" | "PUT";
+export type ApiOptions = { actorOverride?: string; fetchImpl?: typeof fetch };
+
+async function request<T>(method: Method, url: string, body: unknown, actor: string | null, fetchImpl?: typeof fetch): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (actor) headers["x-actor"] = actor;
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const f = fetchImpl ?? fetch;
+  const res = await f(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await res.text();
+  let json: unknown = undefined;
+  try { json = text ? JSON.parse(text) : undefined; } catch { /* 본문이 JSON이 아님 */ }
+  if (!res.ok) {
+    const e = (json ?? {}) as { code?: unknown; message?: unknown; diagnostics?: unknown };
+    throw new ApiError(
+      res.status,
+      typeof e.code === "string" ? e.code : `HTTP_${res.status}`,
+      typeof e.message === "string" ? e.message : text || res.statusText || `HTTP ${res.status}`,
+      Array.isArray(e.diagnostics) ? e.diagnostics : [],
+    );
+  }
+  return json as T;
+}
+
+/** /api 접두, x-actor = currentActor()(actorOverride로 덮어쓴다). 비2xx는 ApiError. */
+export function api<T>(method: Method, path: string, body?: unknown, opts: ApiOptions = {}): Promise<T> {
+  return request<T>(method, `/api${path}`, body, opts.actorOverride ?? currentActor(), opts.fetchImpl);
+}
+
+/** /api/dev/… , x-actor 없음. */
+export function devApi<T>(method: Method, path: string, body?: unknown, opts: Pick<ApiOptions, "fetchImpl"> = {}): Promise<T> {
+  return request<T>(method, `/api/dev${path}`, body, null, opts.fetchImpl);
+}
