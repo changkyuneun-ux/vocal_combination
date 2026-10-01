@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocationCheck, canConfirm, defaultPeriod, nextBatchId } from "./logic.ts";
+import { allocationCheck, canConfirm, defaultPeriod, nextBatchId, remainingHold } from "./logic.ts";
 
 describe("defaultPeriod", () => {
   it("지난달 1일 ~ 이번 달 1일(UTC)", () => {
@@ -52,5 +52,20 @@ describe("allocationCheck", () => {
     expect(allocationCheck({ a: "5", b: "" }, "5").ok).toBe(false);
     expect(allocationCheck({ a: "-5", b: "10" }, "5").ok).toBe(false);
     expect(allocationCheck({ a: "1.5" }, "1").ok).toBe(false);
+  });
+});
+
+describe("remainingHold", () => {
+  const h = (lineSeq: number, amountKrw: string, extra: Partial<{ runId: string; eventId: string; bucket: string; reason: string }> = {}) =>
+    ({ runId: "r1", eventId: "e1", bucket: "rights", reason: "FRAUD_REVIEW", lineSeq, amountKrw, ...extra });
+  it("역분개 행이 없으면 원 금액", () => {
+    expect(remainingHold(h(1, "700000"), [h(1, "700000")])).toBe(700000n);
+  });
+  it("같은 키의 line_seq>1 음수 행을 더한다", () => {
+    expect(remainingHold(h(1, "700000"), [h(1, "700000"), h(2, "-200000"), h(3, "-100000")])).toBe(400000n);
+  });
+  it("다른 run·이벤트·버킷·사유의 행은 무시한다", () => {
+    const all = [h(1, "700000"), h(2, "-1", { runId: "r2" }), h(2, "-1", { eventId: "e2" }), h(2, "-1", { bucket: "x" }), h(2, "-1", { reason: "RIGHTS_DISPUTE" })];
+    expect(remainingHold(all[0]!, all)).toBe(700000n);
   });
 });

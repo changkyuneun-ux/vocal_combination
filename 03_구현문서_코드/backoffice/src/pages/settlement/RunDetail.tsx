@@ -43,7 +43,7 @@ export function RunDetail() {
             <dt>결과 digest</dt><dd>{run.data.resultDigest ? <Digest value={run.data.resultDigest} /> : "—"}</dd>
           </dl>
         )}
-        <p className="muted">진단은 실패한 run의 격리 화면과 아래 작업 오류에 표시됩니다.</p>
+        <p className="muted">진단은 해당 배치 상세의 run 표에 표시됩니다.</p>
       </Section>
       <Section title="배분 라인 합계">
         {run.data && <DataTable rows={sumRows(run.data.lines)} columns={cols} />}
@@ -59,12 +59,12 @@ export function RunDetail() {
           <label className="field"><span>무효화 사유(1~{MAX_REASON}자)</span>
             <textarea value={reason} maxLength={MAX_REASON} onChange={(e) => setReason(e.target.value)} required />
           </label>
-          <button type="submit" className="btn" disabled={!reasonOk || voidM.isPending}>무효화</button>
+          <button type="submit" className="btn" aria-label={`run[${runId}] 무효화`} disabled={!reasonOk || voidM.isPending}>무효화</button>
           {voidM.isSuccess && <p className="muted" role="status">무효화했습니다.</p>}
           <ErrorPanel error={voidM.error} /><Diagnostics error={voidM.error} />
         </form>
         <div className="row-actions">
-          <button type="button" className="btn" disabled={requeueM.isPending} onClick={() => requeueM.mutate(runId)}>재대기</button>
+          <button type="button" className="btn" aria-label={`run[${runId}] 재대기`} disabled={requeueM.isPending} onClick={() => requeueM.mutate(runId)}>재대기</button>
         </div>
         {requeueM.isSuccess && <p className="muted" role="status">재대기했습니다.</p>}
         <ErrorPanel error={requeueM.error} /><Diagnostics error={requeueM.error} />

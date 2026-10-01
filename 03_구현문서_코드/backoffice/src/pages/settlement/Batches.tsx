@@ -34,7 +34,7 @@ function CreateForm({ now, taken }: { now: string; taken: string[] }) {
       <label className="field"><span>기간 시작(UTC)</span><input type="datetime-local" step={1} value={start} onChange={(e) => setStart(e.target.value)} required /></label>
       <label className="field"><span>기간 끝(UTC)</span><input type="datetime-local" step={1} value={end} onChange={(e) => setEnd(e.target.value)} required /></label>
       <button type="submit" className="btn primary" disabled={!ok || m.isPending}>배치 만들기</button>
-      {m.isSuccess && <p className="muted" role="status">배치를 만들었습니다: {batchId}</p>}
+      {m.isSuccess && <p className="muted" role="status">배치를 만들었습니다: {m.variables?.batchId}</p>}
       <ErrorPanel error={m.error} />
     </form>
   );

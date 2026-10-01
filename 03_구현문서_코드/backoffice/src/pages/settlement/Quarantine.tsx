@@ -28,7 +28,7 @@ export function Quarantine() {
           { key: "diagnostics", label: "진단", render: (r) => <details><summary>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
           { key: "createdAt", label: "생성(UTC)", render: (r) => <Instant iso={r.createdAt} /> },
           { key: "act", label: "작업", render: (r) => (
-            <button type="button" className="btn tiny" aria-label={`${r.snapshotId} 해제`} disabled={m.isPending} onClick={() => m.mutate(r.snapshotId)}>해제</button>
+            <button type="button" className="btn tiny" aria-label={`격리[${r.snapshotId}] 해제`} disabled={m.isPending} onClick={() => m.mutate(r.snapshotId)}>해제</button>
           ) },
         ]} />
       <Pager next={list.next} loadMore={list.loadMore} />

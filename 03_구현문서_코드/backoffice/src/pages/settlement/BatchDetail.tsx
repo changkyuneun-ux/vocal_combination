@@ -46,6 +46,7 @@ export function BatchDetail() {
   // 다이제스트·기간은 목록 응답에 있다(상태가 같은 배치만 가져온다).
   const meta = useGet<Paged<BatchRow>>(["batch-meta", batchId, view.data?.status ?? ""], `/batches?limit=200&status=${view.data?.status ?? ""}`, { enabled: view.data !== undefined });
   const row = meta.data?.items.find((b) => b.batchId === batchId);
+  const lookupMissing = meta.data !== undefined && row === undefined;
   const confirmed = view.data?.status === "CONFIRMED";
   const confirmedIds = (view.data?.runs ?? []).filter((r) => r.status === "CONFIRMED").map((r) => r.runId);
   const entries = useGet<Paged<EntryRow>>(["batch-ledger", batchId], settlementEntriesPath, { enabled: confirmed, refetchInterval: (d) => (confirmed && d !== undefined && postedRunCount(d, confirmedIds) < confirmedIds.length ? POLL_MS : false) });
@@ -58,12 +59,13 @@ export function BatchDetail() {
       <Section title={`배치 ${batchId}`}>
         <p><Link to="/settlement/batches">← 배치 목록</Link></p>
         <ErrorPanel error={view.error} />
+        <ErrorPanel error={meta.error} />
         {view.data && (
           <dl className="kv">
             <dt>상태</dt><dd><StatusBadge status={view.data.status} /> <span className="muted">진행: {view.data.progress}</span></dd>
-            <dt>manifest digest</dt><dd>{row?.batchManifestDigest ? <Digest value={row.batchManifestDigest} /> : <span className="muted">—</span>}</dd>
-            <dt>기간(UTC)</dt><dd>{row ? <><Instant iso={row.periodStart} /> ~ <Instant iso={row.periodEnd} /></> : "—"}</dd>
-            <dt>확정</dt><dd>{row?.confirmedBy ? <>{row.confirmedBy} <Instant iso={row.confirmedAt} /></> : "—"}</dd>
+            <dt>manifest digest</dt><dd>{row?.batchManifestDigest ? <Digest value={row.batchManifestDigest} /> : <span className="muted">{lookupMissing ? "목록 조회 범위 밖" : "—"}</span>}</dd>
+            <dt>기간(UTC)</dt><dd>{row ? <><Instant iso={row.periodStart} /> ~ <Instant iso={row.periodEnd} /></> : lookupMissing ? "목록 조회 범위 밖" : "—"}</dd>
+            <dt>확정</dt><dd>{row?.confirmedBy ? <>{row.confirmedBy} <Instant iso={row.confirmedAt} /></> : lookupMissing ? "목록 조회 범위 밖" : "—"}</dd>
           </dl>
         )}
         {active && <p className="muted" role="status">정산 진행 중 — {POLL_MS / 1000}초마다 자동 갱신합니다.</p>}
@@ -96,6 +98,7 @@ export function BatchDetail() {
             { key: "status", label: "상태", render: (r) => <StatusBadge status={r.status} /> },
             { key: "snapshotId", label: "봉인" }, { key: "eventCount", label: "이벤트 수" },
             { key: "resultDigest", label: "결과 digest", render: (r) => r.resultDigest ? <Digest value={r.resultDigest} /> : "—" },
+            { key: "diagnostics", label: "진단", render: (r) => <details><summary>보기</summary><pre>{JSON.stringify(r.diagnostics, null, 2)}</pre></details> },
             { key: "verifiedBy", label: "검증자", render: (r) => r.verifiedBy ?? "—" },
             { key: "createdAt", label: "생성(UTC)", render: (r) => <Instant iso={r.createdAt} /> },
           ]} />

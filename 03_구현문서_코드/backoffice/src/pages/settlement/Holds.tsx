@@ -10,17 +10,17 @@ import { setActor, useActor } from "../../app/actor.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
 import { releaseHold } from "../../api/settlement.ts";
 import type { HoldRow, HoldSuggestion } from "../../api/types.ts";
-import { allocationCheck } from "./logic.ts";
+import { allocationCheck, remainingHold } from "./logic.ts";
 
 const SETTLE_ACTOR = "usr_settle";
 type Line = { party: string; amount: string };
 const toLines = (a: Record<string, string>): Line[] => Object.entries(a).map(([party, amount]) => ({ party, amount }));
 
 /** 제안 응답이 오면 편집 표를 한 번 채운다(이후 편집은 그대로 둔다). */
-function Editor({ hold, suggestion, suggestionError }: { hold: HoldRow; suggestion?: HoldSuggestion; suggestionError: unknown }) {
+function Editor({ hold, remaining, suggestion, suggestionError }: { hold: HoldRow; remaining: bigint; suggestion?: HoldSuggestion; suggestionError: unknown }) {
   const [lines, setLines] = useState<Line[] | null>(null);
   const shown = lines ?? (suggestion ? toLines(suggestion.allocation) : []);
-  const target = suggestion?.remainingKrw ?? hold.amountKrw;
+  const target = suggestion?.remainingKrw ?? remaining.toString();
   const allocation = Object.fromEntries(shown.filter((l) => l.party.trim() !== "").map((l) => [l.party.trim(), l.amount.trim()]));
   const dup = shown.filter((l) => l.party.trim() !== "").length !== Object.keys(allocation).length;
   const check = allocationCheck(allocation, target);
@@ -29,7 +29,7 @@ function Editor({ hold, suggestion, suggestionError }: { hold: HoldRow; suggesti
   const id = hold.holdingId;
   return (
     <div className="stack">
-      <p>보류 {id}: 보류액 <Money krw={hold.amountKrw} />{suggestion && <>, 남은 보류액 <Money krw={suggestion.remainingKrw} /></>}</p>
+      <p>보류 {id}: 원 보류액 <Money krw={hold.amountKrw} />, 남은 보류액 <Money krw={target} /></p>
       {suggestionError ? <ErrorPanel error={suggestionError} /> : null}
       {suggestionError ? <p className="muted">제안이 없으면 권리자를 직접 입력해 배분할 수 있습니다.</p> : null}
       <table className="data">
@@ -37,9 +37,9 @@ function Editor({ hold, suggestion, suggestionError }: { hold: HoldRow; suggesti
         <tbody>
           {shown.map((l, i) => (
             <tr key={i}>
-              <td><input aria-label={`${id} 권리자 ${i + 1}`} value={l.party} onChange={(e) => edit(i, { party: e.target.value })} /></td>
-              <td><input aria-label={`${id} 금액 ${i + 1}`} inputMode="numeric" value={l.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></td>
-              <td><button type="button" className="btn tiny" aria-label={`${id} 배분 ${i + 1} 삭제`} onClick={() => setLines(shown.filter((_, j) => j !== i))}>삭제</button></td>
+              <td><input aria-label={`보류[${id}] 권리자[${l.party || `새 ${i + 1}`}]`} value={l.party} onChange={(e) => edit(i, { party: e.target.value })} /></td>
+              <td><input aria-label={`보류[${id}] 금액[${l.party || `새 ${i + 1}`}]`} inputMode="numeric" value={l.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></td>
+              <td><button type="button" className="btn tiny" aria-label={`보류[${id}] 배분삭제[${l.party || `새 ${i + 1}`}]`} onClick={() => setLines(shown.filter((_, j) => j !== i))}>삭제</button></td>
             </tr>
           ))}
         </tbody>
@@ -48,10 +48,10 @@ function Editor({ hold, suggestion, suggestionError }: { hold: HoldRow; suggesti
         <button type="button" className="btn" onClick={() => setLines([...shown, { party: "", amount: "" }])}>배분 추가</button>
       </div>
       <p role="status" className={check.ok && !dup ? "muted" : "error-text"}>
-        배분 합계 <Money krw={check.sum.toString()} /> / 보류액 <Money krw={target} />
+        배분 합계 <Money krw={check.sum.toString()} /> / 남은 보류액 <Money krw={target} />
         {dup ? " — 같은 권리자가 중복되었습니다" : check.ok ? " — 일치" : ` — ${check.reason ?? ""}`}
       </p>
-      <button type="button" className="btn primary" aria-label={`${id} 해제`} disabled={!check.ok || dup || m.isPending}
+      <button type="button" className="btn primary" aria-label={`보류[${id}] 배분 해제`} disabled={!check.ok || dup || m.isPending}
         onClick={() => m.mutate({ holdingId: id, allocation })}>해제</button>
       {m.isSuccess && <p className="muted" role="status">해제했습니다: 분개 {String(m.data.entryId)}</p>}
       <ErrorPanel error={m.error} />
@@ -59,11 +59,11 @@ function Editor({ hold, suggestion, suggestionError }: { hold: HoldRow; suggesti
   );
 }
 
-function Suggestion({ hold }: { hold: HoldRow }) {
+function Suggestion({ hold, remaining }: { hold: HoldRow; remaining: bigint }) {
   const fraud = hold.reason === "FRAUD_REVIEW";
   const s = useGet<HoldSuggestion>(["hold-suggestion", String(hold.holdingId)], `/holds/${hold.holdingId}/suggestion`, { enabled: fraud });
   if (fraud && s.isPending) return <p className="muted">제안을 계산하는 중…</p>;
-  return <Editor hold={hold} suggestion={s.data} suggestionError={fraud ? s.error : null} />;
+  return <Editor hold={hold} remaining={remaining} suggestion={s.data} suggestionError={fraud ? s.error : null} />;
 }
 
 export function Holds() {
@@ -92,11 +92,11 @@ export function Holds() {
         </div>
       }>
         <ErrorPanel error={list.error} />
-        {list.pages.length === 0 ? <p className="muted">보류가 없습니다.</p> : (
+        {list.pages.every((h) => h.lineSeq !== 1) ? <p className="muted">보류가 없습니다.</p> : (
           <table className="data">
             <thead><tr>{["보류", "run", "이벤트", "버킷", "사유", "금액", "상태", "해제", "작업"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
             <tbody>
-              {list.pages.map((h) => (
+              {list.pages.filter((h) => h.lineSeq === 1).map((h) => (
                 <Fragment key={h.holdingId}>
                   <tr>
                     <td>{h.holdingId}</td>
@@ -106,12 +106,12 @@ export function Holds() {
                     <td>{h.release ? <>{h.release.releasedBy} <Instant iso={h.release.releasedAt} /></> : "—"}</td>
                     <td>
                       {h.release ? <span className="muted">해제됨</span> : (
-                        <button type="button" className="btn tiny" aria-expanded={open === h.holdingId} aria-label={`${h.holdingId} 해제 제안 보기`}
+                        <button type="button" className="btn tiny" aria-expanded={open === h.holdingId} aria-label={`보류[${h.holdingId}] 제안 보기`}
                           onClick={() => setOpen(open === h.holdingId ? null : h.holdingId)}>해제 제안 보기</button>
                       )}
                     </td>
                   </tr>
-                  {open === h.holdingId && !h.release && <tr><td colSpan={9}><Suggestion hold={h} /></td></tr>}
+                  {open === h.holdingId && !h.release && <tr><td colSpan={9}><Suggestion hold={h} remaining={remainingHold(h, list.pages)} /></td></tr>}
                 </Fragment>
               ))}
             </tbody>

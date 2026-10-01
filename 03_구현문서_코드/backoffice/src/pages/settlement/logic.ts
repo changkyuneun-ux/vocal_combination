@@ -48,3 +48,12 @@ export function allocationCheck(allocation: Record<string, string>, holdKrw: str
   const diff = sum - target;
   return diff === 0n ? { ok: true, sum, diff } : { ok: false, sum, diff, reason: `합계가 보류액과 ${diff > 0n ? "초과" : "부족"}합니다` };
 }
+
+export type HoldLike = { runId: string; eventId: string; bucket: string; reason: string; lineSeq: number; amountKrw: string };
+
+/** 남은 보류액 = line_seq 1 금액 + 같은 (run, event, bucket, reason)의 line_seq > 1 행 금액 합(역분개, 음수). 백엔드 remainingHold와 같다. */
+export function remainingHold(hold: HoldLike, all: HoldLike[]): bigint {
+  return all
+    .filter((x) => x.lineSeq > 1 && x.runId === hold.runId && x.eventId === hold.eventId && x.bucket === hold.bucket && x.reason === hold.reason)
+    .reduce((a, x) => a + BigInt(x.amountKrw), BigInt(hold.amountKrw));
+}
