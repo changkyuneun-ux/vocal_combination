@@ -15,9 +15,10 @@ import type { Jobs } from "../platform/jobs.ts";
 import type { PayoutProvider } from "../payout/provider.ts";
 import { ledgerRoutes } from "../ledger/routes.ts";
 import { payoutRoutes } from "../payout/routes.ts";
+import { devRoutes, type DevDeps } from "../dev/routes.ts";
 
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string };
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
@@ -57,5 +58,6 @@ export function buildServer(deps: Deps): FastifyInstance {
   settlementRoutes(app, deps);
   ledgerRoutes(app, deps);
   payoutRoutes(app, deps);
+  if (deps.dev !== undefined) devRoutes(app, { ...deps, dev: deps.dev });
   return app;
 }

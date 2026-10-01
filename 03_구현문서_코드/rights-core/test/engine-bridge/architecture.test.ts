@@ -41,3 +41,13 @@ test("src/payout does not import settlement (settlement/invariants reads payout/
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });
+
+test("only src/dev, src/http/server.ts and src/http/assemble.ts import src/dev (design 12.2-7)", () => {
+  const allowed = new Set(["http/server.ts", "http/assemble.ts"]);
+  const offenders = walk(SRC)
+    .map((p) => relative(SRC, p))
+    .filter((r) => !r.startsWith("dev/") && !allowed.has(r))
+    .filter((r) => /from\s+["'][^"']*\/dev\//.test(readFileSync(join(SRC, r), "utf8")))
+    .map((r) => r);
+  assert.deepEqual(offenders, []);
+});
