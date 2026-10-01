@@ -102,7 +102,8 @@ export function Holds() {
                     <td>{h.holdingId}</td>
                     <td><Link to={`/settlement/runs/${encodeURIComponent(h.runId)}`}>{h.runId}</Link></td>
                     <td>{h.eventId}</td><td>{h.bucket}</td><td>{h.reason}</td><td><Money krw={h.amountKrw} /></td>
-                    <td><StatusBadge status={h.status} /></td>
+                    {/* 보류 행은 불변(status는 기록 당시 HELD 그대로)이고 해제는 hold_release에 따로 있다 — 해제됐으면 RELEASED로 보여 준다. */}
+                    <td><StatusBadge status={h.release ? "RELEASED" : h.status} /></td>
                     <td>{h.release ? <>{h.release.releasedBy} <Instant iso={h.release.releasedAt} /></> : "—"}</td>
                     <td>
                       {h.release ? <span className="muted">해제됨</span> : (
