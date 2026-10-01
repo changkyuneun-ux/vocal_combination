@@ -364,7 +364,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 - 권리·위임: 범위 선택 + 표 + 등록 폼(`POST /claims`·`/mandates` — 필수 필드는 `registry/routes.ts`의 required 목록, 선택 필드(performerRole, roleDetail 등)는 service 타입에서).
 - 분쟁: 목록(`GET /disputes`) + 개시(`POST /disputes`) + 종결(`POST /disputes/:id/close`, 선택 resolution).
 - 정책 목록: `GET /policies` + "새 정책" 버튼 → 편집기.
-- 정책 상세/편집기(`/policy/:policyId`): 왼쪽 VCRL 텍스트 `<textarea>`(고정폭, 줄 번호 없음), 팩 id 입력, "합성 곡 정책 불러오기" 버튼(`POST /dev/seed/synthetic-song` 응답의 `policyText`를 기억해 둔 값이 있으면 채운다 — 시드를 다시 부르지 않도록 시드 응답을 `sessionStorage`가 아니라 React Query 캐시 `["dev","seed"]`에 둔다; 없으면 안내 문구), "컴파일"(`POST /policies/:id/compile`, 실패 시 `diagnostics`를 표로 — 각 항목의 code·message·위치), 오른쪽 버전 목록(`GET /policies/:id/versions`) — 버전별 상태 배지·digest·승인자·"승인"(`…/approve`)·"활성화"(`…/activate`) 버튼, 정책 상단 "재고정"(`POST /policies/:id/rebind`). 승인·활성화를 같은 사용자로 누르면 백엔드 거부 코드가 그대로 보인다(12.2-8 거부 경로 2).
+- 정책 상세/편집기(`/policy/:policyId`): 왼쪽 VCRL 텍스트 `<textarea>`(고정폭, 줄 번호 없음), 팩 id 입력, "합성 곡 정책 불러오기" 버튼(읽기 전용 `GET /dev/seed/synthetic-song`의 `policyText`·`packId`로 채운다 — 편집기는 시드하지 않는다. 팩이 아직 없으면 "개발 도구 > 개발 데이터에서 합성 곡을 먼저 불러오세요" 안내), "컴파일"(`POST /policies/:id/compile`, 실패 시 `diagnostics`를 표로 — 각 항목의 code·message·위치), 오른쪽 버전 목록(`GET /policies/:id/versions`) — 버전별 상태 배지·digest·승인자·"승인"(`…/approve`)·"활성화"(`…/activate`) 버튼, 정책 상단 "재고정"(`POST /policies/:id/rebind`). 승인·활성화를 같은 사용자로 누르면 백엔드 거부 코드가 그대로 보인다(12.2-8 거부 경로 2).
 
 **Tests:** 이 태스크는 Vitest 단위 테스트를 강제하지 않는다(화면 검증은 Task 11 Playwright). 대신: `npm run typecheck -w backoffice` 통과 + 수동 확인 목록(구현자는 `curl`로 각 API가 화면이 보내는 본문으로 201을 주는지 확인하고, 컨트롤러가 브라우저로 화면을 확인한다): 합성 곡 시드 → 권리자 8명 표시 → 정책 불러오기 → 컴파일 → `usr_approver` 승인 → `usr_approver`로 활성화 시도 시 `ROLE_REQUIRED` → `usr_activator` 활성화.
 
