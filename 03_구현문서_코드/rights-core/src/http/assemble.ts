@@ -22,7 +22,7 @@ export type StartOpts = {
   provider: PayoutProvider;
   pspSecret?: string | undefined;
   /** dev 진입점이 넘긴다(buildServer가 /dev/* 라우트를 등록). */
-  dev?: Omit<DevDeps, "jobs"> | undefined;
+  dev?: Omit<DevDeps, "jobs" | "devDbName"> | undefined;
   port: number;
   /** 시작 직후(워커·서버 시작 전) 실행할 준비 단계. 호출자가 필요한 시드를 심는다. */
   prepare?: ((db: ReturnType<typeof createDb>) => Promise<void>) | undefined;

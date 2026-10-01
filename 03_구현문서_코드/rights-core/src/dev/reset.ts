@@ -33,24 +33,13 @@ async function resetWith(c: pg.Client): Promise<{ truncated: string[] }> {
   }
 }
 
-/** 이름 검사 없는 초기화(테스트가 테스트 DB에서 부른다). 라우트는 resetDevDatabase를 쓴다. */
-export async function resetTables(adminUrl: string): Promise<{ truncated: string[] }> {
-  const c = new pg.Client({ connectionString: adminUrl });
-  await c.connect();
-  try {
-    return await resetWith(c);
-  } finally {
-    await c.end();
-  }
-}
-
 /** 개발 DB 초기화: URL의 이름과 연결된 current_database()가 모두 rights_core_dev여야 한다. 봉인 blob은 내용 주소라 지우지 않는다. */
-export async function resetDevDatabase(adminUrl: string): Promise<{ truncated: string[] }> {
-  assertDevDbName(decodeURIComponent(new URL(adminUrl).pathname.replace(/^\//, "")));
+export async function resetDevDatabase(adminUrl: string, allowedName: string = DEV_DB_NAME): Promise<{ truncated: string[] }> {
+  assertDevDbName(decodeURIComponent(new URL(adminUrl).pathname.replace(/^\//, "")), allowedName);
   const c = new pg.Client({ connectionString: adminUrl });
   await c.connect();
   try {
-    assertDevDbName((await c.query("SELECT current_database() AS n")).rows[0].n as string);
+    assertDevDbName((await c.query("SELECT current_database() AS n")).rows[0].n as string, allowedName);
     return await resetWith(c);
   } finally {
     await c.end();

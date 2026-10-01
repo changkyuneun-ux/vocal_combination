@@ -13,8 +13,8 @@ import { resetDevDatabase } from "./reset.ts";
 export type DevJobs = { pause(name: JobName): Promise<void>; resume(name: JobName): Promise<void>; paused(): JobName[] };
 export type DevDeps = {
   clock: DevClock; psp: DevPsp; jobs: DevJobs; adminUrl: string; blobDir: string;
-  /** 테스트가 이름 검사 없는 초기화를 끼울 때만 쓴다. 기본은 이름 검사가 있는 resetDevDatabase. */
-  resetDb?: (adminUrl: string) => Promise<{ truncated: string[] }>;
+  /** 초기화가 허용하는 DB 이름(기본 rights_core_dev). 테스트만 테스트 DB 이름을 넘긴다 — StartOpts.dev에서는 제외된다. */
+  devDbName?: string;
 };
 
 const bad = (message: string) => new DomainError("BAD_REQUEST", 400, message);
@@ -62,7 +62,7 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
     // 운영과 같은 /psp/webhook 라우트(공유 비밀 헤더 포함)를 그대로 거친다.
     for (let n = 0; n < repeat; n++) {
       const r = await app.inject({ method: "POST", url: "/psp/webhook", headers: { "x-psp-secret": deps.pspSecret ?? "" }, payload });
-      responses.push({ statusCode: r.statusCode, body: r.json() });
+      responses.push({ statusCode: r.statusCode, body: (() => { try { return r.json(); } catch { return r.body; } })() });
     }
     return { responses };
   });
@@ -88,12 +88,18 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
   });
 
   app.post("/dev/reset", async () => {
-    await (deps.dev.resetDb ?? resetDevDatabase)(deps.dev.adminUrl);
-    // 초기화는 시계가 뒤로 가는 유일한 경로다(set·advance는 앞으로만 간다).
-    await deps.db.tx((tx) => clock.resetTo(tx, DEV_CLOCK_START));
-    psp.reset();
-    for (const n of jobs.paused()) await jobs.resume(n);
-    await deps.db.tx((tx) => ensureDevUsers(tx, clock));
+    // 순서: 먼저 모든 큐를 멈춰 워커가 TRUNCATE와 시계·사용자 복원 사이에 쓰지 못하게 하고, 끝나면(실패해도) 다시 연다.
+    // 초기화가 pgboss.job과 일시정지 상태를 모두 비우므로 결과적으로 전부 resume한다. 이름 검사는 항상 거친다.
+    for (const n of JOB_NAMES) await jobs.pause(n);
+    try {
+      await resetDevDatabase(deps.dev.adminUrl, deps.dev.devDbName);
+      // 초기화는 시계가 뒤로 가는 유일한 경로다(set·advance는 앞으로만 간다).
+      await deps.db.tx((tx) => clock.resetTo(tx, DEV_CLOCK_START));
+      psp.reset();
+      await deps.db.tx((tx) => ensureDevUsers(tx, clock));
+    } finally {
+      for (const n of JOB_NAMES) await jobs.resume(n);
+    }
     return { ok: true, clock: clock.state() };
   });
 }

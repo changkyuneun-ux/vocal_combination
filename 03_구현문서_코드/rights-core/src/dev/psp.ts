@@ -29,13 +29,14 @@ const toFake = (o: DevOutcome): FakeOutcome => (o === "UNKNOWN" ? "UNKNOWN_THEN_
 export function createDevPsp(clock: Clock): DevPsp {
   const byInstruction = new Map<string, DevOutcome>();
   const byParty = new Map<string, DevOutcome>();
+  const MAX_LOG = 500; // 요청 기록은 마지막 500건만 남긴다.
   let log: DevPspRequest[] = [];
   let fake = newFake();
   function newFake() {
     return fakeProvider({ outcome: (i) => toFake(byInstruction.get(i.instructionId) ?? byParty.get(i.partyId) ?? "PAID") });
   }
   const instructionOf = (key: string) => (key.startsWith(KEY_PREFIX) ? key.slice(KEY_PREFIX.length) : key);
-  const record = (op: "submit" | "status", key: string, result: string) => log.push({ at: clock.now(), op, instructionId: instructionOf(key), key, result });
+  const record = (op: "submit" | "status", key: string, result: string) => { log.push({ at: clock.now(), op, instructionId: instructionOf(key), key, result }); if (log.length > MAX_LOG) log = log.slice(-MAX_LOG); };
   const provider: PayoutProvider = {
     async submit(i, key) {
       try {

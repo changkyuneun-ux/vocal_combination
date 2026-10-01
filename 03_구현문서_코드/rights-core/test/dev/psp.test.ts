@@ -109,7 +109,7 @@ test("party outcome applies to later instructions; an instruction outcome wins o
   assert.equal(run.statusCode, 201, run.body);
   for (const p of ["pty_cmo", "pty_agency"]) await submitPayout(payDeps(), { instructionId: `po_po-2_${p}` });
   assert.equal(await status("po_po-2_pty_cmo"), "FAILED");
-  assert.notEqual(await status("po_po-2_pty_agency"), "FAILED");
+  assert.equal(await status("po_po-2_pty_agency"), "SUBMITTED");
   assert.deepEqual(psp.outcomes().byParty, { pty_cmo: "FAILED", pty_agency: "FAILED" });
 });
 
