@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useActor } from "../../app/actor.ts";
 import { useParams } from "react-router";
 import { Section } from "../../components/Section.tsx";
-import { DataTable } from "../../components/DataTable.tsx";
 import { Pager } from "../../components/Pager.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { StatusBadge } from "../../components/StatusBadge.tsx";
+import { Diagnostics } from "../../components/Diagnostics.tsx";
 import { Digest } from "../../components/Digest.tsx";
 import { Instant } from "../../components/Instant.tsx";
 import { ApiError } from "../../api/client.ts";
@@ -15,20 +15,6 @@ import type { PolicyVersion, PolicyVersionDetail } from "../../api/types.ts";
 
 const SEED_HINT = "개발 도구 > 데이터에서 합성 곡을 먼저 불러오세요";
 const INV = ["versions", "policies", "version"];
-
-function Diagnostics({ error }: { error: unknown }) {
-  if (!(error instanceof ApiError) || error.diagnostics.length === 0) return null;
-  const rows = error.diagnostics.map((d) => (d ?? {}) as Record<string, unknown>);
-  const str = (v: unknown) => (v === undefined || v === null ? "—" : typeof v === "string" ? v : JSON.stringify(v));
-  return (
-    <DataTable rows={rows}
-      columns={[
-        { key: "code", label: "코드", render: (r) => str(r.code) },
-        { key: "message", label: "메시지", render: (r) => str(r.message) },
-        { key: "path", label: "위치", render: (r) => str(r.path ?? r.line ?? r.location) },
-      ]} />
-  );
-}
 
 function VersionRow({ policyId, v }: { policyId: string; v: PolicyVersion }) {
   const approve = useAction<void, unknown>(() => approveVersion(policyId, v.version), INV);

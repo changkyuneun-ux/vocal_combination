@@ -86,10 +86,10 @@ export function PackDetail() {
             <ClaimantEditor key={JSON.stringify(p.claimants)} packId={packId}
               initial={p.claimants.map((c) => ({ party: c.partyId, role: c.claimantRole }))} />
           </Section>
-          <Section title="발행">
+          <Section title="조합 발행">
             <IssueForm pack={p} />
           </Section>
-          <Section title="이 팩의 발행 목록">
+          <Section title="발행 목록">
             <IssueTable pack={packId} />
           </Section>
         </>

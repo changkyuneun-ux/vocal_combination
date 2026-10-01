@@ -40,7 +40,7 @@ export function Issues() {
     <Section title="발행 목록">
       <div className="inline-form">
         <label className="field"><span>팩 필터</span><input value={pack} onChange={(e) => setPack(e.target.value)} placeholder="pak_nova_summer" /></label>
-        <label className="field"><span>vcId 필터</span><input value={vc} onChange={(e) => setVc(e.target.value)} /></label>
+        <label className="field"><span>조합으로 거르기</span><input value={vc} onChange={(e) => setVc(e.target.value)} /></label>
       </div>
       <IssueTable pack={pack.trim()} vc={vc.trim()} />
     </Section>

@@ -26,7 +26,7 @@ export function IssueForm({ pack }: { pack: PackDetailData }) {
   const autoKey = JSON.stringify(auto);
   const shown: Record<string, string> = manual && manual.key === autoKey ? manual.values : Object.fromEntries(Object.entries(auto).map(([k, v]) => [k, String(v)]));
   const parties = Object.keys(auto).sort();
-  const parsed = Object.fromEntries(parties.map((p) => [p, Number(shown[p] ?? "0")]));
+  const parsed = Object.fromEntries(parties.map((p) => [p, (shown[p] ?? "").trim() === "" ? NaN : Number(shown[p])]));
   const valid = parties.every((p) => Number.isInteger(parsed[p]) && parsed[p]! >= 0 && parsed[p]! <= 10000);
   const total = valid ? sumBps(parsed) : NaN;
   const vcId = vcEdit ?? `vc_${picked.map((a) => brief(a.stemId)).join("")}`;
@@ -56,7 +56,7 @@ export function IssueForm({ pack }: { pack: PackDetailData }) {
             <tbody>
               {parties.map((p) => (
                 <tr key={p}><td>{p}</td>
-                  <td><input type="number" aria-label={p} value={shown[p] ?? ""} min={0} max={10000}
+                  <td><input type="number" aria-label={`${p} bps`} value={shown[p] ?? ""} min={0} max={10000}
                     onChange={(e) => setManual({ key: autoKey, values: { ...shown, [p]: e.target.value } })} /></td></tr>
               ))}
             </tbody>
@@ -64,7 +64,7 @@ export function IssueForm({ pack }: { pack: PackDetailData }) {
         )}
         <p className={total === 10000 || parties.length === 0 ? "muted" : "bad"} role="status">합계 {Number.isNaN(total) ? "—" : total} / 10000</p>
       </section>
-      <label className="field"><span>vcId</span><input value={vcId} onChange={(e) => setVcEdit(e.target.value)} /></label>
+      <label className="field"><span>조합(vcId)</span><input value={vcId} onChange={(e) => setVcEdit(e.target.value)} /></label>
       <div><button type="button" className="btn primary" disabled={!canIssue} onClick={submit}>발행</button></div>
       {m.isSuccess && (
         <p className="muted" role="status">발행했습니다: <Link to={`/issues/${encodeURIComponent(m.data.snapshotId)}`}>{m.data.snapshotId}</Link></p>

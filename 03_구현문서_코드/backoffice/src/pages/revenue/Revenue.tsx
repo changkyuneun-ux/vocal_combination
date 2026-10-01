@@ -8,8 +8,9 @@ import { StatusBadge } from "../../components/StatusBadge.tsx";
 import { Pager } from "../../components/Pager.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
-import { INGEST_ACTOR, nowStamp, recordRevenue, SETTLEMENT_READER, toLocalInput } from "../../api/revenue.ts";
+import { INGEST_ACTOR, nowStamp, recordRevenue, toLocalInput } from "../../api/revenue.ts";
 import { toIso } from "../../api/registry.ts";
+import { nextEventId } from "./eventId.ts";
 import type { ClockState, EventSettlement, IssueRow, RevenueBody, RevenueEventRow } from "../../api/types.ts";
 
 type Tab = "purchase" | "refund" | "correction";
@@ -17,12 +18,14 @@ const TABS: { id: Tab; label: string }[] = [{ id: "purchase", label: "구매" },
 const AMOUNT = /^[1-9]\d*$/;
 
 /** 가상 시계의 처음 읽은 값(폼 기본값). 이후 시계가 움직여도 입력 중인 폼은 바뀌지 않는다. */
-function useClockDefault(): string | undefined {
+function useClockDefault(): { now: string | undefined; error: unknown } {
   const clock = useGet<ClockState>(["clock", "default"], "/dev/clock");
   const [first, setFirst] = useState<string>();
   useEffect(() => { if (first === undefined && clock.data) setFirst(clock.data.now); }, [first, clock.data]);
-  return first;
+  return { now: first, error: clock.error };
 }
+
+type Shared = { taken: string[]; onRecorded: (id: string) => void };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>;
@@ -37,10 +40,11 @@ function Result({ m }: { m: { isSuccess: boolean; data?: { eventId: string; crea
   );
 }
 
-function PurchaseForm({ now, issues }: { now: string; issues: IssueRow[] }) {
-  const base = `ev_${nowStamp(now)}`;
-  const [k, setK] = useState(0);
-  const [eventId, setEventId] = useState(base);
+function PurchaseForm({ now, issues, taken, onRecorded }: { now: string; issues: IssueRow[] } & Shared) {
+  const stamp = nowStamp(now);
+  const [idEdit, setIdEdit] = useState<string | null>(null);
+  const eventId = idEdit ?? nextEventId(stamp, "p", taken);
+  const setEventId = (v: string) => setIdEdit(v);
   const [vcId, setVcId] = useState("");
   const [amount, setAmount] = useState("");
   const [at, setAt] = useState(toLocalInput(now));
@@ -51,11 +55,11 @@ function PurchaseForm({ now, issues }: { now: string; issues: IssueRow[] }) {
   const submit = () => m.mutate({
     eventId: eventId.trim(), sourceSystem: "app", sourceEventId: eventId.trim(), eventType: "PURCHASE", vcId,
     amountKrw: amount, currency: "KRW", integrity, occurredAt: toIso(at),
-  }, { onSuccess: () => { setK(k + 1); setEventId(`${base}_${k + 1}`); } });
+  }, { onSuccess: (r) => { setIdEdit(null); onRecorded(r.eventId); } });
   return (
     <form className="form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <Field label="eventId"><input value={eventId} onChange={(e) => setEventId(e.target.value)} required /></Field>
-      <Field label="vcId">
+      <Field label="조합(vcId)">
         <select value={vcId} onChange={(e) => setVcId(e.target.value)} required>
           <option value="">선택…</option>{vcs.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
@@ -79,10 +83,11 @@ function remaining(orig: RevenueEventRow, all: RevenueEventRow[]): bigint {
 }
 const liveOriginals = (all: RevenueEventRow[]) => all.filter((e) => e.eventType !== "REFUND" && e.supersededBy === null);
 
-function RefundForm({ now, events }: { now: string; events: RevenueEventRow[] }) {
-  const base = `ev_${nowStamp(now)}`;
-  const [k, setK] = useState(0);
-  const [eventId, setEventId] = useState(base);
+function RefundForm({ now, events, taken, onRecorded }: { now: string; events: RevenueEventRow[] } & Shared) {
+  const stamp = nowStamp(now);
+  const [idEdit, setIdEdit] = useState<string | null>(null);
+  const eventId = idEdit ?? nextEventId(stamp, "r", taken);
+  const setEventId = (v: string) => setIdEdit(v);
   const [orig, setOrig] = useState("");
   const [amountEdit, setAmountEdit] = useState<{ orig: string; v: string } | null>(null);
   const [at, setAt] = useState(toLocalInput(now));
@@ -95,7 +100,7 @@ function RefundForm({ now, events }: { now: string; events: RevenueEventRow[] })
   const submit = () => m.mutate({
     eventId: eventId.trim(), sourceSystem: "app", sourceEventId: eventId.trim(), eventType: "REFUND", relatedEventId: orig,
     amountKrw: amount, currency: "KRW", occurredAt: toIso(at),
-  }, { onSuccess: () => { setK(k + 1); setEventId(`${base}_${k + 1}`); } });
+  }, { onSuccess: (r) => { setIdEdit(null); onRecorded(r.eventId); } });
   return (
     <form className="form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <Field label="환불 eventId"><input value={eventId} onChange={(e) => setEventId(e.target.value)} required /></Field>
@@ -113,10 +118,11 @@ function RefundForm({ now, events }: { now: string; events: RevenueEventRow[] })
   );
 }
 
-function CorrectionForm({ now, events }: { now: string; events: RevenueEventRow[] }) {
-  const base = `ev_${nowStamp(now)}`;
-  const [k, setK] = useState(0);
-  const [eventId, setEventId] = useState(base);
+function CorrectionForm({ now, events, taken, onRecorded }: { now: string; events: RevenueEventRow[] } & Shared) {
+  const stamp = nowStamp(now);
+  const [idEdit, setIdEdit] = useState<string | null>(null);
+  const eventId = idEdit ?? nextEventId(stamp, "c", taken);
+  const setEventId = (v: string) => setIdEdit(v);
   const [orig, setOrig] = useState("");
   const [revEdit, setRevEdit] = useState<{ orig: string; v: string } | null>(null);
   const [amountEdit, setAmountEdit] = useState<{ orig: string; v: string } | null>(null);
@@ -133,7 +139,7 @@ function CorrectionForm({ now, events }: { now: string; events: RevenueEventRow[
       eventId: eventId.trim(), sourceSystem: o.sourceSystem, sourceEventId: o.sourceEventId, sourceRevision: Number(revision),
       eventType: o.eventType as "PURCHASE" | "RESALE", ...(o.vcId !== null && { vcId: o.vcId }), amountKrw: amount, currency: "KRW",
       integrity: o.integrityStatus === "FLAGGED" ? "FLAGGED" : "CLEAR", occurredAt: o.occurredAt,
-    }, { onSuccess: () => { setK(k + 1); setEventId(`${base}_${k + 1}`); } });
+    }, { onSuccess: (r) => { setIdEdit(null); onRecorded(r.eventId); } });
   };
   return (
     <form className="form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -153,14 +159,12 @@ function CorrectionForm({ now, events }: { now: string; events: RevenueEventRow[
 }
 
 function SettlementRows({ eventId, colSpan }: { eventId: string; colSpan: number }) {
-  const actor = useActor();
-  const override = actor === INGEST_ACTOR ? SETTLEMENT_READER : undefined;
-  const s = useGet<EventSettlement>(["revenue-settlement", eventId], `/revenue-events/${encodeURIComponent(eventId)}/settlement`, { api: { actorOverride: override } });
+  const s = useGet<EventSettlement>(["revenue-settlement", eventId], `/revenue-events/${encodeURIComponent(eventId)}/settlement`);
   return (
     <tr><td colSpan={colSpan}>
       <div className="stack">
-        {override && <p className="muted">sys_ingest는 정산 전개를 읽을 수 없어 {override} 권한으로 읽었습니다.</p>}
         <ErrorPanel error={s.error} />
+        {s.error && <p className="muted">정산 상태는 정산 운영/담당 사용자로 볼 수 있습니다</p>}
         {s.data && (
           <>
             <DataTable rows={s.data.runs} empty="정산 run이 없습니다."
@@ -190,7 +194,7 @@ function EventList() {
             <option value="">전체</option>{["PURCHASE", "RESALE", "REFUND"].map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </Field>
-        <Field label="vcId 필터"><input value={vc} onChange={(e) => setVc(e.target.value)} /></Field>
+        <Field label="조합으로 거르기"><input value={vc} onChange={(e) => setVc(e.target.value)} /></Field>
       </div>
       <ErrorPanel error={list.error} />
       {list.pages.length === 0 ? <p className="muted">매출 이벤트가 없습니다.</p> : (
@@ -225,17 +229,20 @@ function EventList() {
 export function Revenue() {
   const actor = useActor();
   const [tab, setTab] = useState<Tab>("purchase");
-  const now = useClockDefault();
+  const { now, error: clockError } = useClockDefault();
+  const [submitted, setSubmitted] = useState<string[]>([]);
   const issues = useList<IssueRow>("issues", "/issues");
   const events = useList<RevenueEventRow>("revenue", "/revenue-events", undefined);
+  const taken = [...events.pages.map((e) => e.eventId), ...submitted];
+  const shared: Shared = { taken, onRecorded: (id) => setSubmitted((x) => [...x, id]) };
   return (
     <>
-      <Section title="매출 입력 담당" actions={
+      <Section title="입력 담당 안내" actions={
         <button type="button" className="btn primary" disabled={actor === INGEST_ACTOR} onClick={() => setActor(INGEST_ACTOR)}>sys_ingest로 전환</button>
       }>
         <p>매출 입력은 수집 담당(sys_ingest)으로 합니다. 현재 사용자: <strong>{actor}</strong></p>
       </Section>
-      <Section title="매출 입력">
+      <Section title="매출 이벤트 입력">
         <div role="tablist" aria-label="입력 유형" className="row-actions">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={tab === t.id} aria-controls="rev-panel"
@@ -243,11 +250,11 @@ export function Revenue() {
           ))}
         </div>
         <div role="tabpanel" id="rev-panel" aria-labelledby={`tab-${tab}`}>
-          {now === undefined ? <p className="muted">가상 시계를 읽는 중…</p> : (
+          {now === undefined ? (clockError ? <ErrorPanel error={clockError} /> : <p className="muted">가상 시계를 읽는 중…</p>) : (
             <>
-              {tab === "purchase" && <PurchaseForm now={now} issues={issues.pages} />}
-              {tab === "refund" && <RefundForm now={now} events={events.pages} />}
-              {tab === "correction" && <CorrectionForm now={now} events={events.pages} />}
+              {tab === "purchase" && <PurchaseForm now={now} issues={issues.pages} {...shared} />}
+              {tab === "refund" && <RefundForm now={now} events={events.pages} {...shared} />}
+              {tab === "correction" && <CorrectionForm now={now} events={events.pages} {...shared} />}
               {tab !== "purchase" && <ErrorPanel error={events.error} />}
             </>
           )}
