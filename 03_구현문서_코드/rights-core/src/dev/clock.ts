@@ -1,5 +1,5 @@
 import type { Clock } from "../platform/clock.ts";
-import type { Db, Tx } from "../platform/db.ts";
+import { onCommit, type Db, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid } from "../platform/errors.ts";
 
 export const DEV_CLOCK_START = "2026-01-01T00:00:00.000Z";
@@ -49,7 +49,7 @@ export async function loadDevClock(db: Db, realNow: () => number = () => Date.no
       if (target > real) throw conflict("CLOCK_AHEAD_OF_REAL", `cannot move the clock past real time ${iso(real)}`);
       const next: Row = { baseMs: target, setRealMs: real };
       await tx.query("UPDATE dev_clock SET base_at = $1, set_real_at = $2", [at, iso(real)]);
-      commitHook(tx, () => { row = next; });
+      onCommit(tx, () => { row = next; });
       return at;
     },
     async advance(tx, ms) {
@@ -59,35 +59,8 @@ export async function loadDevClock(db: Db, realNow: () => number = () => Date.no
     },
     async reload(tx) {
       const next = await read(tx);
-      commitHook(tx, () => { row = next; });
+      onCommit(tx, () => { row = next; });
     },
   };
   return clock;
-}
-
-// 메모리 반영을 COMMIT 성공 뒤로 미룬다: db.tx가 보내는 COMMIT 문장을 감시해 성공했을 때만 콜백을 실행하고,
-// ROLLBACK이거나 COMMIT이 실패하면 버린다. 풀 연결은 재사용되므로 한 번만 감싼다.
-function commitHook(tx: Tx, fn: () => void): void {
-  const t = tx as Tx & { __devHooks?: (() => void)[]; __devWrapped?: boolean };
-  (t.__devHooks ??= []).push(fn);
-  if (t.__devWrapped) return;
-  t.__devWrapped = true;
-  const origQuery = tx.query.bind(tx) as (...a: unknown[]) => Promise<unknown>;
-  (tx as unknown as { query: unknown }).query = async (...a: unknown[]) => {
-    const sql = a[0];
-    const ending = sql === "COMMIT" || sql === "ROLLBACK";
-    let out: unknown;
-    try {
-      out = await origQuery(...a);
-    } catch (e) {
-      if (ending) t.__devHooks = [];
-      throw e;
-    }
-    if (ending) {
-      const hooks = sql === "COMMIT" ? (t.__devHooks ?? []) : [];
-      t.__devHooks = [];
-      for (const h of hooks) h();
-    }
-    return out;
-  };
 }

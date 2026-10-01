@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import type { PayoutProvider } from "../payout/provider.ts";
-import { DomainError } from "../platform/errors.ts";
 import type { Deps } from "../http/server.ts";
 import type { DevClock } from "./clock.ts";
 
@@ -14,8 +13,7 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
   app.get("/dev/clock", async () => clock.state());
   app.post("/dev/clock/advance", async (req) => {
     const ms = (req.body as { ms?: unknown } | null)?.ms;
-    if (typeof ms !== "number" || !Number.isSafeInteger(ms) || ms <= 0) throw new DomainError("BAD_REQUEST", 400, "ms must be a positive integer");
-    return { now: await deps.db.tx((tx) => clock.advance(tx, ms)) };
+    return { now: await deps.db.tx((tx) => clock.advance(tx, ms as number)) };
   });
   app.post("/dev/clock/set", async (req) => {
     const at = (req.body as { at?: unknown } | null)?.at;

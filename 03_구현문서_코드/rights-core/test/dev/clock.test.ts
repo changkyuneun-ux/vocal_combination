@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { loadDevClock } from "../../src/dev/clock.ts";
+import { loadDevClock, DEV_CLOCK_START } from "../../src/dev/clock.ts";
 import { ensureDevUsers, DEV_USERS } from "../../src/dev/users.ts";
 import { buildServer } from "../../src/http/server.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
@@ -18,6 +18,16 @@ const app = buildServer({ db, ctx, clock, jobs: recordingJobs(), dev });
 const plain = buildServer({ db, ctx, clock, jobs: recordingJobs() });
 after(async () => { await app.close(); await plain.close(); await drop(); });
 
+test("DEV_CLOCK_START is 2026-01-01 and a fresh dev DB's dev_clock.base_at equals it", async () => {
+  assert.equal(DEV_CLOCK_START, "2026-01-01T00:00:00.000Z");
+  const f = await freshDevDb();
+  try {
+    const r = await f.db.tx((tx) => tx.query("SELECT base_at FROM dev_clock"));
+    assert.equal((r.rows[0].base_at as Date).toISOString(), DEV_CLOCK_START);
+  } finally {
+    await f.drop();
+  }
+});
 test("starts at DEV_CLOCK_START and flows with real time", async () => {
   // dev_clock.set_real_at은 마이그레이션 때의 now()이므로 먼저 set으로 기준을 고정한다
   await db.tx((tx) => clock.set(tx, "2026-01-01T00:00:00.000Z"));
@@ -83,4 +93,10 @@ test("ensureDevUsers is idempotent: 7 dev users + 3 system identities", async ()
   assert.equal(r.rowCount, DEV_USERS.length + 3);
   assert.equal(DEV_USERS.length, 7);
   assert.equal(new Set(r.rows.map((x) => x.user_id)).size, r.rowCount);
+});
+test("ensureDevUsers creates the system identities and the editor roles", async () => {
+  const ids = (await db.tx((tx) => tx.query("SELECT user_id FROM user_account"))).rows.map((x) => x.user_id as string);
+  for (const id of ["sys_ingest", "sys_settler", "sys_verifier"]) assert.ok(ids.includes(id), id);
+  const roles = (await db.tx((tx) => tx.query("SELECT role FROM portal_role WHERE user_id = 'usr_editor'"))).rows.map((x) => x.role as string).sort();
+  assert.deepEqual(roles, ["EDITOR", "RIGHTS_EDITOR"]);
 });

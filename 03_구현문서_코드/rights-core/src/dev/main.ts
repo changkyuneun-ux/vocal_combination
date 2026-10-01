@@ -17,9 +17,13 @@ if (!devModeFromEnv(process.env)) throw new Error("DEV_ONLY: RC_DEV must be 1 fo
 const url = process.env.DATABASE_URL!;
 // 가상 시계를 읽고 개발 사용자를 심는 데는 잠깐 쓰는 연결을 따로 쓴다(서버 풀은 startServer가 만든다).
 const boot = createDb(url, { max: 2 });
-const clock = await loadDevClock(boot);
-await boot.tx((tx) => ensureDevUsers(tx, clock));
-await boot.close();
+let clock: Awaited<ReturnType<typeof loadDevClock>>;
+try {
+  clock = await loadDevClock(boot);
+  await boot.tx((tx) => ensureDevUsers(tx, clock));
+} finally {
+  await boot.close();
+}
 const blobDir = process.env.BLOB_DIR ?? fileURLToPath(new URL("../../.blobs-dev/", import.meta.url));
 // Task 2 전까지 PSP는 fakeProvider()를 그대로 쓴다.
 const provider = fakeProvider();
