@@ -49,3 +49,11 @@ button.badge { cursor: pointer; }
 .popover { position: absolute; top: 28px; right: 0; z-index: 10; width: 420px; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
 .popover h4 { margin: 0 0 4px; } .popover ul { margin: 0; padding-left: 16px; } .popover li { margin-bottom: 6px; }
 .toast { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 8px; align-items: center; }
+.inline-form { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.vcrl { width: 100%; min-height: 420px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre; tab-size: 2; }
+.row-actions { display: flex; gap: 6px; }
+.stack { display: grid; gap: 8px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 16px; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+ul.versions { list-style: none; margin: 0; padding: 0; } li.ver { border-bottom: 1px solid var(--line); padding-bottom: 8px; }

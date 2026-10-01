@@ -28,3 +28,14 @@ describe("actor store", () => {
     expect(currentActor()).toBe("usr_settle");
   });
 });
+
+describe("사용자 전환과 캐시", () => {
+  it("setActor는 쿼리를 무효화하지 않는다(키 변경이 새 조회를 일으킨다)", async () => {
+    const { queryClient } = await import("./queryClient.ts");
+    const spy = vi.spyOn(queryClient, "invalidateQueries");
+    resetActorForTest();
+    setActor("usr_approver");
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

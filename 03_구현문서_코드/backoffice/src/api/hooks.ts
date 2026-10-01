@@ -14,7 +14,7 @@ export function useList<T>(key: string, path: string, params?: Record<string, st
   const q = useInfiniteQuery<Paged<T>, ApiError, { pages: Paged<T>[] }, unknown[], string | null>({
     queryKey: [key, actor, path, params ?? {}],
     initialPageParam: null,
-    queryFn: ({ pageParam }) => api<Paged<T>>("GET", withParams(path, { ...params, after: pageParam ?? undefined })),
+    queryFn: ({ pageParam }) => api<Paged<T>>("GET", withParams(path, { ...params, after: pageParam ?? undefined }), undefined, { actorOverride: actor }),
     getNextPageParam: (last) => last.next,
   });
   const pages = (q.data?.pages ?? []).flatMap((p) => p.items);
@@ -24,9 +24,10 @@ export function useList<T>(key: string, path: string, params?: Record<string, st
 
 export function useGet<T>(key: unknown[], path: string, opts: { refetchInterval?: number | false; api?: ApiOptions; enabled?: boolean } = {}): UseQueryResult<T, ApiError> {
   const actor = useActor();
+  const effective = opts.api?.actorOverride ?? actor;
   return useQuery<T, ApiError>({
-    queryKey: [...key, opts.api?.actorOverride ?? actor],
-    queryFn: () => api<T>("GET", path, undefined, opts.api),
+    queryKey: [...key, effective],
+    queryFn: () => api<T>("GET", path, undefined, { ...opts.api, actorOverride: effective }),
     refetchInterval: opts.refetchInterval ?? false,
     enabled: opts.enabled ?? true,
   });

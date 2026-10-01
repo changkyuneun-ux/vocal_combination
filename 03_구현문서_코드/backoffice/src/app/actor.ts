@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { queryClient } from "./queryClient.ts";
 
 const KEY = "rc.actor";
 export const DEFAULT_ACTOR = "usr_editor";
@@ -32,7 +31,6 @@ export function setActor(id: string): void {
     /* 저장 실패는 무시한다 */
   }
   for (const fn of [...listeners]) fn();
-  void queryClient.invalidateQueries();
 }
 
 /** 반응형 현재 사용자. 쿼리 키에 넣어 사용자별 캐시를 분리한다. */

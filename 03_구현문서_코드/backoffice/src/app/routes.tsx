@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
 import { Dashboard } from "../pages/dashboard/Dashboard.tsx";
+import { Parties } from "../pages/registry/Parties.tsx";
+import { Assets } from "../pages/registry/Assets.tsx";
+import { Claims } from "../pages/registry/Claims.tsx";
+import { Mandates } from "../pages/registry/Mandates.tsx";
+import { Disputes } from "../pages/registry/Disputes.tsx";
+import { Policies } from "../pages/policy/Policies.tsx";
+import { PolicyDetail } from "../pages/policy/PolicyDetail.tsx";
 import { Section } from "../components/Section.tsx";
 
 export function Placeholder({ title }: { title: string }) {
@@ -14,13 +21,13 @@ const p = (path: string, title: string): RouteDef => ({ path, title, element: <P
 
 export const routes: RouteDef[] = [
   { path: "/", title: "대시보드", element: <Dashboard /> },
-  p("/registry/parties", "당사자"),
-  p("/registry/assets", "곡·녹음·슬롯·스템·보이스"),
-  p("/registry/claims", "권리 주장"),
-  p("/registry/mandates", "위임"),
-  p("/registry/disputes", "분쟁"),
-  p("/policy", "정책"),
-  p("/policy/:policyId", "정책 상세"),
+  { path: "/registry/parties", title: "당사자", element: <Parties /> },
+  { path: "/registry/assets", title: "곡·녹음·슬롯·스템·보이스", element: <Assets /> },
+  { path: "/registry/claims", title: "권리 주장", element: <Claims /> },
+  { path: "/registry/mandates", title: "위임", element: <Mandates /> },
+  { path: "/registry/disputes", title: "분쟁", element: <Disputes /> },
+  { path: "/policy", title: "정책", element: <Policies /> },
+  { path: "/policy/:policyId", title: "정책 상세", element: <PolicyDetail /> },
   p("/packs", "팩"),
   p("/packs/:packId", "팩 상세"),
   p("/issues", "발행"),
