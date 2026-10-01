@@ -4,6 +4,7 @@ import { loadActor, type Actor } from "../platform/actor.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
+import { platformRoutes } from "../platform/routes.ts";
 import { registryRoutes } from "../registry/routes.ts";
 import { policyRoutes } from "../policy/routes.ts";
 import { issuanceRoutes } from "../issuance/routes.ts";
@@ -50,6 +51,7 @@ export function buildServer(deps: Deps): FastifyInstance {
     console.error("unhandled", err);
     return reply.status(500).send({ code: "INTERNAL", message: "internal error", diagnostics: [] });
   });
+  platformRoutes(app, deps);
   registryRoutes(app, deps);
   policyRoutes(app, deps);
   issuanceRoutes(app, deps);

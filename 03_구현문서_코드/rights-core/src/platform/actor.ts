@@ -40,3 +40,8 @@ export async function loadActor(tx: Tx, userId: string): Promise<Actor> {
 export function requireRole(actor: Actor, role: Role): void {
   if (!actor.roles.has(role)) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role ${role}`);
 }
+
+/** 역할 중 하나라도 있으면 통과한다. 하나도 없으면 403 ROLE_REQUIRED. */
+export function requireAnyRole(actor: Actor, roles: readonly Role[]): void {
+  if (!roles.some((r) => actor.roles.has(r))) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks any of roles ${roles.join(", ")}`);
+}

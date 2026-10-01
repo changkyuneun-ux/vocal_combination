@@ -4,6 +4,8 @@ import { requireRole } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
+import { optFilter, parsePage } from "../platform/paging.ts";
+import * as q from "./queries.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   const created = <B>(path: string, fn: (tx: any, body: B) => Promise<unknown>, required: readonly string[] = []) =>
@@ -33,4 +35,12 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
       await closeDispute(tx, deps.clock, { disputeId: req.params.id, ...(req.body?.resolution && { resolution: req.body.resolution }) });
       return {};
     }));
+  // 조회(로그인한 누구나)
+  const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
+  app.get("/parties", async (req) => withActor(deps, req, (tx) => q.listParties(tx, { type: optFilter(q0(req), "type") }, parsePage(q0(req)))));
+  app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
+  app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
+  app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
+  app.get("/disputes", async (req) =>
+    withActor(deps, req, (tx) => q.listDisputes(tx, { status: optFilter(q0(req), "status"), scope: optFilter(q0(req), "scope") }, parsePage(q0(req)))));
 }

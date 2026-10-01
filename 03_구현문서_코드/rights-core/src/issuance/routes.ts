@@ -3,6 +3,8 @@ import { withActor, type Deps } from "../http/server.ts";
 import type { Declared } from "../engine-bridge/activation.ts";
 import { DomainError } from "../platform/errors.ts";
 import * as issuance from "./service.ts";
+import { optFilter, parsePage } from "../platform/paging.ts";
+import * as q from "./queries.ts";
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -36,4 +38,10 @@ export function issuanceRoutes(app: FastifyInstance, deps: Deps): void {
     const seal = await withActor(deps, req, (tx, actor) => issuance.issue(deps.ctx, tx, deps.clock, actor, parseIssueBody(req.body)));
     return reply.status(201).send(seal);
   });
+  // 조회(로그인한 누구나)
+  const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
+  app.get("/packs", async (req) => withActor(deps, req, (tx) => q.listPacks(tx, {}, parsePage(q0(req)))));
+  app.get<{ Params: { id: string } }>("/packs/:id", async (req) => withActor(deps, req, (tx) => q.getPack(tx, req.params.id)));
+  app.get("/issues", async (req) =>
+    withActor(deps, req, (tx) => q.listIssues(tx, { pack: optFilter(q0(req), "pack"), vc: optFilter(q0(req), "vc") }, parsePage(q0(req)))));
 }
