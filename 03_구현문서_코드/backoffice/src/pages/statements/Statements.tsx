@@ -4,10 +4,11 @@ import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Money } from "../../components/Money.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
 import { useGet } from "../../api/hooks.ts";
+import { useClock } from "../../api/clock.ts";
 import { useAll } from "../../api/all.ts";
 import { toIso } from "../../api/registry.ts";
 import { toLocalInput } from "../../api/revenue.ts";
-import type { ClockState, LedgerAccount, StatementData } from "../../api/types.ts";
+import type { LedgerAccount, StatementData } from "../../api/types.ts";
 import { actualPayout, partyPayableId, reconcile } from "./logic.ts";
 
 const SETTLE_ACTOR = "usr_settle";
@@ -58,12 +59,11 @@ function Result({ s, accounts, now }: { s: StatementData; accounts: LedgerAccoun
 export function Statements() {
   const actor = useActor();
   const accounts = useAll<LedgerAccount>("ledger-accounts-all", "/ledger/accounts");
-  const clock = useGet<ClockState>(["clock"], "/dev/clock", { refetchInterval: 5000 });
+  const clock = useClock();
   const [party, setParty] = useState("");
   const [from, setFrom] = useState(DEFAULT_FROM);
   const [toEdit, setToEdit] = useState<string | null>(null);
-  const [first, setFirst] = useState<string>();
-  if (first === undefined && clock.data) setFirst(clock.data.now);
+  const first = clock.data?.now;
   const parties = (accounts.data ?? []).filter((a) => a.kind === "PARTY_PAYABLE" && a.partyId !== null).map((a) => a.partyId as string);
   const to = toEdit ?? (first ? toLocalInput(first) : "");
   const fromIso = toIso(from);

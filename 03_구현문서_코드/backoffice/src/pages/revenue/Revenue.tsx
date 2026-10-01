@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
@@ -8,21 +8,20 @@ import { StatusBadge } from "../../components/StatusBadge.tsx";
 import { Pager } from "../../components/Pager.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
+import { editedOr, useClock } from "../../api/clock.ts";
 import { INGEST_ACTOR, nowStamp, recordRevenue, toLocalInput } from "../../api/revenue.ts";
 import { toIso } from "../../api/registry.ts";
 import { nextEventId } from "./eventId.ts";
-import type { ClockState, EventSettlement, IssueRow, RevenueBody, RevenueEventRow } from "../../api/types.ts";
+import type { EventSettlement, IssueRow, RevenueBody, RevenueEventRow } from "../../api/types.ts";
 
 type Tab = "purchase" | "refund" | "correction";
 const TABS: { id: Tab; label: string }[] = [{ id: "purchase", label: "구매" }, { id: "refund", label: "환불" }, { id: "correction", label: "정정" }];
 const AMOUNT = /^[1-9]\d*$/;
 
-/** 가상 시계의 처음 읽은 값(폼 기본값). 이후 시계가 움직여도 입력 중인 폼은 바뀌지 않는다. */
+/** 가상 시계의 현재 값(폼 기본값). 사용자가 고치지 않은 필드는 시계를 따라간다. */
 function useClockDefault(): { now: string | undefined; error: unknown } {
-  const clock = useGet<ClockState>(["clock", "default"], "/dev/clock");
-  const [first, setFirst] = useState<string>();
-  useEffect(() => { if (first === undefined && clock.data) setFirst(clock.data.now); }, [first, clock.data]);
-  return { now: first, error: clock.error };
+  const clock = useClock();
+  return { now: clock.data?.now, error: clock.error };
 }
 
 type Shared = { taken: string[]; onRecorded: (id: string) => void };
@@ -47,7 +46,8 @@ function PurchaseForm({ now, issues, taken, onRecorded }: { now: string; issues:
   const setEventId = (v: string) => setIdEdit(v);
   const [vcId, setVcId] = useState("");
   const [amount, setAmount] = useState("");
-  const [at, setAt] = useState(toLocalInput(now));
+  const [atEdit, setAtEdit] = useState<string | null>(null);
+  const at = editedOr(atEdit, toLocalInput(now));
   const [integrity, setIntegrity] = useState<"CLEAR" | "FLAGGED">("CLEAR");
   const m = useAction<RevenueBody, { eventId: string; created: boolean }>(recordRevenue, ["revenue"]);
   const vcs = [...new Set(issues.map((i) => i.vcId))];
@@ -65,7 +65,7 @@ function PurchaseForm({ now, issues, taken, onRecorded }: { now: string; issues:
         </select>
       </Field>
       <Field label="구매 금액(원)"><input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1000000" required /></Field>
-      <Field label="발생 시각(UTC)"><input type="datetime-local" step={1} value={at} onChange={(e) => setAt(e.target.value)} required /></Field>
+      <Field label="발생 시각(UTC)"><input type="datetime-local" step={1} value={at} onChange={(e) => setAtEdit(e.target.value)} required /></Field>
       <Field label="무결성">
         <select value={integrity} onChange={(e) => setIntegrity(e.target.value as "CLEAR" | "FLAGGED")}>
           <option value="CLEAR">CLEAR</option><option value="FLAGGED">FLAGGED</option>
@@ -90,7 +90,8 @@ function RefundForm({ now, events, taken, onRecorded }: { now: string; events: R
   const setEventId = (v: string) => setIdEdit(v);
   const [orig, setOrig] = useState("");
   const [amountEdit, setAmountEdit] = useState<{ orig: string; v: string } | null>(null);
-  const [at, setAt] = useState(toLocalInput(now));
+  const [atEdit, setAtEdit] = useState<string | null>(null);
+  const at = editedOr(atEdit, toLocalInput(now));
   const m = useAction<RevenueBody, { eventId: string; created: boolean }>(recordRevenue, ["revenue"]);
   const originals = liveOriginals(events);
   const o = originals.find((e) => e.eventId === orig);
@@ -111,7 +112,7 @@ function RefundForm({ now, events, taken, onRecorded }: { now: string; events: R
         </select>
       </Field>
       <Field label="환불 금액(원)"><input inputMode="numeric" value={amount} onChange={(e) => setAmountEdit({ orig, v: e.target.value })} required /></Field>
-      <Field label="환불 발생 시각(UTC)"><input type="datetime-local" step={1} value={at} onChange={(e) => setAt(e.target.value)} required /></Field>
+      <Field label="환불 발생 시각(UTC)"><input type="datetime-local" step={1} value={at} onChange={(e) => setAtEdit(e.target.value)} required /></Field>
       <button type="submit" className="btn primary" disabled={!ok || m.isPending}>환불 기록</button>
       <Result m={m} />
     </form>

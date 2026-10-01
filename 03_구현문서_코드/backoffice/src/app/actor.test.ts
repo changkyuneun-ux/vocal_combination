@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { currentActor, resetActorForTest, setActor, subscribe } from "./actor.ts";
+import { DEFAULT_ACTOR, currentActor, resetActorForTest, setActor, subscribe } from "./actor.ts";
 
 describe("actor store", () => {
   beforeEach(() => resetActorForTest());
@@ -37,5 +37,30 @@ describe("사용자 전환과 캐시", () => {
     setActor("usr_approver");
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe("actor 복구", () => {
+  beforeEach(() => resetActorForTest());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("저장된 값이 빈 문자열이면 기본값으로 돌아간다", () => {
+    vi.stubGlobal("localStorage", { getItem: () => "", setItem: () => undefined });
+    expect(currentActor()).toBe(DEFAULT_ACTOR);
+  });
+  it("setActor('')는 무시된다", () => {
+    const fn = vi.fn();
+    subscribe(fn);
+    setActor("usr_settle");
+    fn.mockClear();
+    setActor("");
+    expect(currentActor()).toBe("usr_settle");
+    expect(fn).not.toHaveBeenCalled();
+  });
+  it("문자열이 아닌 값도 무시된다", () => {
+    setActor("usr_ops");
+    setActor(undefined as unknown as string);
+    setActor(null as unknown as string);
+    expect(currentActor()).toBe("usr_ops");
   });
 });

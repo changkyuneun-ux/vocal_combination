@@ -8,7 +8,7 @@ let current: string | null = null;
 const listeners = new Set<() => void>();
 
 export function currentActor(): string {
-  if (current === null) {
+  if (current === null || current === "") {
     try {
       current = localStorage.getItem(KEY) || DEFAULT_ACTOR;
     } catch {
@@ -24,6 +24,7 @@ export function subscribe(fn: () => void): () => void {
 }
 
 export function setActor(id: string): void {
+  if (typeof id !== "string" || id === "") return;
   current = id;
   try {
     localStorage.setItem(KEY, id);

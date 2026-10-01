@@ -5,12 +5,13 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
-import { useAction, useGet } from "../../api/hooks.ts";
+import { useAction } from "../../api/hooks.ts";
+import { useClock } from "../../api/clock.ts";
 import { useAll } from "../../api/all.ts";
 import { createPayoutRun } from "../../api/payout.ts";
 import { toIso } from "../../api/registry.ts";
 import { toLocalInput } from "../../api/revenue.ts";
-import type { ClockState, PayoutRunRow } from "../../api/types.ts";
+import type { PayoutRunRow } from "../../api/types.ts";
 import { INSTRUCTION_STATUSES, nextPayoutRunId } from "./logic.ts";
 
 const SETTLE_ACTOR = "usr_settle";
@@ -42,10 +43,8 @@ function CreateForm({ now, taken }: { now: string; taken: string[] }) {
 export function PayoutRuns() {
   const actor = useActor();
   const runs = useAll<PayoutRunRow>("payout-runs", "/payout-runs");
-  const clock = useGet<ClockState>(["clock"], "/dev/clock");
-  // 폼 기본값은 처음 읽은 시계 값(이후 시계가 움직여도 입력 중인 폼은 바뀌지 않는다).
-  const [first, setFirst] = useState<string>();
-  if (first === undefined && clock.data) setFirst(clock.data.now);
+  const clock = useClock();
+  const first = clock.data?.now;
   return (
     <>
       <Section title="지급 실행 안내" actions={

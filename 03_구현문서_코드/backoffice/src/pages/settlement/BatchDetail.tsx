@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -38,6 +39,7 @@ function CountBars({ counts }: { counts: Record<string, number> }) {
 export function BatchDetail() {
   const { batchId = "" } = useParams();
   const actor = useActor();
+  const qc = useQueryClient();
   const [status, setStatus] = useState("");
   const e = encodeURIComponent(batchId);
   const view = useGet<BatchView>(["batch", batchId], `/batches/${e}`, { refetchInterval: (d) => (isActive(d) ? POLL_MS : false) });
@@ -49,7 +51,7 @@ export function BatchDetail() {
   const lookupMissing = meta.data !== undefined && row === undefined;
   const confirmed = view.data?.status === "CONFIRMED";
   const confirmedIds = (view.data?.runs ?? []).filter((r) => r.status === "CONFIRMED").map((r) => r.runId);
-  const entries = useGet<Paged<EntryRow>>(["batch-ledger", batchId], settlementEntriesPath, { enabled: confirmed, refetchInterval: (d) => (confirmed && d !== undefined && postedRunCount(d, confirmedIds) < confirmedIds.length ? POLL_MS : false) });
+  const entries = useGet<Paged<EntryRow>>(["batch-ledger", batchId], settlementEntriesPath, { enabled: confirmed, refetchInterval: (d) => (confirmed && postedRunCount(d, confirmedIds) < confirmedIds.length ? POLL_MS : false) });
   const posted = postedRunCount(entries.data, confirmedIds);
   const check = view.data ? canConfirm(view.data.status, view.data.runs.map((r) => ({ runId: r.runId, status: r.status }))) : { ok: false as const, reason: "배치를 읽는 중입니다" };
   const m = useAction(confirmBatch, ["batch", "batches", "batch-runs", "batch-meta", "batch-ledger"]);
@@ -75,13 +77,14 @@ export function BatchDetail() {
         <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
       }>
         <p>확정은 정산 담당(SPACE_SETTLE, usr_settle)이 하며 배치 생성자와 달라야 합니다. 현재 사용자: <strong>{actor}</strong></p>
-        <button type="button" className="btn primary" disabled={!check.ok || m.isPending} onClick={() => m.mutate(batchId)}>확정</button>
+        <button type="button" className="btn primary" disabled={!check.ok || m.isPending} onClick={() => m.mutate(batchId, { onSuccess: () => { void qc.invalidateQueries({ queryKey: ["batch-ledger"] }); } })}>확정</button>
         {!check.ok && <p className="muted" role="status">확정할 수 없음: {check.reason}</p>}
         {m.isSuccess && <p className="muted" role="status">확정했습니다. manifest <Digest value={m.data.manifestDigest} label="확정 manifest" /></p>}
         <ErrorPanel error={m.error} />
-        {confirmed && (
+        {confirmed && !entries.error && (
           <p role="status">원장 반영: {posted} / {confirmedIds.length} run{posted === confirmedIds.length ? " (완료)" : " (진행 중)"}</p>
         )}
+        {confirmed && entries.error && <p className="muted" role="status">원장 반영: 확인할 수 없음 — 원장 조회는 정산 담당(usr_settle)으로 볼 수 있습니다</p>}
         {confirmed && <ErrorPanel error={entries.error} />}
       </Section>
       <Section title="run 목록" actions={

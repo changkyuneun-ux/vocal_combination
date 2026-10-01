@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -7,11 +7,12 @@ import { Instant } from "../../components/Instant.tsx";
 import { Pager } from "../../components/Pager.tsx";
 import { StatusBadge } from "../../components/StatusBadge.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
-import { useAction, useGet, useList } from "../../api/hooks.ts";
+import { useAction, useList } from "../../api/hooks.ts";
+import { editedOr, useClock } from "../../api/clock.ts";
 import { createBatch } from "../../api/settlement.ts";
 import { toIso } from "../../api/registry.ts";
 import { toLocalInput } from "../../api/revenue.ts";
-import type { BatchRow, ClockState, RunStatus } from "../../api/types.ts";
+import type { BatchRow, RunStatus } from "../../api/types.ts";
 import { defaultPeriod, nextBatchId } from "./logic.ts";
 
 export const RUN_STATUSES: RunStatus[] = ["PENDING", "CALCULATED", "VERIFIED", "FAILED", "VOIDED", "CONFIRMED"];
@@ -20,8 +21,10 @@ const OPS_ACTOR = "usr_ops";
 function CreateForm({ now, taken }: { now: string; taken: string[] }) {
   const def = defaultPeriod(now);
   const [idEdit, setIdEdit] = useState<string | null>(null);
-  const [start, setStart] = useState(toLocalInput(def.start));
-  const [end, setEnd] = useState(toLocalInput(def.end));
+  const [startEdit, setStart] = useState<string | null>(null);
+  const [endEdit, setEnd] = useState<string | null>(null);
+  const start = editedOr(startEdit, toLocalInput(def.start));
+  const end = editedOr(endEdit, toLocalInput(def.end));
   const batchId = idEdit ?? nextBatchId(toIso(start) || def.start, taken);
   const m = useAction(createBatch, ["batches"]);
   const ok = batchId.trim() !== "" && start !== "" && end !== "";
@@ -45,9 +48,8 @@ export function Batches() {
   const [status, setStatus] = useState("");
   const list = useList<BatchRow>("batches", "/batches", { status });
   const all = useList<BatchRow>("batches", "/batches", undefined);
-  const clock = useGet<ClockState>(["clock", "default"], "/dev/clock");
-  const [first, setFirst] = useState<string>();
-  useEffect(() => { if (first === undefined && clock.data) setFirst(clock.data.now); }, [first, clock.data]);
+  const clock = useClock();
+  const first = clock.data?.now;
   return (
     <>
       <Section title="배치 목록" actions={

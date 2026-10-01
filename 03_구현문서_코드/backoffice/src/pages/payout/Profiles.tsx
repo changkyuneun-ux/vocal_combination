@@ -6,8 +6,9 @@ import { Money } from "../../components/Money.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
 import { useAction, useGet } from "../../api/hooks.ts";
 import { useAll } from "../../api/all.ts";
+import { useClock } from "../../api/clock.ts";
 import { setPayoutProfile } from "../../api/payout.ts";
-import type { ClockState, LedgerAccount, PayoutPolicyData, PayoutProfile, ProfileInput } from "../../api/types.ts";
+import type { LedgerAccount, PayoutPolicyData, PayoutProfile, ProfileInput } from "../../api/types.ts";
 import { isCooling } from "./logic.ts";
 
 const REGISTER_ACTOR = "usr_settle2";
@@ -89,7 +90,7 @@ export function Profiles() {
   const actor = useActor();
   const accounts = useAll<LedgerAccount>("ledger-accounts-all", "/ledger/accounts");
   const policy = useGet<PayoutPolicyData>(["payout-policy"], "/payout-policy");
-  const clock = useGet<ClockState>(["clock"], "/dev/clock", { refetchInterval: 5000 });
+  const clock = useClock();
   const parties = (accounts.data ?? []).filter((a) => a.kind === "PARTY_PAYABLE" && a.partyId !== null).map((a) => a.partyId as string);
   return (
     <>

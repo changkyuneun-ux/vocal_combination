@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { setActor, useActor } from "./actor.ts";
+import { DEFAULT_ACTOR, setActor, useActor } from "./actor.ts";
+import { useClock } from "../api/clock.ts";
 import { devApi, ApiError } from "../api/client.ts";
 import { useAction, useGet } from "../api/hooks.ts";
-import type { ClockState, UserRow } from "../api/types.ts";
+import type { UserRow } from "../api/types.ts";
 import { violations, type InvariantReport } from "../api/invariants.ts";
 import { ErrorPanel } from "../components/ErrorPanel.tsx";
 
@@ -19,7 +20,7 @@ function clockText(iso: string): string {
 
 function VirtualClock({ onError }: { onError: (e: ApiError) => void }) {
   const qc = useQueryClient();
-  const clock = useGet<ClockState>(["clock"], "/dev/clock", { refetchInterval: 5000 });
+  const clock = useClock();
   const [custom, setCustom] = useState("");
   const [picking, setPicking] = useState(false);
   const done = () => { void qc.invalidateQueries(); };
@@ -74,6 +75,13 @@ export function Header() {
   const [toast, setToast] = useState<ApiError | null>(null);
   const users = useGet<{ items: UserRow[] }>(["users"], "/users");
   const actor = useActor();
+  // 저장된 사용자가 없어졌거나 비정상이면 /users가 UNKNOWN_ACTOR(401)로 실패한다. 기본 사용자로 한 번 복구한다.
+  const usersError = users.error;
+  useEffect(() => {
+    if (usersError instanceof ApiError && (usersError.code === "UNKNOWN_ACTOR" || usersError.status === 401) && actor !== DEFAULT_ACTOR) {
+      setActor(DEFAULT_ACTOR);
+    }
+  }, [usersError, actor]);
   const rows = users.data?.items ?? [];
   const known = rows.some((u) => u.userId === actor);
   return (

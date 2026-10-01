@@ -22,14 +22,14 @@ export function useList<T>(key: string, path: string, params?: Record<string, st
   return { ...q, pages, next: last?.next ?? null, loadMore: () => { void q.fetchNextPage(); } };
 }
 
-export function useGet<T>(key: unknown[], path: string, opts: { refetchInterval?: number | false | ((data: T | undefined) => number | false); api?: ApiOptions; enabled?: boolean } = {}): UseQueryResult<T, ApiError> {
+export function useGet<T>(key: unknown[], path: string, opts: { refetchInterval?: number | false | ((data: T | undefined, query: { error: ApiError | null }) => number | false); api?: ApiOptions; enabled?: boolean } = {}): UseQueryResult<T, ApiError> {
   const actor = useActor();
   const effective = opts.api?.actorOverride ?? actor;
   return useQuery<T, ApiError>({
     queryKey: [...key, effective],
     queryFn: () => api<T>("GET", path, undefined, { ...opts.api, actorOverride: effective }),
     refetchInterval: typeof opts.refetchInterval === "function"
-      ? (query) => (opts.refetchInterval as (d: T | undefined) => number | false)(query.state.data)
+      ? (query) => (opts.refetchInterval as (d: T | undefined, q: { error: ApiError | null }) => number | false)(query.state.data, { error: query.state.error })
       : opts.refetchInterval ?? false,
     enabled: opts.enabled ?? true,
   });
