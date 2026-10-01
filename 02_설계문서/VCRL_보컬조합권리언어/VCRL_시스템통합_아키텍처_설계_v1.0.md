@@ -686,3 +686,31 @@ I-2b 최종 검토에서 남긴 것. I-2c 착수 전에 해소한다.
 6. **`provider_ref` 충돌 처리**: 다른 지시가 이미 쓴 참조를 PSP가 돌려주면 부분 UNIQUE 인덱스 위반으로 작업이 실패·재시도된다. 감사·경보와 운영자 경로를 둔다.
 7. **마이그레이션 동시 실행 검증**: `npm run migrate`를 두 프로세스가 동시에 돌릴 때의 잠금·멱등을 테스트로 확인한다.
 8. **9.6에서 이어진 것**: KMS 서명, DB 차원의 직무 분리, Outbox 재시도·dead-letter, 봉인 조회 인증.
+
+---
+
+## 12. 백오피스 E2E 검증 설계 결정 (2026-10-01)
+
+### 12.1 범위
+
+- 포함: rights-core(I-1·I-2a·I-2b) 전체 흐름을 사람이 브라우저로 처음부터 끝까지 조작해 검증하는 **검증용 백오피스 앱**(`03_구현문서_코드/backoffice`), 이를 위한 rights-core 모듈별 조회 API, 개발 전용 기능(`src/dev/`: 가상 시계·개발 사용자·PSP 시뮬레이터·합성 곡 불러오기·검증 DB 초기화), Playwright E2E.
+- 제외: 실제 로그인·인증(9.6-5), 권리자·파트너 포털(I-3), 실제 PSP, 제품 수준 디자인. 11.5 I-2c 선행 과제.
+- 기존 시안(`dobedopop-backoffice-prototype_v2.7.html` 등)은 목업 데이터의 정적 HTML이고 데이터 구조가 v2.7이라 연결하지 않는다. 색·밀도 등 시각 스타일만 따른다.
+
+### 12.2 결정
+
+1. **앱 형태**: React + Vite + TypeScript, 서버 상태는 TanStack Query(캐시·비동기 상태 자동 갱신·실행 뒤 재조회), 라우팅 react-router, UI 라이브러리 없이 CSS 변수. npm 워크스페이스에 `backoffice`를 추가한다. Vite 개발 서버가 `/api`를 rights-core(`127.0.0.1:8080`)로 프록시한다. API 타입은 손으로 쓰고 계약 테스트(8번)로 실제 응답과 맞춘다.
+2. **신원**: 상단 드롭다운으로 개발 사용자를 바꾸고 모든 요청에 `x-actor`를 붙인다(지금 백엔드 방식). 선택한 사용자만 `localStorage`에 기억한다. 직무 분리 거부(승인·활성화, 계좌 등록·지급 실행)를 화면에서 확인할 수 있도록 역할별 개발 사용자를 서버 시작 때 만든다: `usr_editor`(RIGHTS_EDITOR·EDITOR), `usr_approver`(WORK_APPROVER), `usr_activator`(ACTIVATOR), `usr_issuer`(ISSUER), `usr_ops`(SPACE_OPS), `usr_settle`·`usr_settle2`(SPACE_SETTLE).
+3. **화면 구성**(메뉴 = 데이터 흐름 순서): 0 개요(대시보드: 단계별 건수·최근 감사·점검 결과·권장 검증 순서 체크리스트), 1 권리 등록(권리자·곡/녹음/슬롯/스템/보이스·권리·위임·분쟁, facts 범위 봉인 상태), 2 정책(VCRL 편집기·컴파일 오류·승인·활성화·재고정), 3 팩·발행(팩·권리자 선언·활성화, 슬롯별 보이스 선택 발행, 봉인 digest·분배 결과·재도출 대조), 4 매출(구매·환불·정정), 5 정산(배치 생성·run 진행·검증·확정, run 무효화·재대기, 격리 해제, 보류 해제 제안·실행), 6 원장(시산표·분개·전기), 7 지급(프로필·냉각 표시·지급 실행·지시·재전송), 8 명세(기간 항등식·기말 대조), 9 개발 도구(PSP 시뮬레이터·데이터). 상단 헤더에 사용자 전환·가상 시계·점검 배지(`/settlement/invariants`, 빨강을 누르면 위반 항목)를 둔다. 오류는 백엔드 오류 코드와 메시지를 그대로 보여 준다(거부 경로도 검증 대상). 비동기 상태(run·지급 지시)는 몇 초마다 다시 읽는다.
+4. **조회 API**(모듈별 `routes.ts`, 역할 검사 포함, 목록은 `?limit=&after=` 커서와 상태·키 필터, 응답 `{items, next}`): platform `GET /me`·`/users`·`/audit`, registry `GET /parties`·`/works`·`/scopes/:id`(봉인 상태)·`/scopes/:id/facts`·`/disputes`, policy `GET /policies`·`/policies/:id/versions`·`/policies/:id/versions/:v`, issuance `GET /packs`·`/packs/:id`·`/issues?pack=`, revenue `GET /revenue-events`, settlement `GET /batches`·`/batches/:id/runs`·`/quarantine`·`/holds`·`/reversals`, ledger `GET /ledger/accounts`·`/ledger/entries`·`/ledger/entries/:id`, payout `GET /parties/:id/payout-profile`·`/payout-policy`·`/payout-runs`·`/payout-runs/:id/instructions`·`/payouts/:id`. 기존 단건 조회는 그대로 쓴다. 조회 쿼리도 각 모듈 안에 두어 계층 규칙(아키텍처 테스트)을 지킨다.
+5. **개발 전용 기능**(`src/dev/`): `RC_DEV=1`일 때만 `/dev/*`를 등록한다(아니면 404). `RC_DEV=1`인데 DB 이름이 `rights_core_dev`가 아니거나 `RC_PSP`가 가짜가 아니면 서버가 시작을 거부한다. 기능: 가상 시계(`GET /dev/clock`, `POST /dev/clock/advance {ms}`, `POST /dev/clock/set {at}`), PSP 시뮬레이터(`GET /dev/psp/requests`, `PUT /dev/psp/outcomes/:instructionId` — 그 지시의 다음 결과 `PAID`|`FAILED`|`UNKNOWN`, `POST /dev/psp/webhook {instructionId, status, repeat}` — 실제 `/psp/webhook` 경로로 비밀 헤더를 붙여 보내고 `repeat`만큼 같은 `providerEventId`로 중복 전송), 합성 곡 불러오기(`POST /dev/seed/synthetic-song` — 시나리오 곡의 권리자·곡·녹음·슬롯·스템·보이스·권리·위임·정책 초안까지, 정책 승인·활성화와 팩 활성화는 UI에서 하도록 남긴다), 검증 DB 초기화(`POST /dev/reset` — 개발 DB를 비우고 마이그레이션·pg-boss 스키마를 다시 적용, 시계를 초기값으로).
+6. **가상 시계**: 가상 시각 = 기준 시각 + (실제 현재 − 설정한 실제 시각). 기준은 `dev_clock` 테이블(개발 DB에만 — `migrations-dev/`의 개발 전용 마이그레이션, 운영 `npm run migrate`는 적용하지 않는다)에 두어 재시작해도 이어진다. 앞으로만 간다(지급 기준 시각 단조성·봉인 울타리와 맞춤, 뒤로 가는 요청은 409 `CLOCK_REGRESSED`). 실제 시각을 넘을 수 없다(엔진이 DB 시계보다 늦은 `knownAt`을 422로 거부 — 9.3-10 봉인 울타리, 넘기려 하면 409 `CLOCK_AHEAD_OF_REAL`). 그래서 초기화 때 시계를 2026-01-01T00:00:00.000Z(합성 곡 기준일)로 둔다. 개발 모드의 서비스·작업 핸들러·Outbox 폴러는 `systemClock` 대신 이 시계를 주입받는다(서비스 코드 변경 없음). pg-boss 작업 지연(예: PSP 재조회)은 실제 시간 기준으로 남는다.
+7. **실행**: `docker compose up -d` → `npm run dev:db -w rights-core`(개발 DB 생성·마이그레이션·pg-boss 스키마, 처음 한 번) → `npm run dev -w rights-core`(`RC_DEV=1 RC_PSP=fake`, :8080) → `npm run dev -w backoffice`(:5173). 루트 `npm run dev`로 둘을 함께 띄운다. 기존 테스트 템플릿 DB·시나리오와 분리한다.
+8. **테스트**: rights-core에 새 조회 API(형태·페이지·필터·역할 거부)와 `/dev/*`(꺼짐 404·DB 이름 검사·시계 단조·실제 시각 상한) 테스트, 계약 테스트(실제 서버의 각 목록 API 응답 ↔ 백오피스 타입), backoffice 단위(Vitest, 형식 변환·오류 표시), **Playwright E2E**: 실제 rights-core·개발 DB·브라우저로 권장 검증 순서 11단계(합성 곡 → 정책 컴파일·승인·활성화 → 팩 활성화 → 발행 → 매출·환불 → 시계 이동·배치·확정 → 확정 후 환불·역분개 → 보류 해제 → 지급 프로필·시계 +3일 → 지급 실행·PSP 결과 → 명세 대조·점검 초록)와 거부 경로 5개(정산 불가 조합 422, 같은 사용자 승인·활성화 거부, 냉각 중 `HELD`, 계좌 변경 뒤 `ACCOUNT_CHANGED`, 중복 webhook 무시). 테스트마다 `/dev/reset`으로 시작한다.
+
+### 12.3 완료 기준
+
+- 사람이 백오피스만으로 권장 검증 순서 11단계를 끝까지 진행할 수 있다(실제 진행 화면 캡처를 결과에 남긴다).
+- Playwright E2E(정상 경로 + 거부 경로 5개) 통과.
+- rights-core 기존 테스트·새 조회·개발 API 테스트·tsc·3만 건 시나리오 통과, vcrl 테스트·smoke 통과.
+- 결과를 12.4에 기록한다.
