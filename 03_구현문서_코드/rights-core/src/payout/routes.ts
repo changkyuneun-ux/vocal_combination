@@ -3,6 +3,9 @@ import type { FastifyInstance } from "fastify";
 import { requireRole } from "../platform/actor.ts";
 import { DomainError } from "../platform/errors.ts";
 import { withActor, type Deps } from "../http/server.ts";
+import { optFilter, parsePage } from "../platform/paging.ts";
+import type { Tx } from "../platform/db.ts";
+import * as q from "./queries.ts";
 import { recordWebhook, resubmitPayout } from "./handlers.ts";
 import { createPayoutRun, setPayoutProfile } from "./service.ts";
 
@@ -63,4 +66,16 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     const r = await deps.db.tx((tx) => recordWebhook(tx, deps.clock, deps.jobs, w));
     return reply.status(r.created ? 201 : 200).send(r);
   });
+  // 조회(SPACE_SETTLE). 역할 검사가 필터·커서 검증보다 먼저다.
+  const read = <T>(path: string, fn: (tx: Tx, req: any) => Promise<T>) =>
+    app.get(path, async (req) => withActor(deps, req, async (tx, actor) => {
+      requireRole(actor, "SPACE_SETTLE");
+      return fn(tx, req);
+    }));
+  const qs = (req: { query: unknown }) => req.query as Record<string, unknown>;
+  read("/payout-policy", (tx) => q.getPayoutPolicy(tx));
+  read("/parties/:id/payout-profile", (tx, req) => q.getPayoutProfile(tx, req.params.id));
+  read("/payout-runs", (tx, req) => q.listPayoutRuns(tx, parsePage(qs(req))));
+  read("/payout-runs/:id/instructions", (tx, req) => q.listInstructions(tx, req.params.id, { status: optFilter(qs(req), "status") }, parsePage(qs(req))));
+  read("/payouts/:id", (tx, req) => q.getPayout(tx, req.params.id));
 }

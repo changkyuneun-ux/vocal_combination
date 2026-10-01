@@ -1,12 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
+import type { Tx } from "../platform/db.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
-import { requireRole } from "../platform/actor.ts";
+import { requireAnyRole, requireRole } from "../platform/actor.ts";
+import { optFilter, parsePage } from "../platform/paging.ts";
 import { suggestFraudRelease } from "../engine-bridge/fraud-release.ts";
 import { releaseHold } from "./holds.ts";
 import { invariants } from "./invariants.ts";
 import { MAX_VOID_REASON, requeueRun, voidRun } from "./operator.ts";
 import { releaseQuarantine } from "./quarantine.ts";
+import * as q from "./queries.ts";
 import { batchView, confirmBatch, createBatch } from "./service.ts";
 
 export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
@@ -68,4 +71,21 @@ export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
     requireRole(actor, "SPACE_SETTLE");
     return invariants(deps.db, deps.clock);
   });
+  // 조회(SPACE_OPS 또는 SPACE_SETTLE). 역할 검사가 필터·커서 검증보다 먼저다.
+  const read = <T>(path: string, fn: (tx: Tx, req: any) => Promise<T>) =>
+    app.get(path, async (req) => withActor(deps, req, async (tx, actor) => {
+      requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE"]);
+      return fn(tx, req);
+    }));
+  const qs = (req: { query: unknown }) => req.query as Record<string, unknown>;
+  read("/revenue-events/:id/settlement", (tx, req) => q.revenueEventSettlement(tx, req.params.id));
+  read("/batches", (tx, req) => q.listBatches(tx, { status: optFilter(qs(req), "status") }, parsePage(qs(req))));
+  read("/batches/:id/runs", (tx, req) => q.listBatchRuns(tx, req.params.id, { status: optFilter(qs(req), "status") }, parsePage(qs(req))));
+  read("/quarantine", (tx, req) => {
+    const open = optFilter(qs(req), "open");
+    if (open !== undefined && open !== "true" && open !== "false") throw new DomainError("BAD_REQUEST", 400, "open must be true or false");
+    return q.listQuarantine(tx, open === undefined ? {} : { open: open === "true" }, parsePage(qs(req)));
+  });
+  read("/holds", (tx, req) => q.listHolds(tx, { status: optFilter(qs(req), "status"), reason: optFilter(qs(req), "reason") }, parsePage(qs(req))));
+  read("/reversals", (tx, req) => q.listReversals(tx, parsePage(qs(req))));
 }
