@@ -87,6 +87,7 @@ export function Statements() {
           </label>
           <label className="field"><span>기간 시작(UTC)</span><input type="datetime-local" step={1} value={from} onChange={(e) => setFrom(e.target.value)} /></label>
           <label className="field"><span>기간 끝(UTC)</span><input type="datetime-local" step={1} value={to} onChange={(e) => setToEdit(e.target.value)} /></label>
+          <button type="button" className="btn" disabled={!clock.data} onClick={() => setToEdit(toLocalInput(new Date(Math.ceil(Date.parse(clock.data!.now) / 1000) * 1000).toISOString()))}>끝 = 지금</button>
         </div>
         <ErrorPanel error={accounts.error} />
         <ErrorPanel error={clock.error} />

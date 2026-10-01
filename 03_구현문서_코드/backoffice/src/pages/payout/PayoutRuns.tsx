@@ -21,7 +21,7 @@ function CreateForm({ now, taken }: { now: string; taken: string[] }) {
   const [idEdit, setIdEdit] = useState<string | null>(null);
   const [asOfEdit, setAsOfEdit] = useState<string | null>(null);
   const asOf = asOfEdit === null ? now : toIso(asOfEdit);
-  const payoutRunId = idEdit ?? nextPayoutRunId(asOf, taken);
+  const payoutRunId = idEdit ?? (asOf === "" ? "" : nextPayoutRunId(asOf, taken));
   const m = useAction(createPayoutRun, ["payout-runs", "payout-instructions", "payout-profile", "ledger-accounts-all"]);
   return (
     <form className="form" onSubmit={(e) => {
@@ -32,7 +32,7 @@ function CreateForm({ now, taken }: { now: string; taken: string[] }) {
       <label className="field"><span>기준 시각 asOf(UTC)</span>
         <input type="datetime-local" step={1} value={asOfEdit ?? toLocalInput(now)} onChange={(e) => setAsOfEdit(e.target.value)} required />
       </label>
-      <button type="submit" className="btn primary" disabled={payoutRunId.trim() === "" || m.isPending}>지급 run 만들기</button>
+      <button type="submit" className="btn primary" disabled={payoutRunId.trim() === "" || asOf === "" || m.isPending}>지급 run 만들기</button>
       {m.isSuccess && <p className="muted" role="status">지급 run을 만들었습니다: <Link to={`/payout/runs/${encodeURIComponent(m.variables?.payoutRunId ?? "")}`}>{m.variables?.payoutRunId}</Link></p>}
       <ErrorPanel error={m.error} />
     </form>

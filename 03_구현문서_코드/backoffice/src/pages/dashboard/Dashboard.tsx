@@ -87,7 +87,7 @@ export function Dashboard() {
         <p>건수·점검은 현재 사용자(<strong>{actor}</strong>)로 읽습니다. 권한이 없는 항목은 오류를 그대로 보여 주고, 체크리스트에서는 "알 수 없음"으로 표시합니다. 200건을 넘으면 "200+"로 표시합니다.</p>
       </Section>
       <Section title="단계별 건수">
-        <ul className="cards" aria-label="단계별 건수">
+        <ul className="cards" aria-label="건수 카드 목록">
           {cards.map((c) => <li key={c.name} className="card"><span className="muted">{c.name}</span> <strong>{c.value}</strong></li>)}
         </ul>
         {cards.map((c) => c.err ? <div key={c.name}><span className="muted">{c.name}:</span><ErrorPanel error={c.err} /></div> : null)}
@@ -101,10 +101,10 @@ export function Dashboard() {
         )}
       </Section>
       <Section title="권장 검증 순서">
-        <ol className="stack" aria-label="권장 검증 순서">
+        <ol className="stack" aria-label="체크리스트 단계">
           {steps.map((s) => (
             <li key={s.no}>
-              <span className={`badge ${STATE_TONE[s.state]}`}>{STATE_TEXT[s.state]}</span> {s.no}. {s.label}{" "}
+              <span className={`badge ${STATE_TONE[s.state]}`}>{STATE_TEXT[s.state]}</span> {s.no}. {s.label}{s.no === 9 && <span className="muted"> (감사 기록, usr_settle로 조회)</span>}{" "}
               <Link to={s.to} aria-label={`단계[${s.no}] 열기`}>열기</Link>
               {s.state === "unknown" && s.error && <span className="muted"> — {s.error}</span>}
             </li>

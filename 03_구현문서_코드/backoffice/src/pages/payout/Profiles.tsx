@@ -35,10 +35,10 @@ function Editor({ partyId, profile, onDone }: { partyId: string; profile: Payout
         </select>
       </label>
       <label className="field"><span>계좌 토큰{profile?.payoutAccountRef ? " (비우면 변경 없음)" : ""}</span>
-        <input aria-label={`권리자[${partyId}] 계좌 토큰`} value={account} disabled={clear} onChange={(e) => setAccount(e.target.value)} placeholder={profile?.payoutAccountRef ?? `acct_${partyId}`} />
+        <input aria-label={`권리자[${partyId}] 계좌 토큰 입력`} value={account} disabled={clear} onChange={(e) => setAccount(e.target.value)} placeholder={profile?.payoutAccountRef ?? `acct_${partyId}`} />
       </label>
       <label className="field"><span>계좌 토큰 지우기</span>
-        <input type="checkbox" aria-label={`권리자[${partyId}] 계좌 토큰 지우기`} checked={clear} onChange={(e) => setClear(e.target.checked)} />
+        <input type="checkbox" aria-label={`권리자[${partyId}] 토큰 지우기`} checked={clear} onChange={(e) => setClear(e.target.checked)} />
       </label>
       <label className="field"><span>KYC 확인</span>
         <input type="checkbox" aria-label={`권리자[${partyId}] KYC 확인`} checked={kyc} onChange={(e) => setKyc(e.target.checked)} />
@@ -69,7 +69,7 @@ function Row({ partyId, now, actor }: { partyId: string; now: string | undefined
           {p && !cooling && p.coolingUntil && <span className="muted">냉각 끝남</span>}
           {p?.accountChangedBy && (
             <div>마지막 계좌 변경자: <strong>{p.accountChangedBy}</strong>
-              {p.accountChangedBy === actor && <span className="badge warn"> 이 사용자는 이 권리자의 지급을 실행할 수 없습니다</span>}
+              <span className="badge warn"> {p.accountChangedBy}는 이 권리자의 지급을 실행할 수 없습니다(직무 분리)</span>
             </div>
           )}
         </td>

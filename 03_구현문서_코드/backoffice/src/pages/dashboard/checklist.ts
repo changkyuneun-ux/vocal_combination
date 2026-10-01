@@ -29,11 +29,11 @@ export const STEPS: { no: number; label: string; to: string }[] = [
   { no: 4, label: "조합 발행", to: "/issues" },
   { no: 5, label: "구매·환불 기록", to: "/revenue" },
   { no: 6, label: "배치 확정", to: "/settlement/batches" },
-  { no: 7, label: "역분개 확인", to: "/ledger" },
+  { no: 7, label: "역분개 확인", to: "/revenue" },
   { no: 8, label: "보류 해제", to: "/settlement/holds" },
   { no: 9, label: "지급 프로필 등록", to: "/payout/profiles" },
   { no: 10, label: "지급 실행·PAID", to: "/payout/runs" },
-  { no: 11, label: "점검 정상", to: "/statements" },
+  { no: 11, label: "점검 정상", to: "/" },
 ];
 
 type Verdict = { state: StepState; error?: string };
