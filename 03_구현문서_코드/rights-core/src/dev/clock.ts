@@ -9,6 +9,8 @@ export type DevClock = Clock & {
   /** 새 가상 시각. 메모리 반영은 트랜잭션이 커밋된 뒤에 일어난다. */
   advance(tx: Tx, ms: number): Promise<string>;
   set(tx: Tx, at: string): Promise<string>;
+  /** 검증 DB 초기화 전용: 단조 규칙 없이 가상 시각을 되돌린다(앞으로 가는 set·advance와 달리 CLOCK_REGRESSED가 없다). */
+  resetTo(tx: Tx, at: string): Promise<string>;
   /** dev_clock 행을 다시 읽는다(초기화 뒤). */
   reload(tx: Tx): Promise<void>;
 };
@@ -56,6 +58,15 @@ export async function loadDevClock(db: Db, realNow: () => number = () => Date.no
       if (typeof ms !== "number" || !Number.isSafeInteger(ms) || ms <= 0) throw new DomainError("BAD_REQUEST", 400, "ms must be a positive integer");
       const cur = await read(tx, true);
       return clock.set(tx, iso(virtualAt(cur) + ms));
+    },
+    async resetTo(tx, at) {
+      if (typeof at !== "string" || !isIsoMs(at)) throw invalid("INVALID_INSTANT", `at must be a millisecond UTC ISO instant, got ${String(at)}`);
+      await read(tx, true);
+      const real = realNow();
+      const next: Row = { baseMs: Date.parse(at), setRealMs: real };
+      await tx.query("UPDATE dev_clock SET base_at = $1, set_real_at = $2", [at, iso(real)]);
+      onCommit(tx, () => { row = next; });
+      return at;
     },
     async reload(tx) {
       const next = await read(tx);

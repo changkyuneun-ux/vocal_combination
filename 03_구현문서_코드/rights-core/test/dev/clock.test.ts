@@ -6,14 +6,14 @@ import { buildServer } from "../../src/http/server.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { createBridgeCtx } from "../../src/engine-bridge/context.ts";
 import { createFsBlobStore } from "../../src/engine-bridge/blob-fs.ts";
-import { fakeProvider } from "../../src/payout/fake-provider.ts";
+import { createDevPsp } from "../../src/dev/psp.ts";
 import { freshDevDb } from "./helpers.ts";
 
 const real = { t: Date.parse("2026-09-30T00:00:00.000Z") };
 const { db, adminUrl, drop } = await freshDevDb();
 const clock = await loadDevClock(db, () => real.t);
 const ctx = createBridgeCtx(createFsBlobStore("/tmp/rc-dev-clock-test-blobs"));
-const dev = { clock, psp: { provider: fakeProvider() }, adminUrl, blobDir: "/tmp/rc-dev-clock-test-blobs" };
+const dev = { clock, psp: createDevPsp(clock), jobs: { pause: async () => {}, resume: async () => {}, paused: () => [] }, adminUrl, blobDir: "/tmp/rc-dev-clock-test-blobs" };
 const app = buildServer({ db, ctx, clock, jobs: recordingJobs(), dev });
 const plain = buildServer({ db, ctx, clock, jobs: recordingJobs() });
 after(async () => { await app.close(); await plain.close(); await drop(); });

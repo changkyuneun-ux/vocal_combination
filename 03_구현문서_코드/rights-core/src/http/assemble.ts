@@ -10,6 +10,7 @@ import { jobHandlers } from "../settlement/handlers.ts";
 import { payoutJobHandlers } from "../payout/handlers.ts";
 import type { PayoutProvider } from "../payout/provider.ts";
 import type { DevDeps } from "../dev/routes.ts";
+import { createDevJobs } from "../dev/jobs.ts";
 import { buildServer } from "./server.ts";
 
 /** 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다. */
@@ -21,7 +22,7 @@ export type StartOpts = {
   provider: PayoutProvider;
   pspSecret?: string | undefined;
   /** dev 진입점이 넘긴다(buildServer가 /dev/* 라우트를 등록). */
-  dev?: DevDeps | undefined;
+  dev?: Omit<DevDeps, "jobs"> | undefined;
   port: number;
   /** 시작 직후(워커·서버 시작 전) 실행할 준비 단계. 호출자가 필요한 시드를 심는다. */
   prepare?: ((db: ReturnType<typeof createDb>) => Promise<void>) | undefined;
@@ -43,7 +44,7 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   const app = buildServer({
     db, ctx, clock: opts.clock, jobs, provider: opts.provider,
     ...(opts.pspSecret === undefined ? {} : { pspSecret: opts.pspSecret }),
-    ...(opts.dev === undefined ? {} : { dev: opts.dev }),
+    ...(opts.dev === undefined ? {} : { dev: { ...opts.dev, jobs: createDevJobs(jobs) } }),
   });
   const stopPoller = startOutboxPoller(db, OUTBOX_HANDLERS, opts.clock, 1000);
   await app.listen({ port: opts.port, host: "127.0.0.1" });

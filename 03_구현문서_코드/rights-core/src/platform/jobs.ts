@@ -8,7 +8,15 @@ export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refun
 export type SendOptions = { startAfterSeconds?: number };
 export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>, opts?: SendOptions): Promise<void> };
 export type JobHandler = (data: Record<string, string>) => Promise<void>;
-export type BossJobs = Jobs & { work(handlers: Record<JobName, JobHandler>): Promise<void>; drainIdle(timeoutMs: number): Promise<void>; stop(): Promise<void> };
+export type BossJobs = Jobs & {
+  work(handlers: Record<JobName, JobHandler>): Promise<void>;
+  /** 개발 전용(운영 경로는 부르지 않는다): 그 큐의 워커만 멈추고(진행 중 작업은 끝까지 기다린다) 작업은 큐에 쌓아 둔다. work() 뒤에만 쓴다. */
+  pause(name: JobName): Promise<void>;
+  /** 개발 전용: pause한 큐를 같은 처리기·옵션으로 다시 연다. 멈추지 않은 큐에는 아무 일도 하지 않는다. */
+  resume(name: JobName): Promise<void>;
+  drainIdle(timeoutMs: number): Promise<void>;
+  stop(): Promise<void>;
+};
 /** 테스트용: 보낸 작업을 트랜잭션 커밋과 무관하게 기록한다. drain은 핸들러를 순서대로 호출하고 새로 쌓인 작업도 처리한다. 처리기가 없는 작업은 대기로 남는다. */
 export type RecordingJobs = Jobs & { sent: { name: JobName; data: Record<string, string>; startAfterSeconds?: number }[]; drain(handlers: Partial<Record<JobName, JobHandler>>): Promise<number> };
 
@@ -67,6 +75,30 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
   const batchSize = opts.batchSize ?? 1;
   const localConcurrency = opts.localConcurrency ?? 1;
   let inFlight = 0;
+  const registered = new Map<JobName, JobHandler>();
+  const active = new Set<JobName>();
+  async function register(name: JobName): Promise<void> {
+    const handler = registered.get(name)!;
+    // 작업별 결과: 배치 안의 한 작업이 실패해도 그 작업만 재시도한다(나머지는 완료로 남는다).
+    const options = { pollingIntervalSeconds: 0.5, batchSize, localConcurrency, burstWhenBatchFull: batchSize > 1, perJobResults: true } as const;
+    await boss.work<Record<string, string>, unknown, typeof options>(name, options, async (batch) => {
+      const results: JobResult[] = [];
+      for (const job of batch) {
+        inFlight++;
+        try {
+          await handler(job.data);
+          results.push({ id: job.id, status: "completed" });
+        } catch (e) {
+          console.error(`job ${name} ${job.id} failed:`, e instanceof Error ? e.message : e);
+          results.push({ id: job.id, status: "failed", output: { message: e instanceof Error ? e.message : String(e) } });
+        } finally {
+          inFlight--;
+        }
+      }
+      return results;
+    });
+    active.add(name);
+  }
   return {
     async send(tx, name, data, opts) {
       const startAfter = opts?.startAfterSeconds;
@@ -74,26 +106,20 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
     },
     async work(handlers) {
       for (const name of JOB_NAMES) {
-        const handler = handlers[name];
-        // 작업별 결과: 배치 안의 한 작업이 실패해도 그 작업만 재시도한다(나머지는 완료로 남는다).
-        const options = { pollingIntervalSeconds: 0.5, batchSize, localConcurrency, burstWhenBatchFull: batchSize > 1, perJobResults: true } as const;
-        await boss.work<Record<string, string>, unknown, typeof options>(name, options, async (batch) => {
-          const results: JobResult[] = [];
-          for (const job of batch) {
-            inFlight++;
-            try {
-              await handler(job.data);
-              results.push({ id: job.id, status: "completed" });
-            } catch (e) {
-              console.error(`job ${name} ${job.id} failed:`, e instanceof Error ? e.message : e);
-              results.push({ id: job.id, status: "failed", output: { message: e instanceof Error ? e.message : String(e) } });
-            } finally {
-              inFlight--;
-            }
-          }
-          return results;
-        });
+        registered.set(name, handlers[name]);
+        await register(name);
       }
+    },
+    async pause(name) {
+      if (!registered.has(name)) throw new Error(`jobs.pause(${name}): work() has not registered handlers yet`);
+      if (!active.has(name)) return;
+      active.delete(name);
+      await boss.offWork(name);
+    },
+    async resume(name) {
+      if (!registered.has(name)) throw new Error(`jobs.resume(${name}): work() has not registered handlers yet`);
+      if (active.has(name)) return;
+      await register(name);
     },
     async drainIdle(timeoutMs) {
       // 끝나지 않은 작업만 센다(findJobs는 완료된 작업까지 전부 읽어 수만 건이면 느리다).

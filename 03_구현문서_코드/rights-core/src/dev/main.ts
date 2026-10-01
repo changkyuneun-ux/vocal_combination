@@ -10,7 +10,7 @@ const { devModeFromEnv } = await import("./env.ts");
 const { createDb } = await import("../platform/db.ts");
 const { loadDevClock } = await import("./clock.ts");
 const { ensureDevUsers } = await import("./users.ts");
-const { fakeProvider } = await import("../payout/fake-provider.ts");
+const { createDevPsp } = await import("./psp.ts");
 const { startServer } = await import("../http/assemble.ts");
 
 if (!devModeFromEnv(process.env)) throw new Error("DEV_ONLY: RC_DEV must be 1 for npm run dev");
@@ -25,9 +25,9 @@ try {
   await boot.close();
 }
 const blobDir = process.env.BLOB_DIR ?? fileURLToPath(new URL("../../.blobs-dev/", import.meta.url));
-// Task 2 전까지 PSP는 fakeProvider()를 그대로 쓴다.
-const provider = fakeProvider();
+const psp = createDevPsp(clock);
+const provider = psp.provider;
 await startServer({
   url, clock, provider, pspSecret: process.env.RC_PSP_SECRET, port: Number(process.env.PORT ?? 8080),
-  dev: { clock, psp: { provider }, adminUrl: process.env.RC_ADMIN_URL!, blobDir },
+  dev: { clock, psp, adminUrl: process.env.RC_ADMIN_URL!, blobDir },
 });
