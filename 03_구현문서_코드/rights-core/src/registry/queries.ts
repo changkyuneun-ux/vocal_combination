@@ -62,6 +62,7 @@ export async function getScope(tx: Tx, scopeId: string) {
   return {
     factsScopeId: s.facts_scope_id as string, workId: s.work_id as string, lastVersion: s.last_version as number,
     createdAt: ts(s.created_at)!, sealedThrough: ts(s.sealed_through),
+    // sealed_document에는 knownAt이 없다. 최신 봉인(가장 큰 doc_version)은 sealed_through(봉인한 knownAt의 최댓값)에서 만들어졌다고 본다.
     latestFactsSeal: seal === undefined ? null : { digest: seal.digest as string, knownAt: ts(s.sealed_through) },
   };
 }
@@ -71,15 +72,14 @@ export async function getScopeFacts(tx: Tx, scopeId: string) {
   const s = (await tx.query("SELECT work_id FROM facts_scope WHERE facts_scope_id = $1", [scopeId])).rows[0];
   if (s === undefined) throw notFound("facts scope", scopeId);
   const q = async (sql: string, params: unknown[]): Promise<Rows> => (await tx.query(sql, params)).rows;
-  const [recordings, slots, stems, voices, claims, mandates, disputes] = await Promise.all([
-    q("SELECT * FROM recording_version WHERE work_id = $1 ORDER BY recording_id", [s.work_id]),
-    q("SELECT p.* FROM part_slot p JOIN recording_version r ON r.recording_id = p.recording_id WHERE r.work_id = $1 ORDER BY p.slot_id", [s.work_id]),
-    q("SELECT t.* FROM stem t JOIN recording_version r ON r.recording_id = t.recording_id WHERE r.work_id = $1 ORDER BY t.stem_id", [s.work_id]),
-    q("SELECT * FROM voice WHERE facts_scope_id = $1 ORDER BY voice_id", [scopeId]),
-    q("SELECT * FROM right_claim WHERE facts_scope_id = $1 ORDER BY claim_id, version", [scopeId]),
-    q("SELECT * FROM mandate WHERE facts_scope_id = $1 ORDER BY mandate_id, version", [scopeId]),
-    q("SELECT * FROM dispute WHERE facts_scope_id = $1 ORDER BY dispute_id", [scopeId]),
-  ]);
+  // 한 PoolClient에서는 쿼리를 순차로 실행한다(동시 실행은 pg 경고).
+  const recordings = await q("SELECT * FROM recording_version WHERE work_id = $1 ORDER BY recording_id", [s.work_id]);
+  const slots = await q("SELECT p.* FROM part_slot p JOIN recording_version r ON r.recording_id = p.recording_id WHERE r.work_id = $1 ORDER BY p.slot_id", [s.work_id]);
+  const stems = await q("SELECT t.* FROM stem t JOIN recording_version r ON r.recording_id = t.recording_id WHERE r.work_id = $1 ORDER BY t.stem_id", [s.work_id]);
+  const voices = await q("SELECT * FROM voice WHERE facts_scope_id = $1 ORDER BY voice_id", [scopeId]);
+  const claims = await q("SELECT * FROM right_claim WHERE facts_scope_id = $1 ORDER BY claim_id, version", [scopeId]);
+  const mandates = await q("SELECT * FROM mandate WHERE facts_scope_id = $1 ORDER BY mandate_id, version", [scopeId]);
+  const disputes = await q("SELECT * FROM dispute WHERE facts_scope_id = $1 ORDER BY dispute_id", [scopeId]);
   return {
     recordings: recordings.map((r) => ({
       recordingId: r.recording_id as string, workId: r.work_id as string, masterOwnerPartyId: r.master_owner_party_id as string,

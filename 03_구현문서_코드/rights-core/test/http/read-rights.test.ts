@@ -4,7 +4,7 @@ import { fixedClock, type Clock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
 import { issueCombo, settlementWorld } from "../settlement-fixtures.ts";
-import { PACK, SCOPE } from "../fixtures.ts";
+import { PACK, POLICY_TEXT, SCOPE } from "../fixtures.ts";
 
 const w = await settlementWorld();
 const clock: Clock = fixedClock("2026-03-10T00:00:00.000Z", 1);
@@ -38,7 +38,8 @@ test("401 without x-actor on every read; 404 NOT_FOUND on unknown ids", async ()
 });
 
 test("/me and /users", async () => {
-  assert.deepEqual(await ok("/me", "usr_issuer"), { userId: "usr_issuer", displayName: (await ok("/me", "usr_issuer")).displayName, roles: ["ISSUER"] });
+  const seededName = (await w.db.pool.query("SELECT display_name FROM user_account WHERE user_id = 'usr_issuer'")).rows[0].display_name as string;
+  assert.deepEqual(await ok("/me", "usr_issuer"), { userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"] });
   const users = await ok("/users");
   const byId = new Map<string, any>(users.items.map((u: any) => [u.userId, u]));
   assert.deepEqual(byId.get("usr_ops").roles, ["SPACE_OPS"]);
@@ -115,7 +116,8 @@ test("/disputes: filters and shape (open one via registry)", async () => {
   assert.equal((await ok("/disputes?status=CLOSED")).items.length, 0);
   assert.equal((await ok(`/disputes?scope=${SCOPE}`)).items.length, 1);
   assert.equal((await ok("/disputes?scope=other")).items.length, 0);
-  await app.inject({ method: "POST", url: "/disputes/dsp_1/close", headers: { "x-actor": "usr_rights" }, payload: {} });
+  const closed = await app.inject({ method: "POST", url: "/disputes/dsp_1/close", headers: { "x-actor": "usr_rights" }, payload: {} });
+  assert.equal(closed.statusCode, 200, closed.body);
 });
 
 test("/policies, versions, version detail", async () => {
@@ -177,4 +179,16 @@ test("limit/after validation over HTTP", async () => {
   assert.equal(bad.json().code, "BAD_CURSOR");
   const wrongShape = await get(`/issues?after=${Buffer.from('["x"]').toString("base64url")}`);
   assert.equal(wrongShape.json().code, "BAD_CURSOR");
+});
+
+test("/policies?pack= filters by any version in the pack but aggregates over all versions", async () => {
+  const mk = await app.inject({ method: "POST", url: "/packs", headers: { "x-actor": "usr_rights" }, payload: { packId: "pak_b", packCode: "NOVAB", title: "Nova B", factsScopeId: SCOPE } });
+  assert.equal(mk.statusCode, 201, mk.body);
+  const c = await app.inject({ method: "POST", url: "/policies/pol_nova/compile", headers: { "x-actor": "usr_editor" }, payload: { packId: "pak_b", sourceText: POLICY_TEXT.replace(PACK, "pak_b") } });
+  assert.equal(c.statusCode, 201, c.body);
+  for (const pack of [PACK, "pak_b"]) {
+    const r = await ok(`/policies?pack=${pack}`);
+    assert.deepEqual(r.items, [{ policyId: "pol_nova", packId: "pak_b", latestVersion: 2, activeVersion: 1 }], pack);
+  }
+  assert.deepEqual((await ok("/policies?pack=pak_none")).items, []);
 });

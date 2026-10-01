@@ -7,7 +7,8 @@ export async function listPolicies(tx: Tx, f: { pack?: string }, page: Page) {
   const after = cursorKey(page, ["s"]);
   const p: unknown[] = [];
   const w: string[] = [];
-  if (f.pack !== undefined) { p.push(f.pack); w.push(`pack_id = $${p.length}`); }
+  // 집계(latest·active·packId)는 모든 버전 기준, 팩 필터는 그 팩에 버전이 하나라도 있는 정책만 거른다.
+  if (f.pack !== undefined) { p.push(f.pack); w.push(`policy_id IN (SELECT policy_id FROM policy_version WHERE pack_id = $${p.length})`); }
   if (after) { p.push(after[0]); w.push(`policy_id > $${p.length}`); }
   p.push(page.limit + 1);
   const rows = (await tx.query(
@@ -35,7 +36,7 @@ export async function listVersions(tx: Tx, policyId: string, page: Page) {
   const rows = (await tx.query(
     `SELECT v.policy_id, v.version, v.policy_digest, v.facts_digest, v.facts_known_at, v.status, v.rebind_of_version, v.pack_id, v.created_by,
             v.created_at, v.activated_at,
-            (SELECT a.signer_id FROM attestation a WHERE a.digest = v.policy_digest AND a.role = '${APPROVER_ROLE}' ORDER BY a.signed_at LIMIT 1) AS approved_by
+            (SELECT a.signer_id FROM attestation a WHERE a.digest = v.policy_digest AND a.role = '${APPROVER_ROLE}' ORDER BY a.signed_at LIMIT 1) /* 가장 먼저 서명한 WORK_APPROVER */ AS approved_by
        FROM policy_version v WHERE ${where} ORDER BY v.version DESC LIMIT $${p.length}`, p,
   )).rows;
   return pageOf(rows.map((r) => ({
