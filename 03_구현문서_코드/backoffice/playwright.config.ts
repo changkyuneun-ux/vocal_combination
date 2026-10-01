@@ -13,7 +13,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 10_000 },
   reporter: [["list"]],
-  use: { baseURL: "http://localhost:5173", trace: "retain-on-failure" },
+  use: { baseURL: "http://localhost:5173", trace: "retain-on-failure", actionTimeout: 20_000, navigationTimeout: 30_000 },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: [
     {
