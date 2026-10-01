@@ -16,13 +16,9 @@ export function compact(v: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(v).filter(([, x]) => x !== "" && x !== undefined));
 }
 
-export function int(s: string | undefined): number {
-  return Number(s);
-}
-
-/** datetime-local 값("2026-01-01T00:00:00")을 UTC ISO로. 빈 값은 빈 문자열. */
+/** datetime-local 값(UTC로 해석)을 밀리초 UTC ISO("…:00.000Z")로. 빈 값은 빈 문자열. */
 export function toIso(local: string | undefined): string {
   if (!local) return "";
-  const t = /Z$|[+-]\d\d:\d\d$/.test(local) ? local : `${local}${local.length === 16 ? ":00" : ""}Z`;
-  return t;
+  const d = new Date(`${local}Z`);
+  return Number.isNaN(d.getTime()) ? local : d.toISOString();
 }

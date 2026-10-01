@@ -7,7 +7,7 @@ import { Digest } from "../../components/Digest.tsx";
 import { RegisterForm } from "../../components/RegisterForm.tsx";
 import { ScopeSelect, useScopeParam } from "../../components/ScopeSelect.tsx";
 import { useGet, useList } from "../../api/hooks.ts";
-import { compact, int, opts } from "../../api/registry.ts";
+import { compact, opts } from "../../api/registry.ts";
 import type { Scope, ScopeFacts, Work } from "../../api/types.ts";
 
 export function Assets() {
@@ -28,12 +28,12 @@ export function Assets() {
       </Section>
       <div className="split">
         <Section title="곡 등록">
-          <RegisterForm path="/works" invalidate={["works"]}
+          <RegisterForm path="/works" submitLabel="곡 등록" invalidate={["works"]}
             fields={[{ name: "workId", label: "곡 id", type: "text", required: true }, { name: "title", label: "제목", type: "text", required: true }, { name: "iswc", label: "ISWC", type: "text" }]}
             toBody={compact} />
         </Section>
         <Section title="facts 범위 생성">
-          <RegisterForm path="/scopes" invalidate={["scope", "facts"]} submitLabel="등록"
+          <RegisterForm path="/scopes" invalidate={["scope", "facts"]} submitLabel="범위 생성"
             fields={[{ name: "factsScopeId", label: "범위 id", type: "text", required: true }, { name: "workId", label: "곡 id", type: "text", required: true }]}
             toBody={compact} />
         </Section>
@@ -56,7 +56,7 @@ export function Assets() {
           <Section title="녹음">
             <DataTable rows={f?.recordings ?? []} empty="녹음이 없습니다."
               columns={[{ key: "recordingId", label: "녹음 id" }, { key: "versionTitle", label: "버전명" }, { key: "masterOwnerPartyId", label: "마스터 권리자" }, { key: "isrc", label: "ISRC", render: (r) => r.isrc ?? "—" }]} />
-            <RegisterForm path="/recordings" invalidate={inv} key={`rec-${info.data?.workId}`}
+            <RegisterForm path="/recordings" submitLabel="녹음 등록" invalidate={inv} key={`rec-${info.data?.workId}`}
               fields={[
                 { name: "recordingId", label: "녹음 id", type: "text", required: true },
                 { name: "workId", label: "곡 id", type: "text", required: true, initial: info.data?.workId ?? "" },
@@ -67,18 +67,18 @@ export function Assets() {
           <Section title="슬롯">
             <DataTable rows={f?.slots ?? []} empty="슬롯이 없습니다."
               columns={[{ key: "slotId", label: "슬롯 id" }, { key: "recordingId", label: "녹음 id" }, { key: "startMs", label: "시작(ms)" }, { key: "endMs", label: "끝(ms)" }, { key: "durationMs", label: "길이(ms)" }, { key: "sortOrder", label: "순서" }]} />
-            <RegisterForm path="/slots" invalidate={inv}
+            <RegisterForm path="/slots" submitLabel="슬롯 등록" invalidate={inv}
               fields={[
                 { name: "slotId", label: "슬롯 id", type: "text", required: true }, { name: "recordingId", label: "녹음 id", type: "text", required: true },
                 { name: "startMs", label: "시작(ms)", type: "number", required: true }, { name: "endMs", label: "끝(ms)", type: "number", required: true },
                 { name: "sortOrder", label: "순서", type: "number", required: true },
               ]}
-              toBody={(v) => ({ slotId: v.slotId, recordingId: v.recordingId, startMs: int(v.startMs), endMs: int(v.endMs), sortOrder: int(v.sortOrder) })} />
+              toBody={(v) => ({ slotId: v.slotId, recordingId: v.recordingId, startMs: Number(v.startMs), endMs: Number(v.endMs), sortOrder: Number(v.sortOrder) })} />
           </Section>
           <Section title="스템">
             <DataTable rows={f?.stems ?? []} empty="스템이 없습니다."
               columns={[{ key: "stemId", label: "스템 id" }, { key: "slotId", label: "슬롯 id" }, { key: "recordingId", label: "녹음 id" }, { key: "performerPartyId", label: "연주자", render: (r) => r.performerPartyId ?? "—" }, { key: "rightsBearing", label: "권리 부담", render: (r) => (r.rightsBearing ? "예" : "아니오") }]} />
-            <RegisterForm path="/stems" invalidate={inv}
+            <RegisterForm path="/stems" submitLabel="스템 등록" invalidate={inv}
               fields={[
                 { name: "stemId", label: "스템 id", type: "text", required: true }, { name: "slotId", label: "슬롯 id", type: "text", required: true },
                 { name: "recordingId", label: "녹음 id", type: "text", required: true }, { name: "performerPartyId", label: "연주자 id", type: "text" },
@@ -89,7 +89,7 @@ export function Assets() {
           <Section title="보이스">
             <DataTable rows={f?.voices ?? []} empty="보이스가 없습니다."
               columns={[{ key: "voiceId", label: "보이스 id" }, { key: "kind", label: "종류" }, { key: "createdAt", label: "등록", render: (r) => <Instant iso={r.createdAt} /> }]} />
-            <RegisterForm path="/voices" invalidate={inv} key={`voice-${scope}`}
+            <RegisterForm path="/voices" submitLabel="보이스 등록" invalidate={inv} key={`voice-${scope}`}
               fields={[
                 { name: "voiceId", label: "보이스 id", type: "text", required: true },
                 { name: "factsScopeId", label: "범위 id", type: "text", required: true, initial: scope },

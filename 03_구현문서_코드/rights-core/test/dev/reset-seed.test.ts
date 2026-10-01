@@ -40,8 +40,13 @@ test("assertDevDbName / resetDevDatabase refuse any database but rights_core_dev
 test("seed -> 409 reseed -> reset -> empty + seed rows + users + clock -> seed again 201", async () => {
   const seedPolicy = await policyRows();
   assert.ok(seedPolicy.length >= 1);
+  const peek = await app.inject({ method: "GET", url: "/dev/seed/synthetic-song" });
+  assert.equal(peek.statusCode, 200, peek.body);
+  assert.deepEqual(peek.json(), { packId: SONG.pack, factsScopeId: SONG.scope, policyId: "pol_nova_summer", policyText: SONG.policyText });
+  assert.equal(await count("SELECT count(*)::int AS n FROM party"), 0, "GET writes nothing");
   const s = await app.inject({ method: "POST", url: "/dev/seed/synthetic-song" });
   assert.equal(s.statusCode, 201, s.body);
+  assert.deepEqual((await app.inject({ method: "GET", url: "/dev/seed/synthetic-song" })).json(), s.json(), "GET still works after seeding");
   assert.deepEqual(s.json(), { packId: SONG.pack, factsScopeId: SONG.scope, policyId: "pol_nova_summer", policyText: SONG.policyText });
   const again = await app.inject({ method: "POST", url: "/dev/seed/synthetic-song" });
   assert.equal(again.statusCode, 409);

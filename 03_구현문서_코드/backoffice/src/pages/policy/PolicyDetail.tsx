@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { useActor } from "../../app/actor.ts";
 import { useParams } from "react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { Pager } from "../../components/Pager.tsx";
@@ -10,11 +10,10 @@ import { Digest } from "../../components/Digest.tsx";
 import { Instant } from "../../components/Instant.tsx";
 import { ApiError } from "../../api/client.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
-import { activateVersion, approveVersion, compilePolicy, rebindPolicy, seedSyntheticSong } from "../../api/policy.ts";
-import type { PolicyVersion, PolicyVersionDetail, SeedResult } from "../../api/types.ts";
+import { activateVersion, approveVersion, compilePolicy, packExists, peekSyntheticSong, rebindPolicy } from "../../api/policy.ts";
+import type { PolicyVersion, PolicyVersionDetail } from "../../api/types.ts";
 
-const SEED_KEY = ["dev", "seed"] as const;
-const SEED_HINT = "데이터 화면에서 합성 곡을 먼저 불러오세요 / 이미 불러온 경우 초기화 후 다시";
+const SEED_HINT = "개발 도구 > 데이터에서 합성 곡을 먼저 불러오세요";
 const INV = ["versions", "policies", "version"];
 
 function Diagnostics({ error }: { error: unknown }) {
@@ -34,6 +33,10 @@ function Diagnostics({ error }: { error: unknown }) {
 function VersionRow({ policyId, v }: { policyId: string; v: PolicyVersion }) {
   const approve = useAction<void, unknown>(() => approveVersion(policyId, v.version), INV);
   const activate = useAction<void, unknown>(() => activateVersion(policyId, v.version), INV);
+  const actor = useActor();
+  const { reset: resetApprove } = approve;
+  const { reset: resetActivate } = activate;
+  useEffect(() => { resetApprove(); resetActivate(); }, [actor, resetApprove, resetActivate]);
   return (
     <li className="stack ver">
       <div className="row-actions">
@@ -56,13 +59,17 @@ function VersionRow({ policyId, v }: { policyId: string; v: PolicyVersion }) {
   );
 }
 
+/** 정책이 바뀌면 편집기 상태를 모두 버린다. */
 export function PolicyDetail() {
   const { policyId = "" } = useParams();
-  const qc = useQueryClient();
+  return <PolicyEditor key={policyId} policyId={policyId} />;
+}
+
+function PolicyEditor({ policyId }: { policyId: string }) {
   const versions = useList<PolicyVersion>("versions", `/policies/${encodeURIComponent(policyId)}/versions`);
   const latest = versions.pages[0];
   const latestDetail = useGet<PolicyVersionDetail>(["version", policyId, latest?.version ?? 0], `/policies/${encodeURIComponent(policyId)}/versions/${latest?.version ?? 0}`, { enabled: latest !== undefined });
-  const seed = useQuery<SeedResult | null>({ queryKey: SEED_KEY, queryFn: () => null, enabled: false, gcTime: Infinity, staleTime: Infinity });
+  const actor = useActor();
   const [text, setText] = useState("");
   const [packId, setPackId] = useState("");
   const [hint, setHint] = useState("");
@@ -80,21 +87,21 @@ export function PolicyDetail() {
   const compile = useAction<void, unknown>(() => compilePolicy(policyId, packId, text), INV);
   const rebind = useAction<void, unknown>(() => rebindPolicy(policyId), INV);
 
+  const { reset: resetCompile } = compile;
+  const { reset: resetRebind } = rebind;
+  useEffect(() => { resetCompile(); resetRebind(); }, [actor, resetCompile, resetRebind]);
+
+  /** 읽기 전용 GET으로 원문을 채운다. 시드(POST)는 부르지 않는다. */
   const load = async () => {
     setHint("");
-    let s = seed.data ?? undefined;
-    if (!s) {
-      try {
-        s = await seedSyntheticSong();
-        qc.setQueryData(SEED_KEY, s);
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 409) setHint(SEED_HINT);
-        else setHint(e instanceof Error ? e.message : String(e));
-        return;
-      }
+    try {
+      const s = await peekSyntheticSong();
+      setText(s.policyText);
+      setPackId(s.packId);
+      if (!(await packExists(s.packId))) setHint(SEED_HINT);
+    } catch (e) {
+      setHint(e instanceof Error ? e.message : String(e));
     }
-    setText(s.policyText);
-    setPackId(s.packId);
   };
 
   const versionsError = versions.error instanceof ApiError && versions.error.status === 404 ? null : versions.error;

@@ -77,6 +77,10 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
     return { paused: jobs.paused() };
   });
 
+  const seedPayload = { packId: SONG.pack, factsScopeId: SONG.scope, policyId: "pol_nova_summer", policyText: SONG.policyText };
+  /** 읽기 전용: 시드가 만들 식별자와 정책 원문만 돌려준다(아무것도 쓰지 않는다). */
+  app.get("/dev/seed/synthetic-song", async () => seedPayload);
+
   app.post("/dev/seed/synthetic-song", async (_req, reply) => {
     await deps.db.tx(async (tx) => {
       if ((await tx.query("SELECT 1 FROM party WHERE party_id = 'pty_label'")).rowCount !== 0) {
@@ -84,7 +88,7 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
       }
       await seedSyntheticSong(tx, clock, await loadActor(tx, "usr_editor"));
     });
-    return reply.status(201).send({ packId: SONG.pack, factsScopeId: SONG.scope, policyId: "pol_nova_summer", policyText: SONG.policyText });
+    return reply.status(201).send(seedPayload);
   });
 
   app.post("/dev/reset", async () => {

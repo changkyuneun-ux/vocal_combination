@@ -11,7 +11,7 @@ export function ScopeSelect({ scope, onChange }: { scope: string; onChange: (v: 
   const [draft, setDraft] = useState(scope);
   return (
     <form className="inline-form" onSubmit={(e) => { e.preventDefault(); onChange(draft.trim()); }}>
-      <label className="field"><span>facts 범위 id</span>
+      <label className="field"><span>작업 범위 선택</span>
         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="fsc_nova_summer" />
       </label>
       <button type="submit" className="btn">범위 선택</button>

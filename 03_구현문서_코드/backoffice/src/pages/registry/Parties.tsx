@@ -15,7 +15,7 @@ export function Parties() {
   return (
     <>
       <Section title="당사자 목록">
-        <label className="field"><span>유형 필터</span>
+        <label className="field"><span>유형으로 거르기</span>
           <select value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">전체</option>
             {PARTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -31,7 +31,7 @@ export function Parties() {
         <Pager next={list.next} loadMore={list.loadMore} />
       </Section>
       <Section title="당사자 등록">
-        <RegisterForm path="/parties" invalidate={["parties"]}
+        <RegisterForm path="/parties" submitLabel="권리자 등록" invalidate={["parties"]}
           fields={[
             { name: "partyId", label: "당사자 id", type: "text", required: true },
             { name: "partyType", label: "유형", type: "select", required: true, options: opts(PARTY_TYPES) },

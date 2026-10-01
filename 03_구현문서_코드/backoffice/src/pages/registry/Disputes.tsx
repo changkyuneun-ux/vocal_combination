@@ -7,14 +7,14 @@ import { Instant } from "../../components/Instant.tsx";
 import { StatusBadge } from "../../components/StatusBadge.tsx";
 import { RegisterForm } from "../../components/RegisterForm.tsx";
 import { useAction, useList } from "../../api/hooks.ts";
-import { compact, int, opts, post } from "../../api/registry.ts";
+import { compact, opts, post } from "../../api/registry.ts";
 import type { Dispute } from "../../api/types.ts";
 
 function CloseButton({ d }: { d: Dispute }) {
   const [share, setShare] = useState("");
   const [target, setTarget] = useState("");
   const m = useAction<void, unknown>(() => {
-    const resolution = compact({ shareBps: share === "" ? "" : int(share), targetId: target });
+    const resolution = compact({ shareBps: share === "" ? "" : Number(share), targetId: target });
     return post(`/disputes/${encodeURIComponent(d.disputeId)}/close`, Object.keys(resolution).length ? { resolution } : {});
   }, ["disputes", "facts", "scope"]);
   return (
@@ -55,7 +55,7 @@ export function Disputes() {
         <Pager next={list.next} loadMore={list.loadMore} />
       </Section>
       <Section title="분쟁 개시">
-        <RegisterForm path="/disputes" submitLabel="개시" invalidate={["disputes", "facts", "scope"]}
+        <RegisterForm path="/disputes" submitLabel="분쟁 개시" invalidate={["disputes", "facts", "scope"]}
           fields={[
             { name: "disputeId", label: "분쟁 id", type: "text", required: true },
             { name: "targetType", label: "대상 종류", type: "select", required: true, options: opts(["RIGHT_CLAIM", "MANDATE"]) },

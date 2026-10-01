@@ -7,6 +7,7 @@ import { Mandates } from "../pages/registry/Mandates.tsx";
 import { Disputes } from "../pages/registry/Disputes.tsx";
 import { Policies } from "../pages/policy/Policies.tsx";
 import { PolicyDetail } from "../pages/policy/PolicyDetail.tsx";
+import { DevData } from "../pages/dev/DevData.tsx";
 import { Section } from "../components/Section.tsx";
 
 export function Placeholder({ title }: { title: string }) {
@@ -46,7 +47,7 @@ export const routes: RouteDef[] = [
   p("/payout/instructions/:instructionId", "지급 지시 상세"),
   p("/statements", "명세서"),
   p("/dev/psp", "PSP 시뮬레이터"),
-  p("/dev/data", "개발 데이터"),
+  { path: "/dev/data", title: "개발 데이터", element: <DevData /> },
 ];
 
 export const menu: MenuGroup[] = [

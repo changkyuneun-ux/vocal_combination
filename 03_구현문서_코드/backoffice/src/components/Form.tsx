@@ -23,7 +23,7 @@ export function Form({ fields, onSubmit, submitLabel, busy }: {
     <form className="form" onSubmit={submit}>
       {fields.map((f) => (
         <label key={f.name} className="field">
-          <span>{f.label}{f.required && <b className="req" title="필수"> *</b>}</span>
+          <span>{f.label}{f.required && <b className="req" title="필수" aria-hidden="true"> *</b>}</span>
           {f.type === "select" ? (
             <select value={values[f.name]} required={f.required} onChange={(e) => set(f.name, e.target.value)}>
               <option value="">선택…</option>
