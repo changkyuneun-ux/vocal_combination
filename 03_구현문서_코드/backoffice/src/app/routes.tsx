@@ -12,7 +12,13 @@ import { PackDetail } from "../pages/issuance/PackDetail.tsx";
 import { Issues } from "../pages/issuance/Issues.tsx";
 import { IssueDetail } from "../pages/issuance/IssueDetail.tsx";
 import { Revenue } from "../pages/revenue/Revenue.tsx";
-import { DevData } from "../pages/dev/DevData.tsx";
+import { DevData } from "../pages/dev/Data.tsx";
+import { Psp } from "../pages/dev/Psp.tsx";
+import { Profiles } from "../pages/payout/Profiles.tsx";
+import { PayoutRuns } from "../pages/payout/PayoutRuns.tsx";
+import { PayoutRunDetail } from "../pages/payout/PayoutRunDetail.tsx";
+import { InstructionDetail } from "../pages/payout/InstructionDetail.tsx";
+import { Statements } from "../pages/statements/Statements.tsx";
 import { Batches } from "../pages/settlement/Batches.tsx";
 import { BatchDetail } from "../pages/settlement/BatchDetail.tsx";
 import { RunDetail } from "../pages/settlement/RunDetail.tsx";
@@ -30,7 +36,6 @@ export type RouteDef = { path: string; title: string; element: ReactNode };
 export type MenuItem = { to: string; label: string };
 export type MenuGroup = { title: string; items: MenuItem[] };
 
-const p = (path: string, title: string): RouteDef => ({ path, title, element: <Placeholder title={title} /> });
 
 export const routes: RouteDef[] = [
   { path: "/", title: "대시보드", element: <Dashboard /> },
@@ -53,12 +58,12 @@ export const routes: RouteDef[] = [
   { path: "/settlement/holds", title: "보류", element: <Holds /> },
   { path: "/ledger", title: "원장", element: <Ledger /> },
   { path: "/ledger/entries/:entryId", title: "분개 상세", element: <EntryDetail /> },
-  p("/payout/profiles", "지급 프로필"),
-  p("/payout/runs", "지급 run"),
-  p("/payout/runs/:payoutRunId", "지급 run 상세"),
-  p("/payout/instructions/:instructionId", "지급 지시 상세"),
-  p("/statements", "명세서"),
-  p("/dev/psp", "PSP 시뮬레이터"),
+  { path: "/payout/profiles", title: "지급 프로필", element: <Profiles /> },
+  { path: "/payout/runs", title: "지급 run", element: <PayoutRuns /> },
+  { path: "/payout/runs/:payoutRunId", title: "지급 run 상세", element: <PayoutRunDetail /> },
+  { path: "/payout/instructions/:instructionId", title: "지급 지시 상세", element: <InstructionDetail /> },
+  { path: "/statements", title: "명세서", element: <Statements /> },
+  { path: "/dev/psp", title: "PSP 시뮬레이터", element: <Psp /> },
   { path: "/dev/data", title: "개발 데이터", element: <DevData /> },
 ];
 

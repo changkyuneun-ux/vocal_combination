@@ -88,3 +88,32 @@ export type TrialBalance = { accounts: { accountId: string; kind: string; balanc
 export type LedgerAccount = { accountId: string; kind: string; partyId: string | null; reason: string | null; bucket: string | null; balance: string };
 export type EntryRow = { entryId: number; kind: string; sourceRef: string; occurredAt: string; createdBy: string; total: string };
 export type EntryDetailData = EntryRow & { postings: { postingId: number; accountId: string; amountKrw: string; eventId: string | null; runId: string | null }[] };
+
+export type TaxType = "DOMESTIC_INDIVIDUAL" | "DOMESTIC_CORP" | "FOREIGN" | "EXEMPT";
+export type InstructionStatus = "PENDING" | "SUBMITTED" | "PAID" | "FAILED" | "CARRIED" | "HELD";
+export type PayoutPolicyData = { policyId: string; minPayoutKrw: string; initialHoldDays: number; taxBps: unknown; accountCoolingHours: number };
+export type PayoutProfile = {
+  partyId: string; taxType: string; payoutAccountRef: string | null; kycVerified: boolean; firstPayableAt: string; updatedAt: string;
+  accountChangedAt: string | null; accountChangedBy: string | null; coolingUntil: string | null;
+};
+export type ProfileInput = { partyId: string; taxType: string; kycVerified: boolean; payoutAccountRef?: string | null };
+export type ProfileView = { partyId: string; taxType: string; hasAccount: boolean; kycVerified: boolean; firstPayableAt: string };
+export type PayoutRunRow = { payoutRunId: string; asOf: string; createdBy: string; createdAt: string; statusCounts: Record<InstructionStatus, number> };
+export type InstructionRow = {
+  instructionId: string; payoutRunId: string; partyId: string; grossKrw: string; withholdingKrw: string; netKrw: string; status: string;
+  holdReason: string | null; idempotencyKey: string; providerRef: string | null; entryId: number | null; settledEntryId: number | null;
+  submitAttemptedAt: string | null; submitUnknownAt: string | null; submittedAccountRef: string | null; decidedAccountRef: string | null; createdAt: string;
+};
+export type WebhookRow = { providerEventId: string; providerRef: string; status: string; payload: unknown; receivedAt: string; processedAt: string | null };
+export type AuditRow = { auditId: number; occurredAt: string; actor: string; action: string; entityType: string; entityId: string; after: unknown };
+export type InstructionDetailData = InstructionRow & { webhooks: WebhookRow[]; audit: AuditRow[] };
+export type StatementData = {
+  partyId: string; from: string; to: string; opening: string; settled: string; reversed: string; holdReleased: string;
+  payoutGross: string; withholding: string; payoutNet: string; payoutFailedRestored: string; withholdingRestored: string; netRestored: string;
+  adjusted: string; closing: string;
+};
+export type DevOutcome = "PAID" | "FAILED" | "UNKNOWN";
+export type PspOutcomes = { byInstruction: Record<string, DevOutcome>; byParty: Record<string, DevOutcome> };
+export type PspRequest = { at: string; op: "submit" | "status"; instructionId: string; key: string; result: string };
+export type WebhookResponses = { responses: { statusCode: number; body: unknown }[] };
+export type ReversalRow = { reversalId: string; originalRunId: string; eventId: string; sequence: number; refundEventId: string; resultDigest: string; createdAt: string };
