@@ -23,11 +23,19 @@ function VirtualClock({ onError }: { onError: (e: ApiError) => void }) {
   const clock = useClock();
   const [custom, setCustom] = useState("");
   const [picking, setPicking] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const done = () => { void qc.invalidateQueries(); };
   const advance = useAction((ms: number) => devApi<{ now: string }>("POST", "/clock/advance", { ms }), ["clock"]);
   const setAt = useAction((at: string) => devApi<{ now: string }>("POST", "/clock/set", { at }), ["clock"]);
   const doAdvance = (ms: number) => advance.mutate(ms, { onSuccess: done, onError });
   const doSet = (at: string) => setAt.mutate(at, { onSuccess: done, onError });
+  const apply = () => {
+    const t = new Date(`${custom}Z`);
+    if (Number.isNaN(t.getTime())) { setInvalid(true); return; }
+    setInvalid(false);
+    doSet(t.toISOString());
+    setPicking(false);
+  };
   const busy = advance.isPending || setAt.isPending;
   return (
     <div className="clock" aria-label="가상 시계">
@@ -35,8 +43,9 @@ function VirtualClock({ onError }: { onError: (e: ApiError) => void }) {
       {STEPS.map((s) => <button key={s.label} className="btn" disabled={busy} onClick={() => doAdvance(s.ms)}>{s.label}</button>)}
       {picking ? (
         <>
-          <input type="datetime-local" step={1} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="지정 시각(UTC)" />
-          <button className="btn primary" disabled={!custom || busy} onClick={() => { doSet(new Date(`${custom}Z`).toISOString()); setPicking(false); }}>적용</button>
+          <input type="datetime-local" step={1} value={custom} onChange={(e) => { setCustom(e.target.value); setInvalid(false); }} aria-label="지정 시각(UTC)" />
+          <button className="btn primary" disabled={!custom || busy} onClick={apply}>적용</button>
+          {invalid && <span role="alert" className="muted">올바른 시각이 아닙니다.</span>}
           <button className="btn" disabled={busy} onClick={() => setPicking(false)}>취소</button>
         </>
       ) : <button className="btn" disabled={busy} onClick={() => setPicking(true)}>지정…</button>}
@@ -54,13 +63,13 @@ function InvariantBadge() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
   const q = useGet<InvariantReport>(["invariants"], "/settlement/invariants", { refetchInterval: 10000, api: { actorOverride: "usr_settle" } });
-  if (q.error) return <span className="badge muted" title={q.error.message}>점검 불가</span>;
+  if (q.error) return <span className="badge muted" title={`${q.error.message} (정산 담당(usr_settle) 신원으로 조회)`}>점검 불가</span>;
   if (!q.data) return <span className="badge muted">점검 중…</span>;
   const v = violations(q.data);
-  if (v.length === 0) return <span className="badge ok" data-testid="invariants-badge">점검 정상</span>;
+  if (v.length === 0) return <span className="badge ok" data-testid="invariants-badge" title="정산 담당(usr_settle) 신원으로 조회">점검 정상</span>;
   return (
     <span ref={ref} className="badge-wrap">
-      <button className="badge bad" data-testid="invariants-badge" onClick={() => setOpen(!open)}>점검 위반 {v.length}</button>
+      <button className="badge bad" data-testid="invariants-badge" title="정산 담당(usr_settle) 신원으로 조회" onClick={() => setOpen(!open)}>점검 위반 {v.length}</button>
       {open && (
         <div className="popover" role="dialog" aria-label="위반 항목">
           <h4>위반 항목</h4>

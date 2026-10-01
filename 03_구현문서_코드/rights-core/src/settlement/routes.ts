@@ -23,12 +23,16 @@ export function settlementRoutes(app: FastifyInstance, deps: Deps): void {
     }
     return reply.status(201).send(await createBatch(d(), actor, req.body));
   });
-  app.get<{ Params: { id: string } }>("/batches/:id", async (req) => deps.db.tx((tx) => batchView(tx, req.params.id)));
+  app.get<{ Params: { id: string } }>("/batches/:id", async (req) => withActor(deps, req, async (tx, actor) => {
+    requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE"]);
+    return batchView(tx, req.params.id);
+  }));
   app.post<{ Params: { id: string } }>("/batches/:id/confirm", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
     return confirmBatch(d(), actor, req.params.id);
   });
-  app.get<{ Params: { id: string } }>("/runs/:id", async (req) => deps.db.tx(async (tx) => {
+  app.get<{ Params: { id: string } }>("/runs/:id", async (req) => withActor(deps, req, async (tx, actor) => {
+    requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE"]);
     const r = (await tx.query("SELECT run_id, status, events_digest, result_digest FROM settlement_run WHERE run_id = $1", [req.params.id])).rows[0];
     if (r === undefined) throw notFound("run", req.params.id);
     const sums = async (table: string) => (await tx.query(

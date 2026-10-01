@@ -5,6 +5,7 @@ import type { Db, Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import { postEntry } from "../ledger/journal.ts";
+import { PAYOUT_KEY_PREFIX } from "./provider.ts";
 import { decide, loadPayoutPolicy, TAX_TYPES, type HoldReason, type ProfileView, type TaxType } from "./policy.ts";
 
 export type PayoutDeps = { db: Db; clock: Clock; jobs: Jobs };
@@ -143,10 +144,10 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
     if (rows.length > 0) {
       await tx.query(
         `INSERT INTO payout_instruction (instruction_id, payout_run_id, party_id, gross_krw, withholding_krw, net_krw, status, hold_reason, idempotency_key, entry_id, decided_account_ref, created_at)
-         SELECT i, $1, p, g, w, g - w, s, h, 'payout:' || i, e, a, $2
+         SELECT i, $1, p, g, w, g - w, s, h, $11::text || i, e, a, $2
            FROM unnest($3::text[], $4::text[], $5::bigint[], $6::bigint[], $7::text[], $8::text[], $9::bigint[], $10::text[]) AS t(i, p, g, w, s, h, e, a)`,
         [input.payoutRunId, now, rows.map((r) => r.instructionId), rows.map((r) => r.partyId), rows.map((r) => r.gross.toString()),
-          rows.map((r) => r.withholding.toString()), rows.map((r) => r.status), rows.map((r) => r.holdReason), rows.map((r) => r.entryId), rows.map((r) => r.decidedAccountRef)],
+          rows.map((r) => r.withholding.toString()), rows.map((r) => r.status), rows.map((r) => r.holdReason), rows.map((r) => r.entryId), rows.map((r) => r.decidedAccountRef), PAYOUT_KEY_PREFIX],
       );
     }
     for (const r of rows) if (r.status === "PENDING") await d.jobs.send(tx, "submit-payout", { instructionId: r.instructionId });

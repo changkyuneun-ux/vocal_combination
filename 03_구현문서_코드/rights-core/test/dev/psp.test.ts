@@ -8,7 +8,7 @@ import { confirmBatch, createBatch } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { setPayoutProfile } from "../../src/payout/service.ts";
 import { payoutJobHandlers, submitPayout } from "../../src/payout/handlers.ts";
-import { postEntry } from "../../src/ledger/journal.ts";
+import { balance, postEntry } from "../../src/ledger/journal.ts";
 import { migrate } from "../../src/platform/migrate.ts";
 import { MIGRATIONS_DEV_DIR } from "../../src/dev/setup-db.ts";
 import pg from "pg";
@@ -111,6 +111,23 @@ test("party outcome applies to later instructions; an instruction outcome wins o
   assert.equal(await status("po_po-2_pty_cmo"), "FAILED");
   assert.equal(await status("po_po-2_pty_agency"), "SUBMITTED");
   assert.deepEqual(psp.outcomes().byParty, { pty_cmo: "FAILED", pty_agency: "FAILED" });
+});
+
+test("webhook status FAILED on a SUBMITTED (outcome PAID) instruction restores the balance; poll-payout agrees", async () => {
+  const id = "po_po-2_pty_agency";
+  assert.equal(await status(id), "SUBMITTED");
+  const payableOf = async () => (await w.db.tx((tx) => balance(tx, { kind: "PARTY_PAYABLE", partyId: "pty_agency" }))).toString();
+  const before = await payableOf();
+  assert.equal((await req("POST", "/dev/psp/webhook", undefined, { instructionId: id, status: "BOGUS" })).statusCode, 400);
+  const r = await req("POST", "/dev/psp/webhook", undefined, { instructionId: id, status: "FAILED" });
+  assert.equal(r.statusCode, 200, r.body);
+  await jobs.drain(payoutJobHandlers(payDeps()));
+  assert.equal(await status(id), "FAILED");
+  const kinds = (await w.db.pool.query("SELECT kind FROM journal_entry WHERE kind = 'PAYOUT_FAILED' AND source_ref LIKE $1", [`%${id}%`])).rows;
+  assert.equal(kinds.length, 1);
+  assert.notEqual(await payableOf(), before);
+  assert.equal(await payableOf(), "-500000", "gross restored to the payable");
+  assert.equal((await psp.provider.status("", `payout:${id}`)).status, "FAILED", "later status() agrees with the webhook");
 });
 
 test("reset clears outcomes and requests", () => {

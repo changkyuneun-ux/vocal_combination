@@ -18,3 +18,7 @@ export function providerFromEnv(env: Readonly<Record<string, string | undefined>
   if (v === undefined || v === "" || v === "fake") return fakeProvider();
   throw new Error(`RC_PSP must be "fake" or unset, got ${v}`);
 }
+
+/** 지급 멱등 키 형식(payout:<instruction_id>). 키를 만드는 모든 곳이 이 상수·함수를 쓴다. */
+export const PAYOUT_KEY_PREFIX = "payout:";
+export const payoutIdempotencyKey = (instructionId: string): string => `${PAYOUT_KEY_PREFIX}${instructionId}`;

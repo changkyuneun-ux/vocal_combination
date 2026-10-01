@@ -11,6 +11,11 @@ test("RC_DEV unset is false", () => {
 test("RC_DEV=1 with the production database name is refused", () => {
   assert.throws(() => devModeFromEnv({ ...ok, DATABASE_URL: "postgres://rc_app:rc_app@localhost:54329/rights_core" }), /DEV_ONLY/);
 });
+test("RC_ADMIN_URL on a different host, port or database than DATABASE_URL is refused", () => {
+  assert.throws(() => devModeFromEnv({ ...ok, RC_ADMIN_URL: "postgres://rc:rc@db.example.com:54329/rights_core_dev" }), /DEV_ONLY/);
+  assert.throws(() => devModeFromEnv({ ...ok, RC_ADMIN_URL: "postgres://rc:rc@localhost:5432/rights_core_dev" }), /DEV_ONLY/);
+  assert.throws(() => devModeFromEnv({ ...ok, RC_ADMIN_URL: "postgres://rc:rc@localhost:54329/postgres" }), /DEV_ONLY/);
+});
 test("RC_PSP other than fake is refused", () => {
   assert.throws(() => devModeFromEnv({ ...ok, RC_PSP: "stripe" }), /DEV_ONLY/);
 });

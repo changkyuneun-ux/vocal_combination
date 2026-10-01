@@ -24,7 +24,7 @@ const PURCHASES = [
 const MIN_PAYOUT = 10_000n;
 
 type Paged<T> = { items: T[]; next: string | null };
-type InstructionView = { instructionId: string; partyId: string; status: string; gross: bigint };
+type InstructionView = { instructionId: string; partyId: string; status: string; gross: bigint; withholding: bigint };
 
 const region = (page: Page, name: string) => page.getByRole("region", { name, exact: true });
 const bodyRows = (scope: Locator) => scope.locator("tbody > tr");
@@ -51,6 +51,7 @@ async function readInstructions(page: Page): Promise<InstructionView[]> {
       partyId: (await cells.nth(1).innerText()).trim(),
       status: (await cells.nth(2).innerText()).trim(),
       gross: digits(await cells.nth(4).innerText()),
+      withholding: digits(await cells.nth(5).innerText()),
     });
   }
   return out;
@@ -319,7 +320,11 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
     expect(count("PAID")).toBeGreaterThanOrEqual(1);
     expect(count("FAILED")).toBe(1);
     expect(count("CARRIED")).toBeGreaterThanOrEqual(1);
-    observed.instructions = instructions.map((x) => ({ ...x, gross: x.gross.toString() }));
+    observed.instructions = instructions.map((x) => ({ ...x, gross: x.gross.toString(), withholding: x.withholding.toString() }));
+    // 개인 권리자(DOMESTIC_INDIVIDUAL 3.3%)의 원천세 = ⌊총액×330/10000/10⌋×10(지시 표에서 읽은 값).
+    const member = instructions.find((x) => x.status === "PAID" && x.partyId.startsWith("pty_member"));
+    expect(member, "PAID 상태의 개인 권리자 지시").toBeDefined();
+    expect(member!.withholding, `${member!.partyId} 원천세`).toBe(((member!.gross * 330n) / 10000n / 10n) * 10n);
 
     // 실패한 지시의 금액이 pty_label 미지급금으로 복원(원장 화면: PARTY_PAYABLE 잔액 = −총액).
     const failed = instructions.find((x) => x.status === "FAILED")!;
@@ -337,7 +342,8 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
     await as(page, "usr_settle");
     const sec = region(page, "권리자 명세");
     const recon: Record<string, string[]> = {};
-    for (const p of [paid.partyId, carried.partyId]) {
+    const failedParty = instructions.find((x) => x.status === "FAILED")!.partyId; // pty_label: 실패 복원이 명세에 반영돼야 한다.
+    for (const p of [paid.partyId, carried.partyId, failedParty]) {
       await sec.getByLabel("권리자").selectOption(p);
       await expect(sec.locator("caption")).toContainText(`권리자 ${p}`);
       const verdicts = sec.getByRole("status").filter({ hasText: "대조" });

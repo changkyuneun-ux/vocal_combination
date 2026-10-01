@@ -1,6 +1,6 @@
 import type { PayoutProvider, ProviderResult } from "./provider.ts";
 
-type Entry = { amount: bigint; accountRef: string; ref: string; submits: number; outcome: FakeOutcome };
+type Entry = { amount: bigint; accountRef: string; ref: string; submits: number; outcome: FakeOutcome; forced?: "PAID" | "FAILED" };
 
 /** 가짜 PSP의 지시별 결과: PAID(ACCEPTED 후 PAID), FAILED(submit이 곧바로 FAILED), UNKNOWN_THEN_PAID(첫 submit만 UNKNOWN, 이후 PAID). */
 export type FakeOutcome = "PAID" | "FAILED" | "UNKNOWN_THEN_PAID";
@@ -17,12 +17,12 @@ export const amountOutcome: FakeOutcomeRule = (i) => (i.amountKrw % 97n === 0n ?
  */
 export function fakeProvider(opts: { outcome?: FakeOutcomeRule } = {}): PayoutProvider & {
   calls: { op: string; key: string }[];
-  webhook(key: string): { providerEventId: string; providerRef: string; status: "PAID" | "FAILED" };
+  webhook(key: string, status?: "PAID" | "FAILED"): { providerEventId: string; providerRef: string; status: "PAID" | "FAILED" };
 } {
   const calls: { op: string; key: string }[] = [];
   const byKey = new Map<string, Entry>();
   const rule = opts.outcome ?? amountOutcome;
-  const final = (e: Entry): "PAID" | "FAILED" => (e.outcome === "FAILED" ? "FAILED" : "PAID");
+  const final = (e: Entry): "PAID" | "FAILED" => e.forced ?? (e.outcome === "FAILED" ? "FAILED" : "PAID");
   return {
     calls,
     async submit(i, key): Promise<ProviderResult> {
@@ -45,9 +45,11 @@ export function fakeProvider(opts: { outcome?: FakeOutcomeRule } = {}): PayoutPr
       if (e === undefined) return { status: "UNKNOWN" };
       return { status: final(e), providerRef: e.ref };
     },
-    webhook(key) {
+    webhook(key, status) {
       const e = byKey.get(key);
       if (e === undefined) throw new Error(`fake provider: no payout submitted with key ${key}`);
+      // 결과를 강제하면 이후 status()도 같은 결과를 돌려준다(poll-payout이 webhook과 어긋나지 않게).
+      if (status !== undefined) e.forced = status;
       return { providerEventId: `evt_${key}`, providerRef: e.ref, status: final(e) };
     },
   };

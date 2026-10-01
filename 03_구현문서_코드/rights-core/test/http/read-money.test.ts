@@ -299,6 +299,7 @@ test("payout detail: webhooks and audit", async () => {
 
 test("existing routes still work", async () => {
   assert.equal((await get("/batches/bat_m")).statusCode, 200);
+  assert.equal((await get("/runs/nope")).statusCode, 404);
   assert.equal((await get("/ledger/trial-balance")).json().sum, "0");
   assert.equal((await get("/settlement/invariants")).statusCode, 200);
 });

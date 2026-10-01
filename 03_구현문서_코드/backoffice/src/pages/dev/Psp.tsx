@@ -39,15 +39,19 @@ function OutcomeSelect({ label, value, onPick, busy }: { label: string; value: s
 
 function WebhookCell({ instructionId }: { instructionId: string }) {
   const [repeat, setRepeat] = useState("1");
-  const m = useMutation<WebhookResponses, ApiError, { instructionId: string; repeat: number }>({ mutationFn: sendWebhook });
+  const [st, setSt] = useState<"" | "PAID" | "FAILED">("");
+  const m = useMutation<WebhookResponses, ApiError, { instructionId: string; repeat: number; status?: "PAID" | "FAILED" }>({ mutationFn: sendWebhook });
   return (
     <div className="stack">
       <div className="inline-form">
         <select aria-label={`지시[${instructionId}] webhook 반복`} value={repeat} onChange={(e) => setRepeat(e.target.value)}>
           <option value="1">1회</option><option value="2">2회(중복)</option>
         </select>
+        <select aria-label={`지시[${instructionId}] webhook 상태`} value={st} onChange={(e) => setSt(e.target.value as "" | "PAID" | "FAILED")}>
+          <option value="">자동</option><option value="PAID">PAID</option><option value="FAILED">FAILED</option>
+        </select>
         <button type="button" className="btn tiny" aria-label={`지시[${instructionId}] webhook 보내기`} disabled={m.isPending}
-          onClick={() => m.mutate({ instructionId, repeat: Number(repeat) })}>webhook 보내기</button>
+          onClick={() => m.mutate({ instructionId, repeat: Number(repeat), ...(st !== "" && { status: st }) })}>webhook 보내기</button>
       </div>
       {m.data && (
         <table className="data" aria-label={`지시[${instructionId}] webhook 응답`}>

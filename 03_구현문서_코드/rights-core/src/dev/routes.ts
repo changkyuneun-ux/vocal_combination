@@ -7,7 +7,7 @@ import { SONG, seedSyntheticSong } from "../scenario/synthetic-song.ts";
 import type { Deps } from "../http/server.ts";
 import { DEV_CLOCK_START, type DevClock } from "./clock.ts";
 import { DEV_OUTCOMES, type DevOutcome, type DevPsp } from "./psp.ts";
-import { resetDevDatabase } from "./reset.ts";
+import { assertDevDbName, resetDevDatabase } from "./reset.ts";
 
 /** 작업 일시정지(거부 경로 ACCOUNT_CHANGED 재현용). */
 export type DevJobs = { pause(name: JobName): Promise<void>; resume(name: JobName): Promise<void>; paused(): JobName[] };
@@ -53,11 +53,14 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
     return psp.outcomes();
   });
   app.post("/dev/psp/webhook", async (req) => {
-    const b = req.body as { instructionId?: unknown; repeat?: unknown } | null;
+    const b = req.body as { instructionId?: unknown; repeat?: unknown; status?: unknown } | null;
     if (typeof b?.instructionId !== "string" || b.instructionId === "") throw bad("instructionId is required");
     const repeat = b.repeat ?? 1;
     if (typeof repeat !== "number" || !Number.isInteger(repeat) || repeat < 1 || repeat > 5) throw bad("repeat must be an integer from 1 to 5");
-    const payload = psp.webhookFor(b.instructionId);
+    const st = b.status;
+    if (st !== undefined && st !== "PAID" && st !== "FAILED") throw bad("status must be PAID or FAILED");
+    // status를 주면 그 결과로 webhook을 만들고 가짜 PSP의 이후 status()도 같은 결과로 맞춘다. 없으면 첫 submit에 정해진 결과.
+    const payload = psp.webhookFor(b.instructionId, st);
     const responses: { statusCode: number; body: unknown }[] = [];
     // 운영과 같은 /psp/webhook 라우트(공유 비밀 헤더 포함)를 그대로 거친다.
     for (let n = 0; n < repeat; n++) {
@@ -94,15 +97,26 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
   app.post("/dev/reset", async () => {
     // 순서: 먼저 모든 큐를 멈춰 워커가 TRUNCATE와 시계·사용자 복원 사이에 쓰지 못하게 하고, 끝나면(실패해도) 다시 연다.
     // 초기화가 pgboss.job과 일시정지 상태를 모두 비우므로 결과적으로 전부 resume한다. 이름 검사는 항상 거친다.
+    assertDevDbName(decodeURIComponent(new URL(deps.dev.adminUrl).pathname.replace(/^\//, "")), deps.dev.devDbName);
     for (const n of JOB_NAMES) await jobs.pause(n);
+    let failure: unknown;
     try {
       await resetDevDatabase(deps.dev.adminUrl, deps.dev.devDbName);
       // 초기화는 시계가 뒤로 가는 유일한 경로다(set·advance는 앞으로만 간다).
       await deps.db.tx((tx) => clock.resetTo(tx, DEV_CLOCK_START));
       psp.reset();
       await deps.db.tx((tx) => ensureDevUsers(tx, clock));
+    } catch (e) {
+      failure = e;
+      throw e;
     } finally {
-      for (const n of JOB_NAMES) await jobs.resume(n);
+      // resume 오류가 원래 오류를 가리지 않게 한다.
+      for (const n of JOB_NAMES) {
+        try { await jobs.resume(n); } catch (re) {
+          if (failure === undefined) throw re;
+          app.log.error({ err: re }, `dev reset: failed to resume ${n}`);
+        }
+      }
     }
     return { ok: true, clock: clock.state() };
   });

@@ -1,7 +1,7 @@
 import type { Clock } from "../platform/clock.ts";
 import { DomainError } from "../platform/errors.ts";
 import { fakeProvider, type FakeOutcome } from "../payout/fake-provider.ts";
-import type { PayoutProvider } from "../payout/provider.ts";
+import { PAYOUT_KEY_PREFIX, payoutIdempotencyKey, type PayoutProvider } from "../payout/provider.ts";
 
 export type DevOutcome = "PAID" | "FAILED" | "UNKNOWN";
 export const DEV_OUTCOMES: readonly DevOutcome[] = ["PAID", "FAILED", "UNKNOWN"];
@@ -9,17 +9,16 @@ export type DevPspRequest = { at: string; op: "submit" | "status"; instructionId
 export type DevPsp = {
   /** 서버에 주입하는 지급 사업자. */
   provider: PayoutProvider;
-  /** 그 지시의 첫 submit 전에만 의미 있다(가짜 PSP는 키의 결과를 첫 submit에 정한다). */
+  /** 지시별·권리자별 결과는 그 지시의 첫 submit 전에만 의미 있다(가짜 PSP는 키의 결과를 첫 submit에 정한다). 이후 결과를 바꾸려면 webhook의 status로 강제한다. */
   setOutcome(instructionId: string, o: DevOutcome): void;
-  /** 그 권리자의 이후 지시들. 지시별 지정이 우선한다. */
+  /** 그 권리자의 이후 지시들(첫 submit 전에만 의미 있다). 지시별 지정이 우선한다. */
   setPartyOutcome(partyId: string, o: DevOutcome): void;
   outcomes(): { byInstruction: Record<string, DevOutcome>; byParty: Record<string, DevOutcome> };
   requests(): DevPspRequest[];
-  webhookFor(instructionId: string): { providerEventId: string; providerRef: string; status: "PAID" | "FAILED" };
+  webhookFor(instructionId: string, status?: "PAID" | "FAILED"): { providerEventId: string; providerRef: string; status: "PAID" | "FAILED" };
   reset(): void;
 };
 
-const KEY_PREFIX = "payout:";
 const toFake = (o: DevOutcome): FakeOutcome => (o === "UNKNOWN" ? "UNKNOWN_THEN_PAID" : o);
 
 /**
@@ -35,7 +34,7 @@ export function createDevPsp(clock: Clock): DevPsp {
   function newFake() {
     return fakeProvider({ outcome: (i) => toFake(byInstruction.get(i.instructionId) ?? byParty.get(i.partyId) ?? "PAID") });
   }
-  const instructionOf = (key: string) => (key.startsWith(KEY_PREFIX) ? key.slice(KEY_PREFIX.length) : key);
+  const instructionOf = (key: string) => (key.startsWith(PAYOUT_KEY_PREFIX) ? key.slice(PAYOUT_KEY_PREFIX.length) : key);
   const record = (op: "submit" | "status", key: string, result: string) => { log.push({ at: clock.now(), op, instructionId: instructionOf(key), key, result }); if (log.length > MAX_LOG) log = log.slice(-MAX_LOG); };
   const provider: PayoutProvider = {
     async submit(i, key) {
@@ -66,9 +65,9 @@ export function createDevPsp(clock: Clock): DevPsp {
     setPartyOutcome: (id, o) => { byParty.set(id, o); },
     outcomes: () => ({ byInstruction: Object.fromEntries(byInstruction), byParty: Object.fromEntries(byParty) }),
     requests: () => [...log],
-    webhookFor(instructionId) {
+    webhookFor(instructionId, status) {
       try {
-        return fake.webhook(KEY_PREFIX + instructionId);
+        return fake.webhook(payoutIdempotencyKey(instructionId), status);
       } catch {
         throw new DomainError("NOT_SUBMITTED", 409, `instruction ${instructionId} has not been sent to the PSP yet`);
       }

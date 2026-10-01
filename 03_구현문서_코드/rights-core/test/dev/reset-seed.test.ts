@@ -34,6 +34,13 @@ test("assertDevDbName / resetDevDatabase refuse any database but rights_core_dev
   assert.throws(() => assertDevDbName("rights_core"), /DEV_ONLY|refusing/);
   await assert.rejects(resetDevDatabase("postgres://rc:rc@localhost:54329/rights_core"), /refusing/);
   await assert.rejects(resetDevDatabase(adminUrl), /refusing/, "the test DB (rc_t_...) is not the dev DB");
+  paused.clear();
+  let pauseCalls = 0;
+  const spy = { ...jobs, pause: async (n: JobName) => { pauseCalls++; await jobs.pause(n); } };
+  const strictSpy = buildServer({ db, ctx, clock, jobs: recordingJobs(), dev: { clock, psp, jobs: spy, adminUrl, blobDir } });
+  assert.equal((await strictSpy.inject({ method: "POST", url: "/dev/reset" })).statusCode, 403);
+  assert.equal(pauseCalls, 0, "a refused reset must not pause the queues");
+  await strictSpy.close();
   assert.equal((await strict.inject({ method: "POST", url: "/dev/reset" })).statusCode, 403, "the route uses the name-checked reset");
 });
 
