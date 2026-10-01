@@ -57,3 +57,4 @@ button.badge { cursor: pointer; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 16px; margin: 0; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; }
 ul.versions { list-style: none; margin: 0; padding: 0; } li.ver { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.error-text { color: var(--bad); }

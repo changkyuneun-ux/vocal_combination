@@ -13,6 +13,13 @@ import { Issues } from "../pages/issuance/Issues.tsx";
 import { IssueDetail } from "../pages/issuance/IssueDetail.tsx";
 import { Revenue } from "../pages/revenue/Revenue.tsx";
 import { DevData } from "../pages/dev/DevData.tsx";
+import { Batches } from "../pages/settlement/Batches.tsx";
+import { BatchDetail } from "../pages/settlement/BatchDetail.tsx";
+import { RunDetail } from "../pages/settlement/RunDetail.tsx";
+import { Quarantine } from "../pages/settlement/Quarantine.tsx";
+import { Holds } from "../pages/settlement/Holds.tsx";
+import { Ledger } from "../pages/ledger/Ledger.tsx";
+import { EntryDetail } from "../pages/ledger/EntryDetail.tsx";
 import { Section } from "../components/Section.tsx";
 
 export function Placeholder({ title }: { title: string }) {
@@ -39,13 +46,13 @@ export const routes: RouteDef[] = [
   { path: "/issues", title: "발행", element: <Issues /> },
   { path: "/issues/:snapshotId", title: "발행 상세", element: <IssueDetail /> },
   { path: "/revenue", title: "매출", element: <Revenue /> },
-  p("/settlement/batches", "정산 배치"),
-  p("/settlement/batches/:batchId", "정산 배치 상세"),
-  p("/settlement/runs/:runId", "정산 run 상세"),
-  p("/settlement/quarantine", "격리"),
-  p("/settlement/holds", "보류"),
-  p("/ledger", "원장"),
-  p("/ledger/entries/:entryId", "분개 상세"),
+  { path: "/settlement/batches", title: "정산 배치", element: <Batches /> },
+  { path: "/settlement/batches/:batchId", title: "정산 배치 상세", element: <BatchDetail /> },
+  { path: "/settlement/runs/:runId", title: "정산 run 상세", element: <RunDetail /> },
+  { path: "/settlement/quarantine", title: "격리", element: <Quarantine /> },
+  { path: "/settlement/holds", title: "보류", element: <Holds /> },
+  { path: "/ledger", title: "원장", element: <Ledger /> },
+  { path: "/ledger/entries/:entryId", title: "분개 상세", element: <EntryDetail /> },
   p("/payout/profiles", "지급 프로필"),
   p("/payout/runs", "지급 run"),
   p("/payout/runs/:payoutRunId", "지급 run 상세"),

@@ -59,3 +59,32 @@ export type EventSettlement = {
   reversals: { reversalId: string; createdAt: string }[];
   refunds: { eventId: string; netAmountKrw: string }[];
 };
+
+export type RunStatus = "PENDING" | "CALCULATED" | "VERIFIED" | "FAILED" | "VOIDED" | "CONFIRMED";
+export type BatchRow = {
+  batchId: string; periodStart: string; periodEnd: string; status: string; executedBy: string; createdAt: string;
+  confirmedBy: string | null; confirmedAt: string | null; batchManifestDigest: string | null; runCounts: Record<RunStatus, number>;
+};
+export type BatchView = {
+  batchId: string; status: string; runs: { runId: string; status: string; events: number }[];
+  progress: "EMPTY" | "CALCULATING" | "VERIFYING" | "READY" | "CONFIRMED"; skipped: { eventId: string; reason: string }[];
+};
+export type BatchRunRow = {
+  runId: string; batchId: string; snapshotId: string; status: string; eventsDigest: string | null; resultDigest: string | null;
+  diagnostics: unknown; executedBy: string; verifiedBy: string | null; verifiedAt: string | null; createdAt: string; eventCount: number;
+};
+export type RunSums = { settle: string; reversal: string; net: string };
+export type RunDetailData = { runId: string; status: string; eventsDigest: string | null; resultDigest: string | null; lines: RunSums; holdings: RunSums };
+export type QuarantineRow = {
+  quarantineId: number; snapshotId: string; reason: string; diagnostics: unknown; createdAt: string; releasedBy: string | null; releasedAt: string | null;
+};
+export type HoldRow = {
+  holdingId: number; runId: string; eventId: string; bucket: string; reason: string; lineSeq: number; amountKrw: string;
+  reversalId: string | null; status: string; release: { releaseId: number; releasedBy: string; releasedAt: string } | null;
+};
+export type HoldSuggestion = { holdingId: string; heldKrw: string; remainingKrw: string; allocation: Record<string, string> };
+export type HoldReleaseResult = { holdingId: string; releasedKrw: string; entryId: string | number; allocation: Record<string, string> };
+export type TrialBalance = { accounts: { accountId: string; kind: string; balance: string }[]; sum: string };
+export type LedgerAccount = { accountId: string; kind: string; partyId: string | null; reason: string | null; bucket: string | null; balance: string };
+export type EntryRow = { entryId: number; kind: string; sourceRef: string; occurredAt: string; createdBy: string; total: string };
+export type EntryDetailData = EntryRow & { postings: { postingId: number; accountId: string; amountKrw: string; eventId: string | null; runId: string | null }[] };
