@@ -1,5 +1,5 @@
-import { formatKrw } from "../format.ts";
+import { safeKrw } from "../format.ts";
 
 export function Money({ krw }: { krw: string }) {
-  return <span className={`money${krw.startsWith("-") ? " neg" : ""}`}>{formatKrw(krw)}</span>;
+  return <span className={`money${krw.startsWith("-") ? " neg" : ""}`}>{safeKrw(krw)}</span>;
 }

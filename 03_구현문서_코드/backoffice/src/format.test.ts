@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInstant, formatKrw, shortDigest, sumKrw } from "./format.ts";
+import { formatInstant, formatKrw, safeKrw, shortDigest, sumKrw } from "./format.ts";
 
 describe("format", () => {
   it("formatKrw", () => {
@@ -8,6 +8,11 @@ describe("format", () => {
     expect(formatKrw("-1234")).toBe("−1,234원");
     expect(formatKrw("12345678901234567890")).toBe("12,345,678,901,234,567,890원");
     expect(formatKrw("-12345678901234567890")).toBe("−12,345,678,901,234,567,890원");
+  });
+  it("safeKrw는 던지지 않는다", () => {
+    expect(safeKrw("1234")).toBe("1,234원");
+    expect(safeKrw("")).toBe("");
+    expect(safeKrw("1.5")).toBe("1.5");
   });
   it("shortDigest", () => {
     expect(shortDigest("vcrl:sha256:abcdef0123456789ffff")).toBe("abcdef012345");

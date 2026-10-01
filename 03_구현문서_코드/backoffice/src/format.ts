@@ -22,3 +22,13 @@ export function formatInstant(iso: string): string {
 export function sumKrw(xs: string[]): string {
   return xs.reduce((a, x) => a + BigInt(x), 0n).toString();
 }
+
+/** 표시용: 잘못된 입력이어도 던지지 않고 원문을 그대로 돌려준다. */
+export function safeKrw(s: string): string {
+  if (!/^-?\d+$/.test(s)) return s;
+  try {
+    return formatKrw(s);
+  } catch {
+    return s;
+  }
+}

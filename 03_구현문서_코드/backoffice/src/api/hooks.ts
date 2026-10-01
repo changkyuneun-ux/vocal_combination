@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
 import { api, ApiError, type ApiOptions, type Paged } from "./client.ts";
-import { currentActor } from "../app/actor.ts";
+import { useActor } from "../app/actor.ts";
 
 function withParams(path: string, params: Record<string, string | undefined> = {}): string {
   const q = new URLSearchParams();
@@ -10,8 +10,9 @@ function withParams(path: string, params: Record<string, string | undefined> = {
 }
 
 export function useList<T>(key: string, path: string, params?: Record<string, string | undefined>) {
+  const actor = useActor();
   const q = useInfiniteQuery<Paged<T>, ApiError, { pages: Paged<T>[] }, unknown[], string | null>({
-    queryKey: [key, currentActor(), path, params ?? {}],
+    queryKey: [key, actor, path, params ?? {}],
     initialPageParam: null,
     queryFn: ({ pageParam }) => api<Paged<T>>("GET", withParams(path, { ...params, after: pageParam ?? undefined })),
     getNextPageParam: (last) => last.next,
@@ -22,8 +23,9 @@ export function useList<T>(key: string, path: string, params?: Record<string, st
 }
 
 export function useGet<T>(key: unknown[], path: string, opts: { refetchInterval?: number | false; api?: ApiOptions; enabled?: boolean } = {}): UseQueryResult<T, ApiError> {
+  const actor = useActor();
   return useQuery<T, ApiError>({
-    queryKey: [...key, opts.api?.actorOverride ?? currentActor()],
+    queryKey: [...key, opts.api?.actorOverride ?? actor],
     queryFn: () => api<T>("GET", path, undefined, opts.api),
     refetchInterval: opts.refetchInterval ?? false,
     enabled: opts.enabled ?? true,
@@ -32,7 +34,9 @@ export function useGet<T>(key: unknown[], path: string, opts: { refetchInterval?
 
 export function useAction<I, O>(fn: (i: I) => Promise<O>, invalidate: string[]): UseMutationResult<O, ApiError, I> {
   const qc = useQueryClient();
+  const actor = useActor();
   return useMutation<O, ApiError, I>({
+    mutationKey: ["action", actor],
     mutationFn: fn,
     onSuccess: () => Promise.all(invalidate.map((k) => qc.invalidateQueries({ queryKey: [k] }))).then(() => undefined),
   });
