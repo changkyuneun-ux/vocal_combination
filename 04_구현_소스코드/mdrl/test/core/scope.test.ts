@@ -9,7 +9,7 @@ import {
   isSubScope,
   assertScopeNarrowing,
 } from "../../src/core/scope.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 
 
@@ -84,7 +84,7 @@ test("assertScopeNarrowing enforces sub-scope invariant", () => {
       assertScopeNarrowing(scopeB, scopeA);
     },
     (err: unknown) => {
-      return err instanceof VcrlError && err.diagnostics[0].code === "GRANT_SCOPE_WIDENING";
+      return err instanceof MdrlError && err.diagnostics[0].code === "GRANT_SCOPE_WIDENING";
     }
   );
 });

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/reversal.result.schema.json",
-  "title": "VCRL reversal result (vcrl-reversal-result/1)",
+  "$id": "https://mdrl.invalid/1.0/reversal.result.schema.json",
+  "title": "MDRL reversal result (mdrl-reversal-result/1)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +9,7 @@
     "cumulative", "original_amount", "method", "pool_lines", "lines", "holdings", "result_digest"
   ],
   "properties": {
-    "format": { "const": "vcrl-reversal-result/1" },
+    "format": { "const": "mdrl-reversal-result/1" },
     "run_id": { "$ref": "#/$defs/id" },
     "original_run_id": { "$ref": "#/$defs/id" },
     "original_result_digest": { "$ref": "#/$defs/digest" },
@@ -71,7 +71,7 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "positive": { "type": "string", "pattern": "^[1-9]\\d*$" },
     "negative": { "type": "string", "pattern": "^-[1-9]\\d*$" },
     "claimantRole": {

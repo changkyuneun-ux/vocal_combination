@@ -1,14 +1,14 @@
 {
   "facts_case": "002-disputed-master",
   "policy": {
-    "vcrl": "1.0",
+    "mdrl": "1.0",
     "module": "allocation",
     "id": "VC-ALLOC-NOVA-02",
     "version": "1",
     "depends_on": [
       {
         "ref": "vc:facts/nova-debut-01@1",
-        "digest": "vcrl:sha256:32231816af377b9b0aff71b70e06fd9714432fa98bacfed8ef66faa4abd53c27"
+        "digest": "mdrl:sha256:8bad38e50141eef5daedffa8aa3e64f0fb858bcad592ef6aee01ca6f86c0149b"
       }
     ],
     "visibility_default": "PARTIES",

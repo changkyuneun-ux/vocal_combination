@@ -21,7 +21,7 @@ test("a 30% refund of ev_001 reverses every pool, bucket and line exactly (hand-
   const r = reverse({ original: result, policy, eventId: "ev_001", refund: refund("3000"), priors: [], runId: "run_rev_1" });
   assert.ok(r.ok, JSON.stringify(r));
   const v = r.value;
-  assert.equal(v.format, "vcrl-reversal-result/1");
+  assert.equal(v.format, "mdrl-reversal-result/1");
   assert.equal(v.method, "REVERSAL_REMAINING_LRM_V1");
   assert.equal(v.sequence, "1");
   assert.equal(v.cumulative, "3000");
@@ -159,7 +159,7 @@ test("verifyReversal accepts an honest result and rejects forgeries, including r
   const input = { original: result, policy, priors: [] };
   assert.deepEqual(verifyReversal(input, r.value), []);
   assert.deepEqual(verifyReversal(input, "x").map((d) => d.code), ["CORE_TYPE_ERROR"]);
-  assert.deepEqual(verifyReversal(input, { ...r.value, format: "vcrl-reversal-result/2" }).map((d) => d.path), ["$.result.format"]);
+  assert.deepEqual(verifyReversal(input, { ...r.value, format: "mdrl-reversal-result/2" }).map((d) => d.path), ["$.result.format"]);
   const moved = r.value.lines.map((l, i) => (i === 0 ? { ...l, amount: String(BigInt(l.amount) - 1n) } : i === 1 ? { ...l, amount: String(BigInt(l.amount) + 1n) } : l));
   const { result_digest: _d, ...rest } = { ...r.value, lines: moved };
   const resealed = { ...rest, result_digest: digestOf(rest) };

@@ -1,5 +1,5 @@
--- VCRL id 규칙(코어 규격 3절): 영숫자·점·밑줄·하이픈, __proto__ 금지.
-CREATE DOMAIN vcrl_id AS TEXT CHECK (VALUE ~ '^[A-Za-z0-9._-]+$' AND VALUE <> '__proto__');
+-- MDRL id 규칙(코어 규격 3절): 영숫자·점·밑줄·하이픈, __proto__ 금지.
+CREATE DOMAIN mdrl_id AS TEXT CHECK (VALUE ~ '^[A-Za-z0-9._-]+$' AND VALUE <> '__proto__');
 
 -- 불변 테이블: UPDATE·DELETE 거부.
 CREATE FUNCTION rc_reject_mutation() RETURNS trigger LANGUAGE plpgsql AS $$

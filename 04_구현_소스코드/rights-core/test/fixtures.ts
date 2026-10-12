@@ -72,7 +72,7 @@ export const DECLARED = [
 
 /** seedSong용 정책. uses 줄의 digest는 자리표시이며 컴파일 시 현재 facts 봉인으로 덮어쓴다. */
 export const POLICY_TEXT = `allocation "pol_nova" version 1 {
-  uses facts "fsc_nova"@1 digest "vcrl:sha256:${"0".repeat(64)}";
+  uses facts "fsc_nova"@1 digest "mdrl:sha256:${"0".repeat(64)}";
   scope { pack: pak_nova; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {

@@ -13,14 +13,14 @@ function fixture(): Map<string, string> {
   const alloc = loadAllocationCase();
   const j = (v: unknown) => JSON.stringify(v);
   return new Map([
-    ["policy.vcrl", read("conformance/text/001-basic.vcrl")],
+    ["policy.mdrl", read("conformance/text/001-basic.mdrl")],
     ["policy.json", j(alloc.policy)],
     ["facts.json", j(basic.facts)],
     ["usage.json", j(basic.usage)],
     ["snapshot.json", j(alloc.snapshot)],
     ["events.json", j(alloc.events)],
     ["declared.json", j(basic.declared_claimants)],
-    ["bad.vcrl", 'allocation "x" version 1 { scope { pack p; } }'],
+    ["bad.mdrl", 'allocation "x" version 1 { scope { pack p; } }'],
     ["broken.json", "{"],
     ["usage-null.json", "null"],
     ["declared-null.json", "null"],
@@ -45,30 +45,30 @@ function cli(argv: string[], files = fixture()) {
 }
 
 const TIMES = ["--as-of", "2026-06-01T00:00:00.000Z", "--known-at", "2026-06-01T00:00:00.000Z"];
-const EVAL = ["--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
+const EVAL = ["--policy", "policy.mdrl", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
   "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", "run_2026_06"];
 const expectedDigest = () => JSON.parse(read("conformance/allocation/001-basic/expected.json")).result_digest as string;
 
 test("compile turns text into the conformance IR", () => {
-  const r = cli(["compile", "policy.vcrl"]);
+  const r = cli(["compile", "policy.mdrl"]);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(JSON.parse(r.out), loadAllocationCase().policy);
 });
 
 test("compile reports syntax errors with positions", () => {
-  const r = cli(["compile", "bad.vcrl"]);
+  const r = cli(["compile", "bad.mdrl"]);
   assert.equal(r.code, 1);
   assert.match(r.err, /^PARSE_SYNTAX @1:41 /);
 });
 
 test("check, fmt and project", () => {
-  assert.match(cli(["check", "facts.json"]).out, /^OK vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4\n$/);
-  assert.equal(cli(["check", "policy.vcrl"]).code, 0);
+  assert.match(cli(["check", "facts.json"]).out, /^OK mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd\n$/);
+  assert.equal(cli(["check", "policy.mdrl"]).code, 0);
   assert.match(cli(["fmt", "facts.json"]).out, /^facts "nova-debut-01" version 1 \{\n/);
   const fmt = cli(["fmt", "policy.json"]);
   const files = fixture();
-  files.set("round.vcrl", fmt.out);
-  assert.deepEqual(JSON.parse(cli(["compile", "round.vcrl"], files).out), loadAllocationCase().policy);
+  files.set("round.mdrl", fmt.out);
+  assert.deepEqual(JSON.parse(cli(["compile", "round.mdrl"], files).out), loadAllocationCase().policy);
   const p = cli(["project", "--facts", "facts.json", "--usage", "usage.json", ...TIMES]);
   assert.equal(p.code, 0, p.err);
   assert.deepEqual(JSON.parse(p.out).vectors.MASTER_OWNER, { pty_label_x: "1/1" });
@@ -106,20 +106,20 @@ test("usage errors exit 2, input errors exit 1", () => {
   assert.equal(cli([]).code, 2);
   assert.equal(cli(["nope"]).code, 2);
   assert.equal(cli(["project", "--facts", "facts.json"]).code, 2);
-  assert.equal(cli(["compile", "a.vcrl", "--bogus"]).code, 2);
+  assert.equal(cli(["compile", "a.mdrl", "--bogus"]).code, 2);
   const missing = cli(["check", "missing.json"]);
   assert.equal(missing.code, 1);
   assert.match(missing.err, /^CORE_UNKNOWN_REF missing\.json /);
   assert.match(cli(["check", "broken.json"]).err, /^CORE_TYPE_ERROR broken\.json /);
   const help = cli(["help"]);
   assert.equal(help.code, 0);
-  assert.match(help.out, /사용법: vcrl/);
+  assert.match(help.out, /사용법: mdrl/);
 });
 
-test("bin/vcrl.ts runs as a Node executable", () => {
-  const bin = fileURLToPath(new URL("../bin/vcrl.ts", import.meta.url));
+test("bin/mdrl.ts runs as a Node executable", () => {
+  const bin = fileURLToPath(new URL("../bin/mdrl.ts", import.meta.url));
   const out = execFileSync(process.execPath, [bin, "help"], { encoding: "utf8" });
-  assert.match(out, /사용법: vcrl/);
+  assert.match(out, /사용법: mdrl/);
 });
 
 test("malformed usage/declared inputs are diagnosed, not thrown", () => {
@@ -142,7 +142,7 @@ test("missing required options is a usage error even when other files are unread
   assert.equal(r.code, 2);
 });
 
-test("evaluate and verify accept a JSON policy (not just .vcrl text)", () => {
+test("evaluate and verify accept a JSON policy (not just .mdrl text)", () => {
   const evalJson = ["--policy", "policy.json", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
     "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", "run_2026_06"];
   const r = cli(["evaluate", ...evalJson]);
@@ -160,7 +160,7 @@ test("verify rejects a result with another format tag", () => {
   const r = cli(["evaluate", ...EVAL]);
   assert.equal(r.code, 0, r.err);
   const files = fixture();
-  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "vcrl-allocation-result/2" }));
+  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "mdrl-allocation-result/2" }));
   const v = cli(["verify", "--result", "other.json", ...EVAL], files);
   assert.equal(v.code, 1);
   assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
@@ -176,7 +176,7 @@ test("verify diagnoses a hostile format value instead of the unexpected-error ne
 
 test("diagnostic output escapes control characters so a result file cannot forge lines", () => {
   const files = fixture();
-  files.set("forge.json", '{"format":"x\\nOK vcrl:sha256:0000"}');
+  files.set("forge.json", '{"format":"x\\nOK mdrl:sha256:0000"}');
   const v = cli(["verify", "--result", "forge.json", ...EVAL], files);
   assert.equal(v.code, 1, v.err);
   const lines = v.err.split("\n").filter((l) => l !== "");
@@ -193,10 +193,10 @@ test("prototype-property command names are unknown commands, not internal errors
   }
 });
 
-test("compile only accepts a .vcrl file", () => {
+test("compile only accepts a .mdrl file", () => {
   const r = cli(["compile", "policy.json"]);
   assert.equal(r.code, 2);
-  assert.match(r.err, /compile은 \.vcrl 파일만 받습니다/);
+  assert.match(r.err, /compile은 \.mdrl 파일만 받습니다/);
 });
 
 test("diagnostic output escapes bidi controls so a diagnostic cannot be visually reordered", () => {

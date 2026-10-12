@@ -8,13 +8,13 @@ ALTER TABLE sealed_document ADD CONSTRAINT sealed_document_kind_check
 
 -- 수익 이벤트(v2.8 3.7 revenue_event의 I-2a 부분 집합). 환불도 양수이며 방향은 event_type이 나타낸다.
 CREATE TABLE revenue_event (
-  event_id         vcrl_id PRIMARY KEY,
+  event_id         mdrl_id PRIMARY KEY,
   source_system    TEXT NOT NULL,
   source_event_id  TEXT NOT NULL,
   source_revision  INT NOT NULL DEFAULT 1 CHECK (source_revision >= 1),
   event_type       TEXT NOT NULL CHECK (event_type IN ('PURCHASE','RESALE','REFUND')),
-  vc_id            vcrl_id NULL,
-  related_event_id vcrl_id NULL REFERENCES revenue_event,
+  vc_id            mdrl_id NULL,
+  related_event_id mdrl_id NULL REFERENCES revenue_event,
   net_amount_krw   BIGINT NOT NULL CHECK (net_amount_krw > 0),
   currency         CHAR(3) NOT NULL CHECK (currency = 'KRW'),
   integrity_status TEXT NOT NULL DEFAULT 'CLEAR' CHECK (integrity_status IN ('CLEAR','FLAGGED')),

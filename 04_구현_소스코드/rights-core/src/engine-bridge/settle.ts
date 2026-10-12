@@ -1,5 +1,5 @@
-import { evaluate, verifyAllocationResult, type AllocationDocument, type AllocationResult, type RevenueEvent, type Snapshot } from "vcrl/allocation";
-import type { ProjectionIr } from "vcrl/facts";
+import { evaluate, verifyAllocationResult, type AllocationDocument, type AllocationResult, type RevenueEvent, type Snapshot } from "mdrl/allocation";
+import type { ProjectionIr } from "mdrl/facts";
 import type { Tx } from "../platform/db.ts";
 import { notFound, type Diagnostic } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -42,7 +42,7 @@ function rowsOf(r: AllocationResult): RunRows {
   };
 }
 
-/** 발행 봉인의 입력과 고정된 순액 이벤트로 vcrl evaluate를 돌리고 events·결과를 봉인한다(통합 설계 10.2-5). */
+/** 발행 봉인의 입력과 고정된 순액 이벤트로 mdrl evaluate를 돌리고 events·결과를 봉인한다(통합 설계 10.2-5). */
 export async function evaluateRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; snapshotId: string; events: RunEvent[] }): Promise<RunEvaluation> {
   const s = await sealInputs(ctx, tx, input.snapshotId);
   const events = toIr(input.events, s.policy.body.scope.currency);
@@ -53,7 +53,7 @@ export async function evaluateRun(ctx: BridgeCtx, tx: Tx, input: { runId: string
   return { ok: true, eventsDigest: ev.digest, resultDigest: res.digest, rows: rowsOf(r.value) };
 }
 
-/** 봉인된 입력·스냅샷 사용량·발행 봉인 기준 시점으로 vcrl verifyAllocationResult를 돌린다(통합 설계 10.2-6). */
+/** 봉인된 입력·스냅샷 사용량·발행 봉인 기준 시점으로 mdrl verifyAllocationResult를 돌린다(통합 설계 10.2-6). */
 export async function verifyRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; snapshotId: string; eventsDigest: string; resultDigest: string }): Promise<Diagnostic[]> {
   const s = await sealInputs(ctx, tx, input.snapshotId);
   const events = (await loadSealed(ctx, tx, input.eventsDigest)) as RevenueEvent[];

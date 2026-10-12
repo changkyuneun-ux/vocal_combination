@@ -81,7 +81,7 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
     await as(page, "usr_editor");
     await page.getByRole("button", { name: "합성 곡 정책 불러오기", exact: true }).click();
     await expect(page.getByLabel("팩 id", { exact: true })).toHaveValue(PACK);
-    await expect(page.getByLabel("정책 원문(VCRL)")).toHaveValue(/allocation "pol_nova_summer"/);
+    await expect(page.getByLabel("정책 원문(MDRL)")).toHaveValue(/allocation "pol_nova_summer"/);
     await page.getByRole("button", { name: "컴파일", exact: true }).click();
     const versions = region(page, "버전");
     // 컴파일 직후 상태는 COMPILED(policy/service.ts compilePolicy).

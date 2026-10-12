@@ -51,7 +51,7 @@ button.badge { cursor: pointer; }
 .toast { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 8px; align-items: center; }
 .inline-form { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; }
 .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.vcrl { width: 100%; min-height: 420px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre; tab-size: 2; }
+.mdrl { width: 100%; min-height: 420px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre; tab-size: 2; }
 .row-actions { display: flex; gap: 6px; }
 .stack { display: grid; gap: 8px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 16px; margin: 0; }

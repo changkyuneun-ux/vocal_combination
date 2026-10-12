@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MAX_JSON_DEPTH, canonicalize } from "../../src/core/jcs.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 test("keys sorted, no whitespace", () => {
   assert.equal(canonicalize({ b: [true, null], a: "1" }), '{"a":"1","b":[true,null]}');
@@ -14,13 +14,13 @@ test("undefined properties are dropped", () => {
 test("numbers are rejected with path", () => {
   assert.throws(
     () => canonicalize({ a: [ "x", 1 ] }),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_NUMBER_IN_IR" && e.diagnostics[0]?.path === "$.a[1]",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_NUMBER_IN_IR" && e.diagnostics[0]?.path === "$.a[1]",
   );
 });
 
 test("non-plain objects rejected", () => {
-  assert.throws(() => canonicalize({ d: new Date(0) }), VcrlError);
-  assert.throws(() => canonicalize({ b: 1n }), VcrlError);
+  assert.throws(() => canonicalize({ d: new Date(0) }), MdrlError);
+  assert.throws(() => canonicalize({ b: 1n }), MdrlError);
 });
 
 test("keys sorted by UTF-16 code units", () => {
@@ -29,7 +29,7 @@ test("keys sorted by UTF-16 code units", () => {
 
 test("lone surrogates are rejected in values and keys", () => {
   const isTypeError = (path: string) => (e: unknown) =>
-    e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR" && e.diagnostics[0]?.path === path;
+    e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR" && e.diagnostics[0]?.path === path;
   assert.throws(() => canonicalize({ a: "x\ud800" }), isTypeError("$.a"));
   assert.throws(() => canonicalize({ "\ud800": "x" }), isTypeError("$.\ud800"));
   assert.equal(canonicalize({ a: "😀" }), '{"a":"😀"}');
@@ -42,12 +42,12 @@ function nestedArray(n: number): unknown {
   return v;
 }
 const tooDeep = (e: unknown) =>
-  e instanceof VcrlError && e.diagnostics.length === 1 && e.diagnostics[0]!.code === "CORE_TYPE_ERROR" && /nesting too deep/.test(e.diagnostics[0]!.message);
+  e instanceof MdrlError && e.diagnostics.length === 1 && e.diagnostics[0]!.code === "CORE_TYPE_ERROR" && /nesting too deep/.test(e.diagnostics[0]!.message);
 
 test("nesting up to MAX_JSON_DEPTH (256) is accepted, deeper is CORE_TYPE_ERROR", () => {
   assert.equal(MAX_JSON_DEPTH, 256);
   assert.equal(canonicalize(nestedArray(256)), "[".repeat(256) + "]".repeat(256));
-  assert.throws(() => canonicalize(nestedArray(257)), (e: unknown) => tooDeep(e) && (e as VcrlError).diagnostics[0]!.path === "$" + "[0]".repeat(256));
+  assert.throws(() => canonicalize(nestedArray(257)), (e: unknown) => tooDeep(e) && (e as MdrlError).diagnostics[0]!.path === "$" + "[0]".repeat(256));
   let o: unknown = {};
   for (let i = 1; i < 257; i++) o = { k: o };
   assert.throws(() => canonicalize(o), tooDeep);

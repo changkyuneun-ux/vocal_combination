@@ -6,10 +6,10 @@ import { compileAllocation, parseAllocation } from "../../src/text/parse-allocat
 import { validateAllocation } from "../../src/allocation/validate.ts";
 import { evaluate } from "../../src/allocation/evaluate.ts";
 import type { AllocationDocument } from "../../src/allocation/types.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 import { evaluationInput, loadAllocationCase } from "../helpers.ts";
 
-const sample = (name: string) => readFileSync(new URL(`../../samples/${name}.vcrl`, import.meta.url), "utf8");
+const sample = (name: string) => readFileSync(new URL(`../../samples/${name}.mdrl`, import.meta.url), "utf8");
 function roundTrip(doc: AllocationDocument) {
   const text = formatAllocation(doc);
   const back = parseAllocation(text);
@@ -53,7 +53,7 @@ test("non-facts dependencies are rejected by the validator and cannot be written
   const doc = loadAllocationCase().policy;
   doc.depends_on = [{ ref: "vc:grant/g1@1", digest: doc.depends_on[0]!.digest }];
   assert.deepEqual(validateAllocation(doc).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.depends_on[0].ref"]]);
-  assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
+  assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
 });
 
 test("every vector form and keyword-like bucket names round-trip", () => {

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkInterval, contains, isInstant } from "../../src/core/time.ts";
 import { formatRef, parseRef } from "../../src/core/ref.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-07-01T00:00:00.000Z";
@@ -32,9 +32,9 @@ test("refs", () => {
   const r = parseRef("vc:facts/nova-debut-01@3");
   assert.deepEqual(r, { kind: "facts", id: "nova-debut-01", version: 3 });
   assert.equal(formatRef(r), "vc:facts/nova-debut-01@3");
-  assert.throws(() => parseRef("vc:facts/x"), VcrlError);
+  assert.throws(() => parseRef("vc:facts/x"), MdrlError);
   assert.throws(
     () => parseRef("vc:unknown/x@1"),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_ENUM_UNKNOWN",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_ENUM_UNKNOWN",
   );
 });

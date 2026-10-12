@@ -13,10 +13,10 @@ test("fresh database has migrations applied and connects as rc_app", async () =>
   assert.ok(r.rows[0].n >= 1);
 });
 
-test("vcrl_id domain rejects invalid ids and __proto__", async () => {
-  await assert.rejects(db.pool.query("SELECT 'a b'::vcrl_id"));
-  await assert.rejects(db.pool.query("SELECT '__proto__'::vcrl_id"));
-  const ok = await db.pool.query("SELECT 'pty_a.b-1'::vcrl_id AS v");
+test("mdrl_id domain rejects invalid ids and __proto__", async () => {
+  await assert.rejects(db.pool.query("SELECT 'a b'::mdrl_id"));
+  await assert.rejects(db.pool.query("SELECT '__proto__'::mdrl_id"));
+  const ok = await db.pool.query("SELECT 'pty_a.b-1'::mdrl_id AS v");
   assert.equal(ok.rows[0].v, "pty_a.b-1");
 });
 

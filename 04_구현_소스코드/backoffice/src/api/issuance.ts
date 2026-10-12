@@ -3,7 +3,7 @@ import type { IssueBody, IssueSeal } from "./types.ts";
 
 const enc = encodeURIComponent;
 
-/** vcrl enums.ts의 claimant_role. rights-core `Declared`의 role 값이다. */
+/** mdrl enums.ts의 claimant_role. rights-core `Declared`의 role 값이다. */
 export const CLAIMANT_ROLES = [
   "MASTER_OWNER", "WORK_AUTHOR", "CMO", "PERFORMER_FEATURED", "PERFORMER_NON_FEATURED", "AGENCY", "AI_PROVIDER", "RECORDING_CONTRIBUTOR",
 ] as const;

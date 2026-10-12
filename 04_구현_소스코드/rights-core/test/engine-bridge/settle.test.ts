@@ -19,7 +19,7 @@ test("evaluateRun seals events (sorted) and the result; rows conserve every even
   assert.deepEqual(doc.map((e: { id: string }) => e.id), ["ev_1", "ev_2"]);
   const result = (await w.db.pool.query("SELECT kind, format, content FROM sealed_document WHERE digest = $1", [r.resultDigest])).rows[0];
   assert.equal(result.kind, "allocation_result");
-  assert.equal(result.format, "vcrl-allocation-result/1");
+  assert.equal(result.format, "mdrl-allocation-result/1");
   for (const ev of events) {
     const pool: bigint = r.rows.pool.filter((p) => p.eventId === ev.eventId).reduce((a, p) => a + p.amount, 0n);
     assert.equal(pool, ev.amount, `pool lines of ${ev.eventId}`);

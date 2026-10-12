@@ -2,7 +2,7 @@
 CREATE TABLE ledger_account (
   account_id TEXT PRIMARY KEY,
   kind       TEXT NOT NULL CHECK (kind IN ('RECEIVABLE','POOL_PLATFORM','POOL_OPS','POOL_FAN','POOL_OTHER','PARTY_PAYABLE','HOLD','WITHHOLDING_TAX','PSP_CLEARING','CASH')),
-  party_id   vcrl_id NULL REFERENCES party,
+  party_id   mdrl_id NULL REFERENCES party,
   reason     TEXT NULL,
   bucket     TEXT NULL,
   CHECK ((kind = 'PARTY_PAYABLE') = (party_id IS NOT NULL)),
@@ -21,8 +21,8 @@ CREATE TABLE posting (
   entry_id   BIGINT NOT NULL REFERENCES journal_entry,
   account_id TEXT NOT NULL REFERENCES ledger_account,
   amount_krw BIGINT NOT NULL CHECK (amount_krw <> 0),
-  event_id   vcrl_id NULL,
-  run_id     vcrl_id NULL
+  event_id   mdrl_id NULL,
+  run_id     mdrl_id NULL
 );
 CREATE INDEX posting_account ON posting (account_id, entry_id);
 CREATE INDEX posting_entry ON posting (entry_id);

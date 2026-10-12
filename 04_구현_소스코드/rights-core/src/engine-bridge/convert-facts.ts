@@ -1,4 +1,4 @@
-import type { FactsDocument } from "vcrl/facts";
+import type { FactsDocument } from "mdrl/facts";
 
 export type PartyRow = { partyId: string; partyType: string; isni?: string; ipiNo?: string; createdAt: string };
 export type WorkRow = { workId: string; iswc?: string; createdAt: string };
@@ -16,7 +16,7 @@ export type FactsRows = {
   parties: PartyRow[]; claims: ClaimRow[]; mandates: MandateRow[];
 };
 
-/** party_type → VCRL party_kind (통합 설계 9.3-3). FAN·PLATFORM은 facts에 들어갈 수 없다(undefined). */
+/** party_type → MDRL party_kind (통합 설계 9.3-3). FAN·PLATFORM은 facts에 들어갈 수 없다(undefined). */
 export const PARTY_KIND: Record<string, string | undefined> = {
   LABEL: "LABEL", AGENCY: "AGENCY", PUBLISHER: "PUBLISHER", CMO: "CMO", AUTHOR: "AUTHOR", SESSION: "SESSION",
   AI_PROVIDER: "AI_PROVIDER", ARTIST: "PERFORMER", MEMBER: "PERFORMER",
@@ -57,7 +57,7 @@ export function factsVersion(rows: FactsRows, knownAt: string): number {
 export function buildFactsDocument(rows: FactsRows, knownAt: string): FactsDocument {
   const valid = (r: Recorded) => ({ from: r.validFrom, ...(r.validTo !== undefined && { to: r.validTo }) });
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "facts",
     id: rows.scopeId,
     version: String(factsVersion(rows, knownAt)),

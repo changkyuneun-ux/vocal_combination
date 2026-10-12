@@ -73,14 +73,14 @@ test("end-to-end: register a song, compile/approve/activate a policy, activate t
     members: { pty_member_a: 5000, pty_member_b: 5000 },
   }));
   const doc = await ok(call("GET", `/seals/${encodeURIComponent(seal.projectionDigest)}`), 200);
-  assert.equal(doc.format, "vcrl-projection/1");
+  assert.equal(doc.format, "mdrl-projection/1");
   const audit = await ok(call("GET", "/issues/snp_vc_api/audit"), 200);
   assert.equal(audit.ok, true);
   const dup = await post("/issues", "usr_issuer", {
     packId: "pak_nova", vcId: "vc_api", assignments: [{ slotId: "slt_1", stemId: "stm_a1" }], members: { pty_member_a: 10000 },
   });
   assert.equal(dup.statusCode, 409);
-  assert.equal((await call("GET", `/seals/${encodeURIComponent(`vcrl:sha256:${"0".repeat(64)}`)}`)).statusCode, 404);
+  assert.equal((await call("GET", `/seals/${encodeURIComponent(`mdrl:sha256:${"0".repeat(64)}`)}`)).statusCode, 404);
 });
 
 test("empty JSON body is treated as {}; malformed JSON and missing fields are 400, not 500", async () => {

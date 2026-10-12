@@ -4,11 +4,11 @@ import { evalVector, type ExprContext } from "../../src/allocation/expr.ts";
 import type { VectorExpr } from "../../src/allocation/types.ts";
 import { projectVectors } from "../../src/facts/project.ts";
 import { ONE, ratio } from "../../src/core/ratio.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 import { loadBasic } from "../helpers.ts";
 
 const r = (n: bigint, d: bigint) => ratio(n, d);
-const code = (c: string) => (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === c;
+const code = (c: string) => (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === c;
 
 function ctx(): ExprContext {
   const i = loadBasic();

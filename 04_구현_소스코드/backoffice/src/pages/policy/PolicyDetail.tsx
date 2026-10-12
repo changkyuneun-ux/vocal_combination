@@ -100,12 +100,12 @@ function PolicyEditor({ policyId }: { policyId: string }) {
         {latest && <p className="muted">최신 v{latest.version}</p>}
       </Section>
       <div className="split">
-        <Section title="VCRL 편집기" actions={<button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button>}>
+        <Section title="MDRL 편집기" actions={<button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button>}>
           <div className="stack">
             {hint && <p className="muted" role="status">{hint}</p>}
             <label className="field"><span>팩 id</span><input value={packId} onChange={(e) => setPackId(e.target.value)} placeholder="pak_nova_summer" /></label>
-            <label className="field"><span>정책 원문(VCRL)</span>
-              <textarea className="vcrl" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} />
+            <label className="field"><span>정책 원문(MDRL)</span>
+              <textarea className="mdrl" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} />
             </label>
             <div><button type="button" className="btn primary" disabled={compile.isPending || !packId || !text} onClick={() => compile.mutate()}>컴파일</button></div>
             <ErrorPanel error={compile.error} />

@@ -32,7 +32,7 @@ test("a non-object result is a type error", () => {
 
 test("another format tag is reported before any recomputation", () => {
   const { input, result } = setup();
-  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "vcrl-allocation-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
+  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "mdrl-allocation-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
   const { format: _omit, ...untagged } = result;
   assert.deepEqual(at(verifyAllocationResult(input, untagged)), ["CORE_TYPE_ERROR $.result.format"]);
 });
@@ -69,7 +69,7 @@ test("tampered content is caught even when result_digest is re-sealed", () => {
 
 test("a different projection digest is reported", () => {
   const { input, result } = setup();
-  const other = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
+  const other = { ...result, projection_digest: `mdrl:sha256:${"0".repeat(64)}` };
   assert.deepEqual(at(verifyAllocationResult(input, other)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.projection_digest"]);
 });
 
@@ -91,7 +91,7 @@ test("hostile digest values are diagnosed, not thrown", () => {
 
 test("a forged projection_digest alone, re-sealed, is reported", () => {
   const { input, result } = setup();
-  const forged = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
+  const forged = { ...result, projection_digest: `mdrl:sha256:${"0".repeat(64)}` };
   forged.result_digest = digestOf({ ...forged, result_digest: undefined, trace: undefined });
   assert.deepEqual(at(verifyAllocationResult(input, forged)), ["CORE_DIGEST_MISMATCH $.result", "CORE_DIGEST_MISMATCH $.result.projection_digest", "CORE_DIGEST_MISMATCH $.result.result_digest"]);
 });

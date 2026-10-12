@@ -1,5 +1,5 @@
-import { validateAllocation, type AllocationDocument } from "vcrl/allocation";
-import { formatAllocation, parseAllocation } from "vcrl/text";
+import { validateAllocation, type AllocationDocument } from "mdrl/allocation";
+import { formatAllocation, parseAllocation } from "mdrl/text";
 import type { Tx } from "../platform/db.ts";
 import { invalid } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -14,7 +14,7 @@ async function pinAndSeal(ctx: BridgeCtx, tx: Tx, ir: AllocationDocument, policy
     depends_on: [{ ref: `vc:facts/${facts.docId}@${facts.docVersion}`, digest: facts.digest }],
   };
   const errors = validateAllocation(pinned);
-  if (errors.length > 0) throw invalid("POLICY_INVALID", `policy ${policyId} failed VCRL validation`, errors);
+  if (errors.length > 0) throw invalid("POLICY_INVALID", `policy ${policyId} failed MDRL validation`, errors);
   const sealed = await sealDocument(ctx, tx, { kind: "allocation", value: pinned, docId: policyId, docVersion: String(version) });
   return { sealed, canonicalText: formatAllocation(pinned), ir: pinned };
 }

@@ -90,7 +90,7 @@ test("/parties (paging, type filter), /works", async () => {
 test("/scopes/:id, /scopes/:id/facts", async () => {
   const s = await ok(`/scopes/${SCOPE}`);
   assert.deepEqual(Object.keys(s).sort(), ["createdAt", "factsScopeId", "lastVersion", "latestFactsSeal", "sealedThrough", "workId"]);
-  assert.match(s.latestFactsSeal.digest, /^vcrl:sha256:[0-9a-f]{64}$/);
+  assert.match(s.latestFactsSeal.digest, /^mdrl:sha256:[0-9a-f]{64}$/);
   assert.equal(s.latestFactsSeal.knownAt, s.sealedThrough);
   const pv = await ok("/policies/pol_nova/versions/1");
   assert.equal(s.latestFactsSeal.digest, pv.factsDigest);
@@ -157,7 +157,7 @@ test("/issues: fields, filters, quarantined, DESC paging", async () => {
   const byVc = new Map<string, any>(all.items.map((i: any) => [i.vcId, i]));
   assert.equal(byVc.get("vc_1").quarantined, false);
   assert.equal(byVc.get("vc_2").quarantined, true);
-  assert.match(byVc.get("vc_1").projectionDigest, /^vcrl:sha256:/);
+  assert.match(byVc.get("vc_1").projectionDigest, /^mdrl:sha256:/);
   assert.equal((await ok("/issues?vc=vc_1")).items.length, 1);
   assert.equal((await ok(`/issues?pack=${PACK}`)).items.length, 2);
   assert.equal((await ok("/issues?pack=other")).items.length, 0);

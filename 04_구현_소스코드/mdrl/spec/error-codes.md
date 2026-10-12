@@ -1,4 +1,4 @@
-# VCRL 오류 코드 (정본)
+# MDRL 오류 코드 (정본)
 
 이 표는 `src/core/errors.ts`의 `ERROR_CODES`와 테스트로 동기화된다. 코드를 추가·삭제할 때 두 곳을 함께 고친다.
 
@@ -56,7 +56,7 @@
 
 ## 기존 코드 매핑
 
-| 기존 코드 | VCRL 코드 |
+| 기존 코드 | MDRL 코드 |
 |---|---|
 | DSL_TYPE_ERROR | `CORE_TYPE_ERROR` |
 | DSL_UNKNOWN_REF | `CORE_UNKNOWN_REF` |

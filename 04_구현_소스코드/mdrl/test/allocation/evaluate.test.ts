@@ -371,7 +371,7 @@ test("performer coverage is judged per role: graph(PERFORMER_FEATURED) does not 
 
 test("allocation result carries its format tag inside result_digest, trace outside it (spec 12.48)", () => {
   const r = run(basic());
-  assert.equal(r.format, "vcrl-allocation-result/1");
+  assert.equal(r.format, "mdrl-allocation-result/1");
   assert.ok(r.trace.length > 0);
   assert.equal(r.result_digest, digestOf({ ...r, result_digest: undefined, trace: undefined }));
   assert.notEqual(r.result_digest, digestOf({ ...r, format: undefined, result_digest: undefined, trace: undefined }));
@@ -390,7 +390,7 @@ test("the seal covers line amounts but not trace entries (spec 12.48)", () => {
 
 test("evaluate rejects a projection with another format tag", () => {
   const input = basic();
-  const projection = { ...input.projection, format: "vcrl-projection/2" } as unknown as ProjectionIr;
+  const projection = { ...input.projection, format: "mdrl-projection/2" } as unknown as ProjectionIr;
   const r = evaluate({ ...input, projection });
   assert.equal(r.ok, false);
   assert.ok(!r.ok && r.errors.some((e) => e.code === "CORE_TYPE_ERROR" && e.path === "$.projection.format"), JSON.stringify(r));

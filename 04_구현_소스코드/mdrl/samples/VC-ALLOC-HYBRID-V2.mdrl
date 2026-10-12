@@ -1,7 +1,7 @@
-// 설계문서의 VC-DSL v1 예제 2(VC-ALLOC-HYBRID-V2)를 VCRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
+// 설계문서의 VC-DSL v1 예제 2(VC-ALLOC-HYBRID-V2)를 MDRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
 // 독식 방지 상한 50%를 실연 풀에 적용하고, 기획사 계약 몫을 별도 버킷으로 둔다.
 allocation "VC-ALLOC-HYBRID-V2" version 2 {
-  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  uses facts "nova-debut-01"@1 digest "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd";
   scope { pack: pak_nova_summer_02; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {

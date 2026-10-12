@@ -371,7 +371,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
   for (const b of REQUIRED_BLOCKS) if (!seen.has(b)) fail("PARSE_SYNTAX", at(close), `missing ${b} block`);
 
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "allocation",
     id: docId,
     version,

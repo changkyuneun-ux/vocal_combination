@@ -13,10 +13,10 @@ function walk(dir: string): string[] {
   });
 }
 
-test("only src/engine-bridge imports vcrl (design 9.2)", () => {
+test("only src/engine-bridge imports mdrl (design 9.2)", () => {
   const offenders = walk(SRC)
     .filter((p) => !relative(SRC, p).startsWith("engine-bridge/"))
-    .filter((p) => /from\s+["']vcrl(\/[a-z]+)?["']/.test(readFileSync(p, "utf8")))
+    .filter((p) => /from\s+["']mdrl(\/[a-z]+)?["']/.test(readFileSync(p, "utf8")))
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });

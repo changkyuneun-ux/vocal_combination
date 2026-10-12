@@ -57,7 +57,7 @@ test("attestation message is JCS of the context-tagged payload", () => {
   const msg = attestationMessage({ signer: "pty_alice", role: "EDITOR", over: D, alg: "Ed25519" });
   assert.equal(
     new TextDecoder().decode(msg),
-    `{"alg":"Ed25519","ctx":"vcrl-attest/1","over":"${D}","role":"EDITOR","signer":"pty_alice"}`,
+    `{"alg":"Ed25519","ctx":"mdrl-attest/1","over":"${D}","role":"EDITOR","signer":"pty_alice"}`,
   );
 });
 

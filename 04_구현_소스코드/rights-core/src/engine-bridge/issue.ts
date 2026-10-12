@@ -1,10 +1,10 @@
-import { projectToIr, type FactsDocument } from "vcrl/facts";
+import { projectToIr, type FactsDocument } from "mdrl/facts";
 import { iso, type Tx } from "../platform/db.ts";
 import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadFacts } from "./facts.ts";
 import { sealDocument } from "./seal-store.ts";
-import { digestOf, formatRatio, fromBps } from "vcrl/core";
+import { digestOf, formatRatio, fromBps } from "mdrl/core";
 
 export type IssueSeal = {
   snapshotId: string; factsDigest: string; policyDigest: string; projectionDigest: string; membersDigest: string; asOf: string; knownAt: string;

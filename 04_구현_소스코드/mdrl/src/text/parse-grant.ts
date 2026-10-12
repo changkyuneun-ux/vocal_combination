@@ -222,7 +222,7 @@ function parseGrantProgram(toks: readonly Token[]): GrantDoc {
   };
 
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "grant",
     id: docId,
     version,

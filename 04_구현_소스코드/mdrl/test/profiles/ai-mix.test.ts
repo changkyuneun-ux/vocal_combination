@@ -66,5 +66,5 @@ test("Master LRM evaluator deterministically allocates revenue for AI Mix scenar
   const digest1 = digestOf(resultIr);
   const digest2 = digestOf(resultIr);
   assert.equal(digest1, digest2);
-  assert.equal(digest1.startsWith("vcrl:sha256:"), true);
+  assert.equal(digest1.startsWith("mdrl:sha256:"), true);
 });

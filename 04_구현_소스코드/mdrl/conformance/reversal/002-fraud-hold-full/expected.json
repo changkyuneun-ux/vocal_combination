@@ -12,7 +12,7 @@
       "holdings": [
         { "event_id": "ev_001", "bucket": "rights", "reason": "FRAUD_REVIEW", "amount": "-7000" }
       ],
-      "result_digest": "vcrl:sha256:3c2ba6ac55bebbae31d0d5f2a7c9227550c8adc6233f6b6680c634c0cc1f7493"
+      "result_digest": "mdrl:sha256:1a39b7e419da51923ead6b4e1eeb931d61b63a985cbe3bdfcf71ed64312c5f34"
     }
   ]
 }

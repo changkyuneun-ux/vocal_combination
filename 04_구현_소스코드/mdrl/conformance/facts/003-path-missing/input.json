@@ -1,6 +1,6 @@
 {
   "facts": {
-    "vcrl": "1.0",
+    "mdrl": "1.0",
     "module": "facts",
     "id": "nova-debut-01",
     "version": "1",

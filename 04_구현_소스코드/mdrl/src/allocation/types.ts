@@ -42,7 +42,7 @@ export type Holding = { event_id: string; bucket: string; reason: EnumValue<"hol
 export type TraceEntry = { event_id: string; level: string; total: string; parts: { key: string; weight: string; amount: string }[] };
 
 /** 안분 결과 형식 태그(스펙 12.48). result_digest 계산에 포함된다. */
-export const ALLOCATION_RESULT_FORMAT = "vcrl-allocation-result/1" as const;
+export const ALLOCATION_RESULT_FORMAT = "mdrl-allocation-result/1" as const;
 
 export type AllocationResult = {
   format: typeof ALLOCATION_RESULT_FORMAT;

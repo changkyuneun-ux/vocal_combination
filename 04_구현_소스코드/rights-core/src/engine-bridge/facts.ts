@@ -1,4 +1,4 @@
-import { validateFacts, type FactsDocument } from "vcrl/facts";
+import { validateFacts, type FactsDocument } from "mdrl/facts";
 import { iso, type Tx } from "../platform/db.ts";
 import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -63,7 +63,7 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
 }
 
 /**
- * S1: 범위의 facts를 knownAt 기준으로 만들고, VCRL로 검증한 뒤 봉인한다. 같은 행·같은 knownAt이면 같은 digest다.
+ * S1: 범위의 facts를 knownAt 기준으로 만들고, MDRL로 검증한 뒤 봉인한다. 같은 행·같은 knownAt이면 같은 digest다.
  * 봉인 울타리(통합 설계 9.3-10): 행을 읽기 전에 범위 행을 FOR UPDATE로 잠가, knownAt 이전 시각으로 쓰고 아직 커밋하지 않은
  * 쓰기(FOR SHARE 보유)가 끝나기를 기다린다. 그리고 sealed_through를 knownAt 이상으로 올려 이후 그 시각 이전의 쓰기를 거부하게 한다.
  * - 미래의 knownAt은 울타리를 앞당겨 그때까지의 모든 쓰기를 막으므로 DB 시계(clock_timestamp)보다 늦으면 INVALID_INSTANT(422).
@@ -77,7 +77,7 @@ export async function sealFacts(ctx: BridgeCtx, tx: Tx, scopeId: string, knownAt
   await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1 FOR UPDATE", [scopeId]);
   const doc = buildFactsDocument(await loadFactsRows(tx, scopeId, knownAt), knownAt);
   const errors = validateFacts(doc);
-  if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed VCRL validation`, errors);
+  if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed MDRL validation`, errors);
   const sealed = await sealDocument(ctx, tx, { kind: "facts", value: doc, docId: doc.id, docVersion: doc.version });
   await tx.query(
     `UPDATE facts_scope SET last_version = GREATEST(last_version, $2), sealed_through = GREATEST(COALESCE(sealed_through, $3), $3)

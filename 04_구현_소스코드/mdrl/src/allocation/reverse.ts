@@ -11,7 +11,7 @@ import {
 import { validateAllocation } from "./validate.ts";
 
 /** 역분개 결과 형식 태그. result_digest 계산에 포함된다. */
-export const REVERSAL_RESULT_FORMAT = "vcrl-reversal-result/1" as const;
+export const REVERSAL_RESULT_FORMAT = "mdrl-reversal-result/1" as const;
 /** 남은 금액 비례 순차 계층 LRM(설계 결정 3). */
 export const REVERSAL_METHOD = "REVERSAL_REMAINING_LRM_V1" as const;
 

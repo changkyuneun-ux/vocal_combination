@@ -1,5 +1,5 @@
 import { parseBps } from "../core/bps.ts";
-import { VcrlError, fail } from "../core/errors.ts";
+import { MdrlError, fail } from "../core/errors.ts";
 import { ONE, fromBps, type Ratio } from "../core/ratio.ts";
 import type { Instant } from "../core/time.ts";
 import { ROLE_RIGHT, routeVector } from "../facts/mandate.ts";
@@ -21,7 +21,7 @@ type PoolExpr = Extract<VectorExpr, { fn: "performance_pool" }>;
 
 const bps = (v: unknown, path: string): Ratio => fromBps(parseBps(v, path));
 
-/** 벡터 식을 평가한다. 정책은 validateAllocation을 통과했다고 가정하며, 실패는 VcrlError로 던진다. */
+/** 벡터 식을 평가한다. 정책은 validateAllocation을 통과했다고 가정하며, 실패는 MdrlError로 던진다. */
 export function evalVector(e: VectorExpr, ctx: ExprContext, path: string): PartyVector {
   switch (e.fn) {
     case "graph":
@@ -52,7 +52,7 @@ function graphVector(role: ClaimantRole, viaMandate: boolean, ctx: ExprContext, 
   const right = ROLE_RIGHT[role];
   if (right === undefined) return fail("CORE_TYPE_ERROR", `${path}.via_mandate`, `${role} has no mandate right`);
   const routed = routeVector(ctx.facts, vec, right, ctx.asOf, ctx.knownAt);
-  if (!routed.ok) throw new VcrlError(routed.errors);
+  if (!routed.ok) throw new MdrlError(routed.errors);
   return routed.value;
 }
 

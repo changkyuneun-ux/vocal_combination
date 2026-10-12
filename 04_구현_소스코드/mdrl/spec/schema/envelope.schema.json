@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/envelope.schema.json",
-  "title": "VCRL IR document envelope",
+  "$id": "https://mdrl.invalid/1.0/envelope.schema.json",
+  "title": "MDRL IR document envelope",
   "type": "object",
   "additionalProperties": false,
-  "required": ["vcrl", "module", "id", "version", "depends_on", "visibility_default", "body"],
+  "required": ["mdrl", "module", "id", "version", "depends_on", "visibility_default", "body"],
   "properties": {
-    "vcrl": { "const": "1.0" },
+    "mdrl": { "const": "1.0" },
     "module": { "enum": ["core", "facts", "constraint", "grant", "approval", "allocation"] },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "version": { "type": "string", "pattern": "^[1-9][0-9]*$" },
@@ -18,7 +18,7 @@
         "required": ["ref", "digest"],
         "properties": {
           "ref": { "type": "string", "pattern": "^vc:[a-z]+/[A-Za-z0-9._-]+@[1-9][0-9]*$" },
-          "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" }
+          "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" }
         }
       }
     },

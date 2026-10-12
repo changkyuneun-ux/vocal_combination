@@ -1,4 +1,4 @@
-import { canonicalize, digestOf } from "vcrl/core";
+import { canonicalize, digestOf } from "mdrl/core";
 import type { Tx } from "../platform/db.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";

@@ -54,7 +54,7 @@ test("the same person cannot sign two roles on one policy", async () => {
   await assert.rejects(db.tx((tx) => policy.approvePolicy(ctx, tx, clock, both, r)), { code: "SOD_VIOLATION", status: 403 });
 });
 
-test("compile rejects a policy whose scope.pack differs from the target pack, with VCRL diagnostics for bad text", async () => {
+test("compile rejects a policy whose scope.pack differs from the target pack, with MDRL diagnostics for bad text", async () => {
   await assert.rejects(
     db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_x", packId: PACK, sourceText: POLICY_TEXT.replace("pack: pak_nova", "pack: pak_other") })),
     { code: "POLICY_PACK_MISMATCH", status: 422 },
@@ -65,7 +65,7 @@ test("compile rejects a policy whose scope.pack differs from the target pack, wi
   );
 });
 
-test("activation fails with VCRL diagnostics when declared claimants drift", async () => {
+test("activation fails with MDRL diagnostics when declared claimants drift", async () => {
   await db.tx(async (tx) => {
     await issuance.createPack(tx, clock, users.rights, { packId: "pak_drift", packCode: "DRIFT", title: "d", factsScopeId: SCOPE });
     await issuance.setPackClaimants(tx, clock, users.rights, "pak_drift", DECLARED.filter((d) => d.role !== "CMO"));

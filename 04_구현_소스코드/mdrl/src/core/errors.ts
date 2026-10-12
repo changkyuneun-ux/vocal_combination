@@ -64,17 +64,17 @@ export function underPath(prefix: string, diagnostics: readonly Diagnostic[]): D
   return diagnostics.map((d) => ({ ...d, path: d.path.startsWith("$") ? prefix + d.path.slice(1) : d.path }));
 }
 
-export class VcrlError extends Error {
+export class MdrlError extends Error {
   readonly diagnostics: Diagnostic[];
   constructor(diagnostics: Diagnostic[]) {
     super(diagnostics.map((d) => `${d.code} at ${d.path}: ${d.message}`).join("\n"));
-    this.name = "VcrlError";
+    this.name = "MdrlError";
     this.diagnostics = diagnostics;
   }
 }
 
 export function fail(code: ErrorCode, path: string, detail?: string): never {
-  throw new VcrlError([diag(code, path, detail)]);
+  throw new MdrlError([diag(code, path, detail)]);
 }
 
 export function capture(fn: () => unknown): Diagnostic[] {
@@ -82,7 +82,7 @@ export function capture(fn: () => unknown): Diagnostic[] {
     fn();
     return [];
   } catch (e) {
-    if (e instanceof VcrlError) return e.diagnostics;
+    if (e instanceof MdrlError) return e.diagnostics;
     throw e;
   }
 }
@@ -95,17 +95,17 @@ export function err<T>(errors: Diagnostic[]): Result<T> {
   return { ok: false, errors };
 }
 
-/** fail()이 던진 VcrlError를 실패 Result로 바꾼다. 그 밖의 예외는 그대로 던진다. */
+/** fail()이 던진 MdrlError를 실패 Result로 바꾼다. 그 밖의 예외는 그대로 던진다. */
 export function attempt<T>(fn: () => T): Result<T> {
   try {
     return ok(fn());
   } catch (e) {
-    if (e instanceof VcrlError) return err(e.diagnostics);
+    if (e instanceof MdrlError) return err(e.diagnostics);
     throw e;
   }
 }
 
-/** 기존 설계 문서의 오류 코드 → VCRL 코드. */
+/** 기존 설계 문서의 오류 코드 → MDRL 코드. */
 export const LEGACY_ERROR_MAP: Readonly<Record<string, ErrorCode>> = {
   DSL_TYPE_ERROR: "CORE_TYPE_ERROR",
   DSL_UNKNOWN_REF: "CORE_UNKNOWN_REF",

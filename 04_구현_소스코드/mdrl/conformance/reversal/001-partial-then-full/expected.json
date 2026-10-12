@@ -16,7 +16,7 @@
         { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "2", "reverses_line_seq": "1", "amount": "-126" }
       ],
       "holdings": [],
-      "result_digest": "vcrl:sha256:579b08960e3310dbc24a745a7b782b445257f99c052ed769a0cb10f936aeeefd"
+      "result_digest": "mdrl:sha256:01c64149ceffc00677cacb96ace8fee1316600bda40ba9e04f62901ec4c12f40"
     },
     {
       "sequence": "2",
@@ -34,7 +34,7 @@
         { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "3", "reverses_line_seq": "1", "amount": "-140" }
       ],
       "holdings": [],
-      "result_digest": "vcrl:sha256:d4cf64d7a55d76cc82e3ef7e313c6c799f3977addcad543999c971598cec1864"
+      "result_digest": "mdrl:sha256:7a0aa507453abf7c0f19c6caea78790aba1862317a0301a8edceeb03b1caa42c"
     },
     { "errors": ["REV_EXCEEDS_REMAINING"] },
     {
@@ -53,7 +53,7 @@
         { "event_id": "ev_001", "party": "pty_komca", "role": "CMO", "bucket": "work", "line_seq": "4", "reverses_line_seq": "1", "amount": "-154" }
       ],
       "holdings": [],
-      "result_digest": "vcrl:sha256:b4a630015a8aa91bf220223328814941e00b20c0b0c89184b777ec9e17bc3f3e"
+      "result_digest": "mdrl:sha256:3263e4635247bbf280d5cecef6057fc3f3630b92400192c10c8c2675a1c2167b"
     }
   ]
 }

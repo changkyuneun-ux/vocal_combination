@@ -5,7 +5,7 @@ import { parseGrant, compileGrant } from "../../src/text/parse-grant.ts";
 import type { GrantDoc } from "../../src/grant/types.ts";
 
 const sampleGrantDoc: GrantDoc = {
-  vcrl: "1.0",
+  mdrl: "1.0",
   module: "grant",
   id: "GRANT-DEMO-01",
   version: "1",

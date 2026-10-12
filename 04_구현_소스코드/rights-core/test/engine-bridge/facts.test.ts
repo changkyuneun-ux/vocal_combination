@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { digestOf } from "vcrl/core";
+import { digestOf } from "mdrl/core";
 import { freshDb } from "../helpers.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import type { Tx } from "../../src/platform/db.ts";
@@ -120,7 +120,7 @@ test("knownAt filters later records and bumps the version; superseded versions k
   }
 });
 
-test("invalid facts are reported as VCRL diagnostics (422)", async () => {
+test("invalid facts are reported as MDRL diagnostics (422)", async () => {
   const { db, drop } = await freshDb();
   try {
     await db.tx((tx) => registerConformance(tx));
@@ -148,7 +148,7 @@ test("loadSealed reads storage without the cache and 404s unknown digests", asyn
     const fresh = createBridgeCtx(createFsBlobStore(blobRoot));
     const ok = await db.tx((tx) => loadSealed(fresh, tx, sealed.digest));
     assert.deepEqual(ok, conformance.facts);
-    await assert.rejects(db.tx((tx) => loadSealed(fresh, tx, `vcrl:sha256:${"0".repeat(64)}`)), { code: "NOT_FOUND" });
+    await assert.rejects(db.tx((tx) => loadSealed(fresh, tx, `mdrl:sha256:${"0".repeat(64)}`)), { code: "NOT_FOUND" });
   } finally {
     await drop();
   }

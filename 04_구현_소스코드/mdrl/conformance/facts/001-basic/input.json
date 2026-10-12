@@ -1,6 +1,6 @@
 {
   "facts": {
-    "vcrl": "1.0",
+    "mdrl": "1.0",
     "module": "facts",
     "id": "nova-debut-01",
     "version": "1",
@@ -32,7 +32,7 @@
         { "id": "c2", "source": "stm_v2", "edge": "PERFORMED_BY", "target": "vo_b", "share": "10000", "performer_role": "FEATURED", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c3", "source": "vo_a", "edge": "OWNED_BY", "target": "pty_member_a", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c4", "source": "vo_b", "edge": "OWNED_BY", "target": "pty_member_b", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
-        { "id": "c5", "source": "rcd_01", "edge": "CONTROLLED_BY", "target": "pty_label_x", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z", "evidence": "vcrl:sha256:0000000000000000000000000000000000000000000000000000000000000017" },
+        { "id": "c5", "source": "rcd_01", "edge": "CONTROLLED_BY", "target": "pty_label_x", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z", "evidence": "mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000017" },
         { "id": "c6", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_b", "share": "6000", "role_detail": "LYRICS", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c7", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_c", "share": "4000", "role_detail": "COMPOSITION", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" }
       ],

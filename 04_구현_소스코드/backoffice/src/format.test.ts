@@ -15,7 +15,7 @@ describe("format", () => {
     expect(safeKrw("1.5")).toBe("1.5");
   });
   it("shortDigest", () => {
-    expect(shortDigest("vcrl:sha256:abcdef0123456789ffff")).toBe("abcdef012345");
+    expect(shortDigest("mdrl:sha256:abcdef0123456789ffff")).toBe("abcdef012345");
     expect(shortDigest("abcdef0123456789")).toBe("abcdef012345");
   });
   it("formatInstant keeps UTC", () => {

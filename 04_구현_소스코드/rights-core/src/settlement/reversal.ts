@@ -8,7 +8,7 @@ import type { SettleDeps } from "./service.ts";
 const SETTLER = "sys_settler";
 
 /**
- * 확정 run 이벤트 하나의 역분개를 쓴다(통합 설계 10.2-9·11.2-11): vcrl reverse(이전 역분개 전부를 priors로) → reversal_run·역분개 행 →
+ * 확정 run 이벤트 하나의 역분개를 쓴다(통합 설계 10.2-9·11.2-11): mdrl reverse(이전 역분개 전부를 priors로) → reversal_run·역분개 행 →
  * 원 run의 SETTLEMENT 분개 보장 → REVERSAL 분개. 호출자는 원 run 이벤트 행을 FOR UPDATE로 잠갔고, 식별 이벤트로 멱등 검사를 끝냈다.
  * 식별 이벤트(identEventId)는 환불이면 환불 id, CORRECTION이면 새 revision id다(reversal_run.refund_event_id, reversal_id = rev_<id>).
  */

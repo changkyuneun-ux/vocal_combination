@@ -9,7 +9,7 @@ export const LANGUAGE_VERSION = "1.0";
 
 export type Dependency = { ref: string; digest: string };
 export type IrDocument<B = unknown> = {
-  vcrl: string;
+  mdrl: string;
   module: EnumValue<"module">;
   id: string;
   version: string;
@@ -24,7 +24,7 @@ export const MODULE_RANK: Readonly<Record<EnumValue<"module">, number>> = {
 };
 
 const VERSION_RE = /^[1-9]\d*$/;
-const ENVELOPE_KEYS = ["vcrl", "module", "id", "version", "depends_on", "visibility_default", "body"] as const;
+const ENVELOPE_KEYS = ["mdrl", "module", "id", "version", "depends_on", "visibility_default", "body"] as const;
 const DEPENDENCY_KEYS = ["ref", "digest"] as const;
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -34,7 +34,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 export function validateEnvelope(doc: unknown): Diagnostic[] {
   if (!isObject(doc)) return [diag("CORE_TYPE_ERROR", "$", "document must be an object")];
   const out: Diagnostic[] = [...capture(() => canonicalize(doc))];
-  if (doc.vcrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.vcrl", `expected "${LANGUAGE_VERSION}"`));
+  if (doc.mdrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.mdrl", `expected "${LANGUAGE_VERSION}"`));
   if (!isEnumValue("module", doc.module)) out.push(diag("CORE_ENUM_UNKNOWN", "$.module", describe(doc.module)));
   if (!isId(doc.id)) out.push(diag("CORE_TYPE_ERROR", "$.id"));
   if (typeof doc.version !== "string" || !VERSION_RE.test(doc.version)) out.push(diag("CORE_TYPE_ERROR", "$.version"));

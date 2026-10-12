@@ -16,7 +16,7 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
 /** 배열·객체 중첩 한도(최상위 = 1). 이를 넘으면 재귀하기 전에 CORE_TYPE_ERROR로 멈춘다(스택 오버플로 방지). */
 export const MAX_JSON_DEPTH = 256;
 
-/** RFC 8785 JCS. VCRL IR은 JSON number를 금지하므로 number는 오류로 처리한다. */
+/** RFC 8785 JCS. MDRL IR은 JSON number를 금지하므로 number는 오류로 처리한다. */
 export function canonicalize(value: unknown, path = "$"): string {
   return canon(value, path, 0);
 }

@@ -6,7 +6,7 @@ import { inferRole } from "../../src/text/roles.ts";
 import type { VectorExpr } from "../../src/allocation/types.ts";
 import { loadAllocationCase } from "../helpers.ts";
 
-const basicText = () => readFileSync(new URL("../../conformance/text/001-basic.vcrl", import.meta.url), "utf8");
+const basicText = () => readFileSync(new URL("../../conformance/text/001-basic.mdrl", import.meta.url), "utf8");
 const errs = (src: string) => {
   const r = compileAllocation(src);
   return r.ok ? [] : r.errors.map((e) => [e.code, e.path]);

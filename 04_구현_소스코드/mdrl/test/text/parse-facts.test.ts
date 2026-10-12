@@ -5,7 +5,7 @@ import { parseFacts, compileFacts } from "../../src/text/parse-facts.ts";
 import type { FactsDocument } from "../../src/facts/types.ts";
 
 const sampleFacts: FactsDocument = {
-  vcrl: "1.0",
+  mdrl: "1.0",
   module: "facts",
   id: "test-facts-01",
   version: "1",

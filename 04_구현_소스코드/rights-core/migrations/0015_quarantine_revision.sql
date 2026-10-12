@@ -3,11 +3,11 @@
 -- (그래서 봉인당 한 행이 아니라 "해제되지 않은 격리는 봉인당 하나"를 부분 UNIQUE로 강제한다).
 CREATE TABLE quarantine (
   quarantine_id BIGSERIAL PRIMARY KEY,
-  snapshot_id   vcrl_id NOT NULL REFERENCES issue_seal,
+  snapshot_id   mdrl_id NOT NULL REFERENCES issue_seal,
   reason        TEXT NOT NULL CHECK (length(reason) > 0),
   diagnostics   JSONB NOT NULL CHECK (jsonb_typeof(diagnostics) = 'array'),
   created_at    TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
-  released_by   vcrl_id NULL REFERENCES user_account,
+  released_by   mdrl_id NULL REFERENCES user_account,
   released_at   TIMESTAMPTZ NULL CHECK (released_at = date_trunc('milliseconds', released_at)),
   CHECK ((released_by IS NULL) = (released_at IS NULL))
 );
@@ -101,8 +101,8 @@ CREATE TRIGGER unallocated_holding_insert_guard BEFORE INSERT ON unallocated_hol
 -- source_revision 대체(통합 설계 11.2-11): 같은 source 이벤트의 더 높은 revision이 이전 최신 revision을 대체한다. 불변.
 -- 이전 이벤트는 한 번만 대체되고(PK), 새 이벤트는 하나만 대체한다(UNIQUE). 대체된 이벤트는 배치 후보에서 빠지고 환불을 받지 않는다.
 CREATE TABLE revenue_supersede (
-  old_event_id vcrl_id PRIMARY KEY REFERENCES revenue_event,
-  new_event_id vcrl_id NOT NULL UNIQUE REFERENCES revenue_event,
+  old_event_id mdrl_id PRIMARY KEY REFERENCES revenue_event,
+  new_event_id mdrl_id NOT NULL UNIQUE REFERENCES revenue_event,
   recorded_at  TIMESTAMPTZ NOT NULL CHECK (recorded_at = date_trunc('milliseconds', recorded_at)),
   CHECK (old_event_id <> new_event_id)
 );

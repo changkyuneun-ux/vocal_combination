@@ -1,4 +1,4 @@
-(* VCRL allocation 텍스트 문법 v1.0 — IR은 스펙 12.21. 공백·줄바꿈 무시, // 주석. *)
+(* MDRL allocation 텍스트 문법 v1.0 — IR은 스펙 12.21. 공백·줄바꿈 무시, // 주석. *)
 program     = "allocation" string "version" int "{" { block } "}" EOF ;
 block       = uses | visibility | scope | bind | tier1 | tier2 | guard | exceptions | rounding ;
 (* scope·bind·tier1·tier2·rounding은 정확히 한 번, visibility·guard·exceptions는 최대 한 번, uses는 0회 이상. 블록 순서는 자유. *)

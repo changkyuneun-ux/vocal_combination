@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, attempt, capture, describe, diag, fail } from "../../src/core/errors.ts";
+import { ERROR_CODES, LEGACY_ERROR_MAP, MdrlError, attempt, capture, describe, diag, fail } from "../../src/core/errors.ts";
 
 test("diag composes message from registry", () => {
   assert.deepEqual(diag("FACTS_CYCLE", "$.body.mandates", "m1"), {
@@ -12,14 +12,14 @@ test("diag composes message from registry", () => {
   assert.equal(diag("FACTS_CYCLE", "$").message, ERROR_CODES.FACTS_CYCLE);
 });
 
-test("fail throws VcrlError carrying diagnostics", () => {
+test("fail throws MdrlError carrying diagnostics", () => {
   assert.throws(
     () => fail("CORE_TYPE_ERROR", "$.x"),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR",
   );
 });
 
-test("capture converts VcrlError into diagnostics and rethrows others", () => {
+test("capture converts MdrlError into diagnostics and rethrows others", () => {
   assert.deepEqual(capture(() => fail("CORE_TYPE_ERROR", "$.y")).map((d) => d.code), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(capture(() => 1), []);
   assert.throws(() => capture(() => { throw new TypeError("boom"); }), TypeError);
@@ -35,7 +35,7 @@ test("spec/error-codes.md lists exactly the registry", () => {
   assert.deepEqual([...listed].sort(), Object.keys(ERROR_CODES).sort());
 });
 
-test("attempt turns VcrlError into a failed Result and passes values through", () => {
+test("attempt turns MdrlError into a failed Result and passes values through", () => {
   assert.deepEqual(attempt(() => 7), { ok: true, value: 7 });
   const r = attempt(() => fail("ALLOC_INFEASIBLE", "$.v"));
   assert.equal(r.ok, false);

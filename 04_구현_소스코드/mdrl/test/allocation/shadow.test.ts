@@ -22,7 +22,7 @@ test("comparing a policy with itself yields all-zero deltas", () => {
   const b = base();
   const r = shadowReport([{ baseline: b, candidate: b }]);
   assert.ok(r.ok, JSON.stringify(r));
-  assert.equal(r.value.format, "vcrl-shadow-report/1");
+  assert.equal(r.value.format, "mdrl-shadow-report/1");
   assert.ok([...r.value.parties, ...r.value.buckets, ...r.value.holdings].every((x) => x.delta === "0"));
   assert.deepEqual(r.value.totals, { events: "2", amount: "11001" });
   assert.equal(r.value.currency, "KRW");

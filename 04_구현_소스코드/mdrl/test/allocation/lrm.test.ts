@@ -2,12 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { splitLrm, type Share } from "../../src/allocation/lrm.ts";
 import { fromBps, ratio } from "../../src/core/ratio.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 import { int, randomSplit, rng, shuffle } from "../prop.ts";
 
 const shares = (...xs: [string, number][]): Share[] => xs.map(([key, bps]) => ({ key, weight: fromBps(bps) }));
 const amounts = (xs: { key: string; amount: bigint }[]) => xs.map((x) => [x.key, x.amount]);
-const code = (c: string) => (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === c;
+const code = (c: string) => (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === c;
 
 test("exact split keeps input order", () => {
   assert.deepEqual(amounts(splitLrm(10000n, shares(["platform", 2500], ["ops", 500], ["rights", 7000]))), [

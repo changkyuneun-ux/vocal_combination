@@ -28,7 +28,7 @@ test("revenue → batch → jobs → confirm → refund → reversal over HTTP",
   assert.equal((await post("/batches/bat_h/confirm", "usr_ops", {})).statusCode, 403);
   const c = await post("/batches/bat_h/confirm", "usr_settle", {});
   assert.equal(c.statusCode, 200, c.body);
-  assert.match(c.json().manifestDigest, /^vcrl:sha256:[0-9a-f]{64}$/);
+  assert.match(c.json().manifestDigest, /^mdrl:sha256:[0-9a-f]{64}$/);
   const runId = view.json().runs[0].runId;
   const run = await app.inject({ method: "GET", url: `/runs/${runId}`, headers: { "x-actor": "usr_ops" } });
   assert.equal(run.json().status, "CONFIRMED");

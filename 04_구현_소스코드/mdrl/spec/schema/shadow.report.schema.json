@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/shadow.report.schema.json",
-  "title": "VCRL shadow report (vcrl-shadow-report/1)",
+  "$id": "https://mdrl.invalid/1.0/shadow.report.schema.json",
+  "title": "MDRL shadow report (mdrl-shadow-report/1)",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "currency", "pairs", "parties", "buckets", "holdings", "totals", "report_digest"],
   "properties": {
-    "format": { "const": "vcrl-shadow-report/1" },
+    "format": { "const": "mdrl-shadow-report/1" },
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
     "pairs": {
       "type": "array", "minItems": 1,
@@ -61,7 +61,7 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "amount": { "type": "string", "pattern": "^(0|[1-9]\\d*)$" },
     "signed": { "type": "string", "pattern": "^(0|-?[1-9]\\d*)$" },
     "claimantRole": {

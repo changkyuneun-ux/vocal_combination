@@ -4,10 +4,10 @@ import {
   capVector, fixedVector, floorGuarantee, mixVectors, parseVector, usageVector,
 } from "../../src/allocation/vectors.ts";
 import { ONE, fromBps, ratio, sum } from "../../src/core/ratio.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 const r = (n: bigint, d: bigint) => ratio(n, d);
-const code = (c: string) => (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === c;
+const code = (c: string) => (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === c;
 
 test("parseVector parses ratios, sorts keys and requires sum 1", () => {
   const v = parseVector({ pty_b: "1/3", "@hold": "1/3", pty_a: "1/3" }, "$.v");

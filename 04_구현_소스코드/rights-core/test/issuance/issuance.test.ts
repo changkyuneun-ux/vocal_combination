@@ -43,7 +43,7 @@ test("issue writes the snapshot and an issue seal whose projection matches the u
   const rows = await db.pool.query("SELECT stem_id, duration_ms, rights_bearing FROM snapshot_stem_assignment WHERE snapshot_id = 'snp_vc_1' ORDER BY slot_id");
   assert.deepEqual(rows.rows.map((r) => [r.stem_id, r.duration_ms, r.rights_bearing]), [["stm_a1", 30000, true], ["stm_b2", 60000, true], ["stm_mr", 90000, false]]);
   const proj = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.projectionDigest])).rows[0].content;
-  assert.equal(proj.format, "vcrl-projection/1");
+  assert.equal(proj.format, "mdrl-projection/1");
   assert.deepEqual(proj.vectors.PERFORMER_FEATURED, { pty_member_a: "1/3", pty_member_b: "2/3" });
   const members = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.membersDigest])).rows[0].content;
   assert.deepEqual(members, { members: { pty_member_a: "1/2", pty_member_b: "1/2" } });

@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { at, tokenize } from "../../src/text/lexer.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 const kinds = (src: string) => tokenize(src).map((t) => [t.kind, t.text]);
 const failsAt = (src: string, code: string, path: string) =>
   assert.throws(() => tokenize(src), (e: unknown) =>
-    e instanceof VcrlError && e.diagnostics[0]?.code === code && e.diagnostics[0]?.path === path);
+    e instanceof MdrlError && e.diagnostics[0]?.code === code && e.diagnostics[0]?.path === path);
 
 test("tokens: idents, strings, numbers with units, punctuation, comments", () => {
   assert.deepEqual(kinds('master = graph(MASTER_OWNER) : 45%; // 주석\nops = 500bps;'), [

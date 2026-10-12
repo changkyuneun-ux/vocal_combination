@@ -1,4 +1,4 @@
-import { evaluate, type AllocationResult, type RevenueEvent } from "vcrl/allocation";
+import { evaluate, type AllocationResult, type RevenueEvent } from "mdrl/allocation";
 import type { Tx } from "../platform/db.ts";
 import { conflict, DomainError, notFound } from "../platform/errors.ts";
 import { splitByWeights } from "../ledger/split.ts";

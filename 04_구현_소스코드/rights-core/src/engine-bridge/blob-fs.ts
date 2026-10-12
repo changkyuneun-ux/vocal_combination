@@ -7,7 +7,7 @@ import type { BlobStore } from "./context.ts";
 export function createFsBlobStore(root: string): BlobStore {
   return {
     async put(digest, bytes) {
-      const hex = digest.slice("vcrl:sha256:".length);
+      const hex = digest.slice("mdrl:sha256:".length);
       const dir = join(root, hex.slice(0, 2), hex.slice(2, 4));
       const path = join(dir, `${hex}.json`);
       const uri = `file://${path}`;

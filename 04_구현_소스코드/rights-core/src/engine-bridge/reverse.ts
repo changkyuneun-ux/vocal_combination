@@ -1,4 +1,4 @@
-import { reverse, type AllocationDocument, type AllocationResult, type ReversalResult } from "vcrl/allocation";
+import { reverse, type AllocationDocument, type AllocationResult, type ReversalResult } from "mdrl/allocation";
 import type { Tx } from "../platform/db.ts";
 import { DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -12,7 +12,7 @@ export type ReversalRows = {
 };
 
 /**
- * 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 vcrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9).
+ * 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 mdrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9).
  * reason: 환불은 REFUND(식별 이벤트 = 환불), source_revision 대체는 CORRECTION(식별 이벤트 = 새 revision, 11.2-11).
  */
 export async function reverseEvent(

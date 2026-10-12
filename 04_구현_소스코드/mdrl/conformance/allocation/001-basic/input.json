@@ -1,12 +1,12 @@
 {
   "facts_case": "001-basic",
   "policy": {
-    "vcrl": "1.0",
+    "mdrl": "1.0",
     "module": "allocation",
     "id": "VC-ALLOC-NOVA-02",
     "version": "1",
     "depends_on": [
-      { "ref": "vc:facts/nova-debut-01@1", "digest": "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4" }
+      { "ref": "vc:facts/nova-debut-01@1", "digest": "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd" }
     ],
     "visibility_default": "PARTIES",
     "body": {

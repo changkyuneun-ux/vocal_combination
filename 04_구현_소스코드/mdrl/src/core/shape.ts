@@ -1,6 +1,6 @@
 import { diag, type Diagnostic } from "./errors.ts";
 
-/** 모든 VCRL 식별자(엔티티 id, 참조, 문서 id, 이벤트 id)의 형식. `@`·`|`·`,`를 배제한다. */
+/** 모든 MDRL 식별자(엔티티 id, 참조, 문서 id, 이벤트 id)의 형식. `@`·`|`·`,`를 배제한다. */
 export const ID_RE = /^[A-Za-z0-9._-]+$/;
 
 /**

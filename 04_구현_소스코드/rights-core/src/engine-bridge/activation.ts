@@ -1,4 +1,4 @@
-import { checkActivation, deriveClaimants, projectVectors, type ClaimantEntry } from "vcrl/facts";
+import { checkActivation, deriveClaimants, projectVectors, type ClaimantEntry } from "mdrl/facts";
 import type { Tx } from "../platform/db.ts";
 import { invalid, type Diagnostic } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";

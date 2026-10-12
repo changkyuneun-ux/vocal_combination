@@ -58,7 +58,7 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
   assert.ok(p.ok);
   const path0 = p.value.paths[0]!;
   for (const bad of [
-    { ...p.value, format: "vcrl-projection/2" },
+    { ...p.value, format: "mdrl-projection/2" },
     { ...p.value, extra: "x" },
     { ...p.value, paths: [{ ...path0, weight: 1 }] },
     { ...p.value, vectors: { NOBODY: {} } },
@@ -68,7 +68,7 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
   assert.ok(r.ok);
   const line0 = r.value.lines[0]!;
   for (const bad of [
-    { ...r.value, format: "vcrl-allocation-result/2" },
+    { ...r.value, format: "mdrl-allocation-result/2" },
     { ...r.value, extra: "x" },
     { ...r.value, lines: [{ ...line0, amount: 3150 }] },
     { ...r.value, lines: [{ ...line0, role: "NOBODY" }] },

@@ -16,7 +16,7 @@ test("basic facts render in the spec 4.1 style", () => {
   assert.ok(lines.includes("  stem stm_v1 { of: rcd_01; slot: slt_v1; rights_bearing: true; }"));
   assert.ok(lines.includes(`  claim c1: stm_v1 PERFORMED_BY vo_a share 100% role FEATURED status VERIFIED valid [${T0}, ) recorded ${T0};`));
   assert.ok(lines.includes(`  claim c6: wrk_01 WRITTEN_BY pty_author_b share 60% detail "LYRICS" status VERIFIED valid [${T0}, ) recorded ${T0};`));
-  assert.ok(lines.some((l) => l.startsWith("  claim c5: rcd_01 CONTROLLED_BY pty_label_x share 100%") && l.includes(' evidence "vcrl:sha256:')));
+  assert.ok(lines.some((l) => l.startsWith("  claim c5: rcd_01 CONTROLLED_BY pty_label_x share 100%") && l.includes(' evidence "mdrl:sha256:')));
   assert.ok(lines.includes(`  mandate m1: pty_author_b -> pty_komca right WORK share 100% status VERIFIED valid [${T0}, ) recorded ${T0};`));
   assert.equal(lines.at(-2), "}");
   assert.equal(lines.at(-1), "");

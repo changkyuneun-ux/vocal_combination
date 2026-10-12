@@ -7,7 +7,7 @@ import { projectVectors, type Projection, type Usage } from "./project.ts";
 import type { FactsDocument } from "./types.ts";
 
 /** 투영 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
-export const PROJECTION_FORMAT = "vcrl-projection/1" as const;
+export const PROJECTION_FORMAT = "mdrl-projection/1" as const;
 
 export type ProjectionIr = {
   format: typeof PROJECTION_FORMAT;

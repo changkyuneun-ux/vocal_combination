@@ -143,7 +143,7 @@ test("public validation: PUBLIC items must stay raw, only PRIVATE party ids may 
 
 test("projection IR carries its format tag inside the digest (spec 12.48)", () => {
   const a = build();
-  assert.equal(a.format, "vcrl-projection/1");
+  assert.equal(a.format, "mdrl-projection/1");
   assert.equal(a.digest, digestOf({ ...a, digest: undefined }));
   assert.notEqual(a.digest, digestOf({ ...a, format: undefined, digest: undefined }));
 });

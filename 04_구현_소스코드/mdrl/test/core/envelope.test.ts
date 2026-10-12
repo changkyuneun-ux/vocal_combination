@@ -7,7 +7,7 @@ import { digestOf } from "../../src/core/digest.ts";
 import type { EnumValue } from "../../src/core/enums.ts";
 
 function doc(module: EnumValue<"module">, id: string, deps: Dependency[] = []): IrDocument {
-  return { vcrl: "1.0", module, id, version: "1", depends_on: deps, visibility_default: "PARTIES", body: {} };
+  return { mdrl: "1.0", module, id, version: "1", depends_on: deps, visibility_default: "PARTIES", body: {} };
 }
 
 test("valid envelope has no diagnostics", () => {
@@ -15,7 +15,7 @@ test("valid envelope has no diagnostics", () => {
 });
 
 test("envelope errors are reported", () => {
-  const bad = { ...doc("facts", "f"), vcrl: "2.0", version: 1 };
+  const bad = { ...doc("facts", "f"), mdrl: "2.0", version: 1 };
   const codes = validateEnvelope(bad).map((d) => d.code);
   assert.ok(codes.includes("CORE_NUMBER_IN_IR"));
   assert.ok(codes.includes("CORE_TYPE_ERROR"));

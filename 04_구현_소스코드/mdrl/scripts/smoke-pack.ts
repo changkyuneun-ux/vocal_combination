@@ -12,7 +12,7 @@ const pkg = fileURLToPath(new URL("..", import.meta.url));
 const requireFromPkg = createRequire(join(pkg, "package.json"));
 const tscBin = requireFromPkg.resolve("typescript/bin/tsc");
 const typesRoot = dirname(dirname(requireFromPkg.resolve("@types/node/package.json")));
-const tmp = mkdtempSync(join(tmpdir(), "vcrl-smoke-"));
+const tmp = mkdtempSync(join(tmpdir(), "mdrl-smoke-"));
 const sh = (cmd: string, args: string[], cwd: string) => execFileSync(cmd, args, { cwd, encoding: "utf8" });
 const read = (rel: string) => readFileSync(join(pkg, rel), "utf8");
 
@@ -23,7 +23,7 @@ try {
   const shipped = packed[0]!.files.map((f) => f.path);
   for (const must of [
     "dist/src/core/index.js", "dist/src/core/index.d.ts", "dist/src/facts/index.js", "dist/src/allocation/index.js",
-    "dist/src/allocation/verify.d.ts", "dist/src/text/index.js", "dist/bin/vcrl.js",
+    "dist/src/allocation/verify.d.ts", "dist/src/text/index.js", "dist/bin/mdrl.js",
     "spec/schema/projection.ir.schema.json", "spec/schema/allocation.result.schema.json", "spec/grammar/allocation.ebnf",
   ]) assert.ok(shipped.includes(must), `tarball is missing ${must}`);
   const leaked = shipped.filter((f) => /^(src|test|conformance|scripts|samples)\//.test(f));
@@ -31,14 +31,14 @@ try {
 
   const app = join(tmp, "app");
   mkdirSync(app);
-  writeFileSync(join(app, "package.json"), JSON.stringify({ name: "vcrl-smoke-app", private: true, type: "module" }));
+  writeFileSync(join(app, "package.json"), JSON.stringify({ name: "mdrl-smoke-app", private: true, type: "module" }));
   sh("npm", ["install", "--offline", "--no-audit", "--no-fund", join(tmp, packed[0]!.filename)], app);
 
   const alloc = JSON.parse(read("conformance/allocation/001-basic/input.json"));
   const facts = JSON.parse(read(`conformance/facts/${alloc.facts_case}/input.json`));
   const expected = JSON.parse(read("conformance/allocation/001-basic/expected.json"));
   const put = (name: string, v: unknown) => writeFileSync(join(app, name), typeof v === "string" ? v : JSON.stringify(v));
-  put("policy.vcrl", read("conformance/text/001-basic.vcrl"));
+  put("policy.mdrl", read("conformance/text/001-basic.mdrl"));
   put("facts.json", facts.facts);
   put("usage.json", facts.usage);
   put("snapshot.json", alloc.snapshot);
@@ -48,13 +48,13 @@ try {
   const args = { asOf: facts.as_of, knownAt: facts.known_at, runId: alloc.run_id };
   put("check.mjs", `
 import { readFileSync } from "node:fs";
-import { digestOf } from "vcrl/core";
-import { projectToIr } from "vcrl/facts";
-import { evaluate, verifyAllocationResult } from "vcrl/allocation";
-import { compileAllocation } from "vcrl/text";
+import { digestOf } from "mdrl/core";
+import { projectToIr } from "mdrl/facts";
+import { evaluate, verifyAllocationResult } from "mdrl/allocation";
+import { compileAllocation } from "mdrl/text";
 const j = (f) => JSON.parse(readFileSync(f, "utf8"));
 const { asOf, knownAt, runId } = ${JSON.stringify(args)};
-const policy = compileAllocation(readFileSync("policy.vcrl", "utf8"));
+const policy = compileAllocation(readFileSync("policy.mdrl", "utf8"));
 if (!policy.ok) throw new Error(JSON.stringify(policy.errors));
 const facts = j("facts.json"), usage = j("usage.json"), snapshot = j("snapshot.json"), events = j("events.json");
 const p = projectToIr(facts, usage, asOf, knownAt);
@@ -63,8 +63,8 @@ const r = evaluate({ policy: policy.value, facts, projection: p.value, snapshot,
 if (!r.ok) throw new Error(JSON.stringify(r.errors));
 const v = verifyAllocationResult({ policy: policy.value, facts, usage, asOf, knownAt, snapshot, events, runId }, r.value);
 if (v.length > 0) throw new Error(JSON.stringify(v));
-if (!digestOf({}).startsWith("vcrl:sha256:")) throw new Error("digestOf");
-for (const spec of ["vcrl/spec/schema/allocation.result.schema.json", "vcrl/package.json"]) {
+if (!digestOf({}).startsWith("mdrl:sha256:")) throw new Error("digestOf");
+for (const spec of ["mdrl/spec/schema/allocation.result.schema.json", "mdrl/package.json"]) {
   if (!import.meta.resolve(spec).startsWith("file:")) throw new Error("cannot resolve " + spec);
 }
 console.log(r.value.result_digest);
@@ -72,33 +72,33 @@ console.log(r.value.result_digest);
   assert.equal(sh(process.execPath, ["check.mjs"], app).trim(), expected.result_digest, "library result digest");
 
   // 2) 설치된 CLI.
-  const vcrl = join(app, "node_modules", ".bin", "vcrl");
-  assert.deepEqual(JSON.parse(sh(vcrl, ["compile", "policy.vcrl"], app)), alloc.policy, "vcrl compile");
+  const mdrl = join(app, "node_modules", ".bin", "mdrl");
+  assert.deepEqual(JSON.parse(sh(mdrl, ["compile", "policy.mdrl"], app)), alloc.policy, "mdrl compile");
   const evalArgs = [
-    "--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json",
+    "--policy", "policy.mdrl", "--facts", "facts.json", "--usage", "usage.json",
     "--as-of", facts.as_of, "--known-at", facts.known_at, "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", alloc.run_id,
   ];
-  const evaluated = sh(vcrl, ["evaluate", ...evalArgs], app);
+  const evaluated = sh(mdrl, ["evaluate", ...evalArgs], app);
   const result = JSON.parse(evaluated);
-  assert.equal(result.result_digest, expected.result_digest, "vcrl evaluate");
+  assert.equal(result.result_digest, expected.result_digest, "mdrl evaluate");
   put("result.json", evaluated);
-  assert.equal(sh(vcrl, ["verify", "--result", "result.json", ...evalArgs], app), `OK ${expected.result_digest}\n`, "vcrl verify");
+  assert.equal(sh(mdrl, ["verify", "--result", "result.json", ...evalArgs], app), `OK ${expected.result_digest}\n`, "mdrl verify");
   const tampered = structuredClone(result);
   tampered.lines[0].amount = "1";
   put("tampered.json", tampered);
   assert.throws(
-    () => execFileSync(vcrl, ["verify", "--result", "tampered.json", ...evalArgs], { cwd: app, encoding: "utf8", stdio: "pipe" }),
+    () => execFileSync(mdrl, ["verify", "--result", "tampered.json", ...evalArgs], { cwd: app, encoding: "utf8", stdio: "pipe" }),
     (e: { status?: number }) => e.status === 1,
-    "vcrl verify must exit 1 on a tampered result",
+    "mdrl verify must exit 1 on a tampered result",
   );
 
   // 3) 타입 선언 소비.
   put("types.ts", `
-import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type AllocationResult, type VerificationInput } from "vcrl/allocation";
-import { digestOf, type Diagnostic } from "vcrl/core";
-import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "vcrl/facts";
-import { compileAllocation } from "vcrl/text";
-export const formats: ["vcrl-allocation-result/1", "vcrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
+import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type AllocationResult, type VerificationInput } from "mdrl/allocation";
+import { digestOf, type Diagnostic } from "mdrl/core";
+import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "mdrl/facts";
+import { compileAllocation } from "mdrl/text";
+export const formats: ["mdrl-allocation-result/1", "mdrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
 export const check = (input: VerificationInput, r: AllocationResult): Diagnostic[] => verifyAllocationResult(input, r);
 export const fns = [evaluate, projectToIr, compileAllocation, digestOf] as const;
 export type Fmt = ProjectionIr["format"];

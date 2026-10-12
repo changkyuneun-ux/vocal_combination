@@ -7,7 +7,7 @@ export type AttestationRole = EnumValue<"attestation_role">;
 export type Attestation = { signer: string; role: AttestationRole; over: string; alg: "Ed25519"; sig: string };
 export type KeyRegistry = Readonly<Record<string, string>>;
 
-export const ATTEST_CONTEXT = "vcrl-attest/1";
+export const ATTEST_CONTEXT = "mdrl-attest/1";
 
 /** 서명 대상 메시지: JCS({ ctx, signer, role, over, alg })의 UTF-8 바이트. 서명자·역할·알고리즘을 digest와 함께 묶는다. */
 export function attestationMessage(att: Omit<Attestation, "sig">): Uint8Array {

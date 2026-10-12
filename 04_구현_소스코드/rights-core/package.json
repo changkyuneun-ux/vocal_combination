@@ -19,7 +19,7 @@
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
     "pg-boss": "^12.35.0",
-    "vcrl": "0.1.0"
+    "mdrl": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

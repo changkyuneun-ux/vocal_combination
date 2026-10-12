@@ -19,7 +19,7 @@ export type MandateDraft = {
 };
 export type Recorded = { id: string; version: number; recordedAt: string };
 
-/** VCRL CLAIM_EDGE_KINDS와 같은 표(코어 규격 facts/types.ts). */
+/** MDRL CLAIM_EDGE_KINDS와 같은 표(코어 규격 facts/types.ts). */
 const EDGE_ENDPOINTS: Record<ClaimEdge, readonly [EntityKind, EntityKind]> = {
   PERFORMED_BY: ["stem", "voice"],
   OWNED_BY: ["voice", "party"],

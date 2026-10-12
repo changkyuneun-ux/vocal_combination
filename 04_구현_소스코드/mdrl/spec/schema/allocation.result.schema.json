@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/allocation.result.schema.json",
-  "title": "VCRL allocation result (vcrl-allocation-result/1)",
+  "$id": "https://mdrl.invalid/1.0/allocation.result.schema.json",
+  "title": "MDRL allocation result (mdrl-allocation-result/1)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +9,7 @@
     "pool_lines", "lines", "holdings", "result_digest"
   ],
   "properties": {
-    "format": { "const": "vcrl-allocation-result/1" },
+    "format": { "const": "mdrl-allocation-result/1" },
     "run_id": { "$ref": "#/$defs/id" },
     "policy_digest": { "$ref": "#/$defs/digest" },
     "projection_digest": { "$ref": "#/$defs/digest" },
@@ -76,7 +76,7 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "amount": { "type": "string", "pattern": "^(0|[1-9]\\d*)$" },
     "ratio": { "type": "string", "pattern": "^(0|[1-9]\\d*)/[1-9]\\d*$" },
     "claimantRole": {

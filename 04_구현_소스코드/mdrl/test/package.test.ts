@@ -13,8 +13,8 @@ test("exports point at built files that mirror src (spec 12.51)", () => {
     assert.deepEqual(pkg.exports[`./${m}`], { types: `./dist/src/${m}/index.d.ts`, default: `./dist/src/${m}/index.js` });
     assert.ok(existsSync(new URL(`../src/${m}/index.ts`, import.meta.url)), m);
   }
-  assert.deepEqual(pkg.bin, { vcrl: "./dist/bin/vcrl.js" });
-  assert.ok(existsSync(new URL("../bin/vcrl.ts", import.meta.url)));
+  assert.deepEqual(pkg.bin, { mdrl: "./dist/bin/mdrl.js" });
+  assert.ok(existsSync(new URL("../bin/mdrl.ts", import.meta.url)));
 });
 
 test("package metadata keeps it private, dependency-free and ships only dist and spec", () => {

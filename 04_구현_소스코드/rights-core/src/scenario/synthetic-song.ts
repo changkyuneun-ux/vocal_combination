@@ -27,7 +27,7 @@ export const SONG = {
     { role: "WORK_AUTHOR", party: "pty_author_b" }, { role: "WORK_AUTHOR", party: "pty_author_c" },
   ],
   policyText: `allocation "pol_nova_summer" version 1 {
-  uses facts "fsc_nova_summer"@1 digest "vcrl:sha256:${"0".repeat(64)}";
+  uses facts "fsc_nova_summer"@1 digest "mdrl:sha256:${"0".repeat(64)}";
   scope { pack: pak_nova_summer; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {

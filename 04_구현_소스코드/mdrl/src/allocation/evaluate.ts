@@ -1,7 +1,7 @@
 import { parseBps } from "../core/bps.ts";
 import { digestOf, isDigest } from "../core/digest.ts";
 import { isEnumValue } from "../core/enums.ts";
-import { attempt, describe, diag, err, ok, underPath, VcrlError, type Diagnostic, type Result } from "../core/errors.ts";
+import { attempt, describe, diag, err, ok, underPath, MdrlError, type Diagnostic, type Result } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
@@ -178,7 +178,7 @@ function parseProjectionVectors(projection: ProjectionIr): Vectors {
     if (r.ok) out[role] = r.value;
     else errors.push(...r.errors);
   }
-  if (errors.length > 0) throw new VcrlError(errors);
+  if (errors.length > 0) throw new MdrlError(errors);
   return out;
 }
 

@@ -1,5 +1,5 @@
 {
-  "format": "vcrl-projection/1",
+  "format": "mdrl-projection/1",
   "vectors": {
     "MASTER_OWNER": { "pty_label_x": "1/1" },
     "PERFORMER_FEATURED": { "pty_member_a": "2/3", "pty_member_b": "1/3" },
@@ -18,5 +18,5 @@
     { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_b", "weight": "3/5", "claims": ["c6"] },
     { "stem": "stm_v2", "role": "WORK_AUTHOR", "party": "pty_author_c", "weight": "2/5", "claims": ["c7"] }
   ],
-  "digest": "vcrl:sha256:762ea7a0d25e7c637f95b3e2ac06be961f595ea791a3def86f0bb3b85f350ba4"
+  "digest": "mdrl:sha256:5f72c29fb734b06dd6abd9098d626f856ae38eff8d6ab6534ace55d5742b9f14"
 }

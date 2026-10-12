@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import { digestOf } from "../core/digest.ts";
-import { VcrlError, fail, type Diagnostic } from "../core/errors.ts";
+import { MdrlError, fail, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { evaluate } from "../allocation/evaluate.ts";
 import type { AllocationDocument, AllocationResult, RevenueEvent, Snapshot } from "../allocation/types.ts";
@@ -18,10 +18,10 @@ import { compileAllocation } from "../text/parse-allocation.ts";
 
 export type Io = { readText(path: string): string; out(s: string): void; err(s: string): void };
 
-export const USAGE = `사용법: vcrl <명령> [옵션]
-  compile <policy.vcrl>                        텍스트 정책을 IR(JSON)로 컴파일
+export const USAGE = `사용법: mdrl <명령> [옵션]
+  compile <policy.mdrl>                        텍스트 정책을 IR(JSON)로 컴파일
   fmt <doc.json>                               IR을 텍스트로 출력(facts는 읽기 전용 표시)
-  check <doc.json|policy.vcrl>                 구조·불변식 검증, 성공 시 digest 출력
+  check <doc.json|policy.mdrl>                 구조·불변식 검증, 성공 시 digest 출력
   project --facts F --usage U --as-of T --known-at T
   evaluate --policy P --facts F --usage U --as-of T --known-at T --snapshot S --events E --run-id R
   verify --result R (+ evaluate 옵션)          입력으로 다시 계산해 result_digest 대조
@@ -81,7 +81,7 @@ export function run(argv: readonly string[], io: Io): number {
       io.err(`${e.message}\n${USAGE}`);
       return 2;
     }
-    if (e instanceof VcrlError) {
+    if (e instanceof MdrlError) {
       report(io, e.diagnostics);
       return 1;
     }
@@ -97,7 +97,7 @@ function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): numb
   switch (cmd) {
     case "compile": {
       const path = onePositional(pos);
-      if (!path.endsWith(".vcrl")) throw new UsageError("compile은 .vcrl 파일만 받습니다");
+      if (!path.endsWith(".mdrl")) throw new UsageError("compile은 .mdrl 파일만 받습니다");
       printJson(io, loadPolicy(io, path));
       return 0;
     }
@@ -117,7 +117,7 @@ function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): numb
     }
     case "check": {
       const path = onePositional(pos);
-      const doc = path.endsWith(".vcrl") ? loadPolicy(io, path) : readJson(io, path);
+      const doc = path.endsWith(".mdrl") ? loadPolicy(io, path) : readJson(io, path);
       if (isPlainObject(doc) && doc.module === "facts") throwIf(validateFacts(doc));
       else if (isPlainObject(doc) && doc.module === "allocation") throwIf(validateAllocation(doc));
       else fail("CORE_TYPE_ERROR", `${path}:$.module`, "expected a facts or allocation document");
@@ -158,7 +158,7 @@ function project(io: Io, o: Opts): ProjectionIr {
   const r = projectToIr(
     readJson(io, need(o, "facts")) as FactsDocument, readJson(io, need(o, "usage")) as Usage, need(o, "as-of"), need(o, "known-at"),
   );
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 
@@ -179,16 +179,16 @@ function verificationInput(io: Io, o: Opts): VerificationInput {
 function evaluateFromFiles(io: Io, o: Opts): AllocationResult {
   const { usage, asOf, knownAt, ...rest } = verificationInput(io, o);
   const projection = projectToIr(rest.facts, usage, asOf, knownAt);
-  if (!projection.ok) throw new VcrlError(projection.errors);
+  if (!projection.ok) throw new MdrlError(projection.errors);
   const r = evaluate({ ...rest, projection: projection.value });
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 
 function loadPolicy(io: Io, path: string): AllocationDocument {
-  if (!path.endsWith(".vcrl")) return readJson(io, path) as AllocationDocument;
+  if (!path.endsWith(".mdrl")) return readJson(io, path) as AllocationDocument;
   const r = compileAllocation(readText(io, path));
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 
@@ -221,7 +221,7 @@ function onePositional(pos: string[]): string {
 }
 
 function throwIf(errors: Diagnostic[]): void {
-  if (errors.length > 0) throw new VcrlError(errors);
+  if (errors.length > 0) throw new MdrlError(errors);
 }
 
 function printJson(io: Io, v: unknown): void {

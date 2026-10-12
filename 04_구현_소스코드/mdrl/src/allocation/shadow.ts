@@ -6,7 +6,7 @@ import { evaluate, type EvaluationInput } from "./evaluate.ts";
 import type { AllocationResult } from "./types.ts";
 
 /** 섀도 리포트 형식 태그. report_digest 계산에 포함된다. */
-export const SHADOW_REPORT_FORMAT = "vcrl-shadow-report/1" as const;
+export const SHADOW_REPORT_FORMAT = "mdrl-shadow-report/1" as const;
 
 export type ShadowPair = { baseline: EvaluationInput; candidate: EvaluationInput };
 export type Comparison = { baseline: string; candidate: string; delta: string };

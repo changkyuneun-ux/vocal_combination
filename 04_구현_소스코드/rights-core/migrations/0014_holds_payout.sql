@@ -2,7 +2,7 @@
 CREATE TABLE hold_release (
   release_id  BIGSERIAL PRIMARY KEY,
   holding_id  BIGINT NOT NULL UNIQUE REFERENCES unallocated_holding,
-  released_by vcrl_id NOT NULL REFERENCES user_account,
+  released_by mdrl_id NOT NULL REFERENCES user_account,
   released_at TIMESTAMPTZ NOT NULL CHECK (released_at = date_trunc('milliseconds', released_at)),
   allocation  JSONB NOT NULL CHECK (jsonb_typeof(allocation) = 'object'),
   entry_id    BIGINT NOT NULL REFERENCES journal_entry
@@ -14,8 +14,8 @@ GRANT USAGE ON SEQUENCE hold_release_release_id_seq TO rc_app;
 -- 해제된 보류의 역분개 진행(통합 설계 11.2-5): 역분개마다 권리자별로 되돌린 금액(양수). 다음 역분개의 가중치 = 배분 − 누적.
 CREATE TABLE hold_release_reversal (
   release_id  BIGINT NOT NULL REFERENCES hold_release,
-  reversal_id vcrl_id NOT NULL REFERENCES reversal_run,
-  party_id    vcrl_id NOT NULL REFERENCES party,
+  reversal_id mdrl_id NOT NULL REFERENCES reversal_run,
+  party_id    mdrl_id NOT NULL REFERENCES party,
   amount_krw  BIGINT NOT NULL CHECK (amount_krw > 0),
   PRIMARY KEY (release_id, reversal_id, party_id)
 );
@@ -25,14 +25,14 @@ GRANT SELECT, INSERT ON hold_release_reversal TO rc_app;
 -- 지급(통합 설계 11.2-6). 권리자 지급 프로필: 운영 편집은 세금 유형·계좌 토큰·KYC·수정 시각·계좌 변경 기록만. 첫 지급 가능 시각은 바꾸지 않는다.
 -- account_changed_at·account_changed_by: 계좌 토큰이 마지막으로 바뀐 시각과 바꾼 사용자(토큰이 바뀔 때만 갱신 — 냉각 기간·직무 분리 판정).
 CREATE TABLE party_payout_profile (
-  party_id           vcrl_id PRIMARY KEY REFERENCES party,
+  party_id           mdrl_id PRIMARY KEY REFERENCES party,
   tax_type           TEXT NOT NULL CHECK (tax_type IN ('DOMESTIC_INDIVIDUAL','DOMESTIC_CORP','FOREIGN','EXEMPT')),
   payout_account_ref TEXT NULL,          -- PSP 쪽 계좌 토큰(원문 계좌번호를 저장하지 않는다)
   kyc_verified       BOOLEAN NOT NULL DEFAULT false,
   first_payable_at   TIMESTAMPTZ NOT NULL CHECK (first_payable_at = date_trunc('milliseconds', first_payable_at)),
   updated_at         TIMESTAMPTZ NOT NULL CHECK (updated_at = date_trunc('milliseconds', updated_at)),
   account_changed_at TIMESTAMPTZ NULL CHECK (account_changed_at = date_trunc('milliseconds', account_changed_at)),
-  account_changed_by vcrl_id NULL REFERENCES user_account,
+  account_changed_by mdrl_id NULL REFERENCES user_account,
   CHECK ((account_changed_at IS NULL) = (account_changed_by IS NULL)),
   CHECK (payout_account_ref IS NULL OR account_changed_at IS NOT NULL)
 );
@@ -46,15 +46,15 @@ CREATE TABLE payout_policy (
 );
 INSERT INTO payout_policy VALUES ('default', 10000, 30, '{"DOMESTIC_INDIVIDUAL":330,"DOMESTIC_CORP":0,"FOREIGN":2200,"EXEMPT":0}');
 CREATE TABLE payout_run (
-  payout_run_id vcrl_id PRIMARY KEY,
+  payout_run_id mdrl_id PRIMARY KEY,
   as_of         TIMESTAMPTZ NOT NULL CHECK (as_of = date_trunc('milliseconds', as_of)),
-  created_by    vcrl_id NOT NULL REFERENCES user_account,
+  created_by    mdrl_id NOT NULL REFERENCES user_account,
   created_at    TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 CREATE TABLE payout_instruction (
-  instruction_id   vcrl_id PRIMARY KEY,
-  payout_run_id    vcrl_id NOT NULL REFERENCES payout_run,
-  party_id         vcrl_id NOT NULL REFERENCES party,
+  instruction_id   mdrl_id PRIMARY KEY,
+  payout_run_id    mdrl_id NOT NULL REFERENCES payout_run,
+  party_id         mdrl_id NOT NULL REFERENCES party,
   gross_krw        BIGINT NOT NULL,
   withholding_krw  BIGINT NOT NULL CHECK (withholding_krw >= 0),
   net_krw          BIGINT NOT NULL,

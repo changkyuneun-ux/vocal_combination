@@ -346,7 +346,7 @@ function parseFactsProgram(toks: readonly Token[]): FactsDocument {
   };
 
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "facts",
     id: docId,
     version,

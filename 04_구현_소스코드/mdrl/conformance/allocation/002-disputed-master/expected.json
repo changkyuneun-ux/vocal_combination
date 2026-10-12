@@ -1,5 +1,5 @@
 {
-  "format": "vcrl-allocation-result/1",
+  "format": "mdrl-allocation-result/1",
   "pool_lines": [
     { "event_id": "ev_001", "bucket": "platform", "amount": "2500" },
     { "event_id": "ev_001", "bucket": "ops", "amount": "500" },
@@ -22,5 +22,5 @@
     { "event_id": "ev_001", "bucket": "master", "reason": "RIGHTS_DISPUTE", "amount": "3150" },
     { "event_id": "ev_002", "bucket": "master", "reason": "RIGHTS_DISPUTE", "amount": "316" }
   ],
-  "result_digest": "vcrl:sha256:c9034fbdab087738de63ad6077bad528e439fcbea84becf929302e34a5e343fd"
+  "result_digest": "mdrl:sha256:e299c72fe3d19e0fbd78dd6a17024586e6f6ab1af1cd3f698fdd2eaf63655712"
 }
