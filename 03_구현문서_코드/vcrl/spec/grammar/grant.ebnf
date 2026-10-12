@@ -1,0 +1,25 @@
+(* MDRL grant 텍스트 문법 v1.0 — Grant Document Surface Grammar *)
+program         = "grant" string "version" int "{" { grant_rule_stmt } "}" EOF ;
+grant_rule_stmt = "rule" id "{" 
+                    "grantor" ":" id ";" 
+                    [ "grantee" ":" id ";" ]
+                    "asset" ":" id ";"
+                    "right" ":" ident ";"
+                    "scope" ":" scope_block ";"
+                    [ "obligations" ":" "[" [ ident { "," ident } ] "]" ";" ]
+                    "status" ":" ident ";"
+                    "valid" ":" interval ";"
+                    "recorded" ":" string ";"
+                  "}" ;
+
+scope_block     = "{"
+                    "actions" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "territories" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "media" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "period" ":" interval ";"
+                    "audience" ":" "[" [ ident { "," ident } ] "]" ";"
+                  "}" ;
+
+interval        = "[" string "," [ string ] ")" ;
+id              = ident | string ;
+int             = digit { digit } ;

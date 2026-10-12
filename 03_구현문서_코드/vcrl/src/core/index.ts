@@ -10,3 +10,4 @@ export * from "./ref.ts";
 export * from "./envelope.ts";
 export * from "./attest.ts";
 export * from "./shape.ts";
+export * from "./scope.ts";

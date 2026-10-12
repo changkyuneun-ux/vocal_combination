@@ -63,7 +63,7 @@ graph TD
     Ops --> Ops9[9. 사용자 관리 - 사용자 계정/역할 및 권한]
 
     Holder --> Hol1[1. 대시보드]
-    Holder --> Hol2[2. 소속 아티스트/파티 - 2.1 파티링크 / 2.2 파티관리 / 2.3 초대]
+    Holder --> Hol2[2. 소속 아티스트/파티 - 2.1 파티관리 / 2.2 파티링크 / 2.3 초대]
     Holder --> Hol3[3. 카탈로그/소스 - 슬롯 정의 & 스템 매트릭스]
     Holder --> Hol4[4. 원본 권리 이미지 - 템플릿/베이스라인/ACTIVE]
     Holder --> Hol5[5. 권리/동의 Vault - 녹음 기준 동의]
@@ -124,8 +124,8 @@ graph TD
 | :--- | :--- | :--- | :--- | :--- |
 | **1. 대시보드** | 1.1 IP 종합 성과 | — | 보유 IP별 조합 수, 매출액, 정산 현황, 스템 선택률 히트맵 | Master, Agency, Work |
 | | 1.2 승인 대기함 | — | 내가 승인해야 할 요청(동의, 팩 승인, 72h 발행 승인, 권리 검토) 모아보기 | Master, Agency, Work |
-| **2. 소속 아티스트/파티**| **2.1 파티 링크 관리** | **전속/소속 링크 리스트** | 그룹-멤버, 기획사-아티스트 간의 계층 링크, 역할(`role_in_group`), 순서(`sort_order`), 활동 상태, 소속 기간, 재합류/탈퇴 이력 관리 (`party_link`) | Agency Admin |
-| | **2.2 파티 관리 / 등록** | **권리 주체 마스터 리스트** | 권리 주체(`party`) 등록, 활동명/실명, ISNI/IPI 번호, 세무 유형(`tax_type`), 지급 경로(`SELF/VIA_PARENT`), 1원 계좌인증 상태 | Agency Admin |
+| **2. 소속 아티스트/파티**| **2.1 파티 관리 / 등록** | **권리 주체 마스터 리스트** | 권리 주체(`party`) 등록, 활동명/실명, ISNI/IPI 번호, 세무 유형(`tax_type`), 지급 경로(`SELF/VIA_PARENT`), 1원 계좌인증 상태 | Agency Admin |
+| | **2.2 파티 링크 관리** | **전속/소속 링크 리스트** | 그룹-멤버, 기획사-아티스트 간의 계층 링크, 역할(`role_in_group`), 순서(`sort_order`), 활동 상태, 소속 기간, 재합류/탈퇴 이력 관리 (`party_link`) | Agency Admin |
 | | 2.3 실연자 계정/계좌 초대 | 초대 및 계좌 현황 | 실연자 포털 초대 발송(`user_account`), 지급계좌(`payout_account`) 인증 상태 | Agency Admin |
 | **3. 카탈로그/소스**| 곡/버전 관리 | 곡 등록/상세 | 곡(ISWC), 버전(ISRC, BPM, Key), 저작자 크레딧(`work_credit`), 녹음 크레딧(`recording_credit`) | Master Owner |
 | | **곡 구조(슬롯)** | 슬롯 편집기 | 섹션/레이어/타임코드/순서, `swappable` 지정 (**마스터 권리자 작성 ➔ 기획사 확인/승인**) | Master Owner, Agency |

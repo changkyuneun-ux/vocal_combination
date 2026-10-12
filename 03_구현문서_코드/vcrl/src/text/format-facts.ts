@@ -28,7 +28,7 @@ const interval = (v: Interval) => `[${v.from}, ${v.to ?? ""})`;
 const opt = (label: string, v: string | undefined, render: (s: string) => string = (s) => s) =>
   v === undefined ? "" : ` ${label} ${render(v)}`;
 
-/** 원문 facts IR을 사람이 검토할 수 있는 텍스트로 표시한다(스펙 4.1 스타일, 파싱하지 않는다). */
+/** 원문 facts IR을 사람이 검토할 수 있는 텍스트로 표시한다(스펙 4.1 스타일). */
 export function formatFacts(doc: FactsDocument): string {
   const b = doc.body;
   const lines: string[] = [`facts ${displayText(doc.id)} version ${doc.version} {`];
@@ -56,6 +56,8 @@ export function formatFacts(doc: FactsDocument): string {
         `${opt("superseded", m.superseded_at)}${opt("visibility", m.visibility)};`,
     );
   }
+
+
   lines.push("}");
   return lines.join("\n") + "\n";
 }

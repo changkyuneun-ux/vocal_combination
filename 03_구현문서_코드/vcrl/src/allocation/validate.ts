@@ -23,7 +23,9 @@ const VECTOR_KEYS: Readonly<Record<EnumValue<"vector_fn">, readonly string[]>> =
   mix: ["fn", "parts"],
   cap: ["fn", "max", "of"],
   floor_guarantee: ["fn", "min", "of"],
+  model_share: ["fn", "run", "role"],
 };
+
 
 type Obj = Record<string, unknown>;
 

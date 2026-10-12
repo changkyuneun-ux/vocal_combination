@@ -42,9 +42,17 @@
 | `SHADOW_EVENTS_MISMATCH` | 섀도 비교 쌍의 이벤트 불일치 | `shadowReport` |
 | `SHADOW_DUPLICATE_EVENT` | 같은 이벤트가 여러 쌍에 나옴 | `shadowReport` |
 | `SHADOW_CURRENCY_MISMATCH` | 섀도 비교 쌍들의 통화(정책 `scope.currency`)가 서로 다름 | `shadowReport` |
+| `GRANT_SCOPE_WIDENING` | 하위 문서·조항의 허락 범위가 상위 허락 범위를 초과 | `assertScopeNarrowing`, `evaluateGrant` |
+| `GRANT_REQUIREMENT_UNMET` | 필수 이용허락 요구사항을 충족하지 못함 | `evaluateGrant` |
+| `GRANT_REVOKED` | 이용허락이 철회되었거나 효력 상실 | `evaluateGrant` |
+| `GRANT_OBLIGATION_VIOLATED` | 필수 의무 미충족 | `evaluateGrant` |
+| `GRANT_CONFLICT` | 동일 범위에 모순·상충하는 허락 존재 | `evaluateGrant` |
+| `GRANT_NO_EVIDENCE` | 허락을 뒷받침하는 검증된 증빙 없음 | `evaluateGrant` |
+| `GRANT_UNSUPPORTED` | 지원하지 않는 이용허락 판정 규칙 | `evaluateGrant` |
 | `PARSE_SYNTAX` | 텍스트 문법 오류(경로 `@줄:열`) | `tokenize`, `parseAllocation` |
 | `PARSE_ROLE_REQUIRED` | 버킷 역할 추론 불가, `as <ROLE>` 필요 | `parseAllocation` |
 | `PARSE_UNSUPPORTED` | 고정 의미와 다른 guard·exceptions 문장 | `parseAllocation` |
+
 
 ## 기존 코드 매핑
 

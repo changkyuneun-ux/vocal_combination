@@ -1,0 +1,103 @@
+(* =============================================================================
+   MDRL (Music Derivative Rights Language) 통합 표면 텍스트 문법 규격 v1.0
+   Master EBNF Specification
+   ============================================================================= *)
+
+document        = lang_stmt ( facts_doc | grant_doc | allocation_doc ) EOF ;
+lang_stmt       = "lang" version_lit ";" ;
+version_lit     = digit { digit } "." digit { digit } ;
+
+(* -----------------------------------------------------------------------------
+   1. 권리 사실 문서 (Facts Document)
+   ----------------------------------------------------------------------------- *)
+facts_doc       = "facts" id "version" int "{" { facts_stmt } "}" ;
+facts_stmt      = party_stmt
+                | work_stmt
+                | recording_stmt
+                | voice_stmt
+                | stem_stmt
+                | claim_stmt
+                | mandate_stmt ;
+
+party_stmt      = "party" id "{" "kind" ":" ident ";" [ ids_block ] [ visibility_stmt ] "}" ;
+work_stmt       = "work" id "{" [ ids_block ] "}" ;
+recording_stmt  = "recording" id "{" "of" ":" id ";" [ ids_block ] "}" ;
+voice_stmt      = "voice" id "{" "kind" ":" ident ";" "}" ;
+stem_stmt       = "stem" id "{" "of" ":" id ";" "slot" ":" id ";" "rights_bearing" ":" boolean ";" "}" ;
+
+claim_stmt      = "claim" id ":" id ident id "share" ratio [ "role" ident ] [ "detail" string ] "status" ident "valid" interval "recorded" instant [ "superseded" instant ] [ "evidence" string ] [ "visibility" ident ] ";" ;
+
+mandate_stmt    = "mandate" id ":" id "->" id "right" ident "share" ratio "status" ident "valid" interval "recorded" instant [ "superseded" instant ] [ "visibility" ident ] ";" ;
+
+ids_block       = "ids" ":" "{" [ ident ":" string { "," ident ":" string } ] "}" ";" ;
+
+(* -----------------------------------------------------------------------------
+   2. 이용허락 문서 (Grant Document)
+   ----------------------------------------------------------------------------- *)
+grant_doc       = "grant" id "version" int "{" { grant_rule_stmt } "}" ;
+grant_rule_stmt = "rule" id "{" 
+                    "grantor" ":" id ";" 
+                    [ "grantee" ":" id ";" ]
+                    "asset" ":" id ";"
+                    "right" ":" ident ";"
+                    "scope" ":" scope_block ";"
+                    [ "obligations" ":" "[" [ ident { "," ident } ] "]" ";" ]
+                    "status" ":" ident ";"
+                    "valid" ":" interval ";"
+                    "recorded" ":" instant ";"
+                  "}" ;
+
+scope_block     = "{"
+                    "actions" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "territories" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "media" ":" "[" [ ident { "," ident } ] "]" ";"
+                    "period" ":" interval ";"
+                    "audience" ":" "[" [ ident { "," ident } ] "]" ";"
+                  "}" ;
+
+(* -----------------------------------------------------------------------------
+   3. 안분 정책 문서 (Allocation Document)
+   ----------------------------------------------------------------------------- *)
+allocation_doc  = "allocation" id "version" int "{" alloc_body "}" ;
+alloc_body      = [ visibility_stmt ] uses_stmt+ scope_stmt bind_stmt layer_stmt+ [ guard_stmt ] [ exceptions_stmt ] rounding_stmt ;
+
+uses_stmt       = "uses" "facts" id "@" int "digest" string ";" ;
+visibility_stmt = "visibility" [ "default" ":" ] ident ";" ;
+scope_stmt      = "scope" "{" scope_field+ "}" ;
+scope_field     = ident ":" ( id | "[" [ ident { "," ident } ] "]" ) ";" ;
+bind_stmt       = "bind" "{" "time" ":" ident ";" "}" ;
+
+layer_stmt      = ( "tier1" "{" { ident "=" ratio ";" } "}" )
+                | ( "tier2" ident "{" "split" "{" { bucket_stmt } "}" "}" )
+                | ( "layer" int [ ident ] "{" ( { ident "=" ratio ";" } | "split" "{" { bucket_stmt } "}" ) "}" ) ;
+
+bucket_stmt     = ident "=" vector_expr ":" ratio [ "as" ident ] ";" ;
+
+vector_expr     = primary_expr { "|>" ( "cap" "(" ratio ")" | "floor_guarantee" "(" ratio ")" ) } ;
+primary_expr    = "graph" "(" ident ")" [ "via" "mandate" ]
+                | "contract" "(" id ")"
+                | "member_pct" "(" ")"
+                | "performance_pool" "(" ident { "," ident ":" ratio } ")"
+                | "mix" "(" ratio ":" vector_expr { "," ratio ":" vector_expr } ")"
+                | "model_share" "(" [ id ] ")" ;
+
+guard_stmt      = "guard" "{" { "require" ( "covered" "(" "all_claimants" ")" | "sum" "(" "split" ")" "==" ratio ) ";" } "}" ;
+exceptions_stmt = "exceptions" "{" { "on" ident "->" "hold" "(" ident ")" ";" } "}" ;
+rounding_stmt   = "rounding" "{" "method" ":" ident ";" "tie" ":" ident ";" "}" ;
+
+(* -----------------------------------------------------------------------------
+   4. 공통 기본 타입 및 어휘 (Lexical Tokens & Common Primitives)
+   ----------------------------------------------------------------------------- *)
+interval        = "[" instant "," [ instant ] ")" ;
+instant         = string | ident ;  (* ISO 8601 UTC Instant: YYYY-MM-DDTHH:mm:ss.sssZ *)
+ratio           = number-with-% | number-with-bps ;
+boolean         = "true" | "false" ;
+id              = ident | string ;
+int             = digit { digit } ;
+
+whitespace      = " " | TAB | CR | LF ;
+comment         = "//" { all_characters_except_newline } ;
+ident           = ( letter | "_" ) { letter | digit | "_" } { ( "." | "-" ) ( letter | digit | "_" ) { letter | digit | "_" } } ;
+letter          = "A".."Z" | "a".."z" ;
+digit           = "0".."9" ;
+string          = '"' { all_characters_except_quote_or_escape | '\"' | '\\' } '"' ;

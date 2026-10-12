@@ -1160,212 +1160,15 @@
         </div>
       </div>
 
-      <!-- 2.2 테넌트별 권리구조 정보 조회 (Tenant Rights Structure Inspector) -->
-      <div id="page-ops-party" class="page-container">
-        <div class="page-header">
-          <div class="page-title-group">
-            <h1><i class="fa-solid fa-sitemap text-blue"></i> 2.2 테넌트별 권리구조 정보 조회 (tenant_rights_structure) <span style="font-size:12px;background:var(--accent-amber-bg);color:var(--accent-amber);padding:2px 8px;border-radius:8px;vertical-align:middle;cursor:pointer" onclick="inspOpen('a')">4.0 통합 인스펙터 A 파티 패널로 이관됨 — 이동</span></h1>
-            <p>플랫폼 총괄 관점의 테넌트별 등록 Party 계층 트리, 전속 계약(party_link), 권리 원장 매핑 및 정산·계정 무결성 인스펙터</p>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary btn-sm" onclick="runRightsAuditCheck()"><i
-                class="fa-solid fa-shield-halved"></i> 권리구조 무결성 감사</button>
-            <button class="btn btn-primary btn-sm" onclick="showToast('테넌트 권리구조 최신 데이터를 동기화했습니다.')"><i
-                class="fa-solid fa-rotate"></i> 새로고침</button>
-          </div>
-        </div>
-
-        <!-- SoD 및 운영 정책 가이드 배너 -->
-        <div
-          style="background:rgba(59, 130, 246, 0.08); border-left:4px solid var(--accent-blue); padding:12px 16px; border-radius:var(--radius-sm); margin-bottom:16px; line-height:1.6;">
-          <div
-            style="font-weight:700; color:var(--accent-blue); display:flex; align-items:center; gap:8px; margin-bottom:3px;">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>플랫폼 운영 정책 및 직무 분리(SoD) 안내</span>
-            <span class="badge badge-purple" style="font-size:10px;">READ-ONLY INSPECTOR</span>
-          </div>
-          <div style="font-size:12px; color:var(--text-secondary);">
-            신규 권리 주체(Party) 등록 및 전속 계약(<code>party_link</code>) 관리는 각 권리자(기획사/레이블)가 <strong>권리자 콘솔 (2.2)</strong>에서 직접
-            수행합니다.<br>
-            플랫폼 운영 백오피스는 테넌트 간 권리 충돌 방지, 계층 순환참조 검증, L0 권리 원장 연동 상태 및 정산계좌 인증 무결성을 실시간으로 감독·조회하는 전용 인스펙터 화면을 제공합니다.
-          </div>
-        </div>
-
-        <!-- 테넌트 셀렉터 & 검색 필터 바 -->
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
-            <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:320px;">
-              <label style="font-size:12px; font-weight:700; color:var(--text-primary); white-space:nowrap;"><i
-                  class="fa-solid fa-building text-blue"></i> 조회 대상 테넌트:</label>
-              <select id="opsTenantSelector" class="form-control"
-                style="font-weight:700; font-size:13px; max-width:380px;" onchange="changeOpsTenantView(this.value)">
-                <option value="tnt_002" selected>🏢 (주)스타엔터테인먼트 (tnt_002) — 기획사 (AGENCY)</option>
-                <option value="tnt_001">🏢 (주)두비덥뮤직 (tnt_001) — 마스터 레이블 (LABEL)</option>
-                <option value="tnt_003">🏛️ 한국음악저작권협회 (tnt_003) — 신탁관리단체 (CMO)</option>
-                <option value="tnt_004">💼 (주)사운드랩 (tnt_004) — B2B 파트너 (PARTNER)</option>
-              </select>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div class="search-box" style="position:relative; width:240px;">
-                <input type="text" id="opsPartySearchInput" class="form-control" placeholder="Party ID, 활동명, ISNI 검색..."
-                  onkeyup="filterOpsPartyTable()" style="padding-left:30px; font-size:12px;">
-                <i class="fa-solid fa-magnifying-glass"
-                  style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted);"></i>
-              </div>
-              <select id="opsPartyTypeFilter" class="form-control" style="width:130px; font-size:12px;"
-                onchange="filterOpsPartyTable()">
-                <option value="ALL">전체 유형</option>
-                <option value="AGENCY">AGENCY (기획사)</option>
-                <option value="ARTIST">ARTIST (그룹)</option>
-                <option value="MEMBER">MEMBER (멤버)</option>
-                <option value="SESSION">SESSION (세션)</option>
-                <option value="CMO">CMO (신탁)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- 테넌트 권리구조 KPI 요약 카드 -->
-        <div class="kpi-grid" style="margin-bottom:16px;" id="opsTenantKpiGrid">
-          <div class="kpi-card">
-            <div class="kpi-label">소속 Party 수</div>
-            <div class="kpi-value text-blue" id="opsKpiPartyCount">5 <small style="font-size:12px;">명/사</small></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">유효 전속/계층 링크</div>
-            <div class="kpi-value" id="opsKpiLinkCount">4 <small style="font-size:12px;">건 (SIGNED_TO/MEMBER_OF)</small>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">연결 L0 권리 이미지</div>
-            <div class="kpi-value text-purple" id="opsKpiImageCount">4 <small style="font-size:12px;">개 (ACTIVE)</small>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">발행 LIVE 팩</div>
-            <div class="kpi-value text-green" id="opsKpiPackCount">6 <small style="font-size:12px;">개 팩</small></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">권리구조 무결성</div>
-            <div class="kpi-value" id="opsKpiIntegrity"><span class="badge badge-passed" style="font-size:11px;"><i
-                  class="fa-solid fa-circle-check"></i> PASS (무결)</span></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">1원 계좌인증 완료율</div>
-            <div class="kpi-value text-green" id="opsKpiAccountRate">66.7% <small
-                style="font-size:11px; color:var(--text-muted);">(2/3명)</small></div>
-          </div>
-        </div>
-
-        <!-- 테넌트 권리 계층 구조도 (Visual Hierarchy Tree) -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="card-title"><i class="fa-solid fa-diagram-project text-blue"></i> 테넌트 권리 계층 구조도 (Visual
-              Hierarchy Tree)</div>
-            <span class="badge badge-purple" id="opsTreeTenantBadge">tnt_002 스타엔터테인먼트</span>
-          </div>
-          <div id="opsRightsTreeContainer"
-            style="padding:16px; background:rgba(0,0,0,0.25); border-radius:var(--radius-sm); border:1px solid var(--border-color); font-family:var(--font-mono, monospace); font-size:12px; line-height:2.0;">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-        <!-- 테넌트 소속 권리 주체 원장 및 정산·계정 연동 테이블 -->
-        <div class="card">
-          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="card-title"><i class="fa-solid fa-table-list text-blue"></i> 테넌트 소속 권리 주체 원장 및 정산·계정 연동 현황
-              (party / party_link)</div>
-            <div style="font-size:11px; color:var(--text-secondary);">총 <span id="opsTableCount"
-                style="font-weight:700; color:var(--accent-blue);">5</span>건 조회됨</div>
-          </div>
-          <table class="custom-table" id="opsRightsStructureTable">
-            <thead>
-              <tr>
-                <th>Party ID (pty_)</th>
-                <th>활동명 / 법적실명</th>
-                <th>주체 유형</th>
-                <th>계층 관계 (party_link)</th>
-                <th>전속 기간</th>
-                <th>ISNI / IPI</th>
-                <th>세무 유형</th>
-                <th>지급 수령 경로</th>
-                <th>1원 계좌인증</th>
-                <th>포털 계정</th>
-                <th>연결 L0</th>
-                <th>검사</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic Rows rendered by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 2.3 포털 계정/SoD -->
-      <div id="page-ops-rbac" class="page-container">
-        <div class="page-header">
-          <div class="page-title-group">
-            <h1><i class="fa-solid fa-user-shield text-blue"></i> 2.3 포털 계정 & RBAC/SoD (user_account / portal_role)</h1>
-            <p>포털 사용자 계정, 소속 Party 매핑 및 직무 분리(SoD 가드) 통제</p>
-          </div>
-        </div>
-        <div class="card">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>사용자 ID (usr_)</th>
-                <th>이메일</th>
-                <th>매핑 Party</th>
-                <th>포털 역할 (portal_role)</th>
-                <th>SoD 가드 검증</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>usr_ops_01</code></td>
-                <td>ops1@dobedopop.com</td>
-                <td>— (내부운영)</td>
-                <td><span class="badge badge-purple">SPACE_OPS</span></td>
-                <td><span class="badge badge-passed">PASS (SETTLE 분리됨)</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-              </tr>
-              <tr>
-                <td><code>usr_settle_01</code></td>
-                <td>settle@dobedopop.com</td>
-                <td>— (내부정산)</td>
-                <td><span class="badge badge-purple">SPACE_SETTLE</span></td>
-                <td><span class="badge badge-passed">PASS (OPS 분리됨)</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-              </tr>
-              <tr>
-                <td><code>usr_star_adm</code></td>
-                <td>admin@starent.com</td>
-                <td><code>pty_star_corp</code></td>
-                <td><span class="badge badge-confirmed">AGENCY_ADMIN</span></td>
-                <td><span class="badge badge-passed">PASS</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-              </tr>
-              <tr>
-                <td><code>usr_perf_01</code></td>
-                <td>hong@supernova.com</td>
-                <td><code>pty_nova_01</code></td>
-                <td><span class="badge badge-draft">PERFORMER</span></td>
-                <td><span class="badge badge-passed">본인 Party 한정</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 2.4 표준 계약 관리 -->
+      <!-- 2.2 표준 계약 관리 (C1~C7 consent) -->
       <div id="page-ops-contract" class="page-container">
         <div class="page-header">
           <div class="page-title-group">
-            <h1><i class="fa-solid fa-file-contract text-blue"></i> 2.4 표준 계약 관리 (C1~C7 consent)</h1>
+            <h1><i class="fa-solid fa-file-contract text-blue"></i> 2.2 표준 계약 관리 (C1~C7 consent)</h1>
             <p>표준 계약서 양식, 인격권/성명권 보호 규약 및 전자서명 버전 관리</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="showModal('modal-contract-upload')"><i class="fa-solid fa-cloud-arrow-up"></i> + 표준 계약 양식 등록</button>
           </div>
         </div>
         <div class="card">
@@ -1382,31 +1185,36 @@
             </thead>
             <tbody>
               <tr>
-                <td>C1</td>
+                <td><code>C1</code></td>
                 <td>저작물 조합 이용허락</td>
                 <td>저작권자/CMO</td>
                 <td>동일성유지권, 변형 범위 한정</td>
                 <td>v2.1</td>
-                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button>
-                </td>
+                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button></td>
               </tr>
               <tr>
-                <td>C2</td>
+                <td><code>C2</code></td>
                 <td>마스터 스템 이용허락</td>
                 <td>음반제작자/레이블</td>
                 <td>멀티트랙 분해/조합 허용</td>
                 <td>v1.8</td>
-                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button>
-                </td>
+                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button></td>
               </tr>
               <tr>
-                <td>C3</td>
+                <td><code>C3</code></td>
                 <td>원곡 실연자 스템 조합 동의</td>
                 <td>실연자(보컬/세션)</td>
                 <td>인격권 보호, 성명권 표기, 30일 유예 철회</td>
                 <td>v2.0</td>
-                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button>
-                </td>
+                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button></td>
+              </tr>
+              <tr>
+                <td><code>C5</code></td>
+                <td>기획사 퍼블리시티권 이용허락</td>
+                <td>소속 기획사(AGENCY)</td>
+                <td>초상/성명/브랜드 상업적 결합 승인</td>
+                <td>v1.5</td>
+                <td><button class="btn btn-secondary btn-sm" onclick="showModal('modal-contract-upload')">양식 갱신</button></td>
               </tr>
             </tbody>
           </table>
@@ -2356,6 +2164,183 @@
       </div>
 
       <!-- =========================================================================
+           [9. 사용자 관리 (신설)]
+           ========================================================================= -->
+
+      <!-- 9.1 사용자 계정 관리 (user_account) -->
+      <div id="page-ops-user-account" class="page-container">
+        <div class="page-header">
+          <div class="page-title-group">
+            <h1><i class="fa-solid fa-users-gear text-blue"></i> 9.1 사용자 계정 관리 (user_account)</h1>
+            <p>포털 로그인 계정(usr_), Party 매핑, 2단계 인증(2FA), 계정 잠금 해제/비활성화 및 비밀번호 초기화 관리</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="openUserCreateModal()"><i class="fa-solid fa-user-plus"></i> + 신규 사용자 등록</button>
+          </div>
+        </div>
+
+        <!-- 계정 현황 KPI 배너 -->
+        <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-card">
+            <div class="kpi-label">총 등록 사용자</div>
+            <div class="kpi-value text-blue" id="opsUserTotalCount">6 <small style="font-size:12px;">명</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">활성 계정 (ACTIVE)</div>
+            <div class="kpi-value text-green" id="opsUserActiveCount">5 <small style="font-size:12px;">명</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">2단계 인증 (2FA) 활성화율</div>
+            <div class="kpi-value text-purple" id="opsUser2faRate">83.3% <small style="font-size:12px;">(5/6명)</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">잠금/비활성 계정</div>
+            <div class="kpi-value text-amber" id="opsUserLockCount">1 <small style="font-size:12px;">건 (LOCKED)</small></div>
+          </div>
+        </div>
+
+        <!-- 검색 및 필터 바 -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+            <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:280px;">
+              <div class="search-box" style="position:relative; width:100%; max-width:320px;">
+                <input type="text" id="userSearchInput" class="form-control" placeholder="사용자 ID, 이메일, Party 검색..." onkeyup="filterUserTable()" style="padding-left:30px; font-size:12px;">
+                <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted);"></i>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <select id="userRoleFilter" class="form-control" style="width:160px; font-size:12px;" onchange="filterUserTable()">
+                <option value="ALL">전체 역할</option>
+                <option value="SPACE_OPS">SPACE_OPS (배치실행)</option>
+                <option value="SPACE_SETTLE">SPACE_SETTLE (정산확정)</option>
+                <option value="AGENCY_ADMIN">AGENCY_ADMIN (기획사)</option>
+                <option value="MASTER_OWNER">MASTER_OWNER (마스터)</option>
+                <option value="PERFORMER">PERFORMER (실연자)</option>
+                <option value="B2B_PARTNER">B2B_PARTNER (파트너)</option>
+              </select>
+              <select id="userStatusFilter" class="form-control" style="width:130px; font-size:12px;" onchange="filterUserTable()">
+                <option value="ALL">전체 상태</option>
+                <option value="ACTIVE">ACTIVE (정상)</option>
+                <option value="LOCKED">LOCKED (잠김)</option>
+                <option value="DISABLED">DISABLED (비활성)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 사용자 계정 목록 테이블 -->
+        <div class="card">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title"><i class="fa-solid fa-address-book text-blue"></i> 포털 로그인 사용자 계정 목록</div>
+            <div style="font-size:11px; color:var(--text-secondary);">총 <span id="userListCount" style="font-weight:700; color:var(--accent-blue);">6</span>개 계정</div>
+          </div>
+          <table class="custom-table" id="userAccountTable">
+            <thead>
+              <tr>
+                <th>사용자 ID (user_id)</th>
+                <th>로그인 이메일</th>
+                <th>매핑 권리주체 (party_id)</th>
+                <th>포털 역할 (portal_role)</th>
+                <th>인증 방식</th>
+                <th>2FA</th>
+                <th>최종 로그인</th>
+                <th>계정 상태</th>
+                <th>관리 액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic Rows rendered by JS -->
+            </tbody>
+          </table>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:12px; line-height:1.6;">
+            • <strong>Party 매핑</strong>: 권리자 및 실연자 계정은 반드시 권리주체(<code>party_id</code>)와 1:1 연결되어야 하며, 내부 운영자는 Party 없이 테넌트 범위로 관리됩니다.<br>
+            • <strong>2FA 강제 원칙</strong>: 관리자/정산/법무 권한(<code>SPACE_OPS</code>, <code>SPACE_SETTLE</code>, <code>AGENCY_ADMIN</code> 등) 계정은 2단계 인증(2FA)이 필수 적용됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- 9.2 역할 및 권한 관리 (portal_role & Permission Master & SoD) -->
+      <div id="page-ops-role-permission" class="page-container">
+        <div class="page-header">
+          <div class="page-title-group">
+            <h1><i class="fa-solid fa-shield-halved text-purple"></i> 9.2 역할 및 권한 관리 (portal_role & Permission Master & SoD)</h1>
+            <p>12대 시스템 역할 정의, 기능 리소스 및 API 엔드포인트 매핑 Permission Master, 역할-권한 매트릭스 및 직무 분리(SoD 가드) 통제</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="checkSodCompliance()"><i class="fa-solid fa-scale-balanced"></i> SoD 컴플라이언스 검증</button>
+          </div>
+        </div>
+
+        <!-- 서브탭 네비게이션 -->
+        <div class="subtabs-bar" style="display:flex; gap:8px; margin-bottom:16px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <button class="btn btn-secondary btn-sm subtab-btn active" onclick="switchRolePermissionSubtab('roles', this)"><i class="fa-solid fa-user-shield"></i> 12대 시스템 역할 정의</button>
+          <button class="btn btn-secondary btn-sm subtab-btn" onclick="switchRolePermissionSubtab('permissions', this)"><i class="fa-solid fa-list-check"></i> 권한 마스터 & API 매핑</button>
+          <button class="btn btn-secondary btn-sm subtab-btn" onclick="switchRolePermissionSubtab('matrix', this)"><i class="fa-solid fa-table-cells"></i> 역할-권한 매트릭스 & SoD 가드</button>
+        </div>
+
+        <!-- Subtab 1: 12대 시스템 역할 정의 -->
+        <div id="rp-subtab-roles" class="rp-subtab-panel" style="display:block;">
+          <div id="roleCardsGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px;">
+            <!-- JS Rendered -->
+          </div>
+        </div>
+
+        <!-- Subtab 2: 권한 마스터 & 리소스 매핑 -->
+        <div id="rp-subtab-permissions" class="rp-subtab-panel" style="display:none;">
+          <div class="card">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="card-title"><i class="fa-solid fa-key text-blue"></i> 기능 리소스 및 백엔드 REST API 엔드포인트 매핑 레지스트리 (Permission Master)</div>
+            </div>
+            <table class="custom-table" id="permissionMasterTable">
+              <thead>
+                <tr>
+                  <th>권한 코드</th>
+                  <th>권한명</th>
+                  <th>모듈 분류</th>
+                  <th>기능 리소스 (UI 컴포넌트)</th>
+                  <th>매핑 REST API 엔드포인트</th>
+                  <th>기본 할당 역할</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- JS Rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subtab 3: 역할-권한 매트릭스 & SoD 가드 -->
+        <div id="rp-subtab-matrix" class="rp-subtab-panel" style="display:none;">
+          <!-- SoD 가드 현황판 -->
+          <div class="card" style="margin-bottom:16px; border-left:4px solid var(--accent-purple);">
+            <div class="card-title" style="margin-bottom:8px;"><i class="fa-solid fa-scale-balanced text-purple"></i> 직무 분리 (Separation of Duties, SoD) 상호 배타 규칙 통제 현황</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px;">
+              <div style="background:rgba(0,0,0,0.2); padding:10px 14px; border-radius:6px;">
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">⚖️ RULE_SOD_01: 정책 편집자 ≠ 활성화 확정자</div>
+                <div style="color:var(--text-secondary); font-size:11px;">동일 계정에 <code>SPACE_EDITOR</code>(정책 작성)와 <code>SPACE_LEGAL / AGENCY_ADMIN</code>(활성화 확정) 동시 부여 차단</div>
+                <div style="margin-top:6px;"><span class="badge badge-passed">● 통제 활성 (위반 0건)</span></div>
+              </div>
+              <div style="background:rgba(0,0,0,0.2); padding:10px 14px; border-radius:6px;">
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">⚖️ RULE_SOD_02: 정산 배치 실행자 ≠ 확정자</div>
+                <div style="color:var(--text-secondary); font-size:11px;">동일 계정에 <code>SPACE_OPS</code>(배치 실행)와 <code>SPACE_SETTLE</code>(정산 확정) 동시 부여 차단</div>
+                <div style="margin-top:6px;"><span class="badge badge-passed">● 통제 활성 (위반 0건)</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 역할-권한 매트릭스 표 -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:10px;"><i class="fa-solid fa-table-cells text-blue"></i> 시스템 역할 × 권한 매핑 매트릭스</div>
+            <div style="overflow-x:auto;">
+              <table class="custom-table" id="rolePermissionMatrixTable" style="font-size:11px;">
+                <!-- JS Rendered Matrix -->
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- =========================================================================
            [B] 권리자 콘솔 (Rights Holder Console)
            ========================================================================= -->
 
@@ -2400,273 +2385,178 @@
         </div>
       </div>
 
-      <!-- 2.1 아티스트/멤버 관리 -->
-      <div id="page-rh-party-artists" class="page-container">
+      <!-- 2.1 파티 관리 / 등록 (party) -->
+      <div id="page-rh-party-list" class="page-container">
         <div class="page-header">
           <div class="page-title-group">
-            <h1><i class="fa-solid fa-users text-blue"></i> 2.1 소속 아티스트 & 멤버 관리 (party_link)</h1>
-            <p>소속 그룹, 솔로 아티스트, 멤버 계층 트리 및 전속 계약 관리</p>
-          </div>
-        </div>
-        <div class="card">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Party ID</th>
-                <th>활동명</th>
-                <th>구분</th>
-                <th>소속 계층 (party_link)</th>
-                <th>역할 / 순서</th>
-                <th>활동 상태</th>
-                <th>소속 기간</th>
-                <th>ISNI</th>
-                <th>지급 경로 / 계좌</th>
-                <th>정산</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>pty_nova_grp</code></td>
-                <td><strong>슈퍼노바 (Super Nova)</strong></td>
-                <td>ARTIST (그룹)</td>
-                <td>SIGNED_TO 스타엔터 (<code>plk_001</code>)</td>
-                <td>—</td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>2019-07 ~ 2029-06</td>
-                <td>0000 0001..</td>
-                <td>— (그룹은 수령 주체 아님)</td>
-                <td><span class="text-muted">청구권자 불가</span></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_01</code></td>
-                <td>└ <strong>홍길동</strong></td>
-                <td>MEMBER</td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_011</code>) / SIGNED_TO 스타엔터</td>
-                <td>LEADER · MAIN_VOCAL / 1</td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>2019-07 ~</td>
-                <td>0000 0002..</td>
-                <td>SELF · <span class="badge badge-passed">국민은행 (1원인증 OK)</span></td>
-                <td><span class="badge badge-passed">개인 라인</span></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_02</code></td>
-                <td>└ <strong>김철수</strong></td>
-                <td>MEMBER</td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_012</code>) / SIGNED_TO 스타엔터</td>
-                <td>MAIN_VOCAL / 2</td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>2019-07 ~</td>
-                <td>0000 0003..</td>
-                <td>VIA_PARENT (스타엔터 일괄 수령) · 명세는 본인 기준</td>
-                <td><span class="badge badge-passed">개인 라인</span></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_03</code></td>
-                <td>└ <strong>이영희</strong></td>
-                <td>MEMBER</td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_013</code>) / SIGNED_TO 스타엔터</td>
-                <td>SUB_VOCAL / 3</td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>2019-07 ~</td>
-                <td>0000 0004..</td>
-                <td>SELF · <span class="badge badge-review">1원인증 대기</span></td>
-                <td><span class="badge badge-review">PENDING_VERIFICATION → 지급 보류</span></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_04</code></td>
-                <td>└ <strong>박민수</strong></td>
-                <td>MEMBER</td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_014</code>, 종료) / SIGNED_TO 타사</td>
-                <td>SUB_VOCAL / 4</td>
-                <td><span class="badge badge-blocked">LEFT</span></td>
-                <td>2019-07 ~ 2026-03</td>
-                <td>0000 0005..</td>
-                <td>SELF · 하나은행</td>
-                <td><span class="text-muted">기존 스냅샷 라인만 유지 · 신규 팩 제외</span></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_04</code></td>
-                <td>└ <strong>박민수 (재합류)</strong></td>
-                <td>MEMBER</td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_021</code>, 신규 링크)</td>
-                <td>SUB_VOCAL / 4</td>
-                <td><span class="badge badge-review">HIATUS</span></td>
-                <td>2026-09 ~</td>
-                <td>0000 0005..</td>
-                <td>SELF · 하나은행</td>
-                <td><span class="badge badge-passed">개인 라인</span></td>
-              </tr>
-            </tbody>
-          </table>
-          <div style="font-size:11px; color:var(--text-secondary); margin-top:8px; line-height:1.7;">
-            • 그룹 party(ARTIST)는 정산 라인의 대상이 아니며 멤버 도출(<code>recording_artist</code> → <code>voice_asset</code>)과 지급 합산
-            경로(<code>payout_route=VIA_PARENT</code>)에만 사용된다.<br>
-            • 탈퇴/재합류는 <code>party_link</code> 새 행(기간 겹침 불가)으로 기록되며, 기존 발행 조합의 스냅샷 배분은 변하지 않는다. C5 퍼블리시티 주체는 멤버의 유효
-            <code>SIGNED_TO</code> 기획사 기준.
-          </div>
-          <div style="margin-top:10px;"><button class="btn btn-secondary btn-sm"
-              onclick="showModal('modal-partylink-create')">+ 소속/전속 링크 추가 (party_link)</button></div>
-        </div>
-      </div>
-
-      <!-- 2.2 권리 주체 & 계층 관리 (Party & party_link Management) -->
-      <div id="page-rh-party-create" class="page-container">
-        <div class="page-header">
-          <div class="page-title-group">
-            <h1><i class="fa-solid fa-users-gear text-blue"></i> 2.2 권리 주체 & 계층 관리 (party / party_link)</h1>
-            <p>당사(스타엔터테인먼트) 소속 아티스트, 멤버, 세션 연주자 등록 및 전속 계약(SIGNED_TO, MEMBER_OF) 계층 관계 설정</p>
+            <h1><i class="fa-solid fa-id-card-clip text-blue"></i> 2.1 파티 관리 / 등록 (party 마스터 엔티티)</h1>
+            <p>당사(스타엔터테인먼트) 소속 아티스트, 멤버, 세션 연주자 마스터 엔티티 등록, 실명/활동명, ISNI/IPI, 세무 구분, 지급 수령 방식 및 계좌 인증 상태 관리</p>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')"><i
-                class="fa-solid fa-link"></i> + 소속/전속 링크 추가 (party_link)</button>
-            <button class="btn btn-primary btn-sm" onclick="showModal('modal-party-create')"><i
-                class="fa-solid fa-user-plus"></i> + 신규 Party 등록</button>
+            <button class="btn btn-primary btn-sm" onclick="showModal('modal-party-create')"><i class="fa-solid fa-user-plus"></i> + 신규 Party 등록</button>
           </div>
         </div>
 
-        <!-- 소속 권리자 통계 배너 -->
+        <!-- 파티 현황 KPI 배너 -->
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi-card">
             <div class="kpi-label">소속 권리 주체 (Party)</div>
-            <div class="kpi-value text-blue" id="rhPartyCount">5 <small style="font-size:12px;">명/사</small></div>
+            <div class="kpi-value text-blue" id="rhPartyMasterCount">5 <small style="font-size:12px;">명/사</small></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">활성 전속 계약</div>
-            <div class="kpi-value text-green" id="rhActiveContractCount">4 <small style="font-size:12px;">건</small>
-            </div>
+            <div class="kpi-label">실명/세무 등록 완료</div>
+            <div class="kpi-value text-green">5 <small style="font-size:12px;">건</small></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">1원 계좌인증 상태</div>
+            <div class="kpi-label">1원 실명 계좌인증</div>
             <div class="kpi-value text-purple">2 <small style="font-size:12px;">건 완료 / 1건 대기</small></div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">포털 계정 초대</div>
+            <div class="kpi-label">포털 계정 연동</div>
             <div class="kpi-value">3 <small style="font-size:12px;">건 연동</small></div>
           </div>
         </div>
 
-        <!-- 소속 Party 및 계층 관리 테이블 -->
+        <!-- 필터 바 -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div class="search-box" style="position:relative; width:280px;">
+              <input type="text" id="partyMasterSearchInput" class="form-control" placeholder="Party ID, 활동명, 실명 검색..." onkeyup="filterPartyMasterTable()" style="padding-left:30px; font-size:12px;">
+              <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted);"></i>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <select id="partyTypeFilter" class="form-control" style="width:140px; font-size:12px;" onchange="filterPartyMasterTable()">
+                <option value="ALL">전체 파티 유형</option>
+                <option value="AGENCY">AGENCY (기획사)</option>
+                <option value="ARTIST">ARTIST (그룹)</option>
+                <option value="MEMBER">MEMBER (멤버)</option>
+                <option value="SESSION">SESSION (세션)</option>
+              </select>
+              <select id="partyPayoutFilter" class="form-control" style="width:150px; font-size:12px;" onchange="filterPartyMasterTable()">
+                <option value="ALL">전체 지급 방식</option>
+                <option value="SELF">개인 직접 수령 (SELF)</option>
+                <option value="VIA_PARENT">기획사 합산 (VIA_PARENT)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 파티 마스터 목록 테이블 -->
         <div class="card">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="card-title"><i class="fa-solid fa-id-card-clip text-blue"></i> 소속 Party 및 전속 계약 목록</div>
+            <div class="card-title"><i class="fa-solid fa-address-card text-blue"></i> 소속 권리 주체(Party) 마스터 목록</div>
             <span class="badge badge-purple">tnt_002 스타엔터테인먼트</span>
           </div>
-          <table class="custom-table" id="rhPartyManageTable">
+          <table class="custom-table" id="rhPartyMasterTable">
             <thead>
               <tr>
-                <th>Party ID</th>
+                <th>Party ID (pty_)</th>
                 <th>대외 활동명</th>
                 <th>법적 실명</th>
-                <th>유형</th>
-                <th>소속 계층 (party_link)</th>
-                <th>전속 기간</th>
+                <th>주체 유형</th>
                 <th>ISNI / IPI</th>
-                <th>세무 유형</th>
+                <th>세무 구분</th>
                 <th>지급 수령 방식</th>
-                <th>1원인증</th>
+                <th>1원 계좌인증</th>
+                <th>포털 계정</th>
                 <th>상태</th>
                 <th>관리</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td><code>pty_star_corp</code></td>
-                <td><strong>(주)스타엔터테인먼트</strong></td>
-                <td>(주)스타엔터테인먼트</td>
-                <td><span class="badge badge-confirmed">AGENCY</span></td>
-                <td>최상위 테넌트 법인</td>
-                <td>2010-01 ~</td>
-                <td>—</td>
-                <td>국내법인</td>
-                <td>법인 계좌 직접 수령 (SELF)</td>
-                <td><span class="badge badge-passed">API 인증</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td><button class="btn btn-secondary btn-sm" onclick="showToast('법인 정보 편집')">수정</button></td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_grp</code></td>
-                <td><strong>슈퍼노바 (Super Nova)</strong></td>
-                <td>— (활동 그룹)</td>
-                <td><span class="badge badge-purple">ARTIST</span></td>
-                <td>SIGNED_TO 스타엔터 (<code>plk_001</code>)</td>
-                <td>2019-07 ~ 2029-06</td>
-                <td>0000 0001..</td>
-                <td>법인귀속</td>
-                <td>— (그룹은 정산 수령 불가)</td>
-                <td><span class="text-muted">—</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>
-                  <div style="display:flex; gap:4px;">
-                    <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')">링크</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showToast('아티스트 정보 수정')">수정</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_01</code></td>
-                <td>└ <strong>홍길동</strong></td>
-                <td>홍길동</td>
-                <td><span class="badge badge-draft">MEMBER</span></td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_011</code>)</td>
-                <td>2019-07 ~</td>
-                <td>0000 0002..</td>
-                <td>사업소득 (3.3%)</td>
-                <td>개인 계좌 수령 (SELF)</td>
-                <td><span class="badge badge-passed">국민은행 OK</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>
-                  <div style="display:flex; gap:4px;">
-                    <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')">링크</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showToast('Party 정보 수정')">수정</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_02</code></td>
-                <td>└ <strong>김철수</strong></td>
-                <td>김철수</td>
-                <td><span class="badge badge-draft">MEMBER</span></td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_012</code>)</td>
-                <td>2019-07 ~</td>
-                <td>0000 0003..</td>
-                <td>사업소득 (3.3%)</td>
-                <td>기획사 합산 수령 (VIA_PARENT)</td>
-                <td><span class="badge badge-passed">신한은행 OK</span></td>
-                <td><span class="badge badge-live">ACTIVE</span></td>
-                <td>
-                  <div style="display:flex; gap:4px;">
-                    <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')">링크</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showToast('Party 정보 수정')">수정</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><code>pty_nova_03</code></td>
-                <td>└ <strong>이영희</strong></td>
-                <td>이영희</td>
-                <td><span class="badge badge-draft">MEMBER</span></td>
-                <td>MEMBER_OF 슈퍼노바 (<code>plk_013</code>)</td>
-                <td>2019-07 ~</td>
-                <td>0000 0004..</td>
-                <td>기타소득</td>
-                <td>개인 계좌 수령 (SELF)</td>
-                <td><span class="badge badge-review">1원인증 대기</span></td>
-                <td><span class="badge badge-review">초대대기</span></td>
-                <td>
-                  <div style="display:flex; gap:4px;">
-                    <button class="btn btn-primary btn-sm" onclick="showModal('modal-performer-invite')">초대</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showToast('Party 정보 수정')">수정</button>
-                  </div>
-                </td>
-              </tr>
+              <!-- Dynamic Rows rendered by JS -->
             </tbody>
           </table>
           <div style="font-size:11px; color:var(--text-secondary); margin-top:10px; line-height:1.7;">
-            • <strong>Party 등록 원칙</strong>: 정산금 수령 및 크레딧 귀속을 위해 모든 아티스트/멤버/세션은 개별 Party로 등록되어야 합니다.<br>
-            • <strong>지급 경로 (payout_route)</strong>: <code>SELF</code>(멤버 개인 계좌 1원 실명인증 후 직접 수령) 또는
-            <code>VIA_PARENT</code>(기획사 법인 계좌로 일괄 수령 후 내부 정산, 정산 명세서는 개인 기준 발행).<br>
-            • <strong>전속 계약 갱신</strong>: 멤버의 탈퇴/이적/재합류 시 기존 데이터는 보존되며 새 <code>party_link</code> 행을 추가하여 이력을 관리합니다.
+            • <strong>지급 경로 원칙</strong>: <code>SELF</code>는 실연자 개인 계좌 1원 인증 후 직접 정산되며, <code>VIA_PARENT</code>는 상위 기획사가 대행 수령하되 정산 명세서는 개인 기준으로 독립 발행됩니다.<br>
+            • <strong>KYC/KYB 게이트</strong>: 실연자/권리자는 1원 계좌인증(<code>KYC_BANK</code>) 완료 전까지 정산금 지급이 보류(<code>PENDING_VERIFICATION</code>)됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- 2.2 파티 링크 관리 (party_link) -->
+      <div id="page-rh-party-links" class="page-container">
+        <div class="page-header">
+          <div class="page-title-group">
+            <h1><i class="fa-solid fa-link text-blue"></i> 2.2 파티 링크 관리 (party_link 전속/소속 계층 리스트)</h1>
+            <p>그룹-멤버, 기획사-아티스트 간의 전속/소속 계약 계층 구조, 그룹 내 역할(LEADER/MAIN_VOCAL), 표시 순서, 활동 상태 및 전속 유효기간 관리</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="showModal('modal-partylink-create')"><i class="fa-solid fa-link"></i> + 소속/전속 링크 추가 (party_link)</button>
+          </div>
+        </div>
+
+        <!-- 링크 현황 KPI 배너 -->
+        <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-card">
+            <div class="kpi-label">등록된 전속/소속 링크</div>
+            <div class="kpi-value text-blue" id="rhLinkTotalCount">6 <small style="font-size:12px;">건</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">활성 전속 링크 (ACTIVE)</div>
+            <div class="kpi-value text-green" id="rhLinkActiveCount">4 <small style="font-size:12px;">건</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">탈퇴/종료 링크 (LEFT)</div>
+            <div class="kpi-value text-muted">1 <small style="font-size:12px;">건</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">재합류/휴식 링크 (HIATUS)</div>
+            <div class="kpi-value text-amber">1 <small style="font-size:12px;">건</small></div>
+          </div>
+        </div>
+
+        <!-- 필터 바 -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div class="search-box" style="position:relative; width:280px;">
+              <input type="text" id="partyLinkSearchInput" class="form-control" placeholder="상위/하위 Party, Link ID 검색..." onkeyup="filterPartyLinksTable()" style="padding-left:30px; font-size:12px;">
+              <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--text-muted);"></i>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <select id="partyLinkTypeFilter" class="form-control" style="width:160px; font-size:12px;" onchange="filterPartyLinksTable()">
+                <option value="ALL">전체 링크 유형</option>
+                <option value="SIGNED_TO">SIGNED_TO (전속계약)</option>
+                <option value="MEMBER_OF">MEMBER_OF (그룹멤버)</option>
+                <option value="PUBLISHER_OF">PUBLISHER_OF (출판)</option>
+              </select>
+              <select id="partyLinkStatusFilter" class="form-control" style="width:130px; font-size:12px;" onchange="filterPartyLinksTable()">
+                <option value="ALL">전체 상태</option>
+                <option value="ACTIVE">ACTIVE (유효)</option>
+                <option value="HIATUS">HIATUS (보류)</option>
+                <option value="LEFT">LEFT (탈퇴/종료)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 파티 링크 목록 테이블 -->
+        <div class="card">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title"><i class="fa-solid fa-diagram-project text-blue"></i> 소속/전속 계층 링크 목록 (party_link)</div>
+            <span class="badge badge-purple">tnt_002 스타엔터테인먼트</span>
+          </div>
+          <table class="custom-table" id="rhPartyLinksTable">
+            <thead>
+              <tr>
+                <th>Link ID (plk_)</th>
+                <th>상위 Party (parent)</th>
+                <th>하위 Party (child)</th>
+                <th>링크 유형</th>
+                <th>그룹 내 역할 / 순서</th>
+                <th>활동 상태</th>
+                <th>소속 유효기간</th>
+                <th>정산 수령 연계</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic Rows rendered by JS -->
+            </tbody>
+          </table>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:10px; line-height:1.7;">
+            • <strong>기간 겹침 방지 원칙</strong>: 동일 <code>(parent, child, link_type)</code>에 대해 유효기간이 중복되는 링크는 등록할 수 없습니다.<br>
+            • <strong>재합류 이력 관리</strong>: 멤버의 탈퇴 후 재합류는 기존 링크를 삭제하지 않고 종료일(<code>valid_to</code>)을 기재한 뒤 새 링크 행으로 추가합니다.
           </div>
         </div>
       </div>
@@ -4353,6 +4243,115 @@
        모달 다이얼로그 (Modals)
        ========================================================================= -->
 
+  <!-- 0. 신규 사용자 계정 등록 모달 -->
+  <div class="modal-overlay" id="modal-user-create">
+    <div class="modal-container" style="max-width:560px;">
+      <div class="modal-header">
+        <div style="font-weight:700; font-size:14px;"><i class="fa-solid fa-user-plus text-blue"></i> 신규 포털 사용자 계정 등록 (user_account)</div>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-user-create')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="font-size:12px; line-height:1.7;">
+        <div class="form-group">
+          <label class="form-label">사용자 ID (user_id 채번)</label>
+          <input type="text" id="newUserId" class="form-control" readonly style="font-weight:700; background:rgba(255,255,255,0.05);">
+        </div>
+        <div class="form-group">
+          <label class="form-label">로그인 이메일 (email) <span style="color:var(--accent-red)">*</span></label>
+          <input type="email" id="newUserEmail" class="form-control" placeholder="user@company.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">연결 권리주체 (party_id 매핑)</label>
+          <select id="newUserPartyId" class="form-control">
+            <option value="">— 내부 운영자 (Party 매핑 없음)</option>
+            <option value="pty_star_corp">🏢 (주)스타엔터테인먼트 (pty_star_corp)</option>
+            <option value="pty_dobedop">🏢 (주)두비덥뮤직 (pty_dobedop)</option>
+            <option value="pty_nova_01">👤 홍길동 (pty_nova_01)</option>
+            <option value="pty_nova_02">👤 김철수 (pty_nova_02)</option>
+            <option value="pty_nova_03">👤 이영희 (pty_nova_03)</option>
+            <option value="pty_sess_01">👤 강기타 (pty_sess_01)</option>
+            <option value="pty_soundlab">💼 (주)사운드랩 (pty_soundlab)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">포털 기본 역할 (portal_role) <span style="color:var(--accent-red)">*</span></label>
+          <select id="newUserRole" class="form-control">
+            <option value="SPACE_OPS">SPACE_OPS (플랫폼 배치 실행자)</option>
+            <option value="SPACE_SETTLE">SPACE_SETTLE (플랫폼 정산 확정자)</option>
+            <option value="SPACE_EDITOR">SPACE_EDITOR (정책 편집자)</option>
+            <option value="SPACE_LEGAL">SPACE_LEGAL (법무/컴플라이언스)</option>
+            <option value="SPACE_AUDITOR">SPACE_AUDITOR (감사관)</option>
+            <option value="AGENCY_ADMIN" selected>AGENCY_ADMIN (기획사 총괄 관리자)</option>
+            <option value="MASTER_OWNER">MASTER_OWNER (마스터 음반제작자)</option>
+            <option value="WORK_RIGHTS">WORK_RIGHTS (저작자/퍼블리셔)</option>
+            <option value="PERFORMER">PERFORMER (실연자/보컬)</option>
+            <option value="AI_PROVIDER">AI_PROVIDER (AI 음성 원천제공사)</option>
+            <option value="B2B_PARTNER">B2B_PARTNER (B2B 연동 파트너)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">인증 방식 (auth_provider)</label>
+          <select id="newUserAuthProvider" class="form-control">
+            <option value="LOCAL">LOCAL (이메일/비밀번호)</option>
+            <option value="GOOGLE">GOOGLE (소셜 로그인)</option>
+            <option value="KAKAO">KAKAO (소셜 로그인)</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:6px;">
+          <input type="checkbox" id="newUser2fa" checked style="cursor:pointer;">
+          <label for="newUser2fa" style="cursor:pointer; font-weight:600; font-size:12px;">2단계 인증(2FA) 활성화 강제 (관리자/정산 필수)</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-user-create')">취소</button>
+        <button class="btn btn-primary btn-sm" onclick="createUserSubmit()"><i class="fa-solid fa-check"></i> 계정 생성 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0-1. 사용자 계정 수정 모달 -->
+  <div class="modal-overlay" id="modal-user-edit">
+    <div class="modal-container" style="max-width:540px;">
+      <div class="modal-header">
+        <div style="font-weight:700; font-size:14px;"><i class="fa-solid fa-user-pen text-blue"></i> 사용자 계정 정보 수정</div>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-user-edit')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="font-size:12px; line-height:1.7;">
+        <input type="hidden" id="editUserId">
+        <div class="form-group">
+          <label class="form-label">사용자 ID</label>
+          <input type="text" id="editUserIdDisplay" class="form-control" readonly style="background:rgba(255,255,255,0.05); font-weight:700;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">이메일</label>
+          <input type="email" id="editUserEmail" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">포털 역할 (SoD 가드 자동 검증)</label>
+          <select id="editUserRole" class="form-control">
+            <option value="SPACE_OPS">SPACE_OPS (배치실행)</option>
+            <option value="SPACE_SETTLE">SPACE_SETTLE (정산확정)</option>
+            <option value="AGENCY_ADMIN">AGENCY_ADMIN (기획사)</option>
+            <option value="MASTER_OWNER">MASTER_OWNER (마스터)</option>
+            <option value="PERFORMER">PERFORMER (실연자)</option>
+            <option value="B2B_PARTNER">B2B_PARTNER (파트너)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">계정 상태</label>
+          <select id="editUserStatus" class="form-control">
+            <option value="ACTIVE">ACTIVE (정상)</option>
+            <option value="LOCKED">LOCKED (잠김)</option>
+            <option value="DISABLED">DISABLED (비활성화)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-user-edit')">취소</button>
+        <button class="btn btn-primary btn-sm" onclick="updateUserSubmit()"><i class="fa-solid fa-check"></i> 변경사항 저장</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 1. 팩 복제(Clone) 모달 -->
   <div class="modal-overlay" id="modal-pack-clone">
     <div class="modal-container" style="max-width:540px;">
@@ -5180,170 +5179,175 @@
        JAVASCRIPT APP LOGIC (v2.2 IA Router & State Machine)
        ========================================================================= -->
   <script>
-    let currentConsole = 'ops';
-    let currentRole = 'SPACE_OPS';
+    let currentConsole = "ops";
+    let currentRole = "SPACE_OPS";
     let isPlayingAudio = false;
-    let activeReviewReqId = '';
+    let activeReviewReqId = "";
 
     const fullIAMenus = {
       ops: {
-        title: '플랫폼 운영 백오피스 (Platform Ops)',
+        title: "플랫폼 운영 백오피스 (Platform Ops)",
         groups: [
           {
-            title: '1. 대시보드', icon: 'fa-gauge-high',
+            title: "1. 대시보드", icon: "fa-gauge-high",
             items: [
-              { id: 'page-ops-dash-summary', label: '1.1 운영 종합 현황', active: true },
-              { id: 'page-ops-dash-realtime', label: '1.2 실시간 렌더/유일키' }
+              { id: "page-ops-dash-summary", label: "1.1 운영 종합 현황", active: true },
+              { id: "page-ops-dash-realtime", label: "1.2 실시간 렌더/유일키" }
             ]
           },
           {
-            title: '2. 테넌트/파티/계약', icon: 'fa-building',
+            title: "2. 테넌트 & 표준 계약", icon: "fa-building",
             items: [
-              { id: 'page-ops-tenant', label: '2.1 테넌트 관리 (tenant)' },
-              
-              { id: 'page-ops-rbac', label: '2.2 포털 계정/SoD (RBAC)' },
-              { id: 'page-ops-contract', label: '2.3 표준 계약 관리 (consent)' }
+              { id: "page-ops-tenant", label: "2.1 테넌트 관리 (tenant)" },
+              { id: "page-ops-contract", label: "2.2 표준 계약 관리 (consent)" }
             ]
           },
           {
-            title: '3. 무결성 예외 처리', icon: 'fa-triangle-exclamation',
+            title: "3. 무결성 예외 처리", icon: "fa-triangle-exclamation",
             items: [
-              { id: 'page-ops-qc-queue', label: '3.1 자동 QC 실패 큐 (기술판정)' },
-              { id: 'page-ops-integrity-slot', label: '3.2 슬롯 정합 & 렌더 무결성' },
-              { id: 'page-ops-source-integrity', label: '3.3 소스 무결성 검사 큐 (VET)' }
+              { id: "page-ops-qc-queue", label: "3.1 자동 QC 실패 큐 (기술판정)" },
+              { id: "page-ops-integrity-slot", label: "3.2 슬롯 정합 & 렌더 무결성" },
+              { id: "page-ops-source-integrity", label: "3.3 소스 무결성 검사 큐 (VET)" }
             ]
           },
           {
-            title: '4. 정책 검증', icon: 'fa-file-shield',
+            title: "4. 정책 검증", icon: "fa-file-shield",
             items: [
-              { id: 'page-ops-rights-inspector', label: '4.0 권리 구조 통합 인스펙터 (inspector)' },
-              { id: 'page-ops-policy-image', label: '4.1 이미지 검증 리포트 (L0)' },
-              { id: 'page-ops-policy-verify', label: '4.2 팩 검증 리포트 큐 (L1)' },
-              { id: 'page-ops-policy-inherit', label: '4.3 계승 규칙 관리 (inheritance)' }
+              { id: "page-ops-rights-inspector", label: "4.0 권리 구조 통합 인스펙터 (inspector)" },
+              { id: "page-ops-policy-image", label: "4.1 이미지 검증 리포트 (L0)" },
+              { id: "page-ops-policy-verify", label: "4.2 팩 검증 리포트 큐 (L1)" },
+              { id: "page-ops-policy-inherit", label: "4.3 계승 규칙 관리 (inheritance)" }
             ]
           },
           {
-            title: '5. 플랫폼 정책 검토', icon: 'fa-scale-balanced',
+            title: "5. 플랫폼 정책 검토", icon: "fa-scale-balanced",
             items: [
-              { id: 'page-ops-policy-review', label: '5.1 플랫폼 정책 검토 큐 (약관/법규)' },
-              { id: 'page-ops-combo-post', label: '5.2 워터마크 역추적 (watermark)' },
-              { id: 'page-ops-fraud-cases', label: '5.3 부정 이용 조사 (Trust & Safety)' },
-              { id: 'page-ops-integrity-share', label: '5.4 무결성 지표 공유 (SHARE)' }
+              { id: "page-ops-policy-review", label: "5.1 플랫폼 정책 검토 큐 (약관/법규)" },
+              { id: "page-ops-combo-post", label: "5.2 워터마크 역추적 (watermark)" },
+              { id: "page-ops-fraud-cases", label: "5.3 부정 이용 조사 (Trust & Safety)" },
+              { id: "page-ops-integrity-share", label: "5.4 무결성 지표 공유 (SHARE)" }
             ]
           },
           {
-            title: '6. 정산 콘솔', icon: 'fa-coins',
+            title: "6. 정산 콘솔", icon: "fa-coins",
             items: [
-              { id: 'page-ops-settle-batch', label: '6.1 정산 배치 관리 (batch)' },
-              { id: 'page-ops-settle-confirm', label: '6.2 정산 배치 확정 (SoD)' },
-              { id: 'page-ops-settle-unallocated', label: '6.3 미배분 원장 (unh_)' },
-              { id: 'page-ops-settle-payout', label: '6.4 지급 및 세무 (payout)' }
+              { id: "page-ops-settle-batch", label: "6.1 정산 배치 관리 (batch)" },
+              { id: "page-ops-settle-confirm", label: "6.2 정산 배치 확정 (SoD)" },
+              { id: "page-ops-settle-unallocated", label: "6.3 미배분 원장 (unh_)" },
+              { id: "page-ops-settle-payout", label: "6.4 지급 및 세무 (payout)" }
             ]
           },
           {
-            title: '7. 보호/분쟁/감사', icon: 'fa-shield-halved',
+            title: "7. 보호/분쟁/감사", icon: "fa-shield-halved",
             items: [
-              { id: 'page-ops-gov-killswitch', label: '7.1 킬 스위치 (Kill-Switch)' },
-              { id: 'page-ops-gov-dispute', label: '7.2 3단계 분쟁 조정 (dsp_)' },
-              { id: 'page-ops-gov-audit', label: '7.3 통합 감사로그 (audit_log)' }
+              { id: "page-ops-gov-killswitch", label: "7.1 킬 스위치 (Kill-Switch)" },
+              { id: "page-ops-gov-dispute", label: "7.2 3단계 분쟁 조정 (dsp_)" },
+              { id: "page-ops-gov-audit", label: "7.3 통합 감사로그 (audit_log)" }
             ]
           },
           {
-            title: '8. 위임 대행', icon: 'fa-handshake-angle',
+            title: "8. 위임 대행", icon: "fa-handshake-angle",
             items: [
-              { id: 'page-ops-delegation', label: '8.1 대행 업무함 (acting_on_behalf)' }
+              { id: "page-ops-delegation", label: "8.1 대행 업무함 (acting_on_behalf)" }
+            ]
+          },
+          {
+            title: "9. 사용자 관리", icon: "fa-user-gear",
+            items: [
+              { id: "page-ops-user-account", label: "9.1 사용자 계정 (user_account)" },
+              { id: "page-ops-role-permission", label: "9.2 역할 및 권한 (RBAC & SoD)" }
             ]
           }
         ]
       },
       rights: {
-        title: '권리자 콘솔 (Rights Holder Console)',
+        title: "권리자 콘솔 (Rights Holder Console)",
         groups: [
           {
-            title: '1. 대시보드', icon: 'fa-chart-pie',
+            title: "1. 대시보드", icon: "fa-chart-pie",
             items: [
-              { id: 'page-rh-dash-perf', label: '1.1 IP 종합 성과', active: true },
-              { id: 'page-rh-dash-inbox', label: '1.2 승인 대기함 (Inbox)' }
+              { id: "page-rh-dash-perf", label: "1.1 IP 종합 성과", active: true },
+              { id: "page-rh-dash-inbox", label: "1.2 승인 대기함 (Inbox)" }
             ]
           },
           {
-            title: '2. 소속 아티스트/파티', icon: 'fa-users',
+            title: "2. 소속 아티스트/파티", icon: "fa-users",
             items: [
-              { id: 'page-rh-party-artists', label: '2.1 아티스트/멤버 (party_link)' },
-              { id: 'page-rh-party-create', label: '2.2 권리 주체 & 계층 관리 (party)' },
-              { id: 'page-rh-party-invite', label: '2.3 실연자 계정/계좌 초대' }
+              { id: "page-rh-party-list", label: "2.1 파티 관리 / 등록 (party)" },
+              { id: "page-rh-party-links", label: "2.2 파티 링크 관리 (party_link)" },
+              { id: "page-rh-party-invite", label: "2.3 실연자 계정/계좌 초대" }
             ]
           },
           {
-            title: '3. 카탈로그/소스', icon: 'fa-compact-disc',
+            title: "3. 카탈로그/소스", icon: "fa-compact-disc",
             items: [
-              { id: 'page-rh-cat-work', label: '3.1 곡/버전 관리 (work/rcd 크레딧)' },
-              { id: 'page-rh-cat-slot', label: '3.2 곡 구조(슬롯) (마스터작성➔기획사확인)' },
-              { id: 'page-rh-cat-stem', label: '3.3 슬롯×멤버 매트릭스 (stem)' }
+              { id: "page-rh-cat-work", label: "3.1 곡/버전 관리 (work/rcd 크레딧)" },
+              { id: "page-rh-cat-slot", label: "3.2 곡 구조(슬롯) (마스터작성➔기획사확인)" },
+              { id: "page-rh-cat-stem", label: "3.3 슬롯×멤버 매트릭스 (stem)" }
             ]
           },
           {
-            title: '4. 원본 권리 이미지', icon: 'fa-layer-group',
+            title: "4. 원본 권리 이미지", icon: "fa-layer-group",
             items: [
-              { id: 'page-rh-rights-image', label: '4.1 원본 권리 이미지 (L0 rim_01)' }
+              { id: "page-rh-rights-image", label: "4.1 원본 권리 이미지 (L0 rim_01)" }
             ]
           },
           {
-            title: '5. 권리/동의 Vault', icon: 'fa-file-contract',
+            title: "5. 권리/동의 Vault", icon: "fa-file-contract",
             items: [
-              { id: 'page-rh-rights-consent', label: '5.1 동의 현황 (녹음 기준 C1~C7)' }
+              { id: "page-rh-rights-consent", label: "5.1 동의 현황 (녹음 기준 C1~C7)" }
             ]
           },
           {
-            title: '6. 팩 관리', icon: 'fa-box',
+            title: "6. 팩 관리", icon: "fa-box",
             items: [
-              { id: 'page-rh-pack-manage', label: '6.1 팩 관리 (10대 탭 & 복제)' }
+              { id: "page-rh-pack-manage", label: "6.1 팩 관리 (10대 탭 & 복제)" }
             ]
           },
           {
-            title: '7. 조합결과/승인/신고', icon: 'fa-user-check',
+            title: "7. 조합결과/승인/신고", icon: "fa-user-check",
             items: [
-              { id: 'page-rh-combo-approve', label: '7.1 72h 발행 승인 (기획사 전담)' },
-              { id: 'page-rh-rights-review', label: '7.2 권리 검토 큐 (권리/브랜드 신고)' },
-              { id: 'page-rh-combo-monitor', label: '7.3 공식 조합 모니터 & 킬스위치' }
+              { id: "page-rh-combo-approve", label: "7.1 72h 발행 승인 (기획사 전담)" },
+              { id: "page-rh-rights-review", label: "7.2 권리 검토 큐 (권리/브랜드 신고)" },
+              { id: "page-rh-combo-monitor", label: "7.3 공식 조합 모니터 & 킬스위치" }
             ]
           },
           {
-            title: '8. 매출/정산명세', icon: 'fa-file-invoice-dollar',
+            title: "8. 매출/정산명세", icon: "fa-file-invoice-dollar",
             items: [
-              { id: 'page-rh-settle-stmt', label: '8.1 월별 정산 명세서' },
-              { id: 'page-rh-settle-dispute', label: '8.2 정산 이의 제기' }
+              { id: "page-rh-settle-stmt", label: "8.1 월별 정산 명세서" },
+              { id: "page-rh-settle-dispute", label: "8.2 정산 이의 제기" }
             ]
           },
           {
-            title: '9. 테넌트 위임 관리', icon: 'fa-user-gear',
+            title: "9. 테넌트 위임 관리", icon: "fa-user-gear",
             items: [
-              { id: 'page-rh-delegation', label: '9.1 플랫폼 위임 설정 (ops_delegation)' }
+              { id: "page-rh-delegation", label: "9.1 플랫폼 위임 설정 (ops_delegation)" }
             ]
           }
         ]
       },
       performer: {
-        title: '실연자 포털 (Performer Portal)',
+        title: "실연자 포털 (Performer Portal)",
         groups: [
           {
-            title: '실연자 모바일 웹', icon: 'fa-mobile-screen',
+            title: "실연자 모바일 웹", icon: "fa-mobile-screen",
             items: [
-              { id: 'page-pf-home', label: '1. 모바일 포털 (5개 탭)', active: true }
+              { id: "page-pf-home", label: "1. 모바일 포털 (5개 탭)", active: true }
             ]
           }
         ]
       },
       partner: {
-        title: 'B2B 파트너 콘솔 (Partner Console)',
+        title: "B2B 파트너 콘솔 (Partner Console)",
         groups: [
           {
-            title: '파트너 메뉴', icon: 'fa-handshake',
+            title: "파트너 메뉴", icon: "fa-handshake",
             items: [
-              { id: 'page-pt-dash', label: '1. 파트너 대시보드', active: true },
-              { id: 'page-pt-api', label: '2. API & 화이트라벨' },
-              { id: 'page-pt-campaign', label: '3. 캠페인 연동 관리' },
-              { id: 'page-pt-settle', label: '4. 파트너 정산 리포트' }
+              { id: "page-pt-dash", label: "1. 파트너 대시보드", active: true },
+              { id: "page-pt-api", label: "2. API & 화이트라벨" },
+              { id: "page-pt-campaign", label: "3. 캠페인 연동 관리" },
+              { id: "page-pt-settle", label: "4. 파트너 정산 리포트" }
             ]
           }
         ]
@@ -5629,213 +5633,404 @@
       setTimeout(() => toast.classList.remove("show"), 3000);
     }
 
-    /* =========================================================================
-       TENANT RIGHTS STRUCTURE & PARTY CONTROLLER (Platform Ops 2.2 & Rights 2.2)
-       ========================================================================= */
-    const tenantRightsData = {
-      tnt_002: {
-        name: "(주)스타엔터테인먼트",
-        type: "AGENCY (기획사)",
-        kpi: {
-          partyCount: 5,
-          linkCount: "4건 (SIGNED_TO 1, MEMBER_OF 3)",
-          imageCount: "4개 (ACTIVE)",
-          packCount: "6개 팩",
-          integrity: '<span class="badge badge-passed" style="font-size:11px;"><i class="fa-solid fa-circle-check"></i> PASS (무결)</span>',
-          accountRate: '66.7% <small style="font-size:11px; color:var(--text-muted);">(2/3명)</small>'
-        },
-        treeHtml: `
-          <div style="font-weight:700; color:var(--accent-blue); margin-bottom:8px;">
-            <i class="fa-solid fa-building"></i> [최상위 테넌트] (주)스타엔터테인먼트 <code>pty_star_corp</code> <span class="badge badge-confirmed">AGENCY</span> <span class="badge badge-live">ACTIVE</span>
-          </div>
-          <div style="margin-left:24px; color:var(--text-primary); margin-bottom:6px;">
-            └── <i class="fa-solid fa-users text-purple"></i> [전속 아티스트] <strong>슈퍼노바 (Super Nova)</strong> <code>pty_nova_grp</code> <span class="badge badge-purple">ARTIST</span> <span class="badge badge-live">SIGNED_TO (~2029)</span> <small style="color:var(--text-muted);">(그룹 자체 정산불가·VIA_PARENT 경로)</small>
-          </div>
-          <div style="margin-left:52px; color:var(--text-secondary); margin-bottom:4px;">
-            ├── <i class="fa-solid fa-user text-blue"></i> [멤버/리더] <strong>홍길동</strong> <code>pty_nova_01</code> <span class="badge badge-draft">MEMBER</span> · MEMBER_OF · <span class="badge badge-passed">SELF (국민 1원인증 OK)</span> · L0(4개)
-          </div>
-          <div style="margin-left:52px; color:var(--text-secondary); margin-bottom:4px;">
-            ├── <i class="fa-solid fa-user text-blue"></i> [멤버/메인보컬] <strong>김철수</strong> <code>pty_nova_02</code> <span class="badge badge-draft">MEMBER</span> · MEMBER_OF · <span class="badge badge-passed">VIA_PARENT (신한 1원인증 OK)</span> · L0(4개)
-          </div>
-          <div style="margin-left:52px; color:var(--text-secondary); margin-bottom:4px;">
-            ├── <i class="fa-solid fa-user text-blue"></i> [멤버/서브보컬] <strong>이영희</strong> <code>pty_nova_03</code> <span class="badge badge-draft">MEMBER</span> · MEMBER_OF · <span class="badge badge-review">SELF (1원인증 대기)</span> · L0(2개)
-          </div>
-          <div style="margin-left:52px; color:var(--text-secondary);">
-            └── <i class="fa-solid fa-user-clock text-amber"></i> [멤버/재합류] <strong>박민수</strong> <code>pty_nova_04</code> <span class="badge badge-draft">MEMBER</span> · MEMBER_OF (2026-09~) · <span class="badge badge-review">HIATUS (정산 보류)</span>
-          </div>
-        `,
-        parties: [
-          { id: "pty_star_corp", name: "(주)스타엔터테인먼트", legalName: "(주)스타엔터테인먼트", type: "AGENCY", link: "최상위 테넌트 법인", valid: "2010-01 ~", isni: "—", tax: "국내법인", payout: "법인 직접 (SELF)", accVerify: "API 인증 OK", portalUser: "usr_star_adm", l0Count: 4, status: "ACTIVE" },
-          { id: "pty_nova_grp", name: "슈퍼노바 (Super Nova)", legalName: "슈퍼노바 (활동 그룹)", type: "ARTIST", link: "SIGNED_TO 스타엔터 (plk_001)", valid: "2019-07 ~ 2029-06", isni: "0000 0001..", tax: "법인귀속", payout: "— (청구 불가)", accVerify: "—", portalUser: "—", l0Count: 4, status: "ACTIVE" },
-          { id: "pty_nova_01", name: "└ 홍길동 (리더/보컬)", legalName: "홍길동", type: "MEMBER", link: "MEMBER_OF 슈퍼노바 (plk_011)", valid: "2019-07 ~", isni: "0000 0002..", tax: "사업소득 3.3%", payout: "개인 직접 (SELF)", accVerify: "국민은행 (1원 OK)", portalUser: "usr_perf_01", l0Count: 4, status: "ACTIVE" },
-          { id: "pty_nova_02", name: "└ 김철수 (메인보컬)", legalName: "김철수", type: "MEMBER", link: "MEMBER_OF 슈퍼노바 (plk_012)", valid: "2019-07 ~", isni: "0000 0003..", tax: "사업소득 3.3%", payout: "기획사 합산 (VIA_PARENT)", accVerify: "신한은행 (1원 OK)", portalUser: "usr_perf_02", l0Count: 4, status: "ACTIVE" },
-          { id: "pty_nova_03", name: "└ 이영희 (서브보컬)", legalName: "이영희", type: "MEMBER", link: "MEMBER_OF 슈퍼노바 (plk_013)", valid: "2019-07 ~", isni: "0000 0004..", tax: "기타소득", payout: "개인 직접 (SELF)", accVerify: "1원인증 대기", portalUser: "초대대기", l0Count: 2, status: "ACTIVE" }
-        ]
-      },
-      tnt_001: {
-        name: "(주)두비덥뮤직",
-        type: "LABEL (마스터 레이블)",
-        kpi: {
-          partyCount: 4,
-          linkCount: "3건 (SIGNED_TO 1, SESSION 2)",
-          imageCount: "2개 (ACTIVE)",
-          packCount: "3개 팩",
-          integrity: '<span class="badge badge-passed" style="font-size:11px;"><i class="fa-solid fa-circle-check"></i> PASS (무결)</span>',
-          accountRate: '100% <small style="font-size:11px; color:var(--text-muted);">(4/4명)</small>'
-        },
-        treeHtml: `
-          <div style="font-weight:700; color:var(--accent-blue); margin-bottom:8px;">
-            <i class="fa-solid fa-building"></i> [마스터 레이블] (주)두비덥뮤직 <code>pty_dobedop</code> <span class="badge badge-purple">LABEL</span> <span class="badge badge-live">ACTIVE</span>
-          </div>
-          <div style="margin-left:24px; color:var(--text-secondary); line-height:1.8;">
-            ├── <i class="fa-solid fa-microphone-lines"></i> [솔로 아티스트] <strong>루나 (LUNA)</strong> <code>pty_luna</code> <span class="badge badge-draft">ARTIST</span> · C1~C7 전속 동의 완료<br>
-            ├── <i class="fa-solid fa-guitar"></i> [세션 기타] <strong>정기타</strong> <code>pty_guitar_jung</code> <span class="badge badge-draft">SESSION</span> · 1원인증 OK<br>
-            └── <i class="fa-solid fa-drum"></i> [세션 드럼] <strong>강드럼</strong> <code>pty_drum_kang</code> <span class="badge badge-draft">SESSION</span> · 1원인증 OK
-          </div>
-        `,
-        parties: [
-          { id: "pty_dobedop", name: "(주)두비덥뮤직", legalName: "(주)두비덥뮤직", type: "LABEL", link: "마스터 레이블 법인", valid: "2024-01 ~", isni: "—", tax: "국내법인", payout: "법인 직접 (SELF)", accVerify: "API 인증 OK", portalUser: "usr_dobedop_adm", l0Count: 2, status: "ACTIVE" },
-          { id: "pty_luna", name: "루나 (LUNA)", legalName: "이지은", type: "ARTIST", link: "SIGNED_TO 두비덥", valid: "2024-03 ~ 2029-03", isni: "0000 0001 2345", tax: "사업소득 3.3%", payout: "개인 직접 (SELF)", accVerify: "우리은행 (1원 OK)", portalUser: "usr_pf_luna", l0Count: 2, status: "ACTIVE" },
-          { id: "pty_guitar_jung", name: "정기타", legalName: "정영호", type: "SESSION", link: "DIRECT_CONTRACT (plk_010)", valid: "2024-06 ~", isni: "—", tax: "기타소득", payout: "개인 직접 (SELF)", accVerify: "카카오뱅크 (1원 OK)", portalUser: "usr_pf_guitar", l0Count: 1, status: "ACTIVE" },
-          { id: "pty_drum_kang", name: "강드럼", legalName: "강민석", type: "SESSION", link: "DIRECT_CONTRACT (plk_011)", valid: "2024-06 ~", isni: "—", tax: "기타소득", payout: "개인 직접 (SELF)", accVerify: "토스뱅크 (1원 OK)", portalUser: "usr_pf_drum", l0Count: 1, status: "ACTIVE" }
-        ]
-      },
-      tnt_003: {
-        name: "한국음악저작권협회 (KOMCA)",
-        type: "CMO (신탁관리단체)",
-        kpi: {
-          partyCount: 1,
-          linkCount: "0건 (신탁관리 단독)",
-          imageCount: "4개 (WORK_COPYRIGHT 매핑)",
-          packCount: "6개 팩",
-          integrity: '<span class="badge badge-passed" style="font-size:11px;"><i class="fa-solid fa-circle-check"></i> PASS (신탁 정상)</span>',
-          accountRate: '100% <small style="font-size:11px; color:var(--text-muted);">(법인 계좌 OK)</small>'
-        },
-        treeHtml: `
-          <div style="font-weight:700; color:var(--accent-blue); margin-bottom:8px;">
-            <i class="fa-solid fa-landmark"></i> [신탁관리단체] 사단법인 한국음악저작권협회 <code>pty_komca_cmo</code> <span class="badge badge-purple">CMO</span> <span class="badge badge-live">ACTIVE</span>
-          </div>
-          <div style="margin-left:24px; color:var(--text-secondary);">
-            └── <i class="fa-solid fa-file-invoice-dollar"></i> [저작권 버킷 수탁] <code>cmo_managed=TRUE</code> 저작물(ISWC) 저작권 정산금 일괄 수령 및 협회 분배
-          </div>
-        `,
-        parties: [
-          { id: "pty_komca_cmo", name: "한국음악저작권협회 (KOMCA)", legalName: "사단법인 한국음악저작권협회", type: "CMO", link: "신탁관리단체 (WORK_COPYRIGHT 수령)", valid: "1964-06 ~", isni: "0000 0000 0001", tax: "비영리사단법인", payout: "협회 법인계좌 (SELF)", accVerify: "기관 API 연동 OK", portalUser: "usr_komca_adm", l0Count: 4, status: "ACTIVE" }
-        ]
-      },
-      tnt_004: {
-        name: "(주)사운드랩",
-        type: "PARTNER (B2B 연동 파트너)",
-        kpi: {
-          partyCount: 2,
-          linkCount: "1건 (B2B 제휴)",
-          imageCount: "1개 (ACTIVE)",
-          packCount: "1개 팩",
-          integrity: '<span class="badge badge-passed" style="font-size:11px;"><i class="fa-solid fa-circle-check"></i> PASS (무결)</span>',
-          accountRate: '100% <small style="font-size:11px; color:var(--text-muted);">(1/1)</small>'
-        },
-        treeHtml: `
-          <div style="font-weight:700; color:var(--accent-blue); margin-bottom:8px;">
-            <i class="fa-solid fa-handshake"></i> [B2B 파트너] (주)사운드랩 <code>pty_soundlab</code> <span class="badge badge-confirmed">PARTNER</span> <span class="badge badge-live">ACTIVE</span>
-          </div>
-          <div style="margin-left:24px; color:var(--text-secondary);">
-            └── <i class="fa-solid fa-robot"></i> [AI 음성 원천제공] <strong>보코AI (VocoAI)</strong> <code>pty_voco_ai</code> <span class="badge badge-draft">AI_PROVIDER</span> · C6 연동 완료
-          </div>
-        `,
-        parties: [
-          { id: "pty_soundlab", name: "(주)사운드랩", legalName: "(주)사운드랩", type: "PARTNER", link: "B2B API 연동 파트너", valid: "2024-01 ~", isni: "—", tax: "국내법인", payout: "법인 직접 (SELF)", accVerify: "API 인증 OK", portalUser: "usr_soundlab_adm", l0Count: 1, status: "ACTIVE" },
-          { id: "pty_voco_ai", name: "보코AI (VocoAI)", legalName: "보코인터내셔널", type: "AI_PROVIDER", link: "SIGNED_TO 사운드랩", valid: "2024-03 ~", isni: "—", tax: "사업소득 3.3%", payout: "기획사 합산 (VIA_PARENT)", accVerify: "우리은행 (1원 OK)", portalUser: "usr_voco_01", l0Count: 1, status: "ACTIVE" }
-        ]
+    /* 4.0 Inspector Panel Tab Helper */
+    function inspOpen(panelKey) {
+      navigateTo("page-ops-rights-inspector");
+      const tabBtn = document.querySelector(`.insp-tab-btn[onclick*="${panelKey}"]`);
+      if (tabBtn && typeof switchInspPanel === "function") {
+        switchInspPanel(panelKey, tabBtn);
       }
-    };
-
-    function changeOpsTenantView(tenantId) {
-      const data = tenantRightsData[tenantId];
-      if (!data) return;
-
-      const badge = document.getElementById("opsTreeTenantBadge");
-      if (badge) badge.innerText = `${tenantId} ${data.name}`;
-
-      if (document.getElementById("opsKpiPartyCount")) document.getElementById("opsKpiPartyCount").innerHTML = `${data.kpi.partyCount} <small style="font-size:12px;">명/사</small>`;
-      if (document.getElementById("opsKpiLinkCount")) document.getElementById("opsKpiLinkCount").innerHTML = `${data.kpi.linkCount}`;
-      if (document.getElementById("opsKpiImageCount")) document.getElementById("opsKpiImageCount").innerHTML = `${data.kpi.imageCount}`;
-      if (document.getElementById("opsKpiPackCount")) document.getElementById("opsKpiPackCount").innerHTML = `${data.kpi.packCount}`;
-      if (document.getElementById("opsKpiIntegrity")) document.getElementById("opsKpiIntegrity").innerHTML = data.kpi.integrity;
-      if (document.getElementById("opsKpiAccountRate")) document.getElementById("opsKpiAccountRate").innerHTML = data.kpi.accountRate;
-
-      const treeContainer = document.getElementById("opsRightsTreeContainer");
-      if (treeContainer) {
-        treeContainer.innerHTML = data.treeHtml;
-      }
-
-      renderOpsRightsTable(data.parties);
     }
 
-    function renderOpsRightsTable(partyList) {
-      const tbody = document.querySelector("#opsRightsStructureTable tbody");
-      if (!tbody) return;
+    /* =========================================================================
+       [9. 사용자 관리 (user_account & portal_role & SoD)]
+       ========================================================================= */
+    let userSeq = 7;
+    const userStore = [
+      { id: "usr_ops_01", email: "ops1@dobedopop.com", partyId: "", partyName: "— (내부운영)", role: "SPACE_OPS", auth: "LOCAL", twoFa: true, lastLogin: "2026-09-22 09:15", status: "ACTIVE" },
+      { id: "usr_settle_01", email: "settle@dobedopop.com", partyId: "", partyName: "— (내부정산)", role: "SPACE_SETTLE", auth: "LOCAL", twoFa: true, lastLogin: "2026-09-22 08:30", status: "ACTIVE" },
+      { id: "usr_star_adm", email: "admin@starent.com", partyId: "pty_star_corp", partyName: "스타엔터 (pty_star_corp)", role: "AGENCY_ADMIN", auth: "LOCAL", twoFa: true, lastLogin: "2026-09-21 17:40", status: "ACTIVE" },
+      { id: "usr_perf_01", email: "hong@supernova.com", partyId: "pty_nova_01", partyName: "홍길동 (pty_nova_01)", role: "PERFORMER", auth: "GOOGLE", twoFa: true, lastLogin: "2026-09-20 14:22", status: "ACTIVE" },
+      { id: "usr_perf_02", email: "kim@supernova.com", partyId: "pty_nova_02", partyName: "김철수 (pty_nova_02)", role: "PERFORMER", auth: "KAKAO", twoFa: true, lastLogin: "2026-09-18 11:05", status: "ACTIVE" },
+      { id: "usr_soundlab_adm", email: "sound@soundlab.io", partyId: "pty_soundlab", partyName: "사운드랩 (pty_soundlab)", role: "B2B_PARTNER", auth: "LOCAL", twoFa: false, lastLogin: "2026-09-15 16:50", status: "LOCKED" }
+    ];
 
+    const roleMaster = [
+      { code: "SPACE_OPS", name: "플랫폼 운영 배치 실행자", cat: "내부 운영", scope: "플랫폼 전역 (PLATFORM_OPS)", desc: "소스 QC 예외 처리, 정산 배치(일/월) 실행, 기술 장애 복구", sod: "SPACE_SETTLE (상호 배타)" },
+      { code: "SPACE_SETTLE", name: "플랫폼 정산 확정자", cat: "내부 운영", scope: "플랫폼 전역 (PLATFORM_OPS)", desc: "정산 배치 최종 검토 및 CONFIRMED 승인, 지급 지시 파일 생성", sod: "SPACE_OPS (상호 배타)" },
+      { code: "SPACE_EDITOR", name: "플랫폼 정책 편집자", cat: "내부 운영", scope: "플랫폼 전역 (PLATFORM_OPS)", desc: "계승 규칙 및 글로벌 기본 정책 템플릿 초안 작성", sod: "SPACE_LEGAL / AGENCY_ADMIN (상호 배타)" },
+      { code: "SPACE_LEGAL", name: "플랫폼 법무/컴플라이언스", cat: "내부 거버넌스", scope: "플랫폼 전역 (PLATFORM_OPS)", desc: "약관/법규 정책 검토 큐 판정, 킬스위치 실행 승인, 계약 검증", sod: "SPACE_EDITOR (상호 배타)" },
+      { code: "SPACE_AUDITOR", name: "플랫폼 통합 감사관", cat: "내부 거버넌스", scope: "플랫폼 전역 (READ-ONLY)", desc: "5년 법정 보존 감사로그, 열람 감사, 부정 이용 판정 검증", sod: "전 권한 READ-ONLY" },
+      { code: "AGENCY_ADMIN", name: "기획사 총괄 관리자", cat: "권리자 콘솔", scope: "소속 테넌트 (tnt_)", desc: "소속 Party/아티스트 관리, 팩 기획/활성화 확정, 72h 발행 승인", sod: "SPACE_EDITOR (상호 배타)" },
+      { code: "MASTER_OWNER", name: "마스터 음반제작자", cat: "권리자 콘솔", scope: "소속 테넌트 (tnt_)", desc: "곡 구조(슬롯) 정의, 스템 업로드/크레딧, 원본 권리 이미지(L0) 작성", sod: "—" },
+      { code: "WORK_RIGHTS", name: "저작권자 / CMO 대리인", cat: "권리자 콘솔", scope: "소속 ISWC / 테넌트", desc: "저작자 크레딧 확인, 저작권 정산 베이스라인 및 버킷 승인", sod: "—" },
+      { code: "PERFORMER", name: "실연자 (보컬/세션)", cat: "실연자 포털", scope: "본인 Party 한정 (pty_)", desc: "스템 이용허락 동의(C3/C4), 1원 실명계좌 인증, 정산 수익 조회", sod: "본인 데이터 한정" },
+      { code: "AI_PROVIDER", name: "AI 음성 원천제공사", cat: "파트너/권리자", scope: "소속 Party (pty_)", desc: "AI 음성 모델 스템 C6 동의 및 모델 라이선스 수익 조회", sod: "—" },
+      { code: "B2B_PARTNER", name: "B2B 연동 파트너사", cat: "파트너 콘솔", scope: "파트너 테넌트 (tnt_)", desc: "B2B API 키 발급, 화이트라벨 설정, 캠페인 트래픽 및 월별 B2B 정산", sod: "—" },
+      { code: "FAN", name: "팬 크리에이터", cat: "빌더 서비스", scope: "본인 팬 계정", desc: "보컬 조합 빌더 음원 생성, 다운로드/상업 라이선스 스탬프 발행 요청", sod: "—" }
+    ];
+
+    const permissionMaster = [
+      { code: "TENANT_MGMT", name: "테넌트 등록/수정/KYB", cat: "테넌트/거버넌스", ui: "2.1 테넌트 관리", api: "POST/PUT /api/v1/ops/tenants", defaultRole: "SPACE_OPS, SPACE_LEGAL" },
+      { code: "USER_MGMT", name: "사용자 계정 CRUD", cat: "사용자/권한", ui: "9.1 사용자 계정", api: "GET/POST/PUT /api/v1/ops/users", defaultRole: "SPACE_OPS, AGENCY_ADMIN" },
+      { code: "ROLE_ASSIGN", name: "역할 부여 및 SoD 검증", cat: "사용자/권한", ui: "9.2 역할 및 권한", api: "POST /api/v1/ops/roles/assign", defaultRole: "SPACE_OPS, SPACE_LEGAL" },
+      { code: "PARTY_MANAGE", name: "파티 마스터 등록/수정", cat: "소속 파티", ui: "2.1 파티 관리 / 등록", api: "POST/PUT /api/v1/rh/parties", defaultRole: "AGENCY_ADMIN, MASTER_OWNER" },
+      { code: "PARTYLINK_MANAGE", name: "소속/전속 링크 설정", cat: "소속 파티", ui: "2.2 파티 링크 관리", api: "POST/PUT /api/v1/rh/party-links", defaultRole: "AGENCY_ADMIN" },
+      { code: "SLOT_EDIT", name: "곡 구조(슬롯) 정의/수정", cat: "카탈로그/소스", ui: "3.2 곡 구조(슬롯)", api: "POST/PUT /api/v1/rh/slots", defaultRole: "MASTER_OWNER" },
+      { code: "STEM_UPLOAD", name: "스템 파일 업로드/크레딧", cat: "카탈로그/소스", ui: "3.3 슬롯×멤버 매트릭스", api: "POST /api/v1/rh/stems", defaultRole: "MASTER_OWNER" },
+      { code: "L0_IMAGE_EDIT", name: "원본 권리 이미지 작성/개정", cat: "권리 이미지", ui: "4.1 원본 권리 이미지", api: "POST/PUT /api/v1/rh/rights-images", defaultRole: "MASTER_OWNER, AGENCY_ADMIN" },
+      { code: "PACK_EDIT", name: "팩 차분 정책 편집", cat: "팩 관리", ui: "6.1 팩 관리 (10대 탭)", api: "PUT /api/v1/rh/packs/{id}/policy", defaultRole: "AGENCY_ADMIN" },
+      { code: "PACK_ACTIVATE", name: "팩 LIVE 활성화 확정 (SoD)", cat: "팩 관리", ui: "6.1 팩 상세 > 9.활성화", api: "POST /api/v1/rh/packs/{id}/activate", defaultRole: "AGENCY_ADMIN (SoD 분리)" },
+      { code: "ISSUE_APPROVE", name: "72h 발행 요청 승인", cat: "조합/승인", ui: "7.1 72h 발행 승인", api: "POST /api/v1/rh/issue-requests/{id}", defaultRole: "AGENCY_ADMIN" },
+      { code: "RIGHTS_REVIEW", name: "권리 침해/브랜드 신고 판정", cat: "조합/승인", ui: "7.2 권리 검토 큐", api: "POST /api/v1/rh/rights-reviews/{id}", defaultRole: "AGENCY_ADMIN, MASTER_OWNER" },
+      { code: "SETTLE_RUN", name: "정산 배치 실행", cat: "정산 콘솔", ui: "6.1 정산 배치 관리", api: "POST /api/v1/ops/settle/batches/run", defaultRole: "SPACE_OPS" },
+      { code: "SETTLE_CONFIRM", name: "정산 배치 확정 (SoD)", cat: "정산 콘솔", ui: "6.2 정산 배치 확정", api: "POST /api/v1/ops/settle/batches/confirm", defaultRole: "SPACE_SETTLE" },
+      { code: "KILL_SWITCH", name: "긴급 킬 스위치 실행", cat: "보호/분쟁", ui: "7.1 킬 스위치", api: "POST /api/v1/gov/killswitch", defaultRole: "SPACE_LEGAL, AGENCY_ADMIN" }
+    ];
+
+    function renderUserTable(list) {
+      const tbody = document.querySelector("#userAccountTable tbody");
+      if (!tbody) return;
       tbody.innerHTML = "";
-      if (!partyList || partyList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:var(--text-muted);">조회 조건에 일치하는 Party가 없습니다.</td></tr>`;
-        if (document.getElementById("opsTableCount")) document.getElementById("opsTableCount").innerText = "0";
+      const users = list || userStore;
+      users.forEach(u => {
+        let roleBadge = "badge-purple";
+        if (u.role.includes("OPS") || u.role.includes("SETTLE")) roleBadge = "badge-purple";
+        else if (u.role.includes("ADMIN") || u.role.includes("OWNER")) roleBadge = "badge-confirmed";
+        else if (u.role.includes("PERFORMER")) roleBadge = "badge-draft";
+        else if (u.role.includes("PARTNER")) roleBadge = "badge-review";
+
+        let statusBadge = u.status === "ACTIVE" 
+          ? '<span class="badge badge-live">ACTIVE</span>' 
+          : (u.status === "LOCKED" ? '<span class="badge badge-blocked">LOCKED</span>' : '<span class="badge badge-review">DISABLED</span>');
+
+        let twoFaBadge = u.twoFa 
+          ? '<span class="badge badge-passed"><i class="fa-solid fa-shield-check"></i> ENABLED</span>' 
+          : '<span class="text-muted">—</span>';
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><code>${u.id}</code></td>
+          <td><strong>${u.email}</strong></td>
+          <td>${u.partyName || "—"}</td>
+          <td><span class="badge ${roleBadge}">${u.role}</span></td>
+          <td><span class="badge badge-draft">${u.auth}</span></td>
+          <td>${twoFaBadge}</td>
+          <td>${u.lastLogin}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-secondary btn-sm" onclick="openUserEditModal('${u.id}')"><i class="fa-solid fa-pen"></i> 수정</button>
+              <button class="btn btn-secondary btn-sm" onclick="toggleUserStatus('${u.id}')">${u.status === "LOCKED" ? "잠금해제" : (u.status === "ACTIVE" ? "비활성" : "활성")}</button>
+              <button class="btn btn-secondary btn-sm" onclick="resetUserPassword('${u.id}')" title="비밀번호 초기화 메일"><i class="fa-solid fa-key"></i></button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (document.getElementById("userListCount")) {
+        document.getElementById("userListCount").textContent = users.length;
+      }
+    }
+
+    function filterUserTable() {
+      const q = document.getElementById("userSearchInput")?.value.toLowerCase().trim() || "";
+      const roleFilter = document.getElementById("userRoleFilter")?.value || "ALL";
+      const statusFilter = document.getElementById("userStatusFilter")?.value || "ALL";
+
+      const filtered = userStore.filter(u => {
+        const matchesQ = !q || u.id.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.partyName.toLowerCase().includes(q);
+        const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
+        const matchesStatus = statusFilter === "ALL" || u.status === statusFilter;
+        return matchesQ && matchesRole && matchesStatus;
+      });
+      renderUserTable(filtered);
+    }
+
+    function openUserCreateModal() {
+      const input = document.getElementById("newUserId");
+      if (input) input.value = `usr_${String(userSeq).padStart(3, "0")}`;
+      showModal("modal-user-create");
+    }
+
+    function createUserSubmit() {
+      const email = document.getElementById("newUserEmail")?.value.trim();
+      const partySelect = document.getElementById("newUserPartyId");
+      const partyId = partySelect?.value || "";
+      const partyName = partySelect?.options[partySelect.selectedIndex]?.text || "—";
+      const role = document.getElementById("newUserRole")?.value || "AGENCY_ADMIN";
+      const auth = document.getElementById("newUserAuthProvider")?.value || "LOCAL";
+      const twoFa = document.getElementById("newUser2fa")?.checked ?? true;
+
+      if (!email || !email.includes("@")) {
+        alert("유효한 이메일 주소를 입력해 주세요.");
+        document.getElementById("newUserEmail")?.focus();
         return;
       }
 
-      partyList.forEach(p => {
-        let typeBadgeClass = "badge-purple";
-        if (p.type === "AGENCY" || p.type === "LABEL" || p.type === "PARTNER") typeBadgeClass = "badge-confirmed";
-        else if (p.type === "MEMBER" || p.type === "SESSION") typeBadgeClass = "badge-draft";
+      const newId = `usr_${String(userSeq).padStart(3, "0")}`;
+      userStore.unshift({
+        id: newId,
+        email: email,
+        partyId: partyId,
+        partyName: partyName,
+        role: role,
+        auth: auth,
+        twoFa: twoFa,
+        lastLogin: "방금 등록됨",
+        status: "ACTIVE"
+      });
+      userSeq++;
+      closeModal("modal-user-create");
+      renderUserTable();
+      showToast(`🎉 신규 사용자 계정 [${newId}] ${email} 등록 완료!`);
+      if (document.getElementById("newUserEmail")) document.getElementById("newUserEmail").value = "";
+    }
 
-        let verifyBadge = p.accVerify.includes("OK") ? `<span class="badge badge-passed">${p.accVerify}</span>` : `<span class="badge badge-review">${p.accVerify}</span>`;
-        if (p.accVerify === "—") verifyBadge = `<span class="text-muted">—</span>`;
+    function openUserEditModal(userId) {
+      const u = userStore.find(x => x.id === userId);
+      if (!u) return;
+      document.getElementById("editUserId").value = u.id;
+      document.getElementById("editUserIdDisplay").value = u.id;
+      document.getElementById("editUserEmail").value = u.email;
+      document.getElementById("editUserRole").value = u.role;
+      document.getElementById("editUserStatus").value = u.status;
+      showModal("modal-user-edit");
+    }
+
+    function updateUserSubmit() {
+      const userId = document.getElementById("editUserId").value;
+      const email = document.getElementById("editUserEmail").value.trim();
+      const role = document.getElementById("editUserRole").value;
+      const status = document.getElementById("editUserStatus").value;
+
+      const u = userStore.find(x => x.id === userId);
+      if (u) {
+        u.email = email;
+        u.role = role;
+        u.status = status;
+        renderUserTable();
+        closeModal("modal-user-edit");
+        showToast(`사용자 [${userId}] 계정 정보가 갱신되었습니다.`);
+      }
+    }
+
+    function toggleUserStatus(userId) {
+      const u = userStore.find(x => x.id === userId);
+      if (!u) return;
+      if (u.status === "ACTIVE") u.status = "DISABLED";
+      else if (u.status === "LOCKED") u.status = "ACTIVE";
+      else u.status = "ACTIVE";
+      renderUserTable();
+      showToast(`사용자 [${userId}] 상태가 [${u.status}] (으)로 변경되었습니다.`);
+    }
+
+    function resetUserPassword(userId) {
+      showToast(`📧 [${userId}] 임시 비밀번호 재설정 링크가 이메일로 발송되었습니다.`);
+    }
+
+    function switchRolePermissionSubtab(tabKey, btnEl) {
+      document.querySelectorAll(".rp-subtab-panel").forEach(p => p.style.display = "none");
+      const target = document.getElementById(`rp-subtab-${tabKey}`);
+      if (target) target.style.display = "block";
+      if (btnEl) {
+        btnEl.parentElement.querySelectorAll(".subtab-btn").forEach(b => b.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+    }
+
+    function renderRoleCards() {
+      const container = document.getElementById("roleCardsGrid");
+      if (!container) return;
+      container.innerHTML = "";
+      roleMaster.forEach(r => {
+        let badgeClass = r.cat.includes("운영") ? "badge-purple" : (r.cat.includes("권리자") ? "badge-confirmed" : "badge-draft");
+        const card = document.createElement("div");
+        card.className = "card";
+        card.style.margin = "0";
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div>
+              <div style="font-weight:800; font-size:13px; color:var(--text-primary);"><i class="fa-solid fa-shield text-blue"></i> ${r.name}</div>
+              <code style="font-size:11px; color:var(--accent-blue);">${r.code}</code>
+            </div>
+            <span class="badge ${badgeClass}">${r.cat}</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-secondary); line-height:1.6; margin-bottom:10px;">${r.desc}</p>
+          <div style="font-size:10.5px; color:var(--text-muted); border-top:1px solid var(--border-color); padding-top:8px; display:flex; flex-direction:column; gap:3px;">
+            <div><strong>유효 스코프:</strong> ${r.scope}</div>
+            <div><strong>SoD 제약:</strong> <span style="color:var(--accent-amber);">${r.sod}</span></div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderPermissionMasterTable() {
+      const tbody = document.querySelector("#permissionMasterTable tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      permissionMaster.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><code>${p.code}</code></td>
+          <td><strong>${p.name}</strong></td>
+          <td><span class="badge badge-purple">${p.cat}</span></td>
+          <td>${p.ui}</td>
+          <td><code style="font-size:11px;">${p.api}</code></td>
+          <td><span class="badge badge-passed">${p.defaultRole}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderRolePermissionMatrix() {
+      const table = document.getElementById("rolePermissionMatrixTable");
+      if (!table) return;
+      const roles = ["SPACE_OPS", "SPACE_SETTLE", "SPACE_LEGAL", "AGENCY_ADMIN", "MASTER_OWNER", "PERFORMER"];
+      let theadHtml = `<thead><tr><th style="min-width:180px;">권한 코드 \ 역할</th>`;
+      roles.forEach(r => { theadHtml += `<th style="text-align:center;">${r}</th>`; });
+      theadHtml += `</tr></thead>`;
+
+      let tbodyHtml = `<tbody>`;
+      permissionMaster.forEach(p => {
+        tbodyHtml += `<tr><td><strong>${p.name}</strong><br><code style="font-size:10px;">${p.code}</code></td>`;
+        roles.forEach(r => {
+          const hasPerm = p.defaultRole.includes(r);
+          const icon = hasPerm 
+            ? `<i class="fa-solid fa-circle-check text-green" style="font-size:14px;"></i>` 
+            : `<i class="fa-solid fa-minus text-muted" style="font-size:12px;"></i>`;
+          tbodyHtml += `<td style="text-align:center;">${icon}</td>`;
+        });
+        tbodyHtml += `</tr>`;
+      });
+      tbodyHtml += `</tbody>`;
+      table.innerHTML = theadHtml + tbodyHtml;
+    }
+
+    function checkSodCompliance() {
+      showToast("🛡️ [SoD 컴플라이언스 감사] 직무 분리 상호 배타 규칙 2종 검증 완료: 위반 계정 0건 (100% PASS)");
+    }
+
+    /* =========================================================================
+       [Rights Holder Console: 2.1 파티 링크 & 2.2 파티 마스터 분리 스크립트]
+       ========================================================================= */
+    let partyLinkSeq = 22;
+    const partyLinkStore = [
+      { id: "plk_001", parentId: "pty_star_corp", parentName: "(주)스타엔터테인먼트", childId: "pty_nova_grp", childName: "슈퍼노바 (Super Nova)", type: "SIGNED_TO", role: "—", sort: 1, status: "ACTIVE", validFrom: "2019-07-01", validTo: "2029-06-30", payout: "— (그룹은 정산불가)" },
+      { id: "plk_011", parentId: "pty_nova_grp", parentName: "슈퍼노바 (Super Nova)", childId: "pty_nova_01", childName: "홍길동", type: "MEMBER_OF", role: "LEADER · MAIN_VOCAL", sort: 1, status: "ACTIVE", validFrom: "2019-07-01", validTo: "", payout: "SELF (국민은행 OK)" },
+      { id: "plk_012", parentId: "pty_nova_grp", parentName: "슈퍼노바 (Super Nova)", childId: "pty_nova_02", childName: "김철수", type: "MEMBER_OF", role: "MAIN_VOCAL", sort: 2, status: "ACTIVE", validFrom: "2019-07-01", validTo: "", payout: "VIA_PARENT (스타엔터 합산)" },
+      { id: "plk_013", parentId: "pty_nova_grp", parentName: "슈퍼노바 (Super Nova)", childId: "pty_nova_03", childName: "이영희", type: "MEMBER_OF", role: "SUB_VOCAL", sort: 3, status: "ACTIVE", validFrom: "2019-07-01", validTo: "", payout: "SELF (1원인증 대기)" },
+      { id: "plk_014", parentId: "pty_nova_grp", parentName: "슈퍼노바 (Super Nova)", childId: "pty_nova_04", childName: "박민수 (탈퇴)", type: "MEMBER_OF", role: "SUB_VOCAL", sort: 4, status: "LEFT", validFrom: "2019-07-01", validTo: "2026-03-31", payout: "SELF (하나은행)" },
+      { id: "plk_021", parentId: "pty_nova_grp", parentName: "슈퍼노바 (Super Nova)", childId: "pty_nova_04", childName: "박민수 (재합류)", type: "MEMBER_OF", role: "SUB_VOCAL", sort: 4, status: "HIATUS", validFrom: "2026-09-01", validTo: "", payout: "SELF (하나은행)" }
+    ];
+
+    let partyMasterSeq = 11;
+    const partyMasterStore = [
+      { id: "pty_star_corp", name: "(주)스타엔터테인먼트", legalName: "(주)스타엔터테인먼트", type: "AGENCY", tenantId: "tnt_002", isni: "—", ipi: "—", tax: "국내법인", payout: "법인 직접 (SELF)", accVerify: "API 인증 OK", portalUser: "usr_star_adm", status: "ACTIVE" },
+      { id: "pty_nova_grp", name: "슈퍼노바 (Super Nova)", legalName: "슈퍼노바 (활동 그룹)", type: "ARTIST", tenantId: "tnt_002", isni: "0000 0001 2345", ipi: "—", tax: "법인귀속", payout: "— (정산 불가)", accVerify: "—", portalUser: "—", status: "ACTIVE" },
+      { id: "pty_nova_01", name: "홍길동", legalName: "홍길동", type: "MEMBER", tenantId: "tnt_002", isni: "0000 0002 3456", ipi: "—", tax: "사업소득 3.3%", payout: "개인 직접 (SELF)", accVerify: "국민은행 (1원 OK)", portalUser: "usr_perf_01", status: "ACTIVE" },
+      { id: "pty_nova_02", name: "김철수", legalName: "김철수", type: "MEMBER", tenantId: "tnt_002", isni: "0000 0003 4567", ipi: "—", tax: "사업소득 3.3%", payout: "기획사 합산 (VIA_PARENT)", accVerify: "신한은행 (1원 OK)", portalUser: "usr_perf_02", status: "ACTIVE" },
+      { id: "pty_nova_03", name: "이영희", legalName: "이영희", type: "MEMBER", tenantId: "tnt_002", isni: "0000 0004 5678", ipi: "—", tax: "기타소득", payout: "개인 직접 (SELF)", accVerify: "1원인증 대기", portalUser: "초대 대기", status: "PENDING_VERIFICATION" },
+      { id: "pty_sess_01", name: "강기타", legalName: "강기타", type: "SESSION", tenantId: "tnt_002", isni: "—", ipi: "—", tax: "사업소득 3.3%", payout: "개인 직접 (SELF)", accVerify: "우리은행 (1원 OK)", portalUser: "초대 대기", status: "ACTIVE" },
+      { id: "pty_sess_02", name: "조코러스", legalName: "조코러스", type: "SESSION", tenantId: "tnt_002", isni: "—", ipi: "—", tax: "기타소득", payout: "개인 직접 (SELF)", accVerify: "농협은행 (1원 OK)", portalUser: "초대 대기", status: "ACTIVE" }
+    ];
+
+    function renderPartyLinksTable(list) {
+      const tbody = document.querySelector("#rhPartyLinksTable tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      const links = list || partyLinkStore;
+      links.forEach(l => {
+        let statusBadge = l.status === "ACTIVE" 
+          ? '<span class="badge badge-live">ACTIVE</span>' 
+          : (l.status === "HIATUS" ? '<span class="badge badge-review">HIATUS</span>' : '<span class="badge badge-blocked">LEFT</span>');
+
+        let typeBadge = l.type === "SIGNED_TO" ? "badge-confirmed" : "badge-draft";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><code>${l.id}</code></td>
+          <td><strong>${l.parentName}</strong> (<code>${l.parentId}</code>)</td>
+          <td>└ <strong>${l.childName}</strong> (<code>${l.childId}</code>)</td>
+          <td><span class="badge ${typeBadge}">${l.type}</span></td>
+          <td>${l.role} / ${l.sort}</td>
+          <td>${statusBadge}</td>
+          <td>${l.validFrom} ~ ${l.validTo || "유효"}</td>
+          <td>${l.payout}</td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-secondary btn-sm" onclick="showToast('링크 정보 수정')">수정</button>
+              <button class="btn btn-secondary btn-sm" onclick="showToast('전속 기간 종료 처리')">종료</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterPartyLinksTable() {
+      const q = document.getElementById("partyLinkSearchInput")?.value.toLowerCase().trim() || "";
+      const typeFilter = document.getElementById("partyLinkTypeFilter")?.value || "ALL";
+      const statusFilter = document.getElementById("partyLinkStatusFilter")?.value || "ALL";
+
+      const filtered = partyLinkStore.filter(l => {
+        const matchesQ = !q || l.id.toLowerCase().includes(q) || l.parentName.toLowerCase().includes(q) || l.childName.toLowerCase().includes(q);
+        const matchesType = typeFilter === "ALL" || l.type === typeFilter;
+        const matchesStatus = statusFilter === "ALL" || l.status === statusFilter;
+        return matchesQ && matchesType && matchesStatus;
+      });
+      renderPartyLinksTable(filtered);
+    }
+
+    function renderPartyMasterTable(list) {
+      const tbody = document.querySelector("#rhPartyMasterTable tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      const parties = list || partyMasterStore;
+      parties.forEach(p => {
+        let typeBadge = p.type === "AGENCY" ? "badge-confirmed" : (p.type === "ARTIST" ? "badge-purple" : "badge-draft");
+        let verifyBadge = p.accVerify.includes("OK") ? `<span class="badge badge-passed">${p.accVerify}</span>` : (p.accVerify === "—" ? `<span class="text-muted">—</span>` : `<span class="badge badge-review">${p.accVerify}</span>`);
+        let statusBadge = p.status === "ACTIVE" ? `<span class="badge badge-live">ACTIVE</span>` : `<span class="badge badge-review">대기</span>`;
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><code>${p.id}</code></td>
           <td><strong>${p.name}</strong></td>
-          <td><span class="badge ${typeBadgeClass}">${p.type}</span></td>
-          <td>${p.link}</td>
-          <td>${p.valid}</td>
-          <td>${p.isni}</td>
+          <td>${p.legalName}</td>
+          <td><span class="badge ${typeBadge}">${p.type}</span></td>
+          <td>${p.isni !== "—" ? p.isni : p.ipi}</td>
           <td>${p.tax}</td>
           <td>${p.payout}</td>
           <td>${verifyBadge}</td>
           <td><code>${p.portalUser}</code></td>
-          <td><span class="badge badge-passed">${p.l0Count}개 L0</span></td>
-          <td><button class="btn btn-secondary btn-sm" onclick="inspectPartyDetail('${p.id}')"><i class="fa-solid fa-magnifying-glass"></i> 검사</button></td>
+          <td>${statusBadge}</td>
+          <td>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-secondary btn-sm" onclick="showToast('Party 정보 수정')">수정</button>
+              <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')">링크</button>
+            </div>
+          </td>
         `;
         tbody.appendChild(tr);
       });
-
-      if (document.getElementById("opsTableCount")) {
-        document.getElementById("opsTableCount").innerText = partyList.length;
+      if (document.getElementById("rhPartyMasterCount")) {
+        document.getElementById("rhPartyMasterCount").innerHTML = `${parties.length} <small style="font-size:12px;">명/사</small>`;
       }
     }
 
-    function filterOpsPartyTable() {
-      const tenantId = document.getElementById("opsTenantSelector")?.value || "tnt_002";
-      const data = tenantRightsData[tenantId];
-      if (!data) return;
+    function filterPartyMasterTable() {
+      const q = document.getElementById("partyMasterSearchInput")?.value.toLowerCase().trim() || "";
+      const typeFilter = document.getElementById("partyTypeFilter")?.value || "ALL";
+      const payoutFilter = document.getElementById("partyPayoutFilter")?.value || "ALL";
 
-      const query = document.getElementById("opsPartySearchInput")?.value.toLowerCase().trim() || "";
-      const typeFilter = document.getElementById("opsPartyTypeFilter")?.value || "ALL";
-
-      const filtered = data.parties.filter(p => {
-        const matchesQuery = !query || p.id.toLowerCase().includes(query) || p.name.toLowerCase().includes(query) || p.legalName.toLowerCase().includes(query) || p.isni.toLowerCase().includes(query);
+      const filtered = partyMasterStore.filter(p => {
+        const matchesQ = !q || p.id.toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || p.legalName.toLowerCase().includes(q);
         const matchesType = typeFilter === "ALL" || p.type === typeFilter;
-        return matchesQuery && matchesType;
+        const matchesPayout = payoutFilter === "ALL" || p.payout.includes(payoutFilter);
+        return matchesQ && matchesType && matchesPayout;
       });
-
-      renderOpsRightsTable(filtered);
-    }
-
-    function inspectPartyDetail(partyId) {
-      showToast(`🔍 Party [${partyId}] 권리 원장 무결성 검사: L0 바인딩 및 정산 라인 정합성 정상 (OK)`);
-    }
-
-    function runRightsAuditCheck() {
-      showToast(`🛡️ [권리구조 감사] 전체 테넌트 무결성 검증 완료: 순환참조 0건, 전속 충돌 0건, 정합성 100% PASS`);
+      renderPartyMasterTable(filtered);
     }
 
     /* Tenant Creation & Management Functions (Data Model v2.6) */
@@ -5989,14 +6184,11 @@
       showModal("modal-tenant-detail");
     }
 
-    /* Party Creation & Hierarchy Management Functions (Data Model v2.6) */
-    let partySeq = 10;
-    const partyStore = {};
-
+    /* Party Creation Modal Handlers */
     function updatePartyIdPreview() {
       const preview = document.getElementById("newPartyIdPreview");
       if (preview) {
-        preview.textContent = `pty_${String(partySeq).padStart(3, "0")}`;
+        preview.textContent = `pty_${String(partyMasterSeq).padStart(3, "0")}`;
       }
     }
 
@@ -6009,7 +6201,6 @@
     }
 
     function createPartySubmit() {
-      const tenantId = document.getElementById("newPartyTenantId")?.value || "tnt_002";
       const partyType = document.getElementById("newPartyType")?.value || "MEMBER";
       const displayName = document.getElementById("newPartyDisplayName")?.value.trim();
       const legalName = document.getElementById("newPartyLegalName")?.value.trim() || displayName;
@@ -6025,92 +6216,24 @@
         return;
       }
 
-      const partyId = `pty_${String(partySeq).padStart(3, "0")}`;
-      partyStore[partyId] = {
-        partyId, displayName, legalName, tenantId, partyType, isni, ipi, taxType, payoutRoute, viaParty, status: "ACTIVE"
-      };
-
-      const newPartyObj = {
+      const partyId = `pty_${String(partyMasterSeq).padStart(3, "0")}`;
+      partyMasterStore.push({
         id: partyId,
         name: displayName,
         legalName: legalName,
         type: partyType,
-        link: "MEMBER_OF (직속 등록)",
-        valid: "2026-09 ~",
+        tenantId: "tnt_002",
         isni: isni,
+        ipi: ipi,
         tax: taxType === "INDIVIDUAL_BIZ" ? "사업소득 3.3%" : "기타소득",
         payout: payoutRoute === "VIA_PARENT" ? `기획사 합산 (${viaParty})` : "개인 직접 (SELF)",
-        accVerify: "계좌 미인증",
-        portalUser: `usr_${partyId}`,
-        l0Count: 1,
-        status: "ACTIVE"
-      };
+        accVerify: "1원인증 대기",
+        portalUser: "초대 대기",
+        status: "PENDING_VERIFICATION"
+      });
 
-      if (tenantRightsData[tenantId]) {
-        tenantRightsData[tenantId].parties.push(newPartyObj);
-        tenantRightsData[tenantId].kpi.partyCount = tenantRightsData[tenantId].parties.length;
-        if (tenantId === (document.getElementById("opsTenantSelector")?.value || "tnt_002")) {
-          changeOpsTenantView(tenantId);
-        }
-      }
-
-      // Update Rightsholder Console 2.2 Table
-      const rhManageTable = document.querySelector("#rhPartyManageTable tbody");
-      if (rhManageTable) {
-        const tr = document.createElement("tr");
-        tr.style.background = "rgba(59, 130, 246, 0.15)";
-        tr.style.transition = "background 1.5s ease";
-        tr.innerHTML = `
-          <td><code>${partyId}</code></td>
-          <td>└ <strong>${displayName}</strong> <span class="badge-count" style="font-size:9px; background:var(--accent-blue);">NEW</span></td>
-          <td>${legalName}</td>
-          <td><span class="badge badge-draft">${partyType}</span></td>
-          <td>소속 등록 완료</td>
-          <td>2026-09 ~</td>
-          <td>${isni}</td>
-          <td>${taxType}</td>
-          <td>${payoutRoute}</td>
-          <td><span class="badge badge-review">1원인증 대기</span></td>
-          <td><span class="badge badge-live">ACTIVE</span></td>
-          <td>
-            <div style="display:flex; gap:4px;">
-              <button class="btn btn-secondary btn-sm" onclick="showModal('modal-partylink-create')">링크</button>
-              <button class="btn btn-secondary btn-sm" onclick="showToast('Party 정보 수정')">수정</button>
-            </div>
-          </td>
-        `;
-        rhManageTable.appendChild(tr);
-        setTimeout(() => { tr.style.background = "transparent"; }, 2000);
-      }
-
-      // Update Rightsholder Console 2.1 Artist Table
-      const rhArtistTable = document.querySelector("#page-rh-party-artists tbody");
-      if (rhArtistTable) {
-        const tr = document.createElement("tr");
-        tr.style.background = "rgba(59, 130, 246, 0.15)";
-        tr.style.transition = "background 1.5s ease";
-        tr.innerHTML = `
-          <td><code>${partyId}</code></td>
-          <td>└ <strong>${displayName}</strong> <span class="badge-count" style="font-size:9px; background:var(--accent-blue);">NEW</span></td>
-          <td>${partyType}</td>
-          <td>소속 등록 완료</td>
-          <td>MEMBER / ${partySeq}</td>
-          <td><span class="badge badge-live">ACTIVE</span></td>
-          <td>2026-09 ~</td>
-          <td>${isni}</td>
-          <td>${payoutRoute} · <span class="badge badge-review">1원인증 대기</span></td>
-          <td><span class="badge badge-passed">개인 라인</span></td>
-        `;
-        rhArtistTable.appendChild(tr);
-        setTimeout(() => { tr.style.background = "transparent"; }, 2000);
-      }
-
-      const rhCountBadge = document.getElementById("rhPartyCount");
-      if (rhCountBadge) {
-        rhCountBadge.innerHTML = `${tenantRightsData.tnt_002.parties.length} <small style="font-size:12px;">명/사</small>`;
-      }
-
-      partySeq++;
+      partyMasterSeq++;
+      renderPartyMasterTable();
       closeModal("modal-party-create");
       showToast(`🎉 신규 Party [${partyId}] ${displayName} 등록 완료!`);
 
@@ -6122,45 +6245,42 @@
     }
 
     function createPartyLinkSubmit() {
-      const parentId = document.getElementById("newLinkParentId")?.value;
-      const childId = document.getElementById("newLinkChildId")?.value;
-      const linkType = document.getElementById("newLinkType")?.value;
-      const role = document.getElementById("newLinkRole")?.value;
+      const parentId = document.getElementById("newLinkParentId")?.value || "pty_nova_grp";
+      const childId = document.getElementById("newLinkChildId")?.value || "pty_nova_01";
+      const linkType = document.getElementById("newLinkType")?.value || "MEMBER_OF";
+      const role = document.getElementById("newLinkRole")?.value || "MEMBER";
       const sortOrder = document.getElementById("newLinkSortOrder")?.value || 1;
       const status = document.getElementById("newLinkStatus")?.value || "ACTIVE";
       const validFrom = document.getElementById("newLinkValidFrom")?.value || "2026-09-01";
       const validTo = document.getElementById("newLinkValidTo")?.value || "";
 
-      const rhArtistTable = document.querySelector("#page-rh-party-artists tbody");
-      if (rhArtistTable) {
-        const tr = document.createElement("tr");
-        tr.style.background = "rgba(59, 130, 246, 0.15)";
-        tr.style.transition = "background 1.5s ease";
-        tr.innerHTML = `
-          <td><code>${childId}</code></td>
-          <td>└ <strong>소속 아티스트 (링크 갱신)</strong></td>
-          <td>MEMBER</td>
-          <td>${linkType} (${parentId})</td>
-          <td>${role} / ${sortOrder}</td>
-          <td><span class="badge badge-live">${status}</span></td>
-          <td>${validFrom} ~ ${validTo || "유효"}</td>
-          <td>—</td>
-          <td>SELF</td>
-          <td><span class="badge badge-passed">개인 라인</span></td>
-        `;
-        rhArtistTable.prepend(tr);
-        setTimeout(() => { tr.style.background = "transparent"; }, 2000);
-      }
+      const parentObj = partyMasterStore.find(p => p.id === parentId);
+      const childObj = partyMasterStore.find(p => p.id === childId);
 
+      const linkId = `plk_${String(partyLinkSeq).padStart(3, "0")}`;
+      partyLinkStore.unshift({
+        id: linkId,
+        parentId: parentId,
+        parentName: parentObj?.name || parentId,
+        childId: childId,
+        childName: childObj?.name || childId,
+        type: linkType,
+        role: role,
+        sort: sortOrder,
+        status: status,
+        validFrom: validFrom,
+        validTo: validTo,
+        payout: childObj?.payout || "SELF"
+      });
+      partyLinkSeq++;
+      renderPartyLinksTable();
       closeModal("modal-partylink-create");
       showToast(`🔗 전속/소속 링크 [${parentId} ➔ ${childId}] 설정 완료!`);
     }
 
     /* Work & Recording Creation (Data Model v2.6) */
     let workSeq = 2;
-    function updateWorkIdPreview() {
-      // Work preview helper if needed
-    }
+    function updateWorkIdPreview() {}
 
     function createWorkSubmit() {
       const title = document.getElementById("newWorkTitle")?.value.trim();
@@ -6210,9 +6330,14 @@
 
     window.addEventListener("DOMContentLoaded", () => {
       renderAccordionSidebar();
-      changeOpsTenantView("tnt_002");
+      renderUserTable();
+      renderRoleCards();
+      renderPermissionMasterTable();
+      renderRolePermissionMatrix();
+      renderPartyLinksTable();
+      renderPartyMasterTable();
     });
-  
+
     // 4.0 권리 구조 통합 인스펙터 (READ-ONLY)
     function inspShow(panel) {
       ['a','b','c','d'].forEach(function(k){
@@ -6231,6 +6356,6 @@
       navigateTo('page-ops-rights-inspector');
       inspShow(panel);
     }
-</script>
+  </script>
 </body>
 </html>

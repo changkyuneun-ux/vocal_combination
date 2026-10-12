@@ -30,10 +30,10 @@ export const ENUMS = {
   rounding_method: ["HIERARCHICAL_LRM_V1"],
   visibility: ["PUBLIC", "PARTIES", "PRIVATE"],
   vc_status: ["DRAFT", "VALIDATED", "RESERVED", "SUBMITTED", "ISSUED", "FLAGGED", "HIDDEN", "VOID"],
-  holding_reason: ["RIGHTS_DISPUTE", "FRAUD_REVIEW"],
+  holding_reason: ["RIGHTS_DISPUTE", "LICENSE_UNVERIFIED", "FRAUD_REVIEW"],
   reversal_reason: ["REFUND", "CORRECTION", "FRAUD"],
   integrity_status: ["CLEAR", "FLAGGED"],
-  vector_fn: ["graph", "contract", "member_pct", "performance_pool", "mix", "cap", "floor_guarantee"],
+  vector_fn: ["graph", "contract", "member_pct", "performance_pool", "mix", "cap", "floor_guarantee", "model_share"],
 } as const;
 
 export type EnumName = keyof typeof ENUMS;
@@ -42,3 +42,4 @@ export type EnumValue<N extends EnumName> = (typeof ENUMS)[N][number];
 export function isEnumValue<N extends EnumName>(name: N, v: unknown): v is EnumValue<N> {
   return typeof v === "string" && (ENUMS[name] as readonly string[]).includes(v);
 }
+

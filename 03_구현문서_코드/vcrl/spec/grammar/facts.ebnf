@@ -1,0 +1,27 @@
+(* MDRL facts 텍스트 문법 v1.0 — Facts Document Surface Grammar *)
+program        = "facts" string "version" int "{" { facts_stmt } "}" EOF ;
+facts_stmt     = party_stmt
+               | work_stmt
+               | recording_stmt
+               | voice_stmt
+               | stem_stmt
+               | claim_stmt
+               | mandate_stmt ;
+
+party_stmt     = "party" id "{" "kind" ":" ident ";" [ ids_block ] [ visibility_stmt ] "}" ;
+work_stmt      = "work" id "{" [ ids_block ] "}" ;
+recording_stmt = "recording" id "{" "of" ":" id ";" [ ids_block ] "}" ;
+voice_stmt     = "voice" id "{" "kind" ":" ident ";" "}" ;
+stem_stmt      = "stem" id "{" "of" ":" id ";" "slot" ":" id ";" "rights_bearing" ":" boolean ";" "}" ;
+
+claim_stmt     = "claim" id ":" id ident id "share" ratio [ "role" ident ] [ "detail" string ] "status" ident "valid" interval "recorded" string [ "superseded" string ] [ "evidence" string ] [ "visibility" ident ] ";" ;
+
+mandate_stmt   = "mandate" id ":" id "->" id "right" ident "share" ratio "status" ident "valid" interval "recorded" string [ "superseded" string ] [ "visibility" ident ] ";" ;
+
+ids_block      = "ids" ":" "{" [ ident ":" string { "," ident ":" string } ] "}" ";" ;
+interval       = "[" string "," [ string ] ")" ;
+visibility_stmt = "visibility" ":" ident ";" ;
+boolean        = "true" | "false" ;
+ratio          = number-with-% | number-with-bps ;
+id             = ident | string ;
+int            = digit { digit } ;

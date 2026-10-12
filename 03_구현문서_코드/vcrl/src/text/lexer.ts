@@ -7,7 +7,9 @@ const PUNCT2 = ["|>", "->", "=="];
 const PUNCT1 = "{}()[];:,=@";
 const IDENT_RE = /[A-Za-z_][A-Za-z0-9_]*(?:[.-][A-Za-z0-9_]+)*/y;
 const NUMBER_RE = /\d+(?:\.\d+)?(?:%|bps)?/y;
+const INSTANT_RE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z/y;
 const IDENT_CHAR = /[A-Za-z0-9_]/;
+
 
 /** 진단 경로 표기: `@줄:열`(1부터). */
 export function at(pos: { line: number; col: number }): string {
@@ -75,6 +77,13 @@ export function tokenize(src: string): Token[] {
       continue;
     }
     if (c >= "0" && c <= "9") {
+      INSTANT_RE.lastIndex = i;
+      const inst = INSTANT_RE.exec(src);
+      if (inst) {
+        out.push({ kind: "ident", text: inst[0], ...pos });
+        advance(inst[0].length);
+        continue;
+      }
       NUMBER_RE.lastIndex = i;
       const m = NUMBER_RE.exec(src)!;
       const after = src[i + m[0].length];
@@ -83,6 +92,7 @@ export function tokenize(src: string): Token[] {
       advance(m[0].length);
       continue;
     }
+
     IDENT_RE.lastIndex = i;
     const id = IDENT_RE.exec(src);
     if (id) {

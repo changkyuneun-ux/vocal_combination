@@ -37,10 +37,19 @@ export const ERROR_CODES = {
   SHADOW_EVENTS_MISMATCH: "섀도 비교 쌍의 두 평가가 서로 다른 이벤트를 쓴다",
   SHADOW_DUPLICATE_EVENT: "같은 이벤트가 섀도 비교의 여러 쌍에 나온다",
   SHADOW_CURRENCY_MISMATCH: "섀도 비교 쌍들의 통화가 서로 다르다",
+  GRANT_SCOPE_WIDENING: "하위 문서 또는 파생 조항의 허락 범위가 상위 허락 범위를 초과했다",
+
+  GRANT_REQUIREMENT_UNMET: "필수 이용허락 요구사항을 충족하지 못했다",
+  GRANT_REVOKED: "이용허락이 철회되었거나 효력이 상실되었다",
+  GRANT_OBLIGATION_VIOLATED: "이용허락에 수반된 필수 의무를 충족하지 못했다",
+  GRANT_CONFLICT: "동일 권리 범위에 모순되거나 상충하는 허락이 존재한다",
+  GRANT_NO_EVIDENCE: "이용허락을 뒷받침하는 검증된 증빙이 없다",
+  GRANT_UNSUPPORTED: "지원하지 않는 이용허락 판정 규칙 또는 조건이다",
   PARSE_SYNTAX: "텍스트 문법 오류",
   PARSE_ROLE_REQUIRED: "버킷 역할을 추론할 수 없어 `as <ROLE>` 표기가 필요하다",
   PARSE_UNSUPPORTED: "엔진의 고정 의미와 다른 guard·exceptions 문장은 지원하지 않는다",
 } as const;
+
 
 export type ErrorCode = keyof typeof ERROR_CODES;
 export type Diagnostic = { code: ErrorCode; path: string; message: string };
