@@ -1,14 +1,14 @@
-# VCRL 1-C: 텍스트 문법 · 파서 · 포매터 · CLI Implementation Plan
+# MDRL 1-C: 텍스트 문법 · 파서 · 포매터 · CLI Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 사람이 작성하는 안분 정책 텍스트(VCRL allocation 문법)를 IR로 컴파일하는 렉서·파서, IR을 정규 텍스트로 되돌리는 포매터(allocation 왕복, facts는 읽기 전용 표시), `vcrl` CLI(`compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`)를 만들고, 투영 재검증·공개본 검증 보강·오류 코드 목록 테스트로 엔진을 마무리한다.
+**Goal:** 사람이 작성하는 안분 정책 텍스트(MDRL allocation 문법)를 IR로 컴파일하는 렉서·파서, IR을 정규 텍스트로 되돌리는 포매터(allocation 왕복, facts는 읽기 전용 표시), `mdrl` CLI(`compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`)를 만들고, 투영 재검증·공개본 검증 보강·오류 코드 목록 테스트로 엔진을 마무리한다.
 
-**Architecture:** `src/text/`에 렉서(`lexer.ts`), 역할 추론(`roles.ts`), 파서(`parse-allocation.ts`), 포매터(`format-allocation.ts`, `format-facts.ts`)를 두고 `vcrl/text`로 노출한다. 파서는 문법 오류를 `PARSE_*` 진단(경로 `@줄:열`)으로 돌려주고, 파싱 결과는 항상 `validateAllocation`을 거친다. CLI는 입출력을 주입받는 순수 함수 `run(argv, io)`(`src/cli/main.ts`)와 얇은 실행 파일(`bin/vcrl.ts`)로 나눈다.
+**Architecture:** `src/text/`에 렉서(`lexer.ts`), 역할 추론(`roles.ts`), 파서(`parse-allocation.ts`), 포매터(`format-allocation.ts`, `format-facts.ts`)를 두고 `mdrl/text`로 노출한다. 파서는 문법 오류를 `PARSE_*` 진단(경로 `@줄:열`)으로 돌려주고, 파싱 결과는 항상 `validateAllocation`을 거친다. CLI는 입출력을 주입받는 순수 함수 `run(argv, io)`(`src/cli/main.ts`)와 얇은 실행 파일(`bin/mdrl.ts`)로 나눈다.
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript), TypeScript 5.9 (`erasableSyntaxOnly`, 타입검사 전용), `node:test`, `node:util.parseArgs`. 런타임 의존성 없음.
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 5.2(문법 예시), 10.2(CLI), 12장(1~36). 사용자 결정(2026-09-28): allocation만 텍스트 입력, facts는 텍스트 출력만. 버킷 역할은 자동 추론하고 필요할 때만 `as ROLE`. legacy-v1 변환기는 연기.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` 5.2(문법 예시), 10.2(CLI), 12장(1~36). 사용자 결정(2026-09-28): allocation만 텍스트 입력, facts는 텍스트 출력만. 버킷 역할은 자동 추론하고 필요할 때만 `as ROLE`. legacy-v1 변환기는 연기.
 
 ## Global Constraints
 
@@ -40,9 +40,9 @@
   src/facts/result.ts     (Modify: verifyProjection)
   src/facts/validate.ts   (Modify: 공개본 검증 보강)
   src/cli/main.ts         run(argv, io)
-  bin/vcrl.ts
-  samples/VC-ALLOC-DEFAULT-V1.vcrl, samples/VC-ALLOC-HYBRID-V2.vcrl
-  conformance/text/001-basic.vcrl
+  bin/mdrl.ts
+  samples/VC-ALLOC-DEFAULT-V1.mdrl, samples/VC-ALLOC-HYBRID-V2.mdrl
+  conformance/text/001-basic.mdrl
   test/text/*.test.ts, test/cli.test.ts, test/error-catalog.test.ts, test/facts/*.test.ts (Modify)
 ```
 
@@ -57,7 +57,7 @@
 
 **Interfaces:**
 - Consumes: `fail` (errors.ts)
-- Produces: 오류 코드 `PARSE_SYNTAX`, `PARSE_ROLE_REQUIRED`, `PARSE_UNSUPPORTED`; `type TokenKind = "ident" | "string" | "number" | "punct" | "eof"`, `type Token = { kind: TokenKind; text: string; line: number; col: number }`, `at(pos: { line: number; col: number }): string` (→ `"@줄:열"`), `tokenize(src: string): Token[]` (실패 시 `VcrlError`)
+- Produces: 오류 코드 `PARSE_SYNTAX`, `PARSE_ROLE_REQUIRED`, `PARSE_UNSUPPORTED`; `type TokenKind = "ident" | "string" | "number" | "punct" | "eof"`, `type Token = { kind: TokenKind; text: string; line: number; col: number }`, `at(pos: { line: number; col: number }): string` (→ `"@줄:열"`), `tokenize(src: string): Token[]` (실패 시 `MdrlError`)
 
 **어휘 규칙:** 공백·줄바꿈 무시, `//`부터 줄 끝까지 주석. 문자열은 `"…"` 한 줄, 이스케이프는 `\"`와 `\\`만. 숫자는 `\d+(\.\d+)?` 뒤에 선택적 `%` 또는 `bps`, 바로 뒤에 식별자 문자가 오면 오류. 식별자는 `[A-Za-z_][A-Za-z0-9_]*`에 `.`·`-` 뒤 영숫자가 이어지는 형태(`-`로 끝날 수 없음). 구두점은 `|>`, `->`, `==`, `{ } ( ) [ ] ; : , = @`. 숫자로 시작하는 id(예: `10`)는 따옴표로 쓴다.
 
@@ -68,12 +68,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { at, tokenize } from "../../src/text/lexer.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 const kinds = (src: string) => tokenize(src).map((t) => [t.kind, t.text]);
 const failsAt = (src: string, code: string, path: string) =>
   assert.throws(() => tokenize(src), (e: unknown) =>
-    e instanceof VcrlError && e.diagnostics[0]?.code === code && e.diagnostics[0]?.path === path);
+    e instanceof MdrlError && e.diagnostics[0]?.code === code && e.diagnostics[0]?.path === path);
 
 test("tokens: idents, strings, numbers with units, punctuation, comments", () => {
   assert.deepEqual(kinds('master = graph(MASTER_OWNER) : 45%; // 주석\nops = 500bps;'), [
@@ -240,7 +240,7 @@ Expected: 전부 PASS(오류 코드 문서 동기화 포함).
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/src/text/lexer.ts 04_구현_소스코드/mdrl/test/text/lexer.test.ts && git commit -m "$(printf 'feat(vcrl): 텍스트 렉서와 파서 오류 코드\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/src/text/lexer.ts 04_구현_소스코드/mdrl/test/text/lexer.test.ts && git commit -m "$(printf 'feat(mdrl): 텍스트 렉서와 파서 오류 코드\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -248,7 +248,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 ### Task 2: allocation 파서 · 역할 추론 · 문법 정본
 
 **Files:**
-- Create: `src/text/roles.ts`, `src/text/parse-allocation.ts`, `spec/grammar/allocation.ebnf`, `conformance/text/001-basic.vcrl`
+- Create: `src/text/roles.ts`, `src/text/parse-allocation.ts`, `spec/grammar/allocation.ebnf`, `conformance/text/001-basic.mdrl`
 - Test: `test/text/parse.test.ts`
 
 **Interfaces:**
@@ -257,7 +257,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 **문법 (`spec/grammar/allocation.ebnf`에 그대로 기록):**
 ```ebnf
-(* VCRL allocation 텍스트 문법 v1.0 — IR은 스펙 12.21. 공백·줄바꿈 무시, // 주석. *)
+(* MDRL allocation 텍스트 문법 v1.0 — IR은 스펙 12.21. 공백·줄바꿈 무시, // 주석. *)
 program     = "allocation" string "version" int "{" { block } "}" EOF ;
 block       = uses | visibility | scope | bind | tier1 | tier2 | guard | exceptions | rounding ;
 (* scope·bind·tier1·tier2·rounding은 정확히 한 번, visibility·guard·exceptions는 최대 한 번, uses는 0회 이상. 블록 순서는 자유. *)
@@ -289,11 +289,11 @@ int         = 양의 정수(단위 없음) ;
 
 - [ ] **Step 1: 적합성 텍스트 작성**
 
-`conformance/text/001-basic.vcrl` (컴파일 결과가 `conformance/allocation/001-basic/input.json`의 `policy`와 같아야 한다):
+`conformance/text/001-basic.mdrl` (컴파일 결과가 `conformance/allocation/001-basic/input.json`의 `policy`와 같아야 한다):
 ```
 // conformance/allocation/001-basic의 정책을 텍스트로 쓴 것. 컴파일 결과는 그 IR과 같아야 한다.
 allocation "VC-ALLOC-NOVA-02" version 1 {
-  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  uses facts "nova-debut-01"@1 digest "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd";
   scope { pack: pak_nova_summer_02; events: [PRIMARY, RESALE]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {
@@ -326,7 +326,7 @@ import { inferRole } from "../../src/text/roles.ts";
 import type { VectorExpr } from "../../src/allocation/types.ts";
 import { loadAllocationCase } from "../helpers.ts";
 
-const basicText = () => readFileSync(new URL("../../conformance/text/001-basic.vcrl", import.meta.url), "utf8");
+const basicText = () => readFileSync(new URL("../../conformance/text/001-basic.mdrl", import.meta.url), "utf8");
 const errs = (src: string) => {
   const r = compileAllocation(src);
   return r.ok ? [] : r.errors.map((e) => [e.code, e.path]);
@@ -818,7 +818,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
   for (const b of REQUIRED_BLOCKS) if (!seen.has(b)) fail("PARSE_SYNTAX", at(close), `missing ${b} block`);
 
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "allocation",
     id: docId,
     version,
@@ -845,7 +845,7 @@ Expected: PASS. 위치를 단언하는 테스트(`@1:41`, `@1:24`)가 다르면,
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/roles.ts 04_구현_소스코드/mdrl/src/text/parse-allocation.ts 04_구현_소스코드/mdrl/spec/grammar/allocation.ebnf 04_구현_소스코드/mdrl/conformance/text/001-basic.vcrl 04_구현_소스코드/mdrl/test/text/parse.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 텍스트 파서, 역할 추론, 문법 정본\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/roles.ts 04_구현_소스코드/mdrl/src/text/parse-allocation.ts 04_구현_소스코드/mdrl/spec/grammar/allocation.ebnf 04_구현_소스코드/mdrl/conformance/text/001-basic.mdrl 04_구현_소스코드/mdrl/test/text/parse.test.ts && git commit -m "$(printf 'feat(mdrl): allocation 텍스트 파서, 역할 추론, 문법 정본\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -853,7 +853,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 ### Task 3: allocation 포매터(왕복) · 예제 정책
 
 **Files:**
-- Create: `src/text/format-allocation.ts`, `samples/VC-ALLOC-DEFAULT-V1.vcrl`, `samples/VC-ALLOC-HYBRID-V2.vcrl`
+- Create: `src/text/format-allocation.ts`, `samples/VC-ALLOC-DEFAULT-V1.mdrl`, `samples/VC-ALLOC-HYBRID-V2.mdrl`
 - Test: `test/text/format-allocation.test.ts`
 
 **Interfaces:**
@@ -864,12 +864,12 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 - [ ] **Step 1: 예제 정책 작성**
 
-`samples/VC-ALLOC-DEFAULT-V1.vcrl`:
+`samples/VC-ALLOC-DEFAULT-V1.mdrl`:
 ```
-// 설계문서의 VC-DSL v1 예제 1(VC-ALLOC-DEFAULT-V1)을 VCRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
+// 설계문서의 VC-DSL v1 예제 1(VC-ALLOC-DEFAULT-V1)을 MDRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
 // v1에는 Tier 1이 없어서 platform·ops·rights를 예시 값으로 채웠다.
 allocation "VC-ALLOC-DEFAULT-V1" version 1 {
-  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  uses facts "nova-debut-01"@1 digest "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd";
   scope { pack: pak_nova_debut_01; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {
@@ -889,12 +889,12 @@ allocation "VC-ALLOC-DEFAULT-V1" version 1 {
 }
 ```
 
-`samples/VC-ALLOC-HYBRID-V2.vcrl`:
+`samples/VC-ALLOC-HYBRID-V2.mdrl`:
 ```
-// 설계문서의 VC-DSL v1 예제 2(VC-ALLOC-HYBRID-V2)를 VCRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
+// 설계문서의 VC-DSL v1 예제 2(VC-ALLOC-HYBRID-V2)를 MDRL 텍스트로 다시 쓴 것. 모든 비율은 예시 값이다.
 // 독식 방지 상한 50%를 실연 풀에 적용하고, 기획사 계약 몫을 별도 버킷으로 둔다.
 allocation "VC-ALLOC-HYBRID-V2" version 2 {
-  uses facts "nova-debut-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  uses facts "nova-debut-01"@1 digest "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd";
   scope { pack: pak_nova_summer_02; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {
@@ -925,10 +925,10 @@ import { formatAllocation, formatPercent } from "../../src/text/format-allocatio
 import { compileAllocation, parseAllocation } from "../../src/text/parse-allocation.ts";
 import { evaluate } from "../../src/allocation/evaluate.ts";
 import type { AllocationDocument } from "../../src/allocation/types.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 import { evaluationInput, loadAllocationCase } from "../helpers.ts";
 
-const sample = (name: string) => readFileSync(new URL(`../../samples/${name}.vcrl`, import.meta.url), "utf8");
+const sample = (name: string) => readFileSync(new URL(`../../samples/${name}.mdrl`, import.meta.url), "utf8");
 function roundTrip(doc: AllocationDocument) {
   const text = formatAllocation(doc);
   const back = parseAllocation(text);
@@ -971,7 +971,7 @@ test("explicit roles, quoted ids, pipes and visibility round-trip", () => {
 test("non-facts dependencies cannot be written as text", () => {
   const doc = loadAllocationCase().policy;
   doc.depends_on = [{ ref: "vc:grant/g1@1", digest: doc.depends_on[0]!.digest }];
-  assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
+  assert.throws(() => formatAllocation(doc), (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR");
 });
 
 test("samples compile, round-trip and evaluate against the basic facts", () => {
@@ -1083,7 +1083,7 @@ Expected: PASS.
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-allocation.ts 04_구현_소스코드/mdrl/samples 04_구현_소스코드/mdrl/test/text/format-allocation.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 정규 텍스트 포매터와 예제 정책\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-allocation.ts 04_구현_소스코드/mdrl/samples 04_구현_소스코드/mdrl/test/text/format-allocation.test.ts && git commit -m "$(printf 'feat(mdrl): allocation 정규 텍스트 포매터와 예제 정책\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1134,7 +1134,7 @@ test("basic facts render in the spec 4.1 style", () => {
   assert.ok(lines.includes("  stem stm_v1 { of: rcd_01; slot: slt_v1; rights_bearing: true; }"));
   assert.ok(lines.includes(`  claim c1: stm_v1 PERFORMED_BY vo_a share 100% role FEATURED status VERIFIED valid [${T0}, ) recorded ${T0};`));
   assert.ok(lines.includes(`  claim c6: wrk_01 WRITTEN_BY pty_author_b share 60% detail "LYRICS" status VERIFIED valid [${T0}, ) recorded ${T0};`));
-  assert.ok(lines.some((l) => l.startsWith("  claim c5: rcd_01 CONTROLLED_BY pty_label_x share 100%") && l.includes(' evidence "vcrl:sha256:')));
+  assert.ok(lines.some((l) => l.startsWith("  claim c5: rcd_01 CONTROLLED_BY pty_label_x share 100%") && l.includes(' evidence "mdrl:sha256:')));
   assert.ok(lines.includes(`  mandate m1: pty_author_b -> pty_komca right WORK share 100% status VERIFIED valid [${T0}, ) recorded ${T0};`));
   assert.equal(lines.at(-2), "}");
   assert.equal(lines.at(-1), "");
@@ -1218,7 +1218,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-facts.ts 04_구현_소스코드/mdrl/test/text/format-facts.test.ts && git commit -m "$(printf 'feat(vcrl): facts 읽기 전용 텍스트 표시\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-facts.ts 04_구현_소스코드/mdrl/test/text/format-facts.test.ts && git commit -m "$(printf 'feat(mdrl): facts 읽기 전용 텍스트 표시\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1332,29 +1332,29 @@ Expected: 전부 PASS(기존 공개본 테스트 포함).
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "$(printf 'feat(vcrl): 투영 재검증과 공개본 검증 보강\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "$(printf 'feat(mdrl): 투영 재검증과 공개본 검증 보강\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
 
-### Task 6: `vcrl` CLI
+### Task 6: `mdrl` CLI
 
 **Files:**
-- Create: `src/cli/main.ts`, `bin/vcrl.ts`, `src/text/index.ts`
+- Create: `src/cli/main.ts`, `bin/mdrl.ts`, `src/text/index.ts`
 - Modify: `package.json`, `tsconfig.json`
 - Test: `test/cli.test.ts`
 
 **Interfaces:**
-- Consumes: `compileAllocation` (T2), `formatAllocation` (T3), `formatFacts` (T4), `verifyProjection` (T5), `projectToIr`, `evaluate`, `checkActivation`, `validateFacts`, `validateFactsStructure`, `validateAllocation`, `digestOf`, `VcrlError`, `fail`, `diag`, `isPlainObject`
+- Consumes: `compileAllocation` (T2), `formatAllocation` (T3), `formatFacts` (T4), `verifyProjection` (T5), `projectToIr`, `evaluate`, `checkActivation`, `validateFacts`, `validateFactsStructure`, `validateAllocation`, `digestOf`, `MdrlError`, `fail`, `diag`, `isPlainObject`
 - Produces: `type Io = { readText(path: string): string; out(s: string): void; err(s: string): void }`, `run(argv: readonly string[], io: Io): number`, `USAGE`
 
-**출력 규약:** 결과 JSON은 stdout(2칸 들여쓰기 + 줄바꿈), 진단은 stderr에 한 줄씩 `<CODE> <path> <message>`. 종료 코드: 0 성공, 1 진단 실패(검증·파싱·digest 불일치·파일 읽기), 2 사용법 오류. `--policy`는 `.vcrl`이면 컴파일하고, 아니면 IR JSON으로 읽는다.
+**출력 규약:** 결과 JSON은 stdout(2칸 들여쓰기 + 줄바꿈), 진단은 stderr에 한 줄씩 `<CODE> <path> <message>`. 종료 코드: 0 성공, 1 진단 실패(검증·파싱·digest 불일치·파일 읽기), 2 사용법 오류. `--policy`는 `.mdrl`이면 컴파일하고, 아니면 IR JSON으로 읽는다.
 
 | 명령 | 옵션 | 출력 |
 |---|---|---|
-| `compile <policy.vcrl>` | | IR JSON |
+| `compile <policy.mdrl>` | | IR JSON |
 | `fmt <doc.json>` | | facts는 읽기 전용 텍스트, allocation은 정규 텍스트 |
-| `check <doc.json\|policy.vcrl>` | | `OK <digest>` (facts는 `validateFacts`, allocation은 `validateAllocation`) |
+| `check <doc.json\|policy.mdrl>` | | `OK <digest>` (facts는 `validateFacts`, allocation은 `validateAllocation`) |
 | `project` | `--facts --usage --as-of --known-at` | 투영 IR JSON |
 | `evaluate` | `--policy --facts --usage --as-of --known-at --snapshot --events --run-id` | 결과 IR JSON(투영은 입력으로 계산) |
 | `verify` | `--result` + evaluate 옵션 | `OK <result_digest>` 또는 `CORE_DIGEST_MISMATCH` |
@@ -1380,14 +1380,14 @@ function fixture(): Map<string, string> {
   const alloc = loadAllocationCase();
   const j = (v: unknown) => JSON.stringify(v);
   return new Map([
-    ["policy.vcrl", read("conformance/text/001-basic.vcrl")],
+    ["policy.mdrl", read("conformance/text/001-basic.mdrl")],
     ["policy.json", j(alloc.policy)],
     ["facts.json", j(basic.facts)],
     ["usage.json", j(basic.usage)],
     ["snapshot.json", j(alloc.snapshot)],
     ["events.json", j(alloc.events)],
     ["declared.json", j(basic.declared_claimants)],
-    ["bad.vcrl", 'allocation "x" version 1 { scope { pack p; } }'],
+    ["bad.mdrl", 'allocation "x" version 1 { scope { pack p; } }'],
     ["broken.json", "{"],
   ]);
 }
@@ -1409,30 +1409,30 @@ function cli(argv: string[], files = fixture()) {
 }
 
 const TIMES = ["--as-of", "2026-06-01T00:00:00.000Z", "--known-at", "2026-06-01T00:00:00.000Z"];
-const EVAL = ["--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
+const EVAL = ["--policy", "policy.mdrl", "--facts", "facts.json", "--usage", "usage.json", ...TIMES,
   "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", "run_2026_06"];
 const expectedDigest = () => JSON.parse(read("conformance/allocation/001-basic/expected.json")).result_digest as string;
 
 test("compile turns text into the conformance IR", () => {
-  const r = cli(["compile", "policy.vcrl"]);
+  const r = cli(["compile", "policy.mdrl"]);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(JSON.parse(r.out), loadAllocationCase().policy);
 });
 
 test("compile reports syntax errors with positions", () => {
-  const r = cli(["compile", "bad.vcrl"]);
+  const r = cli(["compile", "bad.mdrl"]);
   assert.equal(r.code, 1);
   assert.match(r.err, /^PARSE_SYNTAX @1:41 /);
 });
 
 test("check, fmt and project", () => {
-  assert.match(cli(["check", "facts.json"]).out, /^OK vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4\n$/);
-  assert.equal(cli(["check", "policy.vcrl"]).code, 0);
+  assert.match(cli(["check", "facts.json"]).out, /^OK mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd\n$/);
+  assert.equal(cli(["check", "policy.mdrl"]).code, 0);
   assert.match(cli(["fmt", "facts.json"]).out, /^facts "nova-debut-01" version 1 \{\n/);
   const fmt = cli(["fmt", "policy.json"]);
   const files = fixture();
-  files.set("round.vcrl", fmt.out);
-  assert.deepEqual(JSON.parse(cli(["compile", "round.vcrl"], files).out), loadAllocationCase().policy);
+  files.set("round.mdrl", fmt.out);
+  assert.deepEqual(JSON.parse(cli(["compile", "round.mdrl"], files).out), loadAllocationCase().policy);
   const p = cli(["project", "--facts", "facts.json", "--usage", "usage.json", ...TIMES]);
   assert.equal(p.code, 0, p.err);
   assert.deepEqual(JSON.parse(p.out).vectors.MASTER_OWNER, { pty_label_x: "1/1" });
@@ -1470,20 +1470,20 @@ test("usage errors exit 2, input errors exit 1", () => {
   assert.equal(cli([]).code, 2);
   assert.equal(cli(["nope"]).code, 2);
   assert.equal(cli(["project", "--facts", "facts.json"]).code, 2);
-  assert.equal(cli(["compile", "a.vcrl", "--bogus"]).code, 2);
+  assert.equal(cli(["compile", "a.mdrl", "--bogus"]).code, 2);
   const missing = cli(["check", "missing.json"]);
   assert.equal(missing.code, 1);
   assert.match(missing.err, /^CORE_UNKNOWN_REF missing\.json /);
   assert.match(cli(["check", "broken.json"]).err, /^CORE_TYPE_ERROR broken\.json /);
   const help = cli(["help"]);
   assert.equal(help.code, 0);
-  assert.match(help.out, /사용법: vcrl/);
+  assert.match(help.out, /사용법: mdrl/);
 });
 
-test("bin/vcrl.ts runs as a Node executable", () => {
-  const bin = fileURLToPath(new URL("../bin/vcrl.ts", import.meta.url));
+test("bin/mdrl.ts runs as a Node executable", () => {
+  const bin = fileURLToPath(new URL("../bin/mdrl.ts", import.meta.url));
   const out = execFileSync(process.execPath, [bin, "help"], { encoding: "utf8" });
-  assert.match(out, /사용법: vcrl/);
+  assert.match(out, /사용법: mdrl/);
 });
 ```
 
@@ -1507,7 +1507,7 @@ export * from "./format-facts.ts";
 ```ts
 import { parseArgs } from "node:util";
 import { digestOf } from "../core/digest.ts";
-import { VcrlError, diag, fail, type Diagnostic } from "../core/errors.ts";
+import { MdrlError, diag, fail, type Diagnostic } from "../core/errors.ts";
 import { isPlainObject } from "../core/jcs.ts";
 import { evaluate } from "../allocation/evaluate.ts";
 import type { AllocationDocument, AllocationResult, RevenueEvent, Snapshot } from "../allocation/types.ts";
@@ -1524,10 +1524,10 @@ import { compileAllocation } from "../text/parse-allocation.ts";
 
 export type Io = { readText(path: string): string; out(s: string): void; err(s: string): void };
 
-export const USAGE = `사용법: vcrl <명령> [옵션]
-  compile <policy.vcrl>                        텍스트 정책을 IR(JSON)로 컴파일
+export const USAGE = `사용법: mdrl <명령> [옵션]
+  compile <policy.mdrl>                        텍스트 정책을 IR(JSON)로 컴파일
   fmt <doc.json>                               IR을 텍스트로 출력(facts는 읽기 전용 표시)
-  check <doc.json|policy.vcrl>                 구조·불변식 검증, 성공 시 digest 출력
+  check <doc.json|policy.mdrl>                 구조·불변식 검증, 성공 시 digest 출력
   project --facts F --usage U --as-of T --known-at T
   evaluate --policy P --facts F --usage U --as-of T --known-at T --snapshot S --events E --run-id R
   verify --result R (+ evaluate 옵션)          입력으로 다시 계산해 result_digest 대조
@@ -1572,7 +1572,7 @@ export function run(argv: readonly string[], io: Io): number {
       io.err(`${e.message}\n${USAGE}`);
       return 2;
     }
-    if (e instanceof VcrlError) {
+    if (e instanceof MdrlError) {
       report(io, e.diagnostics);
       return 1;
     }
@@ -1602,7 +1602,7 @@ function dispatch(cmd: string | undefined, o: Opts, pos: string[], io: Io): numb
     }
     case "check": {
       const path = onePositional(pos);
-      const doc = path.endsWith(".vcrl") ? loadPolicy(io, path) : readJson(io, path);
+      const doc = path.endsWith(".mdrl") ? loadPolicy(io, path) : readJson(io, path);
       if (isPlainObject(doc) && doc.module === "facts") throwIf(validateFacts(doc));
       else if (isPlainObject(doc) && doc.module === "allocation") throwIf(validateAllocation(doc));
       else fail("CORE_TYPE_ERROR", `${path}:$.module`, "expected a facts or allocation document");
@@ -1654,7 +1654,7 @@ function project(io: Io, o: Opts): ProjectionIr {
   const r = projectToIr(
     readJson(io, need(o, "facts")) as FactsDocument, readJson(io, need(o, "usage")) as Usage, need(o, "as-of"), need(o, "known-at"),
   );
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 
@@ -1669,14 +1669,14 @@ function evaluateFromFiles(io: Io, o: Opts): { result: AllocationResult; project
     events: readJson(io, need(o, "events")) as RevenueEvent[],
     runId: need(o, "run-id"),
   });
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return { result: r.value, projection };
 }
 
 function loadPolicy(io: Io, path: string): AllocationDocument {
-  if (!path.endsWith(".vcrl")) return readJson(io, path) as AllocationDocument;
+  if (!path.endsWith(".mdrl")) return readJson(io, path) as AllocationDocument;
   const r = compileAllocation(readText(io, path));
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 
@@ -1709,7 +1709,7 @@ function onePositional(pos: string[]): string {
 }
 
 function throwIf(errors: Diagnostic[]): void {
-  if (errors.length > 0) throw new VcrlError(errors);
+  if (errors.length > 0) throw new MdrlError(errors);
 }
 
 function printJson(io: Io, v: unknown): void {
@@ -1721,7 +1721,7 @@ function report(io: Io, diagnostics: readonly Diagnostic[]): void {
 }
 ```
 
-`bin/vcrl.ts`:
+`bin/mdrl.ts`:
 ```ts
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
@@ -1734,7 +1734,7 @@ process.exitCode = run(process.argv.slice(2), {
 });
 ```
 
-`package.json` — `exports`에 `"./text": "./src/text/index.ts"`를 `"./allocation"` 다음에 추가하고, 최상위에 `"bin": { "vcrl": "./bin/vcrl.ts" },`를 `"exports"` 앞에 추가한다.
+`package.json` — `exports`에 `"./text": "./src/text/index.ts"`를 `"./allocation"` 다음에 추가하고, 최상위에 `"bin": { "mdrl": "./bin/mdrl.ts" },`를 `"exports"` 앞에 추가한다.
 `tsconfig.json` — `"include"`를 `["src", "test", "scripts", "bin"]`으로 바꾼다.
 
 - [ ] **Step 4: 통과 확인**
@@ -1745,7 +1745,7 @@ Expected: PASS. `evaluate` 테스트의 digest는 `conformance/allocation/001-ba
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/cli/main.ts 04_구현_소스코드/mdrl/bin/vcrl.ts 04_구현_소스코드/mdrl/src/text/index.ts 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/test/cli.test.ts && git commit -m "$(printf 'feat(vcrl): vcrl CLI(compile·fmt·check·project·evaluate·verify·activate)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/cli/main.ts 04_구현_소스코드/mdrl/bin/mdrl.ts 04_구현_소스코드/mdrl/src/text/index.ts 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/test/cli.test.ts && git commit -m "$(printf 'feat(mdrl): mdrl CLI(compile·fmt·check·project·evaluate·verify·activate)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1754,7 +1754,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 **Files:**
 - Create: `test/error-catalog.test.ts`
-- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`
+- Modify: `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`
 
 **Interfaces:**
 - Consumes: `ERROR_CODES`
@@ -1809,7 +1809,7 @@ Expected: PASS. 실패하면 `missing`에 나온 코드마다 그 코드를 단�
 
 - [ ] **Step 3: 스펙 12절에 반영**
 
-`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`의 12절 끝(현재 마지막 항목 다음)에 번호를 이어 추가한다:
+`02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`의 12절 끝(현재 마지막 항목 다음)에 번호를 이어 추가한다:
 ```markdown
 37. **allocation 텍스트 문법(계획 1-C)**: 정본은 `spec/grammar/allocation.ebnf`. 블록은 `uses facts "<id>"@<v> digest "<d>";`, `visibility`, `scope`, `bind`, `tier1`, `tier2 <권리자 풀 버킷> { split { … } }`, `guard`, `exceptions`, `rounding`이다. scope·bind·tier1·tier2·rounding은 필수이고 블록 순서는 자유다. 비율은 `%`(소수 둘째 자리까지) 또는 `bps`(정수), id는 식별자 또는 따옴표 문자열, 주석은 `//`. 문법 오류는 `PARSE_SYNTAX`이며 경로는 `@줄:열`이다. 텍스트 입력은 allocation만 받고(사용자 결정), facts는 읽기 전용 텍스트로 표시만 한다.
 38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`은 r, 실연 풀·멤버 비율은 `PERFORMER_FEATURED`, 실연 graph만 있으면 그 역할이다. `contract`는 역할을 정하지 않는다. 추론할 수 없거나 서로 다른 역할의 graph가 섞이면 `PARSE_ROLE_REQUIRED`.
@@ -1829,7 +1829,7 @@ Expected: 전체 PASS, tsc 출력 없음, 추적되지 않은 파일 없음.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/test/error-catalog.test.ts "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'test(vcrl): 오류 코드 커버리지 검사와 스펙 1-C 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/test/error-catalog.test.ts "02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'test(mdrl): 오류 코드 커버리지 검사와 스펙 1-C 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---

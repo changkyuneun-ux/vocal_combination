@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** VCRL 엔진에 환불·정정 역분개(`reverse`/`verifyReversal`, `vcrl-reversal-result/1`)와 정책 섀도 비교(`shadowReport`/`verifyShadowReport`, `vcrl-shadow-report/1`)를 순수 함수로 추가해 I-2 정산 MVP의 선행 과제를 끝낸다.
+**Goal:** MDRL 엔진에 환불·정정 역분개(`reverse`/`verifyReversal`, `mdrl-reversal-result/1`)와 정책 섀도 비교(`shadowReport`/`verifyShadowReport`, `mdrl-shadow-report/1`)를 순수 함수로 추가해 I-2 정산 MVP의 선행 과제를 끝낸다.
 
 **Architecture:** 둘 다 `src/allocation/`의 결정적 순수 함수다. 역분개는 정책·facts를 다시 평가하지 않고 봉인된 원 안분 결과만으로 계산한다. 계산 방식 `REVERSAL_REMAINING_LRM_V1`은 원 결과와 같은 계층(tier1 풀 → tier2 버킷 그룹 → 라인·보류)에서 각 항목의 **남은 금액** 비례로 이번 환불액을 HIERARCHICAL LRM으로 나눈다. 이전 역분개는 입력으로 받아 체인으로 재도출·대조한다. 섀도 리포트는 같은 이벤트를 두 입력으로 `evaluate`해 당사자·버킷·보류별 차액을 집계한다.
 
-**Tech Stack:** 기존 vcrl 패키지 그대로(Node ≥ 24, TypeScript 직접 실행, `node:test`, BigInt, 런타임 의존성 0, ajv는 테스트 전용).
+**Tech Stack:** 기존 mdrl 패키지 그대로(Node ≥ 24, TypeScript 직접 실행, `node:test`, BigInt, 런타임 의존성 0, ajv는 테스트 전용).
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`(12절, 11.2), `VCRL_시스템통합_아키텍처_설계_v1.0.md` 5.7. 설계 결정은 이 계획의 "설계 결정" 절이 정본이며 Task 4가 코어 규격 12.53~12.57로 옮긴다.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`(12절, 11.2), `MDRL_시스템통합_아키텍처_설계_v1.0.md` 5.7. 설계 결정은 이 계획의 "설계 결정" 절이 정본이며 Task 4가 코어 규격 12.53~12.57로 옮긴다.
 
 ## Global Constraints
 
@@ -24,19 +24,19 @@
 ## 설계 결정
 
 1. **역분개 입력**: `{ original: AllocationResult, policy: AllocationDocument, eventId, refund: { id, reason, amount }, priors: ReversalResult[], runId }`. `reason`은 새 Enum `reversal_reason` = `REFUND | CORRECTION | FRAUD`. `policy`는 원 결과의 `policy_digest`와 같아야 하며 tier1 권리 풀 이름(`body.tier1.rights`)을 알기 위해서만 쓴다.
-2. **원 결과 검증**: 객체이고 `format = vcrl-allocation-result/1`, `digestOf({...original, trace: undefined, result_digest: undefined}) = result_digest`(아니면 `REV_ORIGINAL_DIGEST`). 되돌릴 이벤트의 풀 라인이 없으면 `REV_UNKNOWN_EVENT`. 그 이벤트의 권리 풀 금액 ≠ 라인+보류 합이면 `REV_ORIGINAL_INCONSISTENT`.
+2. **원 결과 검증**: 객체이고 `format = mdrl-allocation-result/1`, `digestOf({...original, trace: undefined, result_digest: undefined}) = result_digest`(아니면 `REV_ORIGINAL_DIGEST`). 되돌릴 이벤트의 풀 라인이 없으면 `REV_UNKNOWN_EVENT`. 그 이벤트의 권리 풀 금액 ≠ 라인+보류 합이면 `REV_ORIGINAL_INCONSISTENT`.
 3. **계산 `REVERSAL_REMAINING_LRM_V1`**: 항목의 남은 금액 = 원 금액 − 이전 역분개 합. 이번 환불액 Δ를 (1) 그 이벤트의 tier1 풀 라인에 남은 금액 비례, (2) 권리 풀 증분을 라인·보류의 `bucket` 그룹(첫 등장 순)에 그룹 남은 합 비례, (3) 그룹 증분을 그룹 안 항목에 남은 금액 비례로 `splitLrm`한다. 남은 금액이 0인 항목은 제외한다. LRM 키: 풀·그룹은 버킷 이름, 라인은 `line:<party>`, 보류는 `hold:<reason>`. 성질: 증분 ≥ 0, 증분 ≤ 남은 금액, 층별 합 보존, 누적 = 원 금액이면 모든 항목이 정확히 0.
 4. **한도**: 이전 누적 + Δ > 원 금액이면 `REV_EXCEEDS_REMAINING`. Δ는 양의 정수 문자열(아니면 `REV_AMOUNT`).
 5. **체인**: `priors[k]`는 같은 원 결과·이벤트의 k+1번째 역분개여야 한다. 원 결과에서 `priors[0..k-1]`을 적용한 상태로 `priors[k].refund`·`run_id`를 다시 계산해 `result_digest`가 같고, `priors[k]` 자신의 digest도 맞아야 한다. 아니면 `REV_CHAIN_BROKEN`(`$.priors[k]`).
-6. **출력 `vcrl-reversal-result/1`**: `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence("k"), cumulative, original_amount, previous_digest?(k>1), method("REVERSAL_REMAINING_LRM_V1"), pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열(`"-2100"`), 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = k+1`, `reverses_line_seq = 원 line_seq`. 순서는 원 결과의 배열 순서. `result_digest = digestOf(result_digest를 뺀 전체)`. 통화 필드는 없다(원 결과와 같은 통화).
+6. **출력 `mdrl-reversal-result/1`**: `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence("k"), cumulative, original_amount, previous_digest?(k>1), method("REVERSAL_REMAINING_LRM_V1"), pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열(`"-2100"`), 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = k+1`, `reverses_line_seq = 원 line_seq`. 순서는 원 결과의 배열 순서. `result_digest = digestOf(result_digest를 뺀 전체)`. 통화 필드는 없다(원 결과와 같은 통화).
 7. **검증** `verifyReversal({original, policy, priors}, given)`: `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `given`의 `event_id`·`refund`·`run_id`로 다시 계산해 digest가 다르면 `CORE_DIGEST_MISMATCH`(`$.result`). 재계산 진단은 그대로 돌려준다.
 8. **섀도 입력**: `pairs: { baseline: EvaluationInput, candidate: EvaluationInput }[]`(비어 있으면 `CORE_TYPE_ERROR`). 각 쪽 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 두 쪽 `events_digest`가 다르면 `SHADOW_EVENTS_MISMATCH`(`$.pairs[i]`), 한 이벤트 id가 두 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`.
-9. **출력 `vcrl-shadow-report/1`**: `format, pairs[{events_digest, baseline_policy_digest, candidate_policy_digest, baseline_result_digest, candidate_result_digest}], parties[{party, role, baseline, candidate, delta}], buckets[{level: "tier1"|"tier2", bucket, baseline, candidate, delta}], holdings[{reason, baseline, candidate, delta}], totals{events, amount}, report_digest`. 금액은 부호 있는 정수 문자열, `delta = candidate − baseline`, 한쪽에만 있으면 0. `tier1`은 풀 라인, `tier2`는 라인의 버킷, 보류는 사유별. 정렬은 키 성분별 코드 유닛 오름차순. `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조(오류 규칙은 7과 같다).
+9. **출력 `mdrl-shadow-report/1`**: `format, pairs[{events_digest, baseline_policy_digest, candidate_policy_digest, baseline_result_digest, candidate_result_digest}], parties[{party, role, baseline, candidate, delta}], buckets[{level: "tier1"|"tier2", bucket, baseline, candidate, delta}], holdings[{reason, baseline, candidate, delta}], totals{events, amount}, report_digest`. 금액은 부호 있는 정수 문자열, `delta = candidate − baseline`, 한쪽에만 있으면 0. `tier1`은 풀 라인, `tier2`는 라인의 버킷, 보류는 사유별. 정렬은 키 성분별 코드 유닛 오름차순. `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조(오류 규칙은 7과 같다).
 
 ## File Structure
 
 ```
-vcrl/
+mdrl/
   src/core/enums.ts                   (Modify: reversal_reason)
   src/core/errors.ts                  (Modify: REV_* 6개, SHADOW_* 2개)
   spec/error-codes.md                 (Modify: 새 코드 8개)
@@ -52,8 +52,8 @@ vcrl/
   test/allocation/shadow.test.ts      (Create)
   test/conformance.test.ts            (Modify: reversal 케이스)
   test/schema.test.ts                 (Modify: 두 스키마)
-02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md   (Modify, Task 4)
-02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 4)
+02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md   (Modify, Task 4)
+02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 4)
 ```
 
 ---
@@ -67,9 +67,9 @@ vcrl/
 
 **Interfaces:**
 - Consumes: `AllocationResult`, `AllocationDocument`, `PoolLine`, `AllocationLine`, `Holding`, `ALLOCATION_RESULT_FORMAT` (`src/allocation/types.ts`), `splitLrm` (`lrm.ts`), `validateAllocation` (`validate.ts`), `digestOf`, `ratio`, `isId`, `rejectUnknownKeys`, `isPlainObject`, `attempt`, `fail`, `diag`, `err`, `underPath`, `describe`, `isEnumValue`; 테스트는 `evaluate`와 `test/helpers.ts`의 `evaluationInput`, `loadAllocationCase`.
-- Produces (`src/allocation/reverse.ts`, `vcrl/allocation`으로 export):
+- Produces (`src/allocation/reverse.ts`, `mdrl/allocation`으로 export):
 ```ts
-export const REVERSAL_RESULT_FORMAT = "vcrl-reversal-result/1";
+export const REVERSAL_RESULT_FORMAT = "mdrl-reversal-result/1";
 export const REVERSAL_METHOD = "REVERSAL_REMAINING_LRM_V1";
 export type ReversalReason = EnumValue<"reversal_reason">;
 export type Refund = { id: string; reason: ReversalReason; amount: string };
@@ -136,7 +136,7 @@ test("a 30% refund of ev_001 reverses every pool, bucket and line exactly (hand-
   const r = reverse({ original: result, policy, eventId: "ev_001", refund: refund("3000"), priors: [], runId: "run_rev_1" });
   assert.ok(r.ok, JSON.stringify(r));
   const v = r.value;
-  assert.equal(v.format, "vcrl-reversal-result/1");
+  assert.equal(v.format, "mdrl-reversal-result/1");
   assert.equal(v.method, "REVERSAL_REMAINING_LRM_V1");
   assert.equal(v.sequence, "1");
   assert.equal(v.cumulative, "3000");
@@ -252,7 +252,7 @@ import {
 import { validateAllocation } from "./validate.ts";
 
 /** 역분개 결과 형식 태그. result_digest 계산에 포함된다. */
-export const REVERSAL_RESULT_FORMAT = "vcrl-reversal-result/1" as const;
+export const REVERSAL_RESULT_FORMAT = "mdrl-reversal-result/1" as const;
 /** 남은 금액 비례 순차 계층 LRM(설계 결정 3). */
 export const REVERSAL_METHOD = "REVERSAL_REMAINING_LRM_V1" as const;
 
@@ -464,7 +464,7 @@ Expected: reverse 5 PASS, 전체 fail 0, `TSC_OK`.
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/core/enums.ts src/core/errors.ts spec/error-codes.md src/allocation/reverse.ts src/allocation/index.ts test/allocation/reverse.test.ts
-git commit -m "feat(vcrl): 역분개 reverse(남은 금액 비례 계층 LRM, 체인 재도출)
+git commit -m "feat(mdrl): 역분개 reverse(남은 금액 비례 계층 LRM, 체인 재도출)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -492,7 +492,7 @@ test("verifyReversal accepts an honest result and rejects forgeries, including r
   const input = { original: result, policy, priors: [] };
   assert.deepEqual(verifyReversal(input, r.value), []);
   assert.deepEqual(verifyReversal(input, "x").map((d) => d.code), ["CORE_TYPE_ERROR"]);
-  assert.deepEqual(verifyReversal(input, { ...r.value, format: "vcrl-reversal-result/2" }).map((d) => d.path), ["$.result.format"]);
+  assert.deepEqual(verifyReversal(input, { ...r.value, format: "mdrl-reversal-result/2" }).map((d) => d.path), ["$.result.format"]);
   const moved = r.value.lines.map((l, i) => (i === 0 ? { ...l, amount: String(BigInt(l.amount) - 1n) } : i === 1 ? { ...l, amount: String(BigInt(l.amount) + 1n) } : l));
   const { result_digest: _d, ...rest } = { ...r.value, lines: moved };
   const resealed = { ...rest, result_digest: digestOf(rest) };
@@ -597,7 +597,7 @@ Expected: 모두 통과, `TSC_OK`. 속성 테스트가 실패하면 실패한 tr
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/allocation/reverse.ts test/allocation/reverse.test.ts test/allocation/reverse.property.test.ts
-git commit -m "feat(vcrl): verifyReversal과 역분개 속성 테스트
+git commit -m "feat(mdrl): verifyReversal과 역분개 속성 테스트
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -613,9 +613,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `evaluate`, `EvaluationInput` (`evaluate.ts`), `AllocationResult`, `digestOf`, `underPath`, `diag`, `err`, `ok`, `isPlainObject`, `attempt`, `describe`.
-- Produces (`vcrl/allocation`으로 export):
+- Produces (`mdrl/allocation`으로 export):
 ```ts
-export const SHADOW_REPORT_FORMAT = "vcrl-shadow-report/1";
+export const SHADOW_REPORT_FORMAT = "mdrl-shadow-report/1";
 export type ShadowPair = { baseline: EvaluationInput; candidate: EvaluationInput };
 export type Comparison = { baseline: string; candidate: string; delta: string };
 export type ShadowReport = { format; pairs: { events_digest; baseline_policy_digest; candidate_policy_digest; baseline_result_digest; candidate_result_digest }[];
@@ -666,7 +666,7 @@ test("comparing a policy with itself yields all-zero deltas", () => {
   const b = base();
   const r = shadowReport([{ baseline: b, candidate: b }]);
   assert.ok(r.ok, JSON.stringify(r));
-  assert.equal(r.value.format, "vcrl-shadow-report/1");
+  assert.equal(r.value.format, "mdrl-shadow-report/1");
   assert.ok([...r.value.parties, ...r.value.buckets, ...r.value.holdings].every((x) => x.delta === "0"));
   assert.deepEqual(r.value.totals, { events: "2", amount: "11001" });
   const { report_digest, ...body } = r.value;
@@ -729,7 +729,7 @@ import { evaluate, type EvaluationInput } from "./evaluate.ts";
 import type { AllocationResult } from "./types.ts";
 
 /** 섀도 리포트 형식 태그. report_digest 계산에 포함된다. */
-export const SHADOW_REPORT_FORMAT = "vcrl-shadow-report/1" as const;
+export const SHADOW_REPORT_FORMAT = "mdrl-shadow-report/1" as const;
 
 export type ShadowPair = { baseline: EvaluationInput; candidate: EvaluationInput };
 export type Comparison = { baseline: string; candidate: string; delta: string };
@@ -853,7 +853,7 @@ Expected: shadow 4 PASS, 전체 fail 0(`error-catalog`가 SHADOW 코드를 찾�
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/core/errors.ts spec/error-codes.md src/allocation/shadow.ts src/allocation/index.ts test/allocation/shadow.test.ts
-git commit -m "feat(vcrl): 섀도 리포트 shadowReport·verifyShadowReport
+git commit -m "feat(mdrl): 섀도 리포트 shadowReport·verifyShadowReport
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -864,11 +864,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`, `conformance/reversal/001-partial-then-full/{input,expected}.json`, `conformance/reversal/002-fraud-hold-full/{input,expected}.json`
-- Modify: `test/schema.test.ts`, `test/conformance.test.ts`, `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`, `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`
+- Modify: `test/schema.test.ts`, `test/conformance.test.ts`, `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`, `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md`
 
 **Interfaces:**
 - Consumes: Task 1~3 전부.
-- Produces: 설치된 패키지에서 `vcrl/spec/schema/reversal.result.schema.json`, `vcrl/spec/schema/shadow.report.schema.json`(기존 `./spec/*` export로 자동 노출).
+- Produces: 설치된 패키지에서 `mdrl/spec/schema/reversal.result.schema.json`, `mdrl/spec/schema/shadow.report.schema.json`(기존 `./spec/*` export로 자동 노출).
 
 - [ ] **Step 1: 스키마 작성**
 
@@ -876,8 +876,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/reversal.result.schema.json",
-  "title": "VCRL reversal result (vcrl-reversal-result/1)",
+  "$id": "https://mdrl.invalid/1.0/reversal.result.schema.json",
+  "title": "MDRL reversal result (mdrl-reversal-result/1)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -885,7 +885,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     "cumulative", "original_amount", "method", "pool_lines", "lines", "holdings", "result_digest"
   ],
   "properties": {
-    "format": { "const": "vcrl-reversal-result/1" },
+    "format": { "const": "mdrl-reversal-result/1" },
     "run_id": { "$ref": "#/$defs/id" },
     "original_run_id": { "$ref": "#/$defs/id" },
     "original_result_digest": { "$ref": "#/$defs/digest" },
@@ -944,7 +944,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "positive": { "type": "string", "pattern": "^[1-9]\\d*$" },
     "negative": { "type": "string", "pattern": "^-[1-9]\\d*$" },
     "claimantRole": {
@@ -958,13 +958,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/shadow.report.schema.json",
-  "title": "VCRL shadow report (vcrl-shadow-report/1)",
+  "$id": "https://mdrl.invalid/1.0/shadow.report.schema.json",
+  "title": "MDRL shadow report (mdrl-shadow-report/1)",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "pairs", "parties", "buckets", "holdings", "totals", "report_digest"],
   "properties": {
-    "format": { "const": "vcrl-shadow-report/1" },
+    "format": { "const": "mdrl-shadow-report/1" },
     "pairs": {
       "type": "array", "minItems": 1,
       "items": {
@@ -1018,7 +1018,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "amount": { "type": "string", "pattern": "^(0|[1-9]\\d*)$" },
     "signed": { "type": "string", "pattern": "^(0|-?[1-9]\\d*)$" },
     "claimantRole": {
@@ -1113,17 +1113,17 @@ test("reversal results and shadow reports match their schemas", () => {
 - [ ] **Step 4: 통과 확인**
 
 Run: `npm test 2>&1 | grep -E "^not ok|^ℹ (tests|pass|fail)" && npx tsc -p tsconfig.json && echo TSC_OK && npm run smoke 2>&1 | tail -1`
-Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그대로).
+Expected: fail 0, `TSC_OK`, `smoke OK mdrl:sha256:5dc63e54…`(기존 digest 그대로).
 
 - [ ] **Step 5: 스펙 문서 반영**
 
-`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`:
+`02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`:
 - 12절 끝(52번 뒤)에 다음 항목을 추가한다(이 계획의 "설계 결정" 1~9를 옮긴다):
 ```markdown
 53. **역분개 (계획 1-E)**: `reverse({original, policy, eventId, refund, priors, runId})`는 정책·facts를 다시 평가하지 않고 봉인된 원 안분 결과만으로 한 이벤트를 `refund.amount`만큼 되돌린다. `refund.reason`은 Enum `reversal_reason`(`REFUND`·`CORRECTION`·`FRAUD`). `policy`는 원 결과의 `policy_digest`와 같아야 하며(아니면 `CORE_DIGEST_MISMATCH`) 권리 풀 이름을 얻는 데만 쓴다. 원 결과의 digest가 틀리면 `REV_ORIGINAL_DIGEST`, 이벤트가 없으면 `REV_UNKNOWN_EVENT`, 권리 풀 ≠ 라인·보류 합이면 `REV_ORIGINAL_INCONSISTENT`, 금액이 양의 정수 문자열이 아니면 `REV_AMOUNT`, 누적이 원 금액을 넘으면 `REV_EXCEEDS_REMAINING`.
 54. **`REVERSAL_REMAINING_LRM_V1`**: 항목의 남은 금액(원 금액 − 이전 역분개) 비례로 (1) tier1 풀, (2) 권리 풀 증분을 라인·보류의 버킷 그룹(첫 등장 순), (3) 그룹 증분을 그룹 안 항목에 `splitLrm`한다. 남은 금액 0인 항목은 제외하고, LRM 키는 버킷 이름·`line:<party>`·`hold:<reason>`. 증분은 0 이상이고 남은 금액을 넘지 않으며 층별 합이 보존되고, 누적이 원 금액에 이르면 모든 항목이 정확히 0이 된다. 누적 목표 방식(원 금액 × 누적/원 금액의 LRM)은 최대 잔여법의 비단조성(앨라배마 역설) 때문에 음수 증분이 생길 수 있어 채택하지 않았다. 환불을 나누는 방식에 따라 항목별 분배가 최소 단위만큼 달라질 수 있다.
-55. **역분개 결과 IR `vcrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). `verifyReversal({original, policy, priors}, given)`은 재계산 대조(규칙은 12.50과 같다).
-56. **섀도 리포트 `vcrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
+55. **역분개 결과 IR `mdrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). `verifyReversal({original, policy, priors}, given)`은 재계산 대조(규칙은 12.50과 같다).
+56. **섀도 리포트 `mdrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
 57. **스키마·적합성 (1-E)**: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`. 적합성 `conformance/reversal/`(부분 환불 두 번 뒤 한도 초과 거부, 잔액 전액으로 순합 0; 부정 보류 전액 역분개). CLI 명령은 추가하지 않았다.
 ```
 - 12.24의 "`line_seq`는 `"1"`이며 역분개(REVERSAL)는 후속 계획에서 다룬다."를 "`line_seq`는 평가 결과에서 `"1"`이고, 역분개 결과에서 k번째 역분개는 `k+1`이다(12.55)."로 바꾼다.
@@ -1131,10 +1131,10 @@ Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그
 - 11.2 표에서 `역분개(REVERSAL)와 line_seq 증가` 행과 `섀도 시뮬레이션 리포트` 행의 과제명을 `~~…~~ **완료(1-E, 12.53~12.57)**`로 바꾼다.
 - 11절 상태 기준 문장의 "(계획 1-A·1-B·1-C·1-D 반영)"을 "(계획 1-A~1-E 반영)"으로 바꾼다.
 
-`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`:
-- 2.3의 `reverse(runId: string, eventId: string, amount: bigint)` 줄을 `reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" | "CORRECTION" | "FRAUD"; amount: bigint }): Promise<Result<ReversalRun>>  // 원 결과·이전 역분개 봉인을 읽어 vcrl reverse 호출(코어 규격 12.53~12.55)`로 바꾼다.
-- 5.7 첫 항목을 "인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 vcrl `reverse`를 호출하고, 결과(`vcrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제)."로 바꾸고, "엔진 지원 전 임시 처리" 문장과 "따라서 정산 MVP(I-2) 시작 전에 엔진 역분개를 구현한다." 문장을 "엔진 역분개는 1-E에서 구현했다."로 바꾼다.
-- 5.1 3번의 "(엔진 섀도 리포트 전까지는 `evaluate` 2회 호출로 차액 계산)"을 "(vcrl `shadowReport`, 코어 규격 12.56)"으로 바꾼다.
+`02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md`:
+- 2.3의 `reverse(runId: string, eventId: string, amount: bigint)` 줄을 `reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" | "CORRECTION" | "FRAUD"; amount: bigint }): Promise<Result<ReversalRun>>  // 원 결과·이전 역분개 봉인을 읽어 mdrl reverse 호출(코어 규격 12.53~12.55)`로 바꾼다.
+- 5.7 첫 항목을 "인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 mdrl `reverse`를 호출하고, 결과(`mdrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제)."로 바꾸고, "엔진 지원 전 임시 처리" 문장과 "따라서 정산 MVP(I-2) 시작 전에 엔진 역분개를 구현한다." 문장을 "엔진 역분개는 1-E에서 구현했다."로 바꾼다.
+- 5.1 3번의 "(엔진 섀도 리포트 전까지는 `evaluate` 2회 호출로 차액 계산)"을 "(mdrl `shadowReport`, 코어 규격 12.56)"으로 바꾼다.
 - 7.3 로드맵 표의 "엔진 선행" 행 내용 끝에 " — 완료(1-E)"를 붙인다.
 
 - [ ] **Step 6: 커밋**
@@ -1142,12 +1142,12 @@ Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add spec/schema/reversal.result.schema.json spec/schema/shadow.report.schema.json conformance/reversal test/conformance.test.ts test/schema.test.ts
-git commit -m "feat(vcrl): 역분개·섀도 IR 스키마와 역분개 적합성 케이스
+git commit -m "feat(mdrl): 역분개·섀도 IR 스키마와 역분개 적합성 케이스
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 cd "/Users/changkyuneun/Vocal Combination"
-git add "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" "02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
-git commit -m "docs(vcrl): 코어 규격 12.53~12.57 역분개·섀도, 통합 설계 5.7·2.3 갱신
+git add "02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md" "02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md"
+git commit -m "docs(mdrl): 코어 규격 12.53~12.57 역분개·섀도, 통합 설계 5.7·2.3 갱신
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```

@@ -84,9 +84,9 @@ graph TD
 
 ```mermaid
 graph LR
-    A[Surface Text DSL<br/>.mdrl / .vcrl] -- compile / parse --> B[Canonical IR<br/>JSON Document]
+    A[Surface Text DSL<br/>.mdrl] -- compile / parse --> B[Canonical IR<br/>JSON Document]
     B -- format / decompile --> A
-    B -- JCS + SHA-256 --> C[Immutable Digest<br/>vcrl:sha256:...]
+    B -- JCS + SHA-256 --> C[Immutable Digest<br/>mdrl:sha256:...]
 ```
 
 ---
@@ -114,14 +114,14 @@ graph LR
 
 ```json
 {
-  "vcrl": "1.0",
+  "mdrl": "1.0",
   "module": "facts | grant | allocation",
   "id": "DOC-IDENTIFIER-01",
   "version": "1",
   "depends_on": [
     {
       "ref": "rl:facts/base-facts-01@1",
-      "digest": "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4"
+      "digest": "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd"
     }
   ],
   "visibility_default": "PUBLIC | PARTIES | PRIVATE",
@@ -147,9 +147,9 @@ graph LR
 해시 요약값은 다음 표준 절차로 산출됩니다:
 1. 중간 표현(IR)을 **RFC 8785 (JSON Canonicalization Scheme, JCS)**에 따라 정규화.
 2. 정규화된 바이트에 **SHA-256** 해시를 적용.
-3. 접두사 `vcrl:sha256:`를 붙인 64자리 16진수 문자열 생성.
+3. 접두사 `mdrl:sha256:`를 붙인 64자리 16진수 문자열 생성.
 
-$$\text{digest} = \text{"vcrl:sha256:"} + \text{SHA256}(\text{JCS}(\text{IR}))$$
+$$\text{digest} = \text{"mdrl:sha256:"} + \text{SHA256}(\text{JCS}(\text{IR}))$$
 
 ---
 
@@ -358,7 +358,7 @@ rounding_stmt   = "rounding" "{" "method" ":" ident ";" "tie" ":" ident ";" "}" 
 ```mdrl
 allocation "ALLOC-DEFAULT-01" version 1 {
   visibility default: PARTIES;
-  uses facts "work-facts-01"@1 digest "vcrl:sha256:4c8fc5573e79e0da0e23eee13566d4af8c5aa5fd319319f7b2684a78077ca6f4";
+  uses facts "work-facts-01"@1 digest "mdrl:sha256:c298f06c54947a4874935de562f47bff43aa491d784233f117e80a5eac3fffdd";
   
   scope { pack: pack_demo_01; events: [PRIMARY, RESALE]; currency: KRW; }
   bind { time: ISSUE_TIME; }
@@ -420,7 +420,7 @@ allocation "ALLOC-DEFAULT-01" version 1 {
 
 ## 8. 레퍼런스 구현체 TypeScript API 가이드
 
-MDRL 표준 레퍼런스 엔진(`vcrl` 패키지)의 주요 사용법입니다:
+MDRL 표준 레퍼런스 엔진(`mdrl` 패키지)의 주요 사용법입니다:
 
 ```typescript
 import {
@@ -428,7 +428,7 @@ import {
   parseGrant, compileGrant, formatGrant, evaluateGrant,
   parseAllocation, compileAllocation, formatAllocation, evaluate,
   ProfileRegistry, VocalCombinationProfile, AiMixProfile
-} from "@rights-dsl/vcrl";
+} from "@rights-dsl/mdrl";
 
 // 1. 프로파일 확인
 ProfileRegistry.register(VocalCombinationProfile);

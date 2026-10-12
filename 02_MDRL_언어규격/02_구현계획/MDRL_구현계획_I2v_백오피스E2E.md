@@ -8,13 +8,13 @@
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript erasable syntax, Fastify 5, pg 8, pg-boss 12, PostgreSQL 17 Docker). backoffice: React 19, react-router 7, @tanstack/react-query 5, Vite 7, TypeScript 5.9, Vitest 3, @playwright/test 1.5x.
 
-**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **12절(결정 1~8, 완료 기준 12.3)**. 기존 동작은 9~11절. 모든 태스크의 요구사항은 12.2의 해당 결정 번호를 따른다.
+**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` **12절(결정 1~8, 완료 기준 12.3)**. 기존 동작은 9~11절. 모든 태스크의 요구사항은 12.2의 해당 결정 번호를 따른다.
 
 ## Global Constraints
 
 - 작업 디렉터리 `/Users/changkyuneun/Vocal Combination/03_구현문서_코드` (git 루트 `/Users/changkyuneun/Vocal Combination`). 무관한 커밋 안 된 변경이 많다. `git add`는 태스크 파일만, `git stash`·`git reset`·`git checkout -- <path>` 금지. 임시 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- rights-core: TypeScript erasable syntax만, 상대 import는 `.ts`, 타입 전용은 `import type`. `vcrl` import는 `src/engine-bridge/`에만. 기존 의존 방향(revenue ↛ settlement, ledger ↛ settlement·payout, payout ↛ settlement)을 지킨다. **새 규칙**: `src/dev/` 밖에서 `src/dev/`를 import할 수 있는 파일은 `src/http/server.ts`(타입·`devRoutes` 등록)와 `src/http/assemble.ts`뿐이다(아키텍처 테스트 추가).
+- rights-core: TypeScript erasable syntax만, 상대 import는 `.ts`, 타입 전용은 `import type`. `mdrl` import는 `src/engine-bridge/`에만. 기존 의존 방향(revenue ↛ settlement, ledger ↛ settlement·payout, payout ↛ settlement)을 지킨다. **새 규칙**: `src/dev/` 밖에서 `src/dev/`를 import할 수 있는 파일은 `src/http/server.ts`(타입·`devRoutes` 등록)와 `src/http/assemble.ts`뿐이다(아키텍처 테스트 추가).
 - 서비스는 `Clock`을 받고 현재 시각을 직접 읽지 않는다. 시각은 밀리초 UTC ISO.
 - 금액은 `BIGINT`/`bigint`, API 응답에서는 **10진 문자열**(예: `"1000000"`). 백오피스는 금액을 `BigInt`로만 계산하고 표시는 천 단위 구분 문자열.
 - 조회 API는 상태를 바꾸지 않는다(SELECT만, 감사 로그도 쓰지 않는다). 응답 키는 camelCase, 시각은 ISO 문자열, NULL은 `null`.
@@ -22,7 +22,7 @@
 - 개발 기능은 `RC_DEV=1`에서만 등록한다(아니면 `/dev/*` 404). 개발 DB 이름은 정확히 `rights_core_dev`.
 - 오류 → HTTP는 기존 `server.ts` 규칙. 새 오류 코드: `CLOCK_REGRESSED`(409), `CLOCK_AHEAD_OF_REAL`(409), `DEV_ONLY`(시작 거부 메시지), `BAD_CURSOR`(400).
 - backoffice: 상태 관리 라이브러리·UI 라이브러리 없음(CSS 변수). `localStorage`에는 선택한 사용자 id(`rc.actor`)만 저장하고 접근은 try/catch로 감싼다. 백엔드 오류는 `{code, message, diagnostics}`를 그대로 보여 준다.
-- 테스트: `docker compose up -d`. rights-core `npm test`(파일 경로 지정 가능, 디렉터리 형태는 실패) · `npx tsc -p tsconfig.json`. backoffice `npm test -w backoffice`(Vitest) · `npm run typecheck -w backoffice` · `npm run e2e -w backoffice`(Playwright). 기존 rights-core 232개·vcrl 278개·`npm run scenario -- --settle 30000`·`npm run smoke -w vcrl`이 계속 통과해야 한다.
+- 테스트: `docker compose up -d`. rights-core `npm test`(파일 경로 지정 가능, 디렉터리 형태는 실패) · `npx tsc -p tsconfig.json`. backoffice `npm test -w backoffice`(Vitest) · `npm run typecheck -w backoffice` · `npm run e2e -w backoffice`(Playwright). 기존 rights-core 232개·mdrl 278개·`npm run scenario -- --settle 30000`·`npm run smoke -w mdrl`이 계속 통과해야 한다.
 
 ## File Structure
 
@@ -59,7 +59,7 @@
     src/styles.css
     e2e/{fixtures,golden-path,rejections,contract}.spec.ts
 .claude/launch.json                    (Create/Modify: rights-core-dev, backoffice)
-02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 12: 12.4 결과)
+02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md (Task 12: 12.4 결과)
 ```
 
 ---
@@ -316,7 +316,7 @@ export function useGet<T>(key: unknown[], path: string, opts?: { refetchInterval
 export function useAction<I, O>(fn: (i: I) => Promise<O>, invalidate: string[]): UseMutationResult<O, ApiError, I>;
 // format.ts
 export function formatKrw(s: string): string;      // "1234567" → "1,234,567원", 음수 "−1,234원"
-export function shortDigest(d: string): string;    // "vcrl:sha256:abcdef012345…" → "abcdef012345"
+export function shortDigest(d: string): string;    // "mdrl:sha256:abcdef012345…" → "abcdef012345"
 export function formatInstant(iso: string): string; // "2026-03-01 10:00:00.000Z" (UTC 그대로, 로캘 변환 안 함)
 export function sumKrw(xs: string[]): string;       // BigInt 합
 ```
@@ -325,7 +325,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 - `package.json`: `name: "backoffice"`, `type: module`, 스크립트 `dev`(vite, 포트 5173 고정 `--strictPort`), `build`, `typecheck`(`tsc -b --noEmit` 또는 `tsc -p tsconfig.json --noEmit`), `test`(vitest run), `e2e`(playwright test). 의존: react, react-dom, react-router, @tanstack/react-query. dev: vite, @vitejs/plugin-react, typescript, vitest, @playwright/test, @types/react, @types/react-dom. 설치는 루트에서 `npm install`(워크스페이스).
 - `vite.config.ts`: `server.proxy['/api'] = { target: 'http://127.0.0.1:8080', rewrite: p => p.replace(/^\/api/, '') }`.
 - 루트 `package.json`: workspaces에 `"backoffice"` 추가, `"dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"`.
-- 헤더(12.2-3): 왼쪽 앱 이름 "VCRL 검증 백오피스", 가운데 **가상 시계**(`GET /dev/clock` 5초마다, 표시 `2026-01-01 00:00 UTC`, 버튼 `+1시간`·`+1일`·`+3일`·`+30일`, `지정…`(datetime 입력) — 실패 시 오류 코드 토스트), 오른쪽 **사용자 전환** `<select>`(`GET /users`, 표시 `표시 이름 (역할, 역할)`; 시스템 신원 포함) + **점검 배지**(`GET /settlement/invariants`를 `usr_settle`로 10초마다 — 현재 사용자와 무관하게 점검은 정산 담당 신원으로 읽는다: `api`에 `actorOverride` 옵션). 배지: 모든 항목 정상 → 초록 "점검 정상", 아니면 빨강 "점검 위반 N" → 클릭 시 위반 항목 목록 패널.
+- 헤더(12.2-3): 왼쪽 앱 이름 "MDRL 검증 백오피스", 가운데 **가상 시계**(`GET /dev/clock` 5초마다, 표시 `2026-01-01 00:00 UTC`, 버튼 `+1시간`·`+1일`·`+3일`·`+30일`, `지정…`(datetime 입력) — 실패 시 오류 코드 토스트), 오른쪽 **사용자 전환** `<select>`(`GET /users`, 표시 `표시 이름 (역할, 역할)`; 시스템 신원 포함) + **점검 배지**(`GET /settlement/invariants`를 `usr_settle`로 10초마다 — 현재 사용자와 무관하게 점검은 정산 담당 신원으로 읽는다: `api`에 `actorOverride` 옵션). 배지: 모든 항목 정상 → 초록 "점검 정상", 아니면 빨강 "점검 위반 N" → 클릭 시 위반 항목 목록 패널.
 - 레이아웃: 왼쪽 메뉴(12.2-3의 0~9 그룹, 그룹 제목 + 화면 링크), 본문. 라우트 경로: `/`, `/registry/parties`, `/registry/assets`(곡/녹음/슬롯/스템/보이스), `/registry/claims`, `/registry/mandates`, `/registry/disputes`, `/policy`, `/policy/:policyId`, `/packs`, `/packs/:packId`, `/issues`, `/issues/:snapshotId`, `/revenue`, `/settlement/batches`, `/settlement/batches/:batchId`, `/settlement/runs/:runId`, `/settlement/quarantine`, `/settlement/holds`, `/ledger`, `/ledger/entries/:entryId`, `/payout/profiles`, `/payout/runs`, `/payout/runs/:payoutRunId`, `/payout/instructions/:instructionId`, `/statements`, `/dev/psp`, `/dev/data`. 이 태스크에서는 대시보드 외 화면을 "준비 중" 자리 컴포넌트로 둔다(Task 6~10이 채운다).
 - 공통 컴포넌트:
   - `DataTable<T>({columns: {key, label, render?}[], rows, empty})`, `Pager({next, loadMore})`.
@@ -364,7 +364,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 - 권리·위임: 범위 선택 + 표 + 등록 폼(`POST /claims`·`/mandates` — 필수 필드는 `registry/routes.ts`의 required 목록, 선택 필드(performerRole, roleDetail 등)는 service 타입에서).
 - 분쟁: 목록(`GET /disputes`) + 개시(`POST /disputes`) + 종결(`POST /disputes/:id/close`, 선택 resolution).
 - 정책 목록: `GET /policies` + "새 정책" 버튼 → 편집기.
-- 정책 상세/편집기(`/policy/:policyId`): 왼쪽 VCRL 텍스트 `<textarea>`(고정폭, 줄 번호 없음), 팩 id 입력, "합성 곡 정책 불러오기" 버튼(읽기 전용 `GET /dev/seed/synthetic-song`의 `policyText`·`packId`로 채운다 — 편집기는 시드하지 않는다. 팩이 아직 없으면 "개발 도구 > 개발 데이터에서 합성 곡을 먼저 불러오세요" 안내), "컴파일"(`POST /policies/:id/compile`, 실패 시 `diagnostics`를 표로 — 각 항목의 code·message·위치), 오른쪽 버전 목록(`GET /policies/:id/versions`) — 버전별 상태 배지·digest·승인자·"승인"(`…/approve`)·"활성화"(`…/activate`) 버튼, 정책 상단 "재고정"(`POST /policies/:id/rebind`). 승인·활성화를 같은 사용자로 누르면 백엔드 거부 코드가 그대로 보인다(12.2-8 거부 경로 2).
+- 정책 상세/편집기(`/policy/:policyId`): 왼쪽 MDRL 텍스트 `<textarea>`(고정폭, 줄 번호 없음), 팩 id 입력, "합성 곡 정책 불러오기" 버튼(읽기 전용 `GET /dev/seed/synthetic-song`의 `policyText`·`packId`로 채운다 — 편집기는 시드하지 않는다. 팩이 아직 없으면 "개발 도구 > 개발 데이터에서 합성 곡을 먼저 불러오세요" 안내), "컴파일"(`POST /policies/:id/compile`, 실패 시 `diagnostics`를 표로 — 각 항목의 code·message·위치), 오른쪽 버전 목록(`GET /policies/:id/versions`) — 버전별 상태 배지·digest·승인자·"승인"(`…/approve`)·"활성화"(`…/activate`) 버튼, 정책 상단 "재고정"(`POST /policies/:id/rebind`). 승인·활성화를 같은 사용자로 누르면 백엔드 거부 코드가 그대로 보인다(12.2-8 거부 경로 2).
 
 **Tests:** 이 태스크는 Vitest 단위 테스트를 강제하지 않는다(화면 검증은 Task 11 Playwright). 대신: `npm run typecheck -w backoffice` 통과 + 수동 확인 목록(구현자는 `curl`로 각 API가 화면이 보내는 본문으로 201을 주는지 확인하고, 컨트롤러가 브라우저로 화면을 확인한다): 합성 곡 시드 → 권리자 8명 표시 → 정책 불러오기 → 컴파일 → `usr_approver` 승인 → `usr_approver`로 활성화 시도 시 `ROLE_REQUIRED` → `usr_activator` 활성화.
 
@@ -493,12 +493,12 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 
 ### Task 12: 수동 검증과 결과 기록
 
-**Files:** Modify `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`(12.4 추가)
+**Files:** Modify `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md`(12.4 추가)
 
 **Requirements (12.3):**
 - 컨트롤러(사람 역할)가 브라우저 창(`.claude/launch.json`의 두 서버)으로 `/dev/reset` 후 권장 검증 순서 11단계를 화면만으로 진행하고, 단계마다 화면 캡처를 남긴다(캡처 파일은 저장소에 넣지 않고 결과 표에 단계별 관찰값을 적는다).
-- 전체 회귀: rights-core `npm test`·`tsc`·`npm run scenario -- --settle 30000`, vcrl `npm test`·`npm run smoke`, backoffice `npm test`·`typecheck`·`e2e`.
-- 12.4 표(10.4·11.4 형식): 테스트 수(rights-core·vcrl·backoffice 단위·E2E), 수동 진행 단계별 관찰값(발행 수, run 수, 분개 수, 지시 상태별 수, 명세 대조, 점검), 발견해 고친 결함 목록, 실행 환경, 남은 것(12.1 제외 항목 + 진행 중 발견한 후속 과제).
+- 전체 회귀: rights-core `npm test`·`tsc`·`npm run scenario -- --settle 30000`, mdrl `npm test`·`npm run smoke`, backoffice `npm test`·`typecheck`·`e2e`.
+- 12.4 표(10.4·11.4 형식): 테스트 수(rights-core·mdrl·backoffice 단위·E2E), 수동 진행 단계별 관찰값(발행 수, run 수, 분개 수, 지시 상태별 수, 명세 대조, 점검), 발견해 고친 결함 목록, 실행 환경, 남은 것(12.1 제외 항목 + 진행 중 발견한 후속 과제).
 - 구현 중 12.2와 달라진 점이 있으면 12.2를 고치고 12.4에 그 사실을 적는다.
 
 - [ ] **Step 1~3:** 수동 진행 → 회귀 → 문서 기록.

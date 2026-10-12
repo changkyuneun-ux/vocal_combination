@@ -2,40 +2,40 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** VCRL 엔진을 실제 PostgreSQL 위의 권리 코어 백엔드(`rights-core`)에 연결해, 권리 등록 → 정책 컴파일·승인·활성화 → 팩 활성화 → 조합 발행(봉인)까지를 최소 HTTP API와 시나리오 러너(합성 곡 1개·1만 조합, 전수 재도출 감사)로 증명한다.
+**Goal:** MDRL 엔진을 실제 PostgreSQL 위의 권리 코어 백엔드(`rights-core`)에 연결해, 권리 등록 → 정책 컴파일·승인·활성화 → 팩 활성화 → 조합 발행(봉인)까지를 최소 HTTP API와 시나리오 러너(합성 곡 1개·1만 조합, 전수 재도출 감사)로 증명한다.
 
-**Architecture:** Node·TypeScript 모듈형 모놀리스. `routes → service → repo(SQL)` 계층, 모듈 사이는 service 함수로만 호출한다. `vcrl`을 import하는 곳은 `src/engine-bridge/`뿐이다. 관계형 행이 원본이고, 결정 입력(정책 IR·facts IR·투영·멤버)은 행에서 결정적으로 만들어 digest로 봉인한 문서(`sealed_document` + 파일시스템 blob)만 쓴다.
+**Architecture:** Node·TypeScript 모듈형 모놀리스. `routes → service → repo(SQL)` 계층, 모듈 사이는 service 함수로만 호출한다. `mdrl`을 import하는 곳은 `src/engine-bridge/`뿐이다. 관계형 행이 원본이고, 결정 입력(정책 IR·facts IR·투영·멤버)은 행에서 결정적으로 만들어 digest로 봉인한 문서(`sealed_document` + 파일시스템 blob)만 쓴다.
 
-**Tech Stack:** Node.js ≥ 24(TypeScript 직접 실행), TypeScript 5.9(`erasableSyntaxOnly`, 타입검사 전용), `node:test`, Fastify 5, node-postgres(`pg`) 8, PostgreSQL 17(Docker Compose), npm workspaces(`vcrl`, `rights-core`).
+**Tech Stack:** Node.js ≥ 24(TypeScript 직접 실행), TypeScript 5.9(`erasableSyntaxOnly`, 타입검사 전용), `node:test`, Fastify 5, node-postgres(`pg`) 8, PostgreSQL 17(Docker Compose), npm workspaces(`mdrl`, `rights-core`).
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`, `VCRL_아키텍처_코어규격_설계_v1.0.md`.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `03_dobedubpop_플랫폼설계/최신설계/데이터모델_v2.8.md`, `MDRL_아키텍처_코어규격_설계_v1.0.md`.
 
 ## Global Constraints
 
 - 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. `git stash`, `git reset`, `git checkout -- <path>`는 쓰지 않는다. 임시·재현용 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - TypeScript는 erasable syntax만: `enum`, `namespace`, 생성자 parameter property 금지(필드를 명시적으로 선언하고 생성자에서 대입). 상대 import는 `.ts` 확장자. 타입 전용 import는 `import type`.
-- `vcrl`(`vcrl/core`·`vcrl/facts`·`vcrl/allocation`·`vcrl/text`)을 import하는 파일은 `rights-core/src/engine-bridge/` 아래에만 둔다(Task 3의 아키텍처 테스트가 강제).
+- `mdrl`(`mdrl/core`·`mdrl/facts`·`mdrl/allocation`·`mdrl/text`)을 import하는 파일은 `rights-core/src/engine-bridge/` 아래에만 둔다(Task 3의 아키텍처 테스트가 강제).
 - 라이브러리 코드에서 부동소수 금지. 금액·bps는 정수, IR 값은 문자열.
 - 시각은 ISO 8601 밀리초 UTC 문자열(`2026-01-01T00:00:00.000Z`)로 다루고, DB에는 `TIMESTAMPTZ`로 밀리초 절사값만 저장한다(`CHECK (x = date_trunc('milliseconds', x))`). 서비스 함수는 현재 시각을 직접 읽지 않고 `Clock`을 인자로 받는다.
-- id는 VCRL id 규칙 `^[A-Za-z0-9._-]+$`, `__proto__` 금지(DB 도메인 `vcrl_id`).
+- id는 MDRL id 규칙 `^[A-Za-z0-9._-]+$`, `__proto__` 금지(DB 도메인 `mdrl_id`).
 - 추가 전용 보호: `right_claim`·`mandate`는 트리거가 UPDATE·DELETE를 거부하고 같은 트랜잭션의 `superseded_at` 1회 설정만 허용한다. 봉인·스냅샷·서명·감사 테이블은 UPDATE·DELETE 모두 거부한다. 앱 DB 역할 `rc_app`은 SELECT·INSERT와 명시된 컬럼 UPDATE만 갖는다.
-- 오류 → HTTP: `DomainError.status`를 그대로 쓴다. VCRL 진단 422, 직무 분리·권한 403, 상태 충돌·분쟁 409, 없음 404, 신원 없음 401. PostgreSQL `23505`(유일 위반) → 409 `CONFLICT`, `RC001`(추가 전용 위반) → 409 `APPEND_ONLY`.
+- 오류 → HTTP: `DomainError.status`를 그대로 쓴다. MDRL 진단 422, 직무 분리·권한 403, 상태 충돌·분쟁 409, 없음 404, 신원 없음 401. PostgreSQL `23505`(유일 위반) → 409 `CONFLICT`, `RC001`(추가 전용 위반) → 409 `APPEND_ONLY`.
 - 테스트는 Docker PostgreSQL이 떠 있어야 한다: `docker compose up -d` (작업 디렉터리에서). 테스트 파일마다 템플릿 DB를 복제한 새 DB를 `rc_app` 역할로 쓴다.
-- 새 런타임 의존성은 `fastify`, `pg`뿐이다. `rights-core`의 dev 의존성은 `@types/pg`, `@types/node`, `typescript`(vcrl과 같은 버전 범위)뿐이다.
+- 새 런타임 의존성은 `fastify`, `pg`뿐이다. `rights-core`의 dev 의존성은 `@types/pg`, `@types/node`, `typescript`(mdrl과 같은 버전 범위)뿐이다.
 
 ## File Structure
 
 ```
 04_구현_소스코드/
-  package.json                       (Create: workspaces ["vcrl","rights-core"])
-  package-lock.json                  (Create by npm install; vcrl/package-lock.json 삭제)
+  package.json                       (Create: workspaces ["mdrl","rights-core"])
+  package-lock.json                  (Create by npm install; mdrl/package-lock.json 삭제)
   docker-compose.yml                 (Create: postgres:17, 포트 54329)
-  vcrl/scripts/smoke-pack.ts         (Modify: 끌어올린 typescript·@types 경로 해석)
+  mdrl/scripts/smoke-pack.ts         (Modify: 끌어올린 typescript·@types 경로 해석)
   rights-core/
     package.json  tsconfig.json  .gitignore
     db/init/01-roles.sql             (Create: rc_app 역할)
-    migrations/0001_base.sql         (vcrl_id 도메인, 트리거 함수, audit_log, outbox)
+    migrations/0001_base.sql         (mdrl_id 도메인, 트리거 함수, audit_log, outbox)
     migrations/0002_registry.sql     (party, work, facts_scope, recording_version, part_slot, stem, voice, right_claim, mandate, dispute)
     migrations/0003_seal.sql         (sealed_document)
     migrations/0004_policy.sql       (user_account, portal_role, dev_signing_key, attestation, vocal_pack, pack_claimant, policy_version)
@@ -51,7 +51,7 @@
     test/platform/migrate.test.ts  test/registry/registry.test.ts  test/registry/disputes.test.ts
     test/engine-bridge/facts.test.ts  test/engine-bridge/architecture.test.ts
     test/policy/policy.test.ts  test/issuance/issuance.test.ts  test/http/api.test.ts  test/scenario/scenario.test.ts
-02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md  (Modify in Task 8: 9.5 결과)
+02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md  (Modify in Task 8: 9.5 결과)
 ```
 
 ---
@@ -60,8 +60,8 @@
 
 **Files:**
 - Create: `package.json`, `docker-compose.yml`, `rights-core/package.json`, `rights-core/tsconfig.json`, `rights-core/.gitignore`, `rights-core/db/init/01-roles.sql`, `rights-core/migrations/0001_base.sql`, `rights-core/src/platform/{errors,clock,db,migrate,dbadmin}.ts`, `rights-core/test/helpers.ts`, `rights-core/test/platform/migrate.test.ts`
-- Modify: `vcrl/scripts/smoke-pack.ts`
-- Delete: `vcrl/package-lock.json`
+- Modify: `mdrl/scripts/smoke-pack.ts`
+- Delete: `mdrl/package-lock.json`
 
 **Interfaces:**
 - Produces:
@@ -79,7 +79,7 @@
 {
   "name": "vocal-combination-code",
   "private": true,
-  "workspaces": ["vcrl", "rights-core"],
+  "workspaces": ["mdrl", "rights-core"],
   "engines": { "node": ">=24" }
 }
 ```
@@ -114,17 +114,17 @@ CREATE ROLE rc_app LOGIN PASSWORD 'rc_app';
   "type": "module",
   "engines": { "node": ">=24" },
   "scripts": {
-    "pretest": "npm run build --prefix ../vcrl",
+    "pretest": "npm run build --prefix ../mdrl",
     "test": "node --test --test-concurrency=4 \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "serve": "node src/http/main.ts",
-    "prescenario": "npm run build --prefix ../vcrl",
+    "prescenario": "npm run build --prefix ../mdrl",
     "scenario": "node src/scenario/main.ts"
   },
   "dependencies": {
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
-    "vcrl": "0.1.0"
+    "mdrl": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -159,17 +159,17 @@ node_modules/
 .blobs/
 ```
 
-- [ ] **Step 2: 의존성 설치와 vcrl 스모크 경로 수정**
+- [ ] **Step 2: 의존성 설치와 mdrl 스모크 경로 수정**
 
-`vcrl/package.json`의 `devDependencies`(`typescript`, `@types/node`, `ajv`)는 그대로 둔다. workspace 루트에서 설치한다:
+`mdrl/package.json`의 `devDependencies`(`typescript`, `@types/node`, `ajv`)는 그대로 둔다. workspace 루트에서 설치한다:
 
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
-git rm -q vcrl/package-lock.json
+git rm -q mdrl/package-lock.json
 npm install
 ```
 
-설치 후 `typescript`와 `@types/node`가 루트 `node_modules`로 끌어올려지므로, `vcrl/scripts/smoke-pack.ts`에서 하드코딩된 두 경로를 모듈 해석으로 바꾼다. 파일 상단 import에 `import { createRequire } from "node:module";`와 `import { dirname } from "node:path";`(이미 `join`을 import하는 줄에 `dirname`을 추가)를 넣고, `const pkg = …` 줄 아래에 추가:
+설치 후 `typescript`와 `@types/node`가 루트 `node_modules`로 끌어올려지므로, `mdrl/scripts/smoke-pack.ts`에서 하드코딩된 두 경로를 모듈 해석으로 바꾼다. 파일 상단 import에 `import { createRequire } from "node:module";`와 `import { dirname } from "node:path";`(이미 `join`을 import하는 줄에 `dirname`을 추가)를 넣고, `const pkg = …` 줄 아래에 추가:
 
 ```ts
 const requireFromPkg = createRequire(join(pkg, "package.json"));
@@ -179,8 +179,8 @@ const typesRoot = dirname(dirname(requireFromPkg.resolve("@types/node/package.js
 
 그리고 `typeRoots: [join(pkg, "node_modules", "@types")]`를 `typeRoots: [typesRoot]`로, `sh(process.execPath, [join(pkg, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"], app)`를 `sh(process.execPath, [tscBin, "-p", "tsconfig.json"], app)`로 바꾼다.
 
-Run: `npm test -w vcrl 2>&1 | grep -E "^ℹ (pass|fail)" && npm run smoke -w vcrl 2>&1 | tail -1`
-Expected: `ℹ pass 254`, `ℹ fail 0`, 마지막 줄 `smoke OK vcrl:sha256:5dc63e54…`.
+Run: `npm test -w mdrl 2>&1 | grep -E "^ℹ (pass|fail)" && npm run smoke -w mdrl 2>&1 | tail -1`
+Expected: `ℹ pass 254`, `ℹ fail 0`, 마지막 줄 `smoke OK mdrl:sha256:5dc63e54…`.
 
 - [ ] **Step 3: 실패하는 마이그레이션 테스트 작성**
 
@@ -219,10 +219,10 @@ test("fresh database has migrations applied and connects as rc_app", async () =>
   assert.ok(r.rows[0].n >= 1);
 });
 
-test("vcrl_id domain rejects invalid ids and __proto__", async () => {
-  await assert.rejects(db.pool.query("SELECT 'a b'::vcrl_id"));
-  await assert.rejects(db.pool.query("SELECT '__proto__'::vcrl_id"));
-  const ok = await db.pool.query("SELECT 'pty_a.b-1'::vcrl_id AS v");
+test("mdrl_id domain rejects invalid ids and __proto__", async () => {
+  await assert.rejects(db.pool.query("SELECT 'a b'::mdrl_id"));
+  await assert.rejects(db.pool.query("SELECT '__proto__'::mdrl_id"));
+  const ok = await db.pool.query("SELECT 'pty_a.b-1'::mdrl_id AS v");
   assert.equal(ok.rows[0].v, "pty_a.b-1");
 });
 
@@ -445,8 +445,8 @@ export async function createFreshDatabase(adminUrl: string): Promise<{ name: str
 
 `rights-core/migrations/0001_base.sql`:
 ```sql
--- VCRL id 규칙(코어 규격 3절): 영숫자·점·밑줄·하이픈, __proto__ 금지.
-CREATE DOMAIN vcrl_id AS TEXT CHECK (VALUE ~ '^[A-Za-z0-9._-]+$' AND VALUE <> '__proto__');
+-- MDRL id 규칙(코어 규격 3절): 영숫자·점·밑줄·하이픈, __proto__ 금지.
+CREATE DOMAIN mdrl_id AS TEXT CHECK (VALUE ~ '^[A-Za-z0-9._-]+$' AND VALUE <> '__proto__');
 
 -- 불변 테이블: UPDATE·DELETE 거부.
 CREATE FUNCTION rc_reject_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -503,7 +503,7 @@ Expected: 5 PASS, `TSC_OK`.
 
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
-git add package.json package-lock.json docker-compose.yml vcrl/scripts/smoke-pack.ts \
+git add package.json package-lock.json docker-compose.yml mdrl/scripts/smoke-pack.ts \
   rights-core/package.json rights-core/tsconfig.json rights-core/.gitignore rights-core/db/init/01-roles.sql \
   rights-core/migrations/0001_base.sql rights-core/src/platform/errors.ts rights-core/src/platform/clock.ts \
   rights-core/src/platform/db.ts rights-core/src/platform/migrate.ts rights-core/src/platform/dbadmin.ts \
@@ -512,7 +512,7 @@ git commit -m "feat(rights-core): npm workspaces, Docker PostgreSQL, platform �
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
-(`vcrl/package-lock.json` 삭제는 Step 2의 `git rm`으로 이미 스테이징되어 이 커밋에 들어간다.)
+(`mdrl/package-lock.json` 삭제는 Step 2의 `git rm`으로 이미 스테이징되어 이 커밋에 들어간다.)
 
 ---
 
@@ -669,7 +669,7 @@ Expected: FAIL (`Cannot find module '../../src/registry/service.ts'`).
 -- 예외: work.iswc는 표시 형식(T-123.456.789-0)을 담기 위해 TEXT.
 
 CREATE TABLE party (
-  party_id     vcrl_id PRIMARY KEY,
+  party_id     mdrl_id PRIMARY KEY,
   party_type   TEXT NOT NULL CHECK (party_type IN ('LABEL','AGENCY','PUBLISHER','CMO','AUTHOR','ARTIST','MEMBER','SESSION','AI_PROVIDER','FAN','PLATFORM')),
   display_name TEXT NOT NULL,
   isni         CHAR(16) NULL,
@@ -678,31 +678,31 @@ CREATE TABLE party (
 );
 
 CREATE TABLE work (
-  work_id    vcrl_id PRIMARY KEY,
+  work_id    mdrl_id PRIMARY KEY,
   title      TEXT NOT NULL,
   iswc       TEXT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 
 CREATE TABLE facts_scope (
-  facts_scope_id vcrl_id PRIMARY KEY,
-  work_id        vcrl_id NOT NULL UNIQUE REFERENCES work,
+  facts_scope_id mdrl_id PRIMARY KEY,
+  work_id        mdrl_id NOT NULL UNIQUE REFERENCES work,
   last_version   INT NOT NULL DEFAULT 0,
   created_at     TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 
 CREATE TABLE recording_version (
-  recording_id          vcrl_id PRIMARY KEY,
-  work_id               vcrl_id NOT NULL REFERENCES work,
-  master_owner_party_id vcrl_id NOT NULL REFERENCES party,
+  recording_id          mdrl_id PRIMARY KEY,
+  work_id               mdrl_id NOT NULL REFERENCES work,
+  master_owner_party_id mdrl_id NOT NULL REFERENCES party,
   isrc                  CHAR(12) NULL UNIQUE,
   version_title         TEXT NOT NULL,
   created_at            TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 
 CREATE TABLE part_slot (
-  slot_id      vcrl_id PRIMARY KEY,
-  recording_id vcrl_id NOT NULL REFERENCES recording_version,
+  slot_id      mdrl_id PRIMARY KEY,
+  recording_id mdrl_id NOT NULL REFERENCES recording_version,
   start_ms     INT NOT NULL CHECK (start_ms >= 0),
   end_ms       INT NOT NULL,
   duration_ms  INT GENERATED ALWAYS AS (end_ms - start_ms) STORED,
@@ -713,29 +713,29 @@ CREATE TABLE part_slot (
 );
 
 CREATE TABLE stem (
-  stem_id            vcrl_id PRIMARY KEY,
-  slot_id            vcrl_id NOT NULL,
-  recording_id       vcrl_id NOT NULL,
-  performer_party_id vcrl_id NULL REFERENCES party,
+  stem_id            mdrl_id PRIMARY KEY,
+  slot_id            mdrl_id NOT NULL,
+  recording_id       mdrl_id NOT NULL,
+  performer_party_id mdrl_id NULL REFERENCES party,
   rights_bearing     BOOLEAN NOT NULL DEFAULT TRUE,
   created_at         TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
   FOREIGN KEY (slot_id, recording_id) REFERENCES part_slot (slot_id, recording_id)
 );
 
 CREATE TABLE voice (
-  voice_id       vcrl_id PRIMARY KEY,
-  facts_scope_id vcrl_id NOT NULL REFERENCES facts_scope,
+  voice_id       mdrl_id PRIMARY KEY,
+  facts_scope_id mdrl_id NOT NULL REFERENCES facts_scope,
   kind           TEXT NOT NULL CHECK (kind IN ('HUMAN','AI')),
   created_at     TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 
 CREATE TABLE right_claim (
-  claim_id        vcrl_id NOT NULL,
+  claim_id        mdrl_id NOT NULL,
   version         INT NOT NULL CHECK (version >= 1),
-  facts_scope_id  vcrl_id NOT NULL REFERENCES facts_scope,
-  source_id       vcrl_id NOT NULL,
+  facts_scope_id  mdrl_id NOT NULL REFERENCES facts_scope,
+  source_id       mdrl_id NOT NULL,
   edge            TEXT NOT NULL CHECK (edge IN ('PERFORMED_BY','OWNED_BY','CONTROLLED_BY','WRITTEN_BY','CONTRIBUTED_BY')),
-  target_id       vcrl_id NOT NULL,
+  target_id       mdrl_id NOT NULL,
   share_bps       INT NOT NULL CHECK (share_bps BETWEEN 0 AND 10000),
   performer_role  TEXT NULL CHECK (performer_role IN ('FEATURED','NON_FEATURED')),
   role_detail     TEXT NULL,
@@ -744,7 +744,7 @@ CREATE TABLE right_claim (
   valid_to        TIMESTAMPTZ NULL CHECK (valid_to = date_trunc('milliseconds', valid_to)),
   recorded_at     TIMESTAMPTZ NOT NULL CHECK (recorded_at = date_trunc('milliseconds', recorded_at)),
   superseded_at   TIMESTAMPTZ NULL CHECK (superseded_at = date_trunc('milliseconds', superseded_at)),
-  evidence_digest TEXT NULL CHECK (evidence_digest ~ '^vcrl:sha256:[0-9a-f]{64}$'),
+  evidence_digest TEXT NULL CHECK (evidence_digest ~ '^mdrl:sha256:[0-9a-f]{64}$'),
   visibility      TEXT NULL CHECK (visibility IN ('PUBLIC','PARTIES','PRIVATE')),
   source_ref      TEXT NULL,
   PRIMARY KEY (claim_id, version),
@@ -757,11 +757,11 @@ CREATE UNIQUE INDEX right_claim_current ON right_claim (claim_id) WHERE supersed
 CREATE INDEX right_claim_scope ON right_claim (facts_scope_id, recorded_at);
 
 CREATE TABLE mandate (
-  mandate_id     vcrl_id NOT NULL,
+  mandate_id     mdrl_id NOT NULL,
   version        INT NOT NULL CHECK (version >= 1),
-  facts_scope_id vcrl_id NOT NULL REFERENCES facts_scope,
-  from_party_id  vcrl_id NOT NULL REFERENCES party,
-  to_party_id    vcrl_id NOT NULL REFERENCES party,
+  facts_scope_id mdrl_id NOT NULL REFERENCES facts_scope,
+  from_party_id  mdrl_id NOT NULL REFERENCES party,
+  to_party_id    mdrl_id NOT NULL REFERENCES party,
   right_kind     TEXT NOT NULL CHECK (right_kind IN ('MASTER','WORK','PERFORMER')),
   share_bps      INT NOT NULL CHECK (share_bps BETWEEN 0 AND 10000),
   status         TEXT NOT NULL CHECK (status IN ('ASSERTED','VERIFIED','DISPUTED','SUPERSEDED')),
@@ -782,10 +782,10 @@ CREATE INDEX mandate_scope ON mandate (facts_scope_id, recorded_at);
 
 -- 분쟁(v2.8 3.8 dispute의 I-1 부분 집합). 서비스는 Task 6.
 CREATE TABLE dispute (
-  dispute_id     vcrl_id PRIMARY KEY,
+  dispute_id     mdrl_id PRIMARY KEY,
   target_type    TEXT NOT NULL CHECK (target_type IN ('RIGHT_CLAIM','MANDATE')),
-  target_id      vcrl_id NOT NULL,
-  facts_scope_id vcrl_id NOT NULL REFERENCES facts_scope,
+  target_id      mdrl_id NOT NULL,
+  facts_scope_id mdrl_id NOT NULL REFERENCES facts_scope,
   dispute_reason TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','CLOSED')),
   opened_at      TIMESTAMPTZ NOT NULL,
@@ -860,7 +860,7 @@ export type MandateDraft = {
 };
 export type Recorded = { id: string; version: number; recordedAt: string };
 
-/** VCRL CLAIM_EDGE_KINDS와 같은 표(코어 규격 facts/types.ts). */
+/** MDRL CLAIM_EDGE_KINDS와 같은 표(코어 규격 facts/types.ts). */
 const EDGE_ENDPOINTS: Record<ClaimEdge, readonly [EntityKind, EntityKind]> = {
   PERFORMED_BY: ["stem", "voice"],
   OWNED_BY: ["voice", "party"],
@@ -1052,7 +1052,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { digestOf } from "vcrl/core";
+import { digestOf } from "mdrl/core";
 import { freshDb } from "../helpers.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import type { Tx } from "../../src/platform/db.ts";
@@ -1062,7 +1062,7 @@ import { createFsBlobStore } from "../../src/engine-bridge/blob-fs.ts";
 import { loadSealed } from "../../src/engine-bridge/seal-store.ts";
 import { loadFacts, sealFacts } from "../../src/engine-bridge/facts.ts";
 
-const conformance = JSON.parse(readFileSync(new URL("../../../vcrl/conformance/facts/001-basic/input.json", import.meta.url), "utf8"));
+const conformance = JSON.parse(readFileSync(new URL("../../../mdrl/conformance/facts/001-basic/input.json", import.meta.url), "utf8"));
 const T0 = "2026-01-01T00:00:00.000Z";
 const KNOWN_AT = "2026-06-01T00:00:00.000Z";
 const KIND_TO_TYPE: Record<string, reg.PartyType> = { AGENCY: "AGENCY", AUTHOR: "AUTHOR", CMO: "CMO", LABEL: "LABEL", PERFORMER: "MEMBER" };
@@ -1169,7 +1169,7 @@ test("knownAt filters later records and bumps the version; superseded versions k
   }
 });
 
-test("invalid facts are reported as VCRL diagnostics (422)", async () => {
+test("invalid facts are reported as MDRL diagnostics (422)", async () => {
   const { db, drop } = await freshDb();
   try {
     await db.tx((tx) => registerConformance(tx));
@@ -1197,7 +1197,7 @@ test("loadSealed reads storage without the cache and 404s unknown digests", asyn
     const fresh = createBridgeCtx(createFsBlobStore(blobRoot));
     const ok = await db.tx((tx) => loadSealed(fresh, tx, sealed.digest));
     assert.deepEqual(ok, conformance.facts);
-    await assert.rejects(db.tx((tx) => loadSealed(fresh, tx, `vcrl:sha256:${"0".repeat(64)}`)), { code: "NOT_FOUND" });
+    await assert.rejects(db.tx((tx) => loadSealed(fresh, tx, `mdrl:sha256:${"0".repeat(64)}`)), { code: "NOT_FOUND" });
   } finally {
     await drop();
   }
@@ -1221,10 +1221,10 @@ function walk(dir: string): string[] {
   });
 }
 
-test("only src/engine-bridge imports vcrl (design 9.2)", () => {
+test("only src/engine-bridge imports mdrl (design 9.2)", () => {
   const offenders = walk(SRC)
     .filter((p) => !relative(SRC, p).startsWith("engine-bridge/"))
-    .filter((p) => /from\s+["']vcrl(\/[a-z]+)?["']/.test(readFileSync(p, "utf8")))
+    .filter((p) => /from\s+["']mdrl(\/[a-z]+)?["']/.test(readFileSync(p, "utf8")))
     .map((p) => relative(SRC, p));
   assert.deepEqual(offenders, []);
 });
@@ -1232,7 +1232,7 @@ test("only src/engine-bridge imports vcrl (design 9.2)", () => {
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd rights-core && npm run build --prefix ../vcrl >/dev/null && node --test test/engine-bridge/`
+Run: `cd rights-core && npm run build --prefix ../mdrl >/dev/null && node --test test/engine-bridge/`
 Expected: facts.test.ts FAIL(모듈 없음), architecture.test.ts PASS.
 
 - [ ] **Step 3: 마이그레이션 작성**
@@ -1241,7 +1241,7 @@ Expected: facts.test.ts FAIL(모듈 없음), architecture.test.ts PASS.
 ```sql
 -- 봉인 저장소(v2.8 3.11 sealed_document): 내용 주소, 불변. 원문 JCS 바이트는 blob, 64KiB 이하는 JSONB 사본도 둔다.
 CREATE TABLE sealed_document (
-  digest      TEXT PRIMARY KEY CHECK (digest ~ '^vcrl:sha256:[0-9a-f]{64}$'),
+  digest      TEXT PRIMARY KEY CHECK (digest ~ '^mdrl:sha256:[0-9a-f]{64}$'),
   kind        TEXT NOT NULL CHECK (kind IN ('facts','allocation','projection','members','events','allocation_result','public_facts','manifest')),
   doc_id      TEXT NULL,
   doc_version TEXT NULL,
@@ -1281,7 +1281,7 @@ import type { BlobStore } from "./context.ts";
 export function createFsBlobStore(root: string): BlobStore {
   return {
     async put(digest, bytes) {
-      const hex = digest.slice("vcrl:sha256:".length);
+      const hex = digest.slice("mdrl:sha256:".length);
       const dir = join(root, hex.slice(0, 2), hex.slice(2, 4));
       const path = join(dir, `${hex}.json`);
       const uri = `file://${path}`;
@@ -1305,7 +1305,7 @@ export function createFsBlobStore(root: string): BlobStore {
 
 `rights-core/src/engine-bridge/seal-store.ts`:
 ```ts
-import { canonicalize, digestOf } from "vcrl/core";
+import { canonicalize, digestOf } from "mdrl/core";
 import type { Tx } from "../platform/db.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -1347,7 +1347,7 @@ export async function loadSealed(ctx: BridgeCtx, tx: Tx, digest: string): Promis
 
 `rights-core/src/engine-bridge/convert-facts.ts`:
 ```ts
-import type { FactsDocument } from "vcrl/facts";
+import type { FactsDocument } from "mdrl/facts";
 
 export type PartyRow = { partyId: string; partyType: string; isni?: string; ipiNo?: string; createdAt: string };
 export type WorkRow = { workId: string; iswc?: string; createdAt: string };
@@ -1365,7 +1365,7 @@ export type FactsRows = {
   parties: PartyRow[]; claims: ClaimRow[]; mandates: MandateRow[];
 };
 
-/** party_type → VCRL party_kind (통합 설계 9.3-3). FAN·PLATFORM은 facts에 들어갈 수 없다(undefined). */
+/** party_type → MDRL party_kind (통합 설계 9.3-3). FAN·PLATFORM은 facts에 들어갈 수 없다(undefined). */
 export const PARTY_KIND: Record<string, string | undefined> = {
   LABEL: "LABEL", AGENCY: "AGENCY", PUBLISHER: "PUBLISHER", CMO: "CMO", AUTHOR: "AUTHOR", SESSION: "SESSION",
   AI_PROVIDER: "AI_PROVIDER", ARTIST: "PERFORMER", MEMBER: "PERFORMER",
@@ -1406,7 +1406,7 @@ export function factsVersion(rows: FactsRows, knownAt: string): number {
 export function buildFactsDocument(rows: FactsRows, knownAt: string): FactsDocument {
   const valid = (r: Recorded) => ({ from: r.validFrom, ...(r.validTo !== undefined && { to: r.validTo }) });
   return {
-    vcrl: "1.0",
+    mdrl: "1.0",
     module: "facts",
     id: rows.scopeId,
     version: String(factsVersion(rows, knownAt)),
@@ -1440,7 +1440,7 @@ export function buildFactsDocument(rows: FactsRows, knownAt: string): FactsDocum
 
 `rights-core/src/engine-bridge/facts.ts`:
 ```ts
-import { validateFacts, type FactsDocument } from "vcrl/facts";
+import { validateFacts, type FactsDocument } from "mdrl/facts";
 import { iso, type Tx } from "../platform/db.ts";
 import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -1494,11 +1494,11 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
   };
 }
 
-/** S1: 범위의 facts를 knownAt 기준으로 만들고, VCRL로 검증한 뒤 봉인한다. 같은 행·같은 knownAt이면 같은 digest다. */
+/** S1: 범위의 facts를 knownAt 기준으로 만들고, MDRL로 검증한 뒤 봉인한다. 같은 행·같은 knownAt이면 같은 digest다. */
 export async function sealFacts(ctx: BridgeCtx, tx: Tx, scopeId: string, knownAt: string): Promise<Sealed & { knownAt: string }> {
   const doc = buildFactsDocument(await loadFactsRows(tx, scopeId, knownAt), knownAt);
   const errors = validateFacts(doc);
-  if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed VCRL validation`, errors);
+  if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed MDRL validation`, errors);
   const sealed = await sealDocument(ctx, tx, { kind: "facts", value: doc, docId: doc.id, docVersion: doc.version });
   await tx.query("UPDATE facts_scope SET last_version = GREATEST(last_version, $2) WHERE facts_scope_id = $1", [scopeId, Number(doc.version)]);
   return { ...sealed, knownAt };
@@ -1649,7 +1649,7 @@ export const DECLARED = [
 
 /** seedSong용 정책. uses 줄의 digest는 자리표시이며 컴파일 시 현재 facts 봉인으로 덮어쓴다. */
 export const POLICY_TEXT = `allocation "pol_nova" version 1 {
-  uses facts "fsc_nova"@1 digest "vcrl:sha256:${"0".repeat(64)}";
+  uses facts "fsc_nova"@1 digest "mdrl:sha256:${"0".repeat(64)}";
   scope { pack: pak_nova; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {
@@ -1730,7 +1730,7 @@ test("the same person cannot sign two roles on one policy", async () => {
   await assert.rejects(db.tx((tx) => policy.approvePolicy(ctx, tx, clock, both, r)), { code: "SOD_VIOLATION", status: 403 });
 });
 
-test("compile rejects a policy whose scope.pack differs from the target pack, with VCRL diagnostics for bad text", async () => {
+test("compile rejects a policy whose scope.pack differs from the target pack, with MDRL diagnostics for bad text", async () => {
   await assert.rejects(
     db.tx((tx) => policy.compilePolicy(ctx, tx, clock, users.editor, { policyId: "pol_x", packId: PACK, sourceText: POLICY_TEXT.replace("pack: pak_nova", "pack: pak_other") })),
     { code: "POLICY_PACK_MISMATCH", status: 422 },
@@ -1741,7 +1741,7 @@ test("compile rejects a policy whose scope.pack differs from the target pack, wi
   );
 });
 
-test("activation fails with VCRL diagnostics when declared claimants drift", async () => {
+test("activation fails with MDRL diagnostics when declared claimants drift", async () => {
   await db.tx(async (tx) => {
     await issuance.createPack(tx, clock, users.rights, { packId: "pak_drift", packCode: "DRIFT", title: "d", factsScopeId: SCOPE });
     await issuance.setPackClaimants(tx, users.rights, "pak_drift", DECLARED.filter((d) => d.role !== "CMO"));
@@ -1774,19 +1774,19 @@ Expected: FAIL (모듈 없음).
 ```sql
 -- 신원(v2.8 user_account·portal_role의 I-1 부분 집합). 역할은 PoC 서명·권한 역할.
 CREATE TABLE user_account (
-  user_id      vcrl_id PRIMARY KEY,
+  user_id      mdrl_id PRIMARY KEY,
   display_name TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE portal_role (
-  user_id vcrl_id NOT NULL REFERENCES user_account,
+  user_id mdrl_id NOT NULL REFERENCES user_account,
   role    TEXT NOT NULL CHECK (role IN ('RIGHTS_EDITOR','EDITOR','WORK_APPROVER','ACTIVATOR','ISSUER')),
   PRIMARY KEY (user_id, role)
 );
 
 -- 개발용 서명키(PoC 전용, 운영은 KMS/HSM — 통합 설계 6.4). 개인키를 DB에 두는 것은 이 테이블뿐이다.
 CREATE TABLE dev_signing_key (
-  user_id     vcrl_id PRIMARY KEY REFERENCES user_account,
+  user_id     mdrl_id PRIMARY KEY REFERENCES user_account,
   key_version TEXT NOT NULL,
   public_pem  TEXT NOT NULL,
   private_pem TEXT NOT NULL
@@ -1805,10 +1805,10 @@ CREATE TABLE attestation (
 
 -- 팩(v2.8 vocal_pack의 I-1 부분 집합). facts_scope_id는 base_image를 대신하는 PoC 연결 컬럼.
 CREATE TABLE vocal_pack (
-  pack_id        vcrl_id PRIMARY KEY,
+  pack_id        mdrl_id PRIMARY KEY,
   pack_code      VARCHAR(32) NOT NULL UNIQUE,
   title          TEXT NOT NULL,
-  facts_scope_id vcrl_id NOT NULL REFERENCES facts_scope,
+  facts_scope_id mdrl_id NOT NULL REFERENCES facts_scope,
   status         TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','ACTIVE','PAUSED')),
   created_at     TIMESTAMPTZ NOT NULL
 );
@@ -1816,14 +1816,14 @@ CREATE INDEX vocal_pack_scope ON vocal_pack (facts_scope_id);
 
 -- 선언 청구권자(v2.8 claimant는 grant 단위다. I-1은 grant가 없으므로 팩 단위 대용 테이블).
 CREATE TABLE pack_claimant (
-  pack_id       vcrl_id NOT NULL REFERENCES vocal_pack,
-  party_id      vcrl_id NOT NULL REFERENCES party,
+  pack_id       mdrl_id NOT NULL REFERENCES vocal_pack,
+  party_id      mdrl_id NOT NULL REFERENCES party,
   claimant_role TEXT NOT NULL CHECK (claimant_role IN ('MASTER_OWNER','WORK_AUTHOR','CMO','PERFORMER_FEATURED','PERFORMER_NON_FEATURED','AGENCY','AI_PROVIDER','RECORDING_CONTRIBUTOR')),
   PRIMARY KEY (pack_id, party_id, claimant_role)
 );
 
 CREATE TABLE policy_version (
-  policy_id         vcrl_id NOT NULL,
+  policy_id         mdrl_id NOT NULL,
   version           INT NOT NULL CHECK (version >= 1),
   source_text       TEXT NOT NULL,
   policy_digest     TEXT NOT NULL REFERENCES sealed_document,
@@ -1831,8 +1831,8 @@ CREATE TABLE policy_version (
   facts_known_at    TIMESTAMPTZ NOT NULL,
   status            TEXT NOT NULL CHECK (status IN ('DRAFT','COMPILED','APPROVED','ACTIVE','SUPERSEDED','TERMINATED')),
   rebind_of_version INT NULL,
-  pack_id           vcrl_id NOT NULL REFERENCES vocal_pack,
-  created_by        vcrl_id NOT NULL REFERENCES user_account,
+  pack_id           mdrl_id NOT NULL REFERENCES vocal_pack,
+  created_by        mdrl_id NOT NULL REFERENCES user_account,
   created_at        TIMESTAMPTZ NOT NULL,
   activated_at      TIMESTAMPTZ NULL,
   PRIMARY KEY (policy_id, version)
@@ -1898,7 +1898,7 @@ export async function audit(tx: Tx, clock: Clock, e: { actor: string; action: st
 
 `rights-core/src/engine-bridge/attest.ts`:
 ```ts
-import { signAttestation, verifyAttestation, type Attestation } from "vcrl/core";
+import { signAttestation, verifyAttestation, type Attestation } from "mdrl/core";
 import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
@@ -1906,7 +1906,7 @@ import type { BridgeCtx } from "./context.ts";
 
 export type AttestRole = "EDITOR" | "WORK_APPROVER" | "ACTIVATOR";
 
-/** digest에 대한 역할 서명(vcrl-attest/1)을 남긴다. 개발용 키를 쓴다. */
+/** digest에 대한 역할 서명(mdrl-attest/1)을 남긴다. 개발용 키를 쓴다. */
 export async function attest(_ctx: BridgeCtx, tx: Tx, clock: Clock, a: { userId: string; role: AttestRole; digest: string }): Promise<void> {
   const key = (await tx.query("SELECT key_version, private_pem FROM dev_signing_key WHERE user_id = $1", [a.userId])).rows[0];
   if (key === undefined) throw new DomainError("NO_SIGNING_KEY", 500, `no signing key for ${a.userId}`);
@@ -1937,8 +1937,8 @@ export async function verifyAttestations(tx: Tx, digest: string): Promise<boolea
 
 `rights-core/src/engine-bridge/policy.ts`:
 ```ts
-import { validateAllocation, type AllocationDocument } from "vcrl/allocation";
-import { formatAllocation, parseAllocation } from "vcrl/text";
+import { validateAllocation, type AllocationDocument } from "mdrl/allocation";
+import { formatAllocation, parseAllocation } from "mdrl/text";
 import type { Tx } from "../platform/db.ts";
 import { invalid } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -1953,7 +1953,7 @@ async function pinAndSeal(ctx: BridgeCtx, tx: Tx, ir: AllocationDocument, policy
     depends_on: [{ ref: `vc:facts/${facts.docId}@${facts.docVersion}`, digest: facts.digest }],
   };
   const errors = validateAllocation(pinned);
-  if (errors.length > 0) throw invalid("POLICY_INVALID", `policy ${policyId} failed VCRL validation`, errors);
+  if (errors.length > 0) throw invalid("POLICY_INVALID", `policy ${policyId} failed MDRL validation`, errors);
   const sealed = await sealDocument(ctx, tx, { kind: "allocation", value: pinned, docId: policyId, docVersion: String(version) });
   return { sealed, canonicalText: formatAllocation(pinned), ir: pinned };
 }
@@ -1982,7 +1982,7 @@ export async function repinPolicy(
 
 `rights-core/src/engine-bridge/activation.ts`:
 ```ts
-import { checkActivation, type ClaimantEntry } from "vcrl/facts";
+import { checkActivation, type ClaimantEntry } from "mdrl/facts";
 import type { Tx } from "../platform/db.ts";
 import type { Diagnostic } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -2227,7 +2227,7 @@ test("issue writes the snapshot and an issue seal whose projection matches the u
   const rows = await db.pool.query("SELECT stem_id, duration_ms, rights_bearing FROM snapshot_stem_assignment WHERE snapshot_id = 'snp_vc_1' ORDER BY slot_id");
   assert.deepEqual(rows.rows.map((r) => [r.stem_id, r.duration_ms, r.rights_bearing]), [["stm_a1", 30000, true], ["stm_b2", 60000, true], ["stm_mr", 90000, false]]);
   const proj = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.projectionDigest])).rows[0].content;
-  assert.equal(proj.format, "vcrl-projection/1");
+  assert.equal(proj.format, "mdrl-projection/1");
   assert.deepEqual(proj.vectors.PERFORMER_FEATURED, { pty_member_a: "1/3", pty_member_b: "2/3" });
   const members = (await db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [seal.membersDigest])).rows[0].content;
   assert.deepEqual(members, { members: { pty_member_a: "1/2", pty_member_b: "1/2" } });
@@ -2293,20 +2293,20 @@ Expected: FAIL (`activatePack` 없음 등).
 ```sql
 -- 발행 스냅샷(v2.8 3.6의 I-1 부분 집합). grant·stamp·recipe 컬럼은 범위 밖이라 이후 마이그레이션에서 추가한다.
 CREATE TABLE rights_snapshot (
-  snapshot_id    vcrl_id PRIMARY KEY,
-  vc_id          vcrl_id NOT NULL UNIQUE,
-  pack_id        vcrl_id NOT NULL REFERENCES vocal_pack,
-  policy_id      vcrl_id NOT NULL,
+  snapshot_id    mdrl_id PRIMARY KEY,
+  vc_id          mdrl_id NOT NULL UNIQUE,
+  pack_id        mdrl_id NOT NULL REFERENCES vocal_pack,
+  policy_id      mdrl_id NOT NULL,
   policy_version INT NOT NULL,
   created_at     TIMESTAMPTZ NOT NULL,
   FOREIGN KEY (policy_id, policy_version) REFERENCES policy_version (policy_id, version)
 );
 
 CREATE TABLE snapshot_stem_assignment (
-  snapshot_id    vcrl_id NOT NULL REFERENCES rights_snapshot,
-  slot_id        vcrl_id NOT NULL REFERENCES part_slot,
-  stem_id        vcrl_id NOT NULL REFERENCES stem,
-  party_id       vcrl_id NULL REFERENCES party,
+  snapshot_id    mdrl_id NOT NULL REFERENCES rights_snapshot,
+  slot_id        mdrl_id NOT NULL REFERENCES part_slot,
+  stem_id        mdrl_id NOT NULL REFERENCES stem,
+  party_id       mdrl_id NULL REFERENCES party,
   start_ms       INT NOT NULL,
   end_ms         INT NOT NULL,
   duration_ms    INT NOT NULL CHECK (duration_ms > 0),
@@ -2315,15 +2315,15 @@ CREATE TABLE snapshot_stem_assignment (
 );
 
 CREATE TABLE snapshot_member_pct (
-  snapshot_id vcrl_id NOT NULL REFERENCES rights_snapshot,
-  party_id    vcrl_id NOT NULL REFERENCES party,
+  snapshot_id mdrl_id NOT NULL REFERENCES rights_snapshot,
+  party_id    mdrl_id NOT NULL REFERENCES party,
   pct_bps     INT NOT NULL CHECK (pct_bps BETWEEN 0 AND 10000),
   PRIMARY KEY (snapshot_id, party_id)
 );
 
 -- 발행 봉인(통합 설계 3.2 S3): 정산의 유일한 입력.
 CREATE TABLE issue_seal (
-  snapshot_id       vcrl_id PRIMARY KEY REFERENCES rights_snapshot,
+  snapshot_id       mdrl_id PRIMARY KEY REFERENCES rights_snapshot,
   facts_digest      TEXT NOT NULL REFERENCES sealed_document,
   policy_digest     TEXT NOT NULL REFERENCES sealed_document,
   projection_digest TEXT NOT NULL REFERENCES sealed_document,
@@ -2344,13 +2344,13 @@ GRANT SELECT, INSERT ON rights_snapshot, snapshot_stem_assignment, snapshot_memb
 
 `rights-core/src/engine-bridge/issue.ts`:
 ```ts
-import { projectToIr, type FactsDocument } from "vcrl/facts";
+import { projectToIr, type FactsDocument } from "mdrl/facts";
 import { iso, type Tx } from "../platform/db.ts";
 import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadFacts } from "./facts.ts";
 import { sealDocument } from "./seal-store.ts";
-import { digestOf, formatRatio, fromBps } from "vcrl/core";
+import { digestOf, formatRatio, fromBps } from "mdrl/core";
 
 export type IssueSeal = {
   snapshotId: string; factsDigest: string; policyDigest: string; projectionDigest: string; membersDigest: string; asOf: string; knownAt: string;
@@ -2718,7 +2718,7 @@ export async function closeDispute(tx: Tx, clock: Clock, input: { disputeId: str
 }
 ```
 
-`rights-core/src/engine-bridge/activation.ts`에 추가(import에 `deriveClaimants`, `projectVectors`를 `vcrl/facts`에서, `invalid`를 errors에서 추가):
+`rights-core/src/engine-bridge/activation.ts`에 추가(import에 `deriveClaimants`, `projectVectors`를 `mdrl/facts`에서, `invalid`를 errors에서 추가):
 ```ts
 /** 투영에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
 export async function claimantSet(ctx: BridgeCtx, tx: Tx, factsDigest: string, at: string): Promise<string[]> {
@@ -2900,14 +2900,14 @@ test("end-to-end: register a song, compile/approve/activate a policy, activate t
     members: { pty_member_a: 5000, pty_member_b: 5000 },
   }));
   const doc = await ok(call("GET", `/seals/${encodeURIComponent(seal.projectionDigest)}`), 200);
-  assert.equal(doc.format, "vcrl-projection/1");
+  assert.equal(doc.format, "mdrl-projection/1");
   const audit = await ok(call("GET", "/issues/snp_vc_api/audit"), 200);
   assert.equal(audit.ok, true);
   const dup = await post("/issues", "usr_issuer", {
     packId: "pak_nova", vcId: "vc_api", assignments: [{ slotId: "slt_1", stemId: "stm_a1" }], members: { pty_member_a: 10000 },
   });
   assert.equal(dup.statusCode, 409);
-  assert.equal((await call("GET", `/seals/${encodeURIComponent(`vcrl:sha256:${"0".repeat(64)}`)}`)).statusCode, 404);
+  assert.equal((await call("GET", `/seals/${encodeURIComponent(`mdrl:sha256:${"0".repeat(64)}`)}`)).statusCode, 404);
 });
 ```
 
@@ -3101,7 +3101,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `rights-core/src/scenario/{prng,synthetic-song,run,main}.ts`
 - Test: `rights-core/test/scenario/scenario.test.ts`
-- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` (9.5 결과 절 추가)
+- Modify: `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` (9.5 결과 절 추가)
 
 **Interfaces:**
 - Consumes: 전부. 시나리오는 HTTP가 아니라 서비스 함수를 직접 호출한다(발행 지연을 서비스 수준에서 잰다).
@@ -3203,7 +3203,7 @@ export const SONG = {
     { role: "WORK_AUTHOR", party: "pty_author_b" }, { role: "WORK_AUTHOR", party: "pty_author_c" },
   ],
   policyText: `allocation "pol_nova_summer" version 1 {
-  uses facts "fsc_nova_summer"@1 digest "vcrl:sha256:${"0".repeat(64)}";
+  uses facts "fsc_nova_summer"@1 digest "mdrl:sha256:${"0".repeat(64)}";
   scope { pack: pak_nova_summer; events: [PRIMARY]; currency: KRW; }
   bind { time: ISSUE_TIME; }
   tier1 {
@@ -3427,7 +3427,7 @@ Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁
 
 - [ ] **Step 6: 결과 기록**
 
-`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 끝에 다음 절을 추가한다(값은 Step 5의 실제 리포트로 채운다. 표의 모든 칸을 실제 값으로 쓴다):
+`02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` 끝에 다음 절을 추가한다(값은 Step 5의 실제 리포트로 채운다. 표의 모든 칸을 실제 값으로 쓴다):
 
 ```markdown
 ### 9.5 I-1 PoC 결과 (YYYY-MM-DD)
@@ -3450,7 +3450,7 @@ Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
 git add rights-core/src/scenario/prng.ts rights-core/src/scenario/synthetic-song.ts rights-core/src/scenario/run.ts rights-core/src/scenario/main.ts \
-  rights-core/test/scenario/scenario.test.ts "../02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
+  rights-core/test/scenario/scenario.test.ts "../02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md"
 git commit -m "feat(rights-core): 합성 곡 1만 조합 시나리오 러너와 PoC 결과 기록
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

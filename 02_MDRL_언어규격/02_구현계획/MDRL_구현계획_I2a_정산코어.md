@@ -4,20 +4,20 @@
 
 **Goal:** rights-core에 수익 수집, 정산 배치·run(평가·봉인·독립 재계산 검증·확정), 환불 역분개를 붙여 "매출 → 확정 정산 라인 → 환불 역분개"를 실제 PostgreSQL에서 끝까지 처리한다.
 
-**Architecture:** 새 모듈 `revenue`·`settlement`와 `engine-bridge/settle.ts`·`engine-bridge/reverse.ts`(vcrl `evaluate`·`verifyAllocationResult`·`reverse` 호출은 여기만). 비동기 처리는 pg-boss 작업(`settle-run`·`verify-run`·`refund-recorded`·`reverse-event`)이고, 작업은 상태 변경과 같은 트랜잭션에서 보낸다. 작업 처리기는 `(deps, data) => Promise<void>` 순수 서비스 함수로, 자기 트랜잭션에서 대상 행을 잠그고 상태를 확인한 뒤 이미 처리됐으면 아무것도 하지 않는다(재시도 안전). 테스트는 처리기를 직접 호출하는 기록용 `Jobs`로 결정적으로 돌리고, 실제 pg-boss는 별도 통합 테스트와 시나리오에서 쓴다.
+**Architecture:** 새 모듈 `revenue`·`settlement`와 `engine-bridge/settle.ts`·`engine-bridge/reverse.ts`(mdrl `evaluate`·`verifyAllocationResult`·`reverse` 호출은 여기만). 비동기 처리는 pg-boss 작업(`settle-run`·`verify-run`·`refund-recorded`·`reverse-event`)이고, 작업은 상태 변경과 같은 트랜잭션에서 보낸다. 작업 처리기는 `(deps, data) => Promise<void>` 순수 서비스 함수로, 자기 트랜잭션에서 대상 행을 잠그고 상태를 확인한 뒤 이미 처리됐으면 아무것도 하지 않는다(재시도 안전). 테스트는 처리기를 직접 호출하는 기록용 `Jobs`로 결정적으로 돌리고, 실제 pg-boss는 별도 통합 테스트와 시나리오에서 쓴다.
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript 직접 실행, Fastify 5, pg 8, PostgreSQL 17 Docker) + **pg-boss 12**(런타임 의존성 1개 추가).
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **10절(I-2a 결정, 정본)**, 5.4~5.7, 9.3; `데이터모델_v2.8.md` 3.7; 코어 규격 12.50·12.53~12.55.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` **10절(I-2a 결정, 정본)**, 5.4~5.7, 9.3; `데이터모델_v2.8.md` 3.7; 코어 규격 12.50·12.53~12.55.
 
 ## Global Constraints
 
 - 작업 디렉터리 `/Users/changkyuneun/Vocal Combination/03_구현문서_코드` (git 루트 `/Users/changkyuneun/Vocal Combination`). 무관한 커밋 안 된 변경이 많다. `git add`는 태스크 파일만, `git stash`·`git reset`·`git checkout -- <path>` 금지. 임시 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - TypeScript erasable syntax만(`enum`·`namespace`·parameter property 금지), 상대 import는 `.ts`, 타입 전용은 `import type`.
-- `vcrl` import는 `rights-core/src/engine-bridge/` 아래에만(아키텍처 테스트). `revenue`는 `settlement`를 import하지 않는다(의존 방향: settlement → revenue, settlement → issuance, settlement → engine-bridge).
+- `mdrl` import는 `rights-core/src/engine-bridge/` 아래에만(아키텍처 테스트). `revenue`는 `settlement`를 import하지 않는다(의존 방향: settlement → revenue, settlement → issuance, settlement → engine-bridge).
 - 서비스는 현재 시각을 직접 읽지 않고 `Clock`을 받는다. 시각은 밀리초 UTC ISO 문자열, DB `TIMESTAMPTZ` 컬럼에는 밀리초 절사 `CHECK`.
-- id는 `vcrl_id` 도메인(`^[A-Za-z0-9._-]+$`). 콜론 금지 — 시스템 신원은 `sys_ingest`·`sys_settler`·`sys_verifier`.
+- id는 `mdrl_id` 도메인(`^[A-Za-z0-9._-]+$`). 콜론 금지 — 시스템 신원은 `sys_ingest`·`sys_settler`·`sys_verifier`.
 - 금액은 `BIGINT`/`bigint`, IR 값은 문자열. 부동소수 금지(시나리오 지연 측정 제외).
 - 추가 전용: 새 테이블은 트리거(`rc_reject_mutation`)와 `rc_app` 권한(SELECT·INSERT + 명시한 컬럼 UPDATE)으로 보호. 행을 지우지 않는다(무효화된 run의 라인도 남고, run 상태로 구분).
 - 오류 → HTTP는 기존 규칙(`DomainError.status`, 23505 → 409 `CONFLICT`, RC001 → 409 `APPEND_ONLY`, 22P02/23502 → 400).
@@ -47,7 +47,7 @@ rights-core/
   test/settlement-fixtures.ts           (Create)
   test/revenue/revenue.test.ts, test/platform/jobs.test.ts, test/engine-bridge/settle.test.ts,
   test/settlement/batch.test.ts, test/settlement/refund.test.ts, test/http/settlement-api.test.ts, test/scenario/settlement.test.ts
-02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 7: 10.4 결과)
+02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 7: 10.4 결과)
 ```
 
 ---
@@ -169,13 +169,13 @@ ALTER TABLE sealed_document ADD CONSTRAINT sealed_document_kind_check
 
 -- 수익 이벤트(v2.8 3.7 revenue_event의 I-2a 부분 집합). 환불도 양수이며 방향은 event_type이 나타낸다.
 CREATE TABLE revenue_event (
-  event_id         vcrl_id PRIMARY KEY,
+  event_id         mdrl_id PRIMARY KEY,
   source_system    TEXT NOT NULL,
   source_event_id  TEXT NOT NULL,
   source_revision  INT NOT NULL DEFAULT 1 CHECK (source_revision >= 1),
   event_type       TEXT NOT NULL CHECK (event_type IN ('PURCHASE','RESALE','REFUND')),
-  vc_id            vcrl_id NULL,
-  related_event_id vcrl_id NULL REFERENCES revenue_event,
+  vc_id            mdrl_id NULL,
+  related_event_id mdrl_id NULL REFERENCES revenue_event,
   net_amount_krw   BIGINT NOT NULL CHECK (net_amount_krw > 0),
   currency         CHAR(3) NOT NULL CHECK (currency = 'KRW'),
   integrity_status TEXT NOT NULL DEFAULT 'CLEAR' CHECK (integrity_status IN ('CLEAR','FLAGGED')),
@@ -509,7 +509,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `rights-core/migrations/0011_settlement.sql`, `rights-core/src/engine-bridge/settle.ts`, `rights-core/test/settlement-fixtures.ts`, `rights-core/test/engine-bridge/settle.test.ts`
 
 **Interfaces:**
-- Consumes: `loadSealed`, `sealDocument`, `loadFacts`, `Sealed`; vcrl `evaluate`, `verifyAllocationResult`, `AllocationResult` (`vcrl/allocation`).
+- Consumes: `loadSealed`, `sealDocument`, `loadFacts`, `Sealed`; mdrl `evaluate`, `verifyAllocationResult`, `AllocationResult` (`mdrl/allocation`).
 - Produces (`src/engine-bridge/settle.ts`):
 ```ts
 export type RunEvent = { eventId: string; type: "PRIMARY" | "RESALE"; amount: bigint; integrity: "CLEAR" | "FLAGGED" };
@@ -538,13 +538,13 @@ export async function purchase(w: SettlementWorld, eventId: string, vcId: string
 ```sql
 -- 정산 배치(통합 설계 10.2-3·4). 상태는 OPEN/CONFIRMED, 진행 상황은 run 상태에서 계산한다.
 CREATE TABLE settlement_batch (
-  batch_id              vcrl_id PRIMARY KEY,
+  batch_id              mdrl_id PRIMARY KEY,
   period_start          TIMESTAMPTZ NOT NULL CHECK (period_start = date_trunc('milliseconds', period_start)),
   period_end            TIMESTAMPTZ NOT NULL CHECK (period_end = date_trunc('milliseconds', period_end)),
   status                TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','CONFIRMED')),
-  executed_by           vcrl_id NOT NULL REFERENCES user_account,
+  executed_by           mdrl_id NOT NULL REFERENCES user_account,
   created_at            TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
-  confirmed_by          vcrl_id NULL REFERENCES user_account,
+  confirmed_by          mdrl_id NULL REFERENCES user_account,
   confirmed_at          TIMESTAMPTZ NULL CHECK (confirmed_at = date_trunc('milliseconds', confirmed_at)),
   batch_manifest_digest TEXT NULL REFERENCES sealed_document,
   CHECK (period_end > period_start),
@@ -553,15 +553,15 @@ CREATE TABLE settlement_batch (
 );
 
 CREATE TABLE settlement_run (
-  run_id            vcrl_id PRIMARY KEY,
-  batch_id          vcrl_id NOT NULL REFERENCES settlement_batch,
-  snapshot_id       vcrl_id NOT NULL REFERENCES issue_seal,
+  run_id            mdrl_id PRIMARY KEY,
+  batch_id          mdrl_id NOT NULL REFERENCES settlement_batch,
+  snapshot_id       mdrl_id NOT NULL REFERENCES issue_seal,
   status            TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','CALCULATED','VERIFIED','CONFIRMED','FAILED','VOIDED')),
   events_digest     TEXT NULL REFERENCES sealed_document,
   result_digest     TEXT NULL REFERENCES sealed_document,
   diagnostics       JSONB NULL,
-  executed_by       vcrl_id NOT NULL DEFAULT 'sys_settler' REFERENCES user_account,
-  verified_by       vcrl_id NULL REFERENCES user_account,
+  executed_by       mdrl_id NOT NULL DEFAULT 'sys_settler' REFERENCES user_account,
+  verified_by       mdrl_id NULL REFERENCES user_account,
   verified_at       TIMESTAMPTZ NULL CHECK (verified_at = date_trunc('milliseconds', verified_at)),
   created_at        TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
   UNIQUE (batch_id, snapshot_id),
@@ -573,8 +573,8 @@ CREATE INDEX settlement_run_batch ON settlement_run (batch_id, status);
 
 -- run에 고정된 이벤트 순액(원 금액 − 포함한 환불). active는 run이 FAILED·VOIDED가 되면 false.
 CREATE TABLE settlement_run_event (
-  run_id               vcrl_id NOT NULL REFERENCES settlement_run,
-  event_id             vcrl_id NOT NULL REFERENCES revenue_event,
+  run_id               mdrl_id NOT NULL REFERENCES settlement_run,
+  event_id             mdrl_id NOT NULL REFERENCES revenue_event,
   net_amount_krw       BIGINT NOT NULL CHECK (net_amount_krw > 0),
   refunds_included_krw BIGINT NOT NULL CHECK (refunds_included_krw >= 0),
   active               BOOLEAN NOT NULL DEFAULT true,
@@ -584,27 +584,27 @@ CREATE UNIQUE INDEX run_event_once ON settlement_run_event (event_id) WHERE acti
 
 -- 결과 라인(원 결과 line_seq = 1, 역분개 = sequence + 1). run_id는 항상 원 run.
 CREATE TABLE pool_line (
-  run_id      vcrl_id NOT NULL REFERENCES settlement_run,
-  event_id    vcrl_id NOT NULL REFERENCES revenue_event,
+  run_id      mdrl_id NOT NULL REFERENCES settlement_run,
+  event_id    mdrl_id NOT NULL REFERENCES revenue_event,
   bucket      TEXT NOT NULL,
   line_seq    INT NOT NULL CHECK (line_seq >= 1),
   amount_krw  BIGINT NOT NULL,
-  reversal_id vcrl_id NULL,
+  reversal_id mdrl_id NULL,
   PRIMARY KEY (run_id, event_id, bucket, line_seq),
   CHECK ((line_seq = 1) = (reversal_id IS NULL))
 );
 CREATE TABLE allocation_line (
   line_id             BIGSERIAL PRIMARY KEY,
-  run_id              vcrl_id NOT NULL REFERENCES settlement_run,
-  event_id            vcrl_id NOT NULL REFERENCES revenue_event,
-  party_id            vcrl_id NOT NULL REFERENCES party,
+  run_id              mdrl_id NOT NULL REFERENCES settlement_run,
+  event_id            mdrl_id NOT NULL REFERENCES revenue_event,
+  party_id            mdrl_id NOT NULL REFERENCES party,
   role                TEXT NOT NULL,
   bucket              TEXT NOT NULL,
   line_seq            INT NOT NULL CHECK (line_seq >= 1),
   line_kind           TEXT NOT NULL CHECK (line_kind IN ('SETTLE','REVERSAL')),
   amount_krw          BIGINT NOT NULL,
   reversal_of_line_id BIGINT NULL REFERENCES allocation_line,
-  reversal_id         vcrl_id NULL,
+  reversal_id         mdrl_id NULL,
   UNIQUE (run_id, event_id, party_id, role, bucket, line_seq),
   CHECK ((line_kind = 'SETTLE') = (line_seq = 1)),
   CHECK ((line_kind = 'REVERSAL') = (reversal_of_line_id IS NOT NULL AND reversal_id IS NOT NULL)),
@@ -612,21 +612,21 @@ CREATE TABLE allocation_line (
 );
 CREATE TABLE unallocated_holding (
   holding_id  BIGSERIAL PRIMARY KEY,
-  run_id      vcrl_id NOT NULL REFERENCES settlement_run,
-  event_id    vcrl_id NOT NULL REFERENCES revenue_event,
+  run_id      mdrl_id NOT NULL REFERENCES settlement_run,
+  event_id    mdrl_id NOT NULL REFERENCES revenue_event,
   bucket      TEXT NOT NULL,
   reason      TEXT NOT NULL CHECK (reason IN ('RIGHTS_DISPUTE','FRAUD_REVIEW')),
   line_seq    INT NOT NULL CHECK (line_seq >= 1),
   amount_krw  BIGINT NOT NULL,
-  reversal_id vcrl_id NULL,
+  reversal_id mdrl_id NULL,
   status      TEXT NOT NULL DEFAULT 'HELD' CHECK (status = 'HELD'),
   UNIQUE (run_id, event_id, bucket, reason, line_seq),
   CHECK ((line_seq = 1) = (reversal_id IS NULL))
 );
 
 CREATE TABLE settlement_batch_skip (
-  batch_id vcrl_id NOT NULL REFERENCES settlement_batch,
-  event_id vcrl_id NOT NULL REFERENCES revenue_event,
+  batch_id mdrl_id NOT NULL REFERENCES settlement_batch,
+  event_id mdrl_id NOT NULL REFERENCES revenue_event,
   reason   TEXT NOT NULL CHECK (reason IN ('NO_ISSUE_SEAL','FACTS_DISPUTE_OPEN','FULLY_REFUNDED')),
   PRIMARY KEY (batch_id, event_id)
 );
@@ -730,7 +730,7 @@ test("evaluateRun seals events (sorted) and the result; rows conserve every even
   assert.deepEqual(doc.map((e: { id: string }) => e.id), ["ev_1", "ev_2"]);
   const result = (await w.db.pool.query("SELECT kind, format, content FROM sealed_document WHERE digest = $1", [r.resultDigest])).rows[0];
   assert.equal(result.kind, "allocation_result");
-  assert.equal(result.format, "vcrl-allocation-result/1");
+  assert.equal(result.format, "mdrl-allocation-result/1");
   for (const ev of events) {
     const pool = r.rows.pool.filter((p) => p.eventId === ev.eventId).reduce((a, p) => a + p.amount, 0n);
     assert.equal(pool, ev.amount, `pool lines of ${ev.eventId}`);
@@ -768,8 +768,8 @@ Expected: FAIL (`settle.ts` 없음).
 
 `rights-core/src/engine-bridge/settle.ts`:
 ```ts
-import { evaluate, verifyAllocationResult, type AllocationDocument, type AllocationResult, type RevenueEvent, type Snapshot } from "vcrl/allocation";
-import type { ProjectionIr } from "vcrl/facts";
+import { evaluate, verifyAllocationResult, type AllocationDocument, type AllocationResult, type RevenueEvent, type Snapshot } from "mdrl/allocation";
+import type { ProjectionIr } from "mdrl/facts";
 import type { Tx } from "../platform/db.ts";
 import { notFound, type Diagnostic } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -812,7 +812,7 @@ function rowsOf(r: AllocationResult): RunRows {
   };
 }
 
-/** 발행 봉인의 입력과 고정된 순액 이벤트로 vcrl evaluate를 돌리고 events·결과를 봉인한다(통합 설계 10.2-5). */
+/** 발행 봉인의 입력과 고정된 순액 이벤트로 mdrl evaluate를 돌리고 events·결과를 봉인한다(통합 설계 10.2-5). */
 export async function evaluateRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; snapshotId: string; events: RunEvent[] }): Promise<RunEvaluation> {
   const s = await sealInputs(ctx, tx, input.snapshotId);
   const events = toIr(input.events, s.policy.body.scope.currency);
@@ -823,7 +823,7 @@ export async function evaluateRun(ctx: BridgeCtx, tx: Tx, input: { runId: string
   return { ok: true, eventsDigest: ev.digest, resultDigest: res.digest, rows: rowsOf(r.value) };
 }
 
-/** 봉인된 입력·스냅샷 사용량·발행 봉인 기준 시점으로 vcrl verifyAllocationResult를 돌린다(통합 설계 10.2-6). */
+/** 봉인된 입력·스냅샷 사용량·발행 봉인 기준 시점으로 mdrl verifyAllocationResult를 돌린다(통합 설계 10.2-6). */
 export async function verifyRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; snapshotId: string; eventsDigest: string; resultDigest: string }): Promise<Diagnostic[]> {
   const s = await sealInputs(ctx, tx, input.snapshotId);
   const events = (await loadSealed(ctx, tx, input.eventsDigest)) as RevenueEvent[];
@@ -837,7 +837,7 @@ export async function verifyRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; 
   return verifyAllocationResult({ policy: s.policy, facts: s.facts, snapshot: s.snapshot, events: [...events], runId: input.runId, usage, asOf: s.asOf, knownAt: s.knownAt }, given);
 }
 ```
-(`loadSealed`가 돌려주는 값은 깊게 동결되어 있다. vcrl은 입력을 바꾸지 않으므로 그대로 넘긴다 — `events`는 배열 복사본으로 넘긴다. `verifyAllocationResult`의 입력 타입이 다르면 vcrl `src/allocation/verify.ts`에 맞춘다.)
+(`loadSealed`가 돌려주는 값은 깊게 동결되어 있다. mdrl은 입력을 바꾸지 않으므로 그대로 넘긴다 — `events`는 배열 복사본으로 넘긴다. `verifyAllocationResult`의 입력 타입이 다르면 mdrl `src/allocation/verify.ts`에 맞춘다.)
 
 - [ ] **Step 5: 통과 확인**
 
@@ -995,7 +995,7 @@ Expected: FAIL (모듈 없음).
 
 `rights-core/src/engine-bridge/attest.ts`의 `AttestRole`을 Interfaces의 정의로 바꾼다.
 
-`rights-core/src/settlement/service.ts`(vcrl은 import하지 않는다 — 매니페스트는 `sealDocument`로 봉인한다):
+`rights-core/src/settlement/service.ts`(mdrl은 import하지 않는다 — 매니페스트는 `sealDocument`로 봉인한다):
 ```ts
 import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
@@ -1229,7 +1229,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `rights-core/src/settlement/handlers.ts`, `rights-core/src/settlement/service.ts`(`refundHook`)
 
 **Interfaces:**
-- Consumes: Task 1~4, vcrl `reverse`, `ReversalResult` (`vcrl/allocation`), `revenueRow`, `refundedTotal`.
+- Consumes: Task 1~4, mdrl `reverse`, `ReversalResult` (`mdrl/allocation`), `revenueRow`, `refundedTotal`.
 - Produces:
 ```ts
 // engine-bridge/reverse.ts
@@ -1254,11 +1254,11 @@ export async function reverseEventJob(d: SettleDeps, data: { refundEventId: stri
 ```sql
 -- 역분개 기록(통합 설계 10.2-9, 5.7 호출자 책임): 원 run·이벤트별 순번 유일, 환불 id 유일(멱등).
 CREATE TABLE reversal_run (
-  reversal_id     vcrl_id PRIMARY KEY,
-  original_run_id vcrl_id NOT NULL REFERENCES settlement_run,
-  event_id        vcrl_id NOT NULL REFERENCES revenue_event,
+  reversal_id     mdrl_id PRIMARY KEY,
+  original_run_id mdrl_id NOT NULL REFERENCES settlement_run,
+  event_id        mdrl_id NOT NULL REFERENCES revenue_event,
   sequence        INT NOT NULL CHECK (sequence >= 1),
-  refund_event_id vcrl_id NOT NULL UNIQUE REFERENCES revenue_event,
+  refund_event_id mdrl_id NOT NULL UNIQUE REFERENCES revenue_event,
   result_digest   TEXT NOT NULL REFERENCES sealed_document,
   created_at      TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at)),
   UNIQUE (original_run_id, event_id, sequence),
@@ -1371,7 +1371,7 @@ Expected: FAIL (`refundHook` 등 없음).
 
 `rights-core/src/engine-bridge/reverse.ts`:
 ```ts
-import { reverse, type AllocationDocument, type AllocationResult, type ReversalResult } from "vcrl/allocation";
+import { reverse, type AllocationDocument, type AllocationResult, type ReversalResult } from "mdrl/allocation";
 import type { Tx } from "../platform/db.ts";
 import { DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -1384,7 +1384,7 @@ export type ReversalRows = {
   holdings: { bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW"; amount: bigint }[];
 };
 
-/** 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 vcrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9). */
+/** 원 run의 봉인 결과와 그 이벤트의 이전 역분개 봉인(순서대로)으로 mdrl reverse를 호출하고 결과를 봉인한다(통합 설계 10.2-9). */
 export async function reverseEvent(
   ctx: BridgeCtx, tx: Tx, input: { originalRunId: string; eventId: string; refundEventId: string; amount: bigint; reversalId: string },
 ): Promise<ReversalRows> {
@@ -1501,7 +1501,7 @@ export async function reverseEventJob(d: SettleDeps, data: { refundEventId: stri
     "refund-recorded": (data) => refundRecorded(d, { refundEventId: data.refundEventId! }),
     "reverse-event": (data) => reverseEventJob(d, { refundEventId: data.refundEventId! }),
 ```
-(`allocation_line`의 `line_seq`는 vcrl 역분개 라인의 `line_seq`(= sequence + 1)와 같다 — `seq`와 `l.lineSeq`가 다르면 계획이 틀린 것이니 보고한다.)
+(`allocation_line`의 `line_seq`는 mdrl 역분개 라인의 `line_seq`(= sequence + 1)와 같다 — `seq`와 `l.lineSeq`가 다르면 계획이 틀린 것이니 보고한다.)
 
 - [ ] **Step 5: 통과 확인**
 
@@ -1665,7 +1665,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `rights-core/src/scenario/settlement.ts`, `rights-core/test/scenario/settlement.test.ts`
-- Modify: `rights-core/src/scenario/main.ts`, `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`(10.4)
+- Modify: `rights-core/src/scenario/main.ts`, `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md`(10.4)
 
 **Interfaces:**
 - Consumes: I-1 시나리오(`runScenario`가 남긴 DB 상태 — 1만 조합 발행), Task 1~6, 실제 pg-boss(`startBossJobs`).
@@ -1737,13 +1737,13 @@ Expected: 두 리포트와 마지막 줄 `SCENARIO PASS`. 실패하면 원인을
 
 - [ ] **Step 5: 결과 기록**
 
-`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 10절 끝에 실제 값으로 채운 표를 추가한다:
+`02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` 10절 끝에 실제 값으로 채운 표를 추가한다:
 ```markdown
 ### 10.4 I-2a 결과 (YYYY-MM-DD)
 
 | 항목 | 결과 |
 |---|---|
-| 테스트 | rights-core <n>개 통과, vcrl <n>개 통과 |
+| 테스트 | rights-core <n>개 통과, mdrl <n>개 통과 |
 | 시나리오 매출 / 배치 전 환불 / 확정 후 환불 | <purchases> / <refundsPre> / <refundsPost>건 |
 | run / 검증 통과 / 재계산 불일치 | <runs> / <verified> / <verifyMismatches> |
 | 보존식(풀 = 순매출, 권리 풀 = 라인 + 보류) | 통과/실패 |
@@ -1756,7 +1756,7 @@ Expected: 두 리포트와 마지막 줄 `SCENARIO PASS`. 실패하면 원인을
 
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
-git add rights-core/src/scenario/settlement.ts rights-core/src/scenario/main.ts rights-core/test/scenario/settlement.test.ts "../02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
+git add rights-core/src/scenario/settlement.ts rights-core/src/scenario/main.ts rights-core/test/scenario/settlement.test.ts "../02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md"
 git commit -m "feat(rights-core): 정산 시나리오(3만 건·환불·역분개)와 I-2a 결과 기록
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

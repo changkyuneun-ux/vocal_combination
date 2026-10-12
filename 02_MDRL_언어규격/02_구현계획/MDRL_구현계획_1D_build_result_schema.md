@@ -1,8 +1,8 @@
-# VCRL 1-D: 결과 IR 형식 태그 · 결과 스키마 · 결과 검증 API · 배포용 빌드 Implementation Plan
+# MDRL 1-D: 결과 IR 형식 태그 · 결과 스키마 · 결과 검증 API · 배포용 빌드 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **정정 (최종 리뷰 반영, 2026-09-29):** 안분 결과 형식 태그는 `vcrl-allocation-result/1`로 바뀌었고 `trace`는 봉인(`result_digest`) 밖으로 옮겨졌다. 이 계획서의 `vcrl-alloc-result/1`과 봉인 범위 기술은 설계문서 12.48~12.52가 대체한다.
+> **정정 (최종 리뷰 반영, 2026-09-29):** 안분 결과 형식 태그는 `mdrl-allocation-result/1`로 바뀌었고 `trace`는 봉인(`result_digest`) 밖으로 옮겨졌다. 이 계획서의 `mdrl-alloc-result/1`과 봉인 범위 기술은 설계문서 12.48~12.52가 대체한다.
 
 **Goal:** 투영 IR과 안분 결과에 digest로 봉인된 형식 태그를 붙이고, 두 결과 IR의 JSON Schema와 라이브러리 결과 검증 함수 `verifyAllocationResult`를 추가한 뒤, 다른 Node 서비스가 설치해 쓸 수 있도록 `dist/`로 빌드하고 tarball 스모크 테스트로 확인한다.
 
@@ -10,7 +10,7 @@
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript), TypeScript 5.9, `node:test`, devDependency `ajv`(스키마 테스트), `npm pack`. 런타임 의존성 없음.
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 12.48~12.52. 사용자 결정(2026-09-29): 사용 방식은 Node 라이브러리 + CLI, 형식 태그는 digest 계산에 포함.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` 12.48~12.52. 사용자 결정(2026-09-29): 사용 방식은 Node 라이브러리 + CLI, 형식 태그는 digest 계산에 포함.
 
 ## Global Constraints
 
@@ -49,7 +49,7 @@
   test/schema.test.ts                         (Create)
   test/package.test.ts                        (Create)
   test/cli.test.ts                            (Modify)
-02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md  (Modify: 11절 상태)
+02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md  (Modify: 11절 상태)
 ```
 
 ---
@@ -66,8 +66,8 @@
 - Test: `test/facts/result.test.ts`, `test/allocation/evaluate.test.ts`, `test/conformance.test.ts`
 
 **Interfaces:**
-- Produces: `export const PROJECTION_FORMAT = "vcrl-projection/1"` (`src/facts/result.ts`), `ProjectionIr.format: typeof PROJECTION_FORMAT`.
-- Produces: `export const ALLOCATION_RESULT_FORMAT = "vcrl-alloc-result/1"` (`src/allocation/types.ts`), `AllocationResult.format: typeof ALLOCATION_RESULT_FORMAT`.
+- Produces: `export const PROJECTION_FORMAT = "mdrl-projection/1"` (`src/facts/result.ts`), `ProjectionIr.format: typeof PROJECTION_FORMAT`.
+- Produces: `export const ALLOCATION_RESULT_FORMAT = "mdrl-alloc-result/1"` (`src/allocation/types.ts`), `AllocationResult.format: typeof ALLOCATION_RESULT_FORMAT`.
 - Produces: `evaluate`는 `projection.format !== PROJECTION_FORMAT`이면 `CORE_TYPE_ERROR`(경로 `$.projection.format`)를 낸다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -77,7 +77,7 @@
 ```ts
 test("projection IR carries its format tag inside the digest (spec 12.48)", () => {
   const a = build();
-  assert.equal(a.format, "vcrl-projection/1");
+  assert.equal(a.format, "mdrl-projection/1");
   assert.equal(a.digest, digestOf({ ...a, digest: undefined }));
   assert.notEqual(a.digest, digestOf({ ...a, format: undefined, digest: undefined }));
 });
@@ -88,14 +88,14 @@ test("projection IR carries its format tag inside the digest (spec 12.48)", () =
 ```ts
 test("allocation result carries its format tag inside result_digest (spec 12.48)", () => {
   const r = run(basic());
-  assert.equal(r.format, "vcrl-alloc-result/1");
+  assert.equal(r.format, "mdrl-alloc-result/1");
   assert.equal(r.result_digest, digestOf({ ...r, result_digest: undefined }));
   assert.notEqual(r.result_digest, digestOf({ ...r, format: undefined, result_digest: undefined }));
 });
 
 test("evaluate rejects a projection with another format tag", () => {
   const input = basic();
-  const projection = { ...input.projection, format: "vcrl-projection/2" } as unknown as ProjectionIr;
+  const projection = { ...input.projection, format: "mdrl-projection/2" } as unknown as ProjectionIr;
   const r = evaluate({ ...input, projection });
   assert.equal(r.ok, false);
   assert.ok(!r.ok && r.errors.some((e) => e.code === "CORE_TYPE_ERROR" && e.path === "$.projection.format"), JSON.stringify(r));
@@ -116,7 +116,7 @@ Expected: 새 테스트 3개와 적합성 6건이 FAIL(`format`이 `undefined`).
 
 ```ts
 /** 투영 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
-export const PROJECTION_FORMAT = "vcrl-projection/1";
+export const PROJECTION_FORMAT = "mdrl-projection/1";
 ```
 
 - `ProjectionIr` 타입의 첫 필드로 `format: typeof PROJECTION_FORMAT;`를 추가한다.
@@ -127,7 +127,7 @@ export const PROJECTION_FORMAT = "vcrl-projection/1";
 
 ```ts
 /** 안분 결과 형식 태그(스펙 12.48). result_digest 계산에 포함된다. */
-export const ALLOCATION_RESULT_FORMAT = "vcrl-alloc-result/1";
+export const ALLOCATION_RESULT_FORMAT = "mdrl-alloc-result/1";
 ```
 
 - `AllocationResult`의 첫 필드로 `format: typeof ALLOCATION_RESULT_FORMAT;`를 추가한다.
@@ -163,7 +163,7 @@ def run(*args): return json.loads(subprocess.check_output(["node", *args]))
 def patch(path, key, fmt, new_digest):
     text = open(path, encoding="utf-8").read()
     assert text.startswith("{\n") and '"format"' not in text, path
-    text, n = re.subn(r'"%s": "vcrl:sha256:[0-9a-f]{64}"' % key, '"%s": "%s"' % (key, new_digest), text)
+    text, n = re.subn(r'"%s": "mdrl:sha256:[0-9a-f]{64}"' % key, '"%s": "%s"' % (key, new_digest), text)
     assert n == 1, (path, n)
     text = '{\n  "format": "%s",\n' % fmt + text[2:]
     open(path, "w", encoding="utf-8").write(text)
@@ -197,7 +197,7 @@ git add src/facts/result.ts src/allocation/types.ts src/allocation/evaluate.ts s
   conformance/facts/001-basic/expected.json conformance/facts/002-disputed-master/expected.json conformance/facts/004-competing-dispute/expected.json \
   conformance/allocation/001-basic/expected.json conformance/allocation/002-disputed-master/expected.json conformance/allocation/003-fraud-hold/expected.json \
   test/facts/result.test.ts test/allocation/evaluate.test.ts test/conformance.test.ts
-git commit -m "feat(vcrl): 투영·안분 결과 IR에 digest로 봉인된 형식 태그
+git commit -m "feat(mdrl): 투영·안분 결과 IR에 digest로 봉인된 형식 태그
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -212,7 +212,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `test/schema.test.ts`
 
 **Interfaces:**
-- Consumes: Task 1의 `format` 필드 값 `"vcrl-projection/1"`, `"vcrl-alloc-result/1"`.
+- Consumes: Task 1의 `format` 필드 값 `"mdrl-projection/1"`, `"mdrl-alloc-result/1"`.
 - Produces: 두 스키마 파일(Task 4의 스모크 테스트가 tarball에 들어 있는지 확인한다).
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -271,7 +271,7 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
   assert.ok(p.ok);
   const path0 = p.value.paths[0]!;
   for (const bad of [
-    { ...p.value, format: "vcrl-projection/2" },
+    { ...p.value, format: "mdrl-projection/2" },
     { ...p.value, extra: "x" },
     { ...p.value, paths: [{ ...path0, weight: 1 }] },
     { ...p.value, vectors: { NOBODY: {} } },
@@ -281,7 +281,7 @@ test("result schemas reject another format, unknown fields, JSON numbers and unk
   assert.ok(r.ok);
   const line0 = r.value.lines[0]!;
   for (const bad of [
-    { ...r.value, format: "vcrl-alloc-result/2" },
+    { ...r.value, format: "mdrl-alloc-result/2" },
     { ...r.value, extra: "x" },
     { ...r.value, lines: [{ ...line0, amount: 3150 }] },
     { ...r.value, lines: [{ ...line0, role: "NOBODY" }] },
@@ -302,13 +302,13 @@ Expected: FAIL (`ENOENT ... projection.ir.schema.json`).
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/projection.ir.schema.json",
-  "title": "VCRL projection IR (vcrl-projection/1)",
+  "$id": "https://mdrl.invalid/1.0/projection.ir.schema.json",
+  "title": "MDRL projection IR (mdrl-projection/1)",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "facts_digest", "as_of", "known_at", "u_digest", "vectors", "paths", "digest"],
   "properties": {
-    "format": { "const": "vcrl-projection/1" },
+    "format": { "const": "mdrl-projection/1" },
     "facts_digest": { "$ref": "#/$defs/digest" },
     "as_of": { "$ref": "#/$defs/instant" },
     "known_at": { "$ref": "#/$defs/instant" },
@@ -342,7 +342,7 @@ Expected: FAIL (`ENOENT ... projection.ir.schema.json`).
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "partyKey": { "type": "string", "pattern": "^(@hold|[A-Za-z0-9._-]+)$", "not": { "const": "__proto__" } },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
     "ratio": { "type": "string", "pattern": "^(0|[1-9]\\d*)/[1-9]\\d*$" },
     "claimantRole": {
@@ -357,8 +357,8 @@ Expected: FAIL (`ENOENT ... projection.ir.schema.json`).
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/allocation.result.schema.json",
-  "title": "VCRL allocation result (vcrl-alloc-result/1)",
+  "$id": "https://mdrl.invalid/1.0/allocation.result.schema.json",
+  "title": "MDRL allocation result (mdrl-alloc-result/1)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -366,7 +366,7 @@ Expected: FAIL (`ENOENT ... projection.ir.schema.json`).
     "pool_lines", "lines", "holdings", "trace", "result_digest"
   ],
   "properties": {
-    "format": { "const": "vcrl-alloc-result/1" },
+    "format": { "const": "mdrl-alloc-result/1" },
     "run_id": { "$ref": "#/$defs/id" },
     "policy_digest": { "$ref": "#/$defs/digest" },
     "projection_digest": { "$ref": "#/$defs/digest" },
@@ -433,7 +433,7 @@ Expected: FAIL (`ENOENT ... projection.ir.schema.json`).
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "__proto__" } },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" },
     "amount": { "type": "string", "pattern": "^(0|[1-9]\\d*)$" },
     "ratio": { "type": "string", "pattern": "^(0|[1-9]\\d*)/[1-9]\\d*$" },
     "claimantRole": {
@@ -453,7 +453,7 @@ Expected: 3개 PASS, 전체 fail 0, `TSC_OK`. 적합성 결과가 스키마에 �
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add spec/schema/projection.ir.schema.json spec/schema/allocation.result.schema.json test/schema.test.ts
-git commit -m "feat(vcrl): 투영·안분 결과 IR JSON Schema와 적합성 대조 테스트
+git commit -m "feat(mdrl): 투영·안분 결과 IR JSON Schema와 적합성 대조 테스트
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -518,7 +518,7 @@ test("a non-object result is a type error", () => {
 
 test("another format tag is reported before any recomputation", () => {
   const { input, result } = setup();
-  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "vcrl-alloc-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
+  assert.deepEqual(at(verifyAllocationResult(input, { ...result, format: "mdrl-alloc-result/2" })), ["CORE_TYPE_ERROR $.result.format"]);
   const { format: _omit, ...untagged } = result;
   assert.deepEqual(at(verifyAllocationResult(input, untagged)), ["CORE_TYPE_ERROR $.result.format"]);
 });
@@ -533,7 +533,7 @@ test("tampered content is caught even when result_digest is re-sealed", () => {
 
 test("a different projection digest is reported", () => {
   const { input, result } = setup();
-  const other = { ...result, projection_digest: `vcrl:sha256:${"0".repeat(64)}` };
+  const other = { ...result, projection_digest: `mdrl:sha256:${"0".repeat(64)}` };
   assert.ok(at(verifyAllocationResult(input, other)).includes("CORE_DIGEST_MISMATCH $.result.projection_digest"));
 });
 
@@ -553,14 +553,14 @@ test("invalid inputs are reported as input diagnostics", () => {
 });
 ```
 
-`test/cli.test.ts`의 `test("evaluate and verify accept a JSON policy (not just .vcrl text)", ...)` 뒤에 추가:
+`test/cli.test.ts`의 `test("evaluate and verify accept a JSON policy (not just .mdrl text)", ...)` 뒤에 추가:
 
 ```ts
 test("verify rejects a result with another format tag", () => {
   const r = cli(["evaluate", ...EVAL]);
   assert.equal(r.code, 0, r.err);
   const files = fixture();
-  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "vcrl-alloc-result/2" }));
+  files.set("other.json", JSON.stringify({ ...JSON.parse(r.out), format: "mdrl-alloc-result/2" }));
   const v = cli(["verify", "--result", "other.json", ...EVAL], files);
   assert.equal(v.code, 1);
   assert.match(v.err, /^CORE_TYPE_ERROR \$\.result\.format /m);
@@ -653,9 +653,9 @@ function verificationInput(io: Io, o: Opts): VerificationInput {
 function evaluateFromFiles(io: Io, o: Opts): AllocationResult {
   const { usage, asOf, knownAt, ...rest } = verificationInput(io, o);
   const projection = projectToIr(rest.facts, usage, asOf, knownAt);
-  if (!projection.ok) throw new VcrlError(projection.errors);
+  if (!projection.ok) throw new MdrlError(projection.errors);
   const r = evaluate({ ...rest, projection: projection.value });
-  if (!r.ok) throw new VcrlError(r.errors);
+  if (!r.ok) throw new MdrlError(r.errors);
   return r.value;
 }
 ```
@@ -672,7 +672,7 @@ Expected: fail 0, `TSC_OK`. 기존 CLI 테스트("evaluate from text reproduces 
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/allocation/verify.ts src/allocation/index.ts src/cli/main.ts test/allocation/verify.test.ts test/cli.test.ts
-git commit -m "feat(vcrl): 라이브러리 결과 검증 verifyAllocationResult, CLI verify가 이를 사용
+git commit -m "feat(mdrl): 라이브러리 결과 검증 verifyAllocationResult, CLI verify가 이를 사용
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -687,11 +687,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `.gitignore`
 - Create: `scripts/smoke-pack.ts`
 - Test: `test/package.test.ts`
-- Modify: `/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (11절 상태)
+- Modify: `/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` (11절 상태)
 
 **Interfaces:**
 - Consumes: Task 1~3의 공개 API(`PROJECTION_FORMAT`, `ALLOCATION_RESULT_FORMAT`, `verifyAllocationResult`, `VerificationInput`)와 두 스키마 파일.
-- Produces: `npm run build` → `dist/src/{core,facts,allocation,text}/index.{js,d.ts}`, `dist/bin/vcrl.js`. `npm run smoke` → 성공 시 마지막 줄 `smoke OK vcrl:sha256:…`.
+- Produces: `npm run build` → `dist/src/{core,facts,allocation,text}/index.{js,d.ts}`, `dist/bin/mdrl.js`. `npm run smoke` → 성공 시 마지막 줄 `smoke OK mdrl:sha256:…`.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -711,8 +711,8 @@ test("exports point at built files that mirror src (spec 12.51)", () => {
     assert.deepEqual(pkg.exports[`./${m}`], { types: `./dist/src/${m}/index.d.ts`, default: `./dist/src/${m}/index.js` });
     assert.ok(existsSync(new URL(`../src/${m}/index.ts`, import.meta.url)), m);
   }
-  assert.deepEqual(pkg.bin, { vcrl: "./dist/bin/vcrl.js" });
-  assert.ok(existsSync(new URL("../bin/vcrl.ts", import.meta.url)));
+  assert.deepEqual(pkg.bin, { mdrl: "./dist/bin/mdrl.js" });
+  assert.ok(existsSync(new URL("../bin/mdrl.ts", import.meta.url)));
 });
 
 test("package metadata keeps it private, dependency-free and ships only dist and spec", () => {
@@ -763,12 +763,12 @@ Expected: FAIL (exports가 아직 `./src/...ts`를 가리킴, `tsconfig.build.js
 
 ```json
 {
-  "name": "vcrl",
+  "name": "mdrl",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
-  "bin": { "vcrl": "./dist/bin/vcrl.js" },
+  "bin": { "mdrl": "./dist/bin/mdrl.js" },
   "exports": {
     "./core": { "types": "./dist/src/core/index.d.ts", "default": "./dist/src/core/index.js" },
     "./facts": { "types": "./dist/src/facts/index.d.ts", "default": "./dist/src/facts/index.js" },
@@ -802,8 +802,8 @@ dist/
 
 - [ ] **Step 4: 단위 테스트 통과와 빌드 확인**
 
-Run: `node --test test/package.test.ts && npm run build && ls dist/src/core/index.js dist/src/core/index.d.ts dist/bin/vcrl.js && head -1 dist/bin/vcrl.js; grep -c '\.ts"' dist/src/allocation/evaluate.js; node dist/bin/vcrl.js help | head -1`
-Expected: 3개 PASS. 파일 세 개 존재. 첫 줄 `#!/usr/bin/env node`. `.ts"` import 개수 `0`. 마지막 줄 `사용법: vcrl <명령> [옵션]`.
+Run: `node --test test/package.test.ts && npm run build && ls dist/src/core/index.js dist/src/core/index.d.ts dist/bin/mdrl.js && head -1 dist/bin/mdrl.js; grep -c '\.ts"' dist/src/allocation/evaluate.js; node dist/bin/mdrl.js help | head -1`
+Expected: 3개 PASS. 파일 세 개 존재. 첫 줄 `#!/usr/bin/env node`. `.ts"` import 개수 `0`. 마지막 줄 `사용법: mdrl <명령> [옵션]`.
 
 - [ ] **Step 5: 스모크 스크립트 작성**
 
@@ -820,7 +820,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
-const tmp = mkdtempSync(join(tmpdir(), "vcrl-smoke-"));
+const tmp = mkdtempSync(join(tmpdir(), "mdrl-smoke-"));
 const sh = (cmd: string, args: string[], cwd: string) => execFileSync(cmd, args, { cwd, encoding: "utf8" });
 const read = (rel: string) => readFileSync(join(pkg, rel), "utf8");
 
@@ -831,7 +831,7 @@ try {
   const shipped = packed[0]!.files.map((f) => f.path);
   for (const must of [
     "dist/src/core/index.js", "dist/src/core/index.d.ts", "dist/src/facts/index.js", "dist/src/allocation/index.js",
-    "dist/src/allocation/verify.d.ts", "dist/src/text/index.js", "dist/bin/vcrl.js",
+    "dist/src/allocation/verify.d.ts", "dist/src/text/index.js", "dist/bin/mdrl.js",
     "spec/schema/projection.ir.schema.json", "spec/schema/allocation.result.schema.json", "spec/grammar/allocation.ebnf",
   ]) assert.ok(shipped.includes(must), `tarball is missing ${must}`);
   const leaked = shipped.filter((f) => /^(src|test|conformance|scripts|samples)\//.test(f));
@@ -839,14 +839,14 @@ try {
 
   const app = join(tmp, "app");
   mkdirSync(app);
-  writeFileSync(join(app, "package.json"), JSON.stringify({ name: "vcrl-smoke-app", private: true, type: "module" }));
+  writeFileSync(join(app, "package.json"), JSON.stringify({ name: "mdrl-smoke-app", private: true, type: "module" }));
   sh("npm", ["install", "--offline", "--no-audit", "--no-fund", join(tmp, packed[0]!.filename)], app);
 
   const alloc = JSON.parse(read("conformance/allocation/001-basic/input.json"));
   const facts = JSON.parse(read(`conformance/facts/${alloc.facts_case}/input.json`));
   const expected = JSON.parse(read("conformance/allocation/001-basic/expected.json"));
   const put = (name: string, v: unknown) => writeFileSync(join(app, name), typeof v === "string" ? v : JSON.stringify(v));
-  put("policy.vcrl", read("conformance/text/001-basic.vcrl"));
+  put("policy.mdrl", read("conformance/text/001-basic.mdrl"));
   put("facts.json", facts.facts);
   put("usage.json", facts.usage);
   put("snapshot.json", alloc.snapshot);
@@ -856,13 +856,13 @@ try {
   const args = { asOf: facts.as_of, knownAt: facts.known_at, runId: alloc.run_id };
   put("check.mjs", `
 import { readFileSync } from "node:fs";
-import { digestOf } from "vcrl/core";
-import { projectToIr } from "vcrl/facts";
-import { evaluate, verifyAllocationResult } from "vcrl/allocation";
-import { compileAllocation } from "vcrl/text";
+import { digestOf } from "mdrl/core";
+import { projectToIr } from "mdrl/facts";
+import { evaluate, verifyAllocationResult } from "mdrl/allocation";
+import { compileAllocation } from "mdrl/text";
 const j = (f) => JSON.parse(readFileSync(f, "utf8"));
 const { asOf, knownAt, runId } = ${JSON.stringify(args)};
-const policy = compileAllocation(readFileSync("policy.vcrl", "utf8"));
+const policy = compileAllocation(readFileSync("policy.mdrl", "utf8"));
 if (!policy.ok) throw new Error(JSON.stringify(policy.errors));
 const facts = j("facts.json"), usage = j("usage.json"), snapshot = j("snapshot.json"), events = j("events.json");
 const p = projectToIr(facts, usage, asOf, knownAt);
@@ -871,27 +871,27 @@ const r = evaluate({ policy: policy.value, facts, projection: p.value, snapshot,
 if (!r.ok) throw new Error(JSON.stringify(r.errors));
 const v = verifyAllocationResult({ policy: policy.value, facts, usage, asOf, knownAt, snapshot, events, runId }, r.value);
 if (v.length > 0) throw new Error(JSON.stringify(v));
-if (!digestOf({}).startsWith("vcrl:sha256:")) throw new Error("digestOf");
+if (!digestOf({}).startsWith("mdrl:sha256:")) throw new Error("digestOf");
 console.log(r.value.result_digest);
 `);
   assert.equal(sh(process.execPath, ["check.mjs"], app).trim(), expected.result_digest, "library result digest");
 
   // 2) 설치된 CLI.
-  const vcrl = join(app, "node_modules", ".bin", "vcrl");
-  assert.deepEqual(JSON.parse(sh(vcrl, ["compile", "policy.vcrl"], app)), alloc.policy, "vcrl compile");
-  const result = JSON.parse(sh(vcrl, [
-    "evaluate", "--policy", "policy.vcrl", "--facts", "facts.json", "--usage", "usage.json",
+  const mdrl = join(app, "node_modules", ".bin", "mdrl");
+  assert.deepEqual(JSON.parse(sh(mdrl, ["compile", "policy.mdrl"], app)), alloc.policy, "mdrl compile");
+  const result = JSON.parse(sh(mdrl, [
+    "evaluate", "--policy", "policy.mdrl", "--facts", "facts.json", "--usage", "usage.json",
     "--as-of", facts.as_of, "--known-at", facts.known_at, "--snapshot", "snapshot.json", "--events", "events.json", "--run-id", alloc.run_id,
   ], app));
-  assert.equal(result.result_digest, expected.result_digest, "vcrl evaluate");
+  assert.equal(result.result_digest, expected.result_digest, "mdrl evaluate");
 
   // 3) 타입 선언 소비.
   put("types.ts", `
-import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type AllocationResult, type VerificationInput } from "vcrl/allocation";
-import { digestOf, type Diagnostic } from "vcrl/core";
-import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "vcrl/facts";
-import { compileAllocation } from "vcrl/text";
-export const formats: ["vcrl-alloc-result/1", "vcrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
+import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type AllocationResult, type VerificationInput } from "mdrl/allocation";
+import { digestOf, type Diagnostic } from "mdrl/core";
+import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "mdrl/facts";
+import { compileAllocation } from "mdrl/text";
+export const formats: ["mdrl-alloc-result/1", "mdrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];
 export const check = (input: VerificationInput, r: AllocationResult): Diagnostic[] => verifyAllocationResult(input, r);
 export const fns = [evaluate, projectToIr, compileAllocation, digestOf] as const;
 export type Fmt = ProjectionIr["format"];
@@ -916,13 +916,13 @@ export const bad: AllocationResult["result_digest"] = 1;
 - [ ] **Step 6: 스모크 실행**
 
 Run: `npm run smoke 2>&1 | tail -3`
-Expected: 마지막 줄 `smoke OK vcrl:sha256:<conformance/allocation/001-basic/expected.json의 result_digest>`. 실패하면 원인(누락 파일, 타입 오류, digest 불일치)을 고친다. 스크립트의 단언을 느슨하게 만들어 통과시키지 않는다.
+Expected: 마지막 줄 `smoke OK mdrl:sha256:<conformance/allocation/001-basic/expected.json의 result_digest>`. 실패하면 원인(누락 파일, 타입 오류, digest 불일치)을 고친다. 스크립트의 단언을 느슨하게 만들어 통과시키지 않는다.
 
 그 뒤 확인: `git status --short -- .` 에 `dist/`나 `*.tgz`가 나오지 않아야 한다(무시됨). 패키지 디렉터리에 tarball이 생기지 않았는지 `ls *.tgz 2>/dev/null | wc -l` → `0`.
 
 - [ ] **Step 7: 설계문서 11절 상태 갱신**
 
-`/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`에서:
+`/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`에서:
 - 11절 머리의 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C를 \`master\`에 머지한 시점).` 을 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C·1-D 반영).` 로 바꾼다.
 - 11.1.1 표의 "IR JSON 스키마" 행을 `| IR JSON 스키마 | \`spec/schema/\` envelope·facts IR·allocation IR, 투영 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |` 로 바꾼다.
 - 11.2 표의 첫 행(설치형 배포 빌드)을 `| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널(사설 레지스트리·git·tarball)은 시스템 통합에서 결정 |` 로 바꾼다.
@@ -936,8 +936,8 @@ Expected: fail 0, `TSC_OK`. 추적되지 않은 파일은 이번 태스크에서
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add tsconfig.build.json package.json .gitignore scripts/smoke-pack.ts test/package.test.ts \
-  "/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md"
-git commit -m "build(vcrl): dist 배포 빌드, exports·bin을 dist로, tarball 스모크 테스트
+  "/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md"
+git commit -m "build(mdrl): dist 배포 빌드, exports·bin을 dist로, tarball 스모크 테스트
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```

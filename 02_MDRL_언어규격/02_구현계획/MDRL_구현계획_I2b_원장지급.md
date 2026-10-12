@@ -8,20 +8,20 @@
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript, Fastify 5, pg 8, pg-boss 12, PostgreSQL 17 Docker).
 
-**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **11절(I-2b 결정 1~14)**, 10절(I-2a), 5.7. 모든 태스크의 요구사항은 11.2의 해당 결정 번호를 따른다.
+**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` **11절(I-2b 결정 1~14)**, 10절(I-2a), 5.7. 모든 태스크의 요구사항은 11.2의 해당 결정 번호를 따른다.
 
 ## Global Constraints
 
 - 작업 디렉터리 `/Users/changkyuneun/Vocal Combination/03_구현문서_코드` (git 루트 `/Users/changkyuneun/Vocal Combination`). 무관한 커밋 안 된 변경이 많다. `git add`는 태스크 파일만, `git stash`·`git reset`·`git checkout -- <path>` 금지. 임시 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - TypeScript erasable syntax만, 상대 import는 `.ts`, 타입 전용은 `import type`.
-- `vcrl` import는 `src/engine-bridge/`에만. `revenue`는 `settlement`를, `ledger`는 `settlement`·`payout`을 import하지 않는다(의존 방향: settlement → ledger, payout → ledger). 아키텍처 테스트에 `ledger` 규칙을 추가한다.
+- `mdrl` import는 `src/engine-bridge/`에만. `revenue`는 `settlement`를, `ledger`는 `settlement`·`payout`을 import하지 않는다(의존 방향: settlement → ledger, payout → ledger). 아키텍처 테스트에 `ledger` 규칙을 추가한다.
 - 서비스는 `Clock`을 받고 현재 시각을 직접 읽지 않는다. 시각은 밀리초 UTC ISO, `TIMESTAMPTZ` 컬럼에는 밀리초 절사 `CHECK`.
 - 금액은 `BIGINT`/`bigint`. 부동소수 금지(시나리오 시간 측정 제외). 세율은 정수 bps.
 - 새 테이블은 추가 전용(트리거 `rc_reject_mutation` + `rc_app` SELECT·INSERT + 명시한 컬럼 UPDATE). 상태 컬럼이 있는 테이블은 상태 전이 가드 트리거(RC001)를 둔다(0011의 가드 방식).
 - 원장: 분개 하나의 전기 합 = 0(지연 제약 트리거, 위반 RC001), `journal_entry.source_ref` UNIQUE(멱등 — 같은 `source_ref`로 다시 쓰면 기존 분개를 돌려주고 아무것도 쓰지 않는다).
 - 오류 → HTTP는 기존 규칙. 새 작업 이름은 `JOB_NAMES`에 추가하고, 템플릿 DB 해시에 `JOB_NAMES`를 넣는다(11.2-14).
-- 테스트: `docker compose up -d`. `node --test "test/**/*.test.ts"`(= `npm test`) 또는 파일 경로(디렉터리 형태는 실패). `npx tsc -p tsconfig.json`. 기존 테스트(110개)·vcrl(278개)·`npm run scenario -- --settle 30000`이 계속 통과해야 한다(사전 검사 도입으로 I-1 시나리오의 발행 수가 달라지는 것은 Task 6에서 반영).
+- 테스트: `docker compose up -d`. `node --test "test/**/*.test.ts"`(= `npm test`) 또는 파일 경로(디렉터리 형태는 실패). `npx tsc -p tsconfig.json`. 기존 테스트(110개)·mdrl(278개)·`npm run scenario -- --settle 30000`이 계속 통과해야 한다(사전 검사 도입으로 I-1 시나리오의 발행 수가 달라지는 것은 Task 6에서 반영).
 
 ## File Structure
 
@@ -38,7 +38,7 @@ rights-core/
   src/ledger/routes.ts, src/payout/routes.ts, src/settlement/routes.ts, src/http/server.ts, main.ts (Modify/Create)
   src/scenario/ledger.ts, main.ts
   test/ledger/*.test.ts, test/payout/*.test.ts, test/settlement/{quarantine,operator,revision,invariants,guards-insert}.test.ts, test/scenario/ledger.test.ts
-02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 10: 11.4 결과, 10.5 완료 표시)
+02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md (Task 10: 11.4 결과, 10.5 완료 표시)
 ```
 
 ---
@@ -198,7 +198,7 @@ test("a reversal posts the opposite entry in the same transaction", async () => 
 CREATE TABLE ledger_account (
   account_id TEXT PRIMARY KEY,
   kind       TEXT NOT NULL CHECK (kind IN ('RECEIVABLE','POOL_PLATFORM','POOL_OPS','POOL_FAN','POOL_OTHER','PARTY_PAYABLE','HOLD','WITHHOLDING_TAX','PSP_CLEARING','CASH')),
-  party_id   vcrl_id NULL REFERENCES party,
+  party_id   mdrl_id NULL REFERENCES party,
   reason     TEXT NULL,
   bucket     TEXT NULL,
   CHECK ((kind = 'PARTY_PAYABLE') = (party_id IS NOT NULL)),
@@ -217,8 +217,8 @@ CREATE TABLE posting (
   entry_id   BIGINT NOT NULL REFERENCES journal_entry,
   account_id TEXT NOT NULL REFERENCES ledger_account,
   amount_krw BIGINT NOT NULL CHECK (amount_krw <> 0),
-  event_id   vcrl_id NULL,
-  run_id     vcrl_id NULL
+  event_id   mdrl_id NULL,
+  run_id     mdrl_id NULL
 );
 CREATE INDEX posting_account ON posting (account_id, entry_id);
 CREATE INDEX posting_entry ON posting (entry_id);
@@ -412,9 +412,9 @@ export async function postBatch(d: SettleDeps, data: { batchId: string }): Promi
 **Files:** Create `rights-core/src/settlement/holds.ts`, `rights-core/src/engine-bridge/fraud-release.ts`, `rights-core/test/settlement/holds.test.ts`; Create migration part in `rights-core/migrations/0014_holds_payout.sql`(이 태스크는 `hold_release`만; Task 3이 같은 파일에 지급 테이블을 추가한다 — 두 태스크 모두 병합 전이므로 파일을 이어서 편집한다); Modify `rights-core/src/settlement/posting.ts`(`postReversal`).
 
 **Requirements (11.2-5):**
-- `hold_release(release_id BIGSERIAL PK, holding_id BIGINT UNIQUE REFERENCES unallocated_holding, released_by vcrl_id REFERENCES user_account, released_at TIMESTAMPTZ ms CHECK, allocation JSONB NOT NULL, entry_id BIGINT REFERENCES journal_entry)`. 불변 트리거, SELECT·INSERT 권한.
+- `hold_release(release_id BIGSERIAL PK, holding_id BIGINT UNIQUE REFERENCES unallocated_holding, released_by mdrl_id REFERENCES user_account, released_at TIMESTAMPTZ ms CHECK, allocation JSONB NOT NULL, entry_id BIGINT REFERENCES journal_entry)`. 불변 트리거, SELECT·INSERT 권한.
 - `releaseHold(d, actor, { holdingId, allocation: Record<partyId, string /* 원 */> })`: `SPACE_SETTLE`만. 대상은 `line_seq = 1`인 원 보류, 그 run이 `CONFIRMED`, 아직 해제 안 됨(UNIQUE 위반 → 409 `HOLD_ALREADY_RELEASED`). 배분 합 = 보류액(아니면 422 `ALLOCATION_MISMATCH`), 금액은 양의 정수, 권리자는 `party`에 있고 `FAN`·`PLATFORM`이 아님. 이미 역분개로 줄어든 금액이 있으면 해제액 = 원 보류액 + 그 보류의 역분개 합(남은 보류액)이고 배분 합은 그 값과 같아야 한다. 분개 `HOLD_RELEASE`(`source_ref = hold:<holding_id>`): `HOLD(reason) +남은 보류액`, `PARTY_PAYABLE(p) −배분`. 감사 기록.
-- `suggestFraudRelease(ctx, tx, holdingId)`(engine-bridge): `FRAUD_REVIEW` 보류의 run 입력(발행 봉인, 봉인된 events)에서 그 이벤트만 `integrity: "CLEAR"`로 바꿔 vcrl `evaluate`하고, 그 이벤트의 라인을 권리자별로 합친 제안을 돌려준다(남은 보류액이 원 보류액과 다르면 제안을 남은 금액으로 비례 축소 — 최대 잔여법, 동률 party_id 오름차순). `RIGHTS_DISPUTE`는 제안하지 않는다(404 `NO_SUGGESTION`).
+- `suggestFraudRelease(ctx, tx, holdingId)`(engine-bridge): `FRAUD_REVIEW` 보류의 run 입력(발행 봉인, 봉인된 events)에서 그 이벤트만 `integrity: "CLEAR"`로 바꿔 mdrl `evaluate`하고, 그 이벤트의 라인을 권리자별로 합친 제안을 돌려준다(남은 보류액이 원 보류액과 다르면 제안을 남은 금액으로 비례 축소 — 최대 잔여법, 동률 party_id 오름차순). `RIGHTS_DISPUTE`는 제안하지 않는다(404 `NO_SUGGESTION`).
 - `postReversal` 확장: 역분개 보류 행의 원 보류(같은 run·event·bucket·reason, `line_seq = 1`)에 `hold_release`가 있으면, 그 보류 역분개 금액을 `HOLD`가 아니라 해제 배분 비율로 권리자 미지급금에 전기한다(최대 잔여법으로 정수 분배, 합 보존).
 
 **Tests (`test/settlement/holds.test.ts`):** FLAGGED 매출로 `FRAUD_REVIEW` 보류를 만든 확정 배치 → (1) `suggestFraudRelease`가 권리자별 합 = 보류액인 제안을 준다, (2) 비`SPACE_SETTLE` 403, 합 불일치 422, 확정 전 run의 보류 409, (3) 해제 후 `HOLD:FRAUD_REVIEW` 잔액 0·권리자 미지급금 증가·시산표 합 0, (4) 이중 해제 409, (5) 해제 뒤 원 매출 전액 환불 → 역분개 분개가 해제된 권리자 미지급금에서 빠지고 `HOLD` 잔액은 0 유지, 시산표 합 0.
@@ -432,7 +432,7 @@ export async function postBatch(d: SettleDeps, data: { batchId: string }): Promi
 **Schema:**
 ```sql
 CREATE TABLE party_payout_profile (
-  party_id           vcrl_id PRIMARY KEY REFERENCES party,
+  party_id           mdrl_id PRIMARY KEY REFERENCES party,
   tax_type           TEXT NOT NULL CHECK (tax_type IN ('DOMESTIC_INDIVIDUAL','DOMESTIC_CORP','FOREIGN','EXEMPT')),
   payout_account_ref TEXT NULL,          -- PSP 쪽 계좌 토큰(원문 계좌번호를 저장하지 않는다)
   kyc_verified       BOOLEAN NOT NULL DEFAULT false,
@@ -447,15 +447,15 @@ CREATE TABLE payout_policy (
 );
 INSERT INTO payout_policy VALUES ('default', 10000, 30, '{"DOMESTIC_INDIVIDUAL":330,"DOMESTIC_CORP":0,"FOREIGN":2200,"EXEMPT":0}');
 CREATE TABLE payout_run (
-  payout_run_id vcrl_id PRIMARY KEY,
+  payout_run_id mdrl_id PRIMARY KEY,
   as_of         TIMESTAMPTZ NOT NULL CHECK (as_of = date_trunc('milliseconds', as_of)),
-  created_by    vcrl_id NOT NULL REFERENCES user_account,
+  created_by    mdrl_id NOT NULL REFERENCES user_account,
   created_at    TIMESTAMPTZ NOT NULL CHECK (created_at = date_trunc('milliseconds', created_at))
 );
 CREATE TABLE payout_instruction (
-  instruction_id   vcrl_id PRIMARY KEY,
-  payout_run_id    vcrl_id NOT NULL REFERENCES payout_run,
-  party_id         vcrl_id NOT NULL REFERENCES party,
+  instruction_id   mdrl_id PRIMARY KEY,
+  payout_run_id    mdrl_id NOT NULL REFERENCES payout_run,
+  party_id         mdrl_id NOT NULL REFERENCES party,
   gross_krw        BIGINT NOT NULL,
   withholding_krw  BIGINT NOT NULL CHECK (withholding_krw >= 0),
   net_krw          BIGINT NOT NULL,

@@ -2,7 +2,7 @@
 
 - **문서 상태**: 설계 확정 (v2.7 정합)
 - **상위 문서**: `데이터모델_v2.7.md`, `백오피스_IA_와이어프레임_Userflow.md`, `백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md`
-- **적용 대상**: dobedupop 보컬조합 정산 룰 엔진 (Settlement Engine), 백오피스 정책 관리 (SPACE/권리자 콘솔), 권리 스냅샷 (Snapshot)
+- **적용 대상**: dobedubpop 보컬조합 정산 룰 엔진 (Settlement Engine), 백오피스 정책 관리 (SPACE/권리자 콘솔), 권리 스냅샷 (Snapshot)
 
 ---
 

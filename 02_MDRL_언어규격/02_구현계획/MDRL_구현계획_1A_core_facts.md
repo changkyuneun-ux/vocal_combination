@@ -1,16 +1,16 @@
-# VCRL 1-A: core + facts + 그래프 기여 벡터 Implementation Plan
+# MDRL 1-A: core + facts + 그래프 기여 벡터 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** VCRL 코어(정확한 유리수·bps, JCS 정규형·digest·커밋먼트, Enum·오류 레지스트리, IR 봉투·의존 검증, Ed25519 증명·SoD)와 `facts` 모듈(구조·불변식 검증, 이중 시간축 선택, 역할별 기여 벡터 투영, 위임 라우팅, 청구권자 도출, 결과 IR·공개본)을 레퍼런스 구현한다.
+**Goal:** MDRL 코어(정확한 유리수·bps, JCS 정규형·digest·커밋먼트, Enum·오류 레지스트리, IR 봉투·의존 검증, Ed25519 증명·SoD)와 `facts` 모듈(구조·불변식 검증, 이중 시간축 선택, 역할별 기여 벡터 투영, 위임 라우팅, 청구권자 도출, 결과 IR·공개본)을 레퍼런스 구현한다.
 
-**Architecture:** 단일 npm 패키지 `vcrl`(경로 `04_구현_소스코드/mdrl/`)에 `src/core`, `src/facts`를 두고 subpath export(`vcrl/core`, `vcrl/facts`)로 노출한다. 모든 함수는 순수 함수이며 IR(JSON, 숫자는 문자열)을 입력받아 `Diagnostic[]` 또는 `Result<T>`를 반환한다. 공개 적합성 스위트(`conformance/`)가 입력 IR → 기대 결과·digest를 고정한다.
+**Architecture:** 단일 npm 패키지 `mdrl`(경로 `04_구현_소스코드/mdrl/`)에 `src/core`, `src/facts`를 두고 subpath export(`mdrl/core`, `mdrl/facts`)로 노출한다. 모든 함수는 순수 함수이며 IR(JSON, 숫자는 문자열)을 입력받아 `Diagnostic[]` 또는 `Result<T>`를 반환한다. 공개 적합성 스위트(`conformance/`)가 입력 IR → 기대 결과·digest를 고정한다.
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript type stripping), TypeScript 5.9 (타입검사 전용, `erasableSyntaxOnly`), `node:test`, `node:crypto`. devDependency: `typescript`, `@types/node`, `ajv`(JSON Schema 테스트 전용).
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (이하 "스펙")
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` (이하 "스펙")
 
-**후속 계획:** 1-B `allocation`(평가기·`HIERARCHICAL_LRM_V1`·ALLOC_* 오류), 1-C `parser`(텍스트 문법 EBNF 전체·legacy-v1 변환)·`vcrl` CLI·적합성 스위트 확장.
+**후속 계획:** 1-B `allocation`(평가기·`HIERARCHICAL_LRM_V1`·ALLOC_* 오류), 1-C `parser`(텍스트 문법 EBNF 전체·legacy-v1 변환)·`mdrl` CLI·적합성 스위트 확장.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - TypeScript는 erasable syntax만 사용: `enum`, `namespace`, 생성자 parameter property 금지. 상대 import는 `.ts` 확장자를 붙인다. 타입 전용 import는 `import type`.
 - 부동소수 금지. 비율 계산은 `Ratio`(BigInt 유리수), 저장 비율은 정수 bps(0~10000).
 - IR에는 JSON number를 쓰지 않는다. 정수·bps·ms·version은 문자열(`"4500"`), 유리수는 기약분수 문자열(`"3/5"`).
-- digest 표기: `vcrl:sha256:<64 hex>` = sha256(UTF-8(RFC 8785 JCS)).
+- digest 표기: `mdrl:sha256:<64 hex>` = sha256(UTF-8(RFC 8785 JCS)).
 - 시각 표기: `YYYY-MM-DDTHH:mm:ss.sssZ` (UTC, 밀리초 3자리) 고정.
 - 오류 코드는 `src/core/errors.ts`의 `ERROR_CODES`에만 정의하고 `spec/error-codes.md`와 항상 일치시킨다.
 - 모든 Enum 값은 `src/core/enums.ts`의 `ENUMS`에만 정의한다.
@@ -34,7 +34,7 @@
     schema/envelope.schema.json    IR 봉투 JSON Schema
     schema/facts.ir.schema.json    facts IR JSON Schema
   src/core/
-    errors.ts     ERROR_CODES, Diagnostic, VcrlError, fail, capture, Result
+    errors.ts     ERROR_CODES, Diagnostic, MdrlError, fail, capture, Result
     enums.ts      ENUMS 레지스트리, isEnumValue
     ratio.ts      Ratio 유리수 연산
     bps.ts        bps 파싱, % → bps
@@ -71,14 +71,14 @@
 - Test: `test/core/errors.test.ts`, `test/core/enums.test.ts`
 
 **Interfaces:**
-- Produces: `ERROR_CODES`, `type ErrorCode`, `type Diagnostic = { code: ErrorCode; path: string; message: string }`, `diag(code, path, detail?)`, `class VcrlError { diagnostics: Diagnostic[] }`, `fail(code, path, detail?): never`, `capture(fn: () => unknown): Diagnostic[]`, `type Result<T>`, `ok(value)`, `err(errors)`, `LEGACY_ERROR_MAP`; `ENUMS`, `type EnumName`, `type EnumValue<N>`, `isEnumValue(name, v)`, `ENUM_REGISTRY_VERSION`.
+- Produces: `ERROR_CODES`, `type ErrorCode`, `type Diagnostic = { code: ErrorCode; path: string; message: string }`, `diag(code, path, detail?)`, `class MdrlError { diagnostics: Diagnostic[] }`, `fail(code, path, detail?): never`, `capture(fn: () => unknown): Diagnostic[]`, `type Result<T>`, `ok(value)`, `err(errors)`, `LEGACY_ERROR_MAP`; `ENUMS`, `type EnumName`, `type EnumValue<N>`, `isEnumValue(name, v)`, `ENUM_REGISTRY_VERSION`.
 
 - [ ] **Step 1: 패키지 파일 작성**
 
 `package.json`:
 ```json
 {
-  "name": "vcrl",
+  "name": "mdrl",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -133,7 +133,7 @@ Expected: `added N packages`, `package-lock.json` 생성.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ERROR_CODES, LEGACY_ERROR_MAP, VcrlError, capture, diag, fail } from "../../src/core/errors.ts";
+import { ERROR_CODES, LEGACY_ERROR_MAP, MdrlError, capture, diag, fail } from "../../src/core/errors.ts";
 
 test("diag composes message from registry", () => {
   assert.deepEqual(diag("FACTS_CYCLE", "$.body.mandates", "m1"), {
@@ -144,14 +144,14 @@ test("diag composes message from registry", () => {
   assert.equal(diag("FACTS_CYCLE", "$").message, ERROR_CODES.FACTS_CYCLE);
 });
 
-test("fail throws VcrlError carrying diagnostics", () => {
+test("fail throws MdrlError carrying diagnostics", () => {
   assert.throws(
     () => fail("CORE_TYPE_ERROR", "$.x"),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_TYPE_ERROR",
   );
 });
 
-test("capture converts VcrlError into diagnostics and rethrows others", () => {
+test("capture converts MdrlError into diagnostics and rethrows others", () => {
   assert.deepEqual(capture(() => fail("CORE_TYPE_ERROR", "$.y")).map((d) => d.code), ["CORE_TYPE_ERROR"]);
   assert.deepEqual(capture(() => 1), []);
   assert.throws(() => capture(() => { throw new TypeError("boom"); }), TypeError);
@@ -231,17 +231,17 @@ export function diag(code: ErrorCode, path: string, detail?: string): Diagnostic
   return { code, path, message: detail === undefined ? base : `${base}: ${detail}` };
 }
 
-export class VcrlError extends Error {
+export class MdrlError extends Error {
   readonly diagnostics: Diagnostic[];
   constructor(diagnostics: Diagnostic[]) {
     super(diagnostics.map((d) => `${d.code} at ${d.path}: ${d.message}`).join("\n"));
-    this.name = "VcrlError";
+    this.name = "MdrlError";
     this.diagnostics = diagnostics;
   }
 }
 
 export function fail(code: ErrorCode, path: string, detail?: string): never {
-  throw new VcrlError([diag(code, path, detail)]);
+  throw new MdrlError([diag(code, path, detail)]);
 }
 
 export function capture(fn: () => unknown): Diagnostic[] {
@@ -249,7 +249,7 @@ export function capture(fn: () => unknown): Diagnostic[] {
     fn();
     return [];
   } catch (e) {
-    if (e instanceof VcrlError) return e.diagnostics;
+    if (e instanceof MdrlError) return e.diagnostics;
     throw e;
   }
 }
@@ -262,7 +262,7 @@ export function err<T>(errors: Diagnostic[]): Result<T> {
   return { ok: false, errors };
 }
 
-/** 기존 설계 문서의 오류 코드 → VCRL 코드. DSL_* 안분 코드는 계획 1-B에서 추가한다. */
+/** 기존 설계 문서의 오류 코드 → MDRL 코드. DSL_* 안분 코드는 계획 1-B에서 추가한다. */
 export const LEGACY_ERROR_MAP: Readonly<Record<string, ErrorCode>> = {
   DSL_TYPE_ERROR: "CORE_TYPE_ERROR",
   DSL_UNKNOWN_REF: "CORE_UNKNOWN_REF",
@@ -319,7 +319,7 @@ export function isEnumValue<N extends EnumName>(name: N, v: unknown): v is EnumV
 
 `spec/error-codes.md`:
 ```markdown
-# VCRL 오류 코드 (정본)
+# MDRL 오류 코드 (정본)
 
 이 표는 `src/core/errors.ts`의 `ERROR_CODES`와 테스트로 동기화된다. 코드를 추가·삭제할 때 두 곳을 함께 고친다.
 
@@ -347,7 +347,7 @@ export function isEnumValue<N extends EnumName>(name: N, v: unknown): v is EnumV
 
 ## 기존 코드 매핑
 
-| 기존 코드 | VCRL 코드 |
+| 기존 코드 | MDRL 코드 |
 |---|---|
 | DSL_TYPE_ERROR | `CORE_TYPE_ERROR` |
 | DSL_UNKNOWN_REF | `CORE_UNKNOWN_REF` |
@@ -365,7 +365,7 @@ Expected: 모든 테스트 PASS, tsc 출력 없음.
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/package-lock.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/.gitignore 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/src/core/enums.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/test/core && git commit -m "feat(vcrl): 패키지 골격, 오류·Enum 레지스트리"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/package-lock.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/.gitignore 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/src/core/enums.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/test/core && git commit -m "feat(mdrl): 패키지 골격, 오류·Enum 레지스트리"
 ```
 
 ---
@@ -387,9 +387,9 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ONE, ZERO, add, cmp, div, formatRatio, fromBps, mul, parseRatio, ratio, sub, sum } from "../../src/core/ratio.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
-const isCode = (code: string) => (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === code;
+const isCode = (code: string) => (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === code;
 
 test("ratio normalizes sign and lowest terms", () => {
   assert.deepEqual(ratio(6n, -4n), { n: -3n, d: 2n });
@@ -417,7 +417,7 @@ test("format and parse round-trip; non-canonical rejected", () => {
   assert.equal(formatRatio(fromBps(1250)), "1/8");
   assert.equal(formatRatio(ONE), "1/1");
   assert.deepEqual(parseRatio("3/7"), ratio(3n, 7n));
-  for (const bad of ["2/4", "1.5/2", "3", "-0/1", "1/0"]) assert.throws(() => parseRatio(bad), VcrlError, bad);
+  for (const bad of ["2/4", "1.5/2", "3", "-0/1", "1/0"]) assert.throws(() => parseRatio(bad), MdrlError, bad);
 });
 ```
 
@@ -426,19 +426,19 @@ test("format and parse round-trip; non-canonical rejected", () => {
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatBps, parseBps, percentToBps } from "../../src/core/bps.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 test("parseBps accepts integer strings 0..10000", () => {
   assert.equal(parseBps("0"), 0);
   assert.equal(parseBps("4500"), 4500);
   assert.equal(parseBps("10000"), 10000);
-  for (const bad of ["10001", "-1", "01", "4.5", "", 4500]) assert.throws(() => parseBps(bad), VcrlError, String(bad));
+  for (const bad of ["10001", "-1", "01", "4.5", "", 4500]) assert.throws(() => parseBps(bad), MdrlError, String(bad));
 });
 
 test("formatBps rejects out of range", () => {
   assert.equal(formatBps(1250), "1250");
-  assert.throws(() => formatBps(10001), VcrlError);
-  assert.throws(() => formatBps(1.5), VcrlError);
+  assert.throws(() => formatBps(10001), MdrlError);
+  assert.throws(() => formatBps(1.5), MdrlError);
 });
 
 test("percentToBps converts with at most two decimals", () => {
@@ -446,7 +446,7 @@ test("percentToBps converts with at most two decimals", () => {
   assert.equal(percentToBps("40"), 4000);
   assert.equal(percentToBps("0.01"), 1);
   assert.equal(percentToBps("100"), 10000);
-  for (const bad of ["12.345", "100.01", "abc", "-5"]) assert.throws(() => percentToBps(bad), VcrlError, bad);
+  for (const bad of ["12.345", "100.01", "abc", "-5"]) assert.throws(() => percentToBps(bad), MdrlError, bad);
 });
 ```
 
@@ -558,7 +558,7 @@ Expected: PASS, tsc 출력 없음.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/ratio.ts 04_구현_소스코드/mdrl/src/core/bps.ts 04_구현_소스코드/mdrl/test/core/ratio.test.ts 04_구현_소스코드/mdrl/test/core/bps.test.ts && git commit -m "feat(vcrl): 정확한 유리수 Ratio와 bps 파싱"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/ratio.ts 04_구현_소스코드/mdrl/src/core/bps.ts 04_구현_소스코드/mdrl/test/core/ratio.test.ts 04_구현_소스코드/mdrl/test/core/bps.test.ts && git commit -m "feat(mdrl): 정확한 유리수 Ratio와 bps 파싱"
 ```
 
 ---
@@ -571,7 +571,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 **Interfaces:**
 - Consumes: `fail` (Task 1)
-- Produces: `canonicalize(value: unknown, path?): string`; `DIGEST_PREFIX = "vcrl:sha256:"`, `sha256Hex(bytes: Uint8Array): string`, `digestOf(value: unknown): string`, `isDigest(v: unknown): v is string`; `type Commitment = { commit: string }`, `commitValue(value, salt: Uint8Array): Commitment`, `openCommitment(c, value, salt): boolean`, `isCommitment(v): v is Commitment`.
+- Produces: `canonicalize(value: unknown, path?): string`; `DIGEST_PREFIX = "mdrl:sha256:"`, `sha256Hex(bytes: Uint8Array): string`, `digestOf(value: unknown): string`, `isDigest(v: unknown): v is string`; `type Commitment = { commit: string }`, `commitValue(value, salt: Uint8Array): Commitment`, `openCommitment(c, value, salt): boolean`, `isCommitment(v): v is Commitment`.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -580,7 +580,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canonicalize } from "../../src/core/jcs.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 test("keys sorted, no whitespace", () => {
   assert.equal(canonicalize({ b: [true, null], a: "1" }), '{"a":"1","b":[true,null]}');
@@ -593,13 +593,13 @@ test("undefined properties are dropped", () => {
 test("numbers are rejected with path", () => {
   assert.throws(
     () => canonicalize({ a: [ "x", 1 ] }),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_NUMBER_IN_IR" && e.diagnostics[0]?.path === "$.a[1]",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_NUMBER_IN_IR" && e.diagnostics[0]?.path === "$.a[1]",
   );
 });
 
 test("non-plain objects rejected", () => {
-  assert.throws(() => canonicalize({ d: new Date(0) }), VcrlError);
-  assert.throws(() => canonicalize({ b: 1n }), VcrlError);
+  assert.throws(() => canonicalize({ d: new Date(0) }), MdrlError);
+  assert.throws(() => canonicalize({ b: 1n }), MdrlError);
 });
 
 test("keys sorted by UTF-16 code units", () => {
@@ -613,11 +613,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { digestOf, isDigest } from "../../src/core/digest.ts";
 import { commitValue, isCommitment, openCommitment } from "../../src/core/commit.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 test("digest of canonical form (known vector)", () => {
   const d = digestOf({ b: [true, null], a: "1" });
-  assert.equal(d, "vcrl:sha256:8770938d7bda22ac6540b6f5bf73cf4466dc9ff189805b7ccc3c6702716c7557");
+  assert.equal(d, "mdrl:sha256:8770938d7bda22ac6540b6f5bf73cf4466dc9ff189805b7ccc3c6702716c7557");
   assert.equal(digestOf({ a: "1", b: [true, null] }), d);
   assert.equal(isDigest(d), true);
   assert.equal(isDigest("sha256:abc"), false);
@@ -626,7 +626,7 @@ test("digest of canonical form (known vector)", () => {
 test("commitment (known vector) and opening", () => {
   const salt = new Uint8Array(32);
   const c = commitValue("x", salt);
-  assert.deepEqual(c, { commit: "vcrl:sha256:3c5486f0bbca8dbba1138169ee91d51cc6e06efdfd96044c2e05c43ffee668d4" });
+  assert.deepEqual(c, { commit: "mdrl:sha256:3c5486f0bbca8dbba1138169ee91d51cc6e06efdfd96044c2e05c43ffee668d4" });
   assert.equal(isCommitment(c), true);
   assert.equal(openCommitment(c, "x", salt), true);
   assert.equal(openCommitment(c, "y", salt), false);
@@ -635,7 +635,7 @@ test("commitment (known vector) and opening", () => {
 });
 
 test("salt must be 32 bytes", () => {
-  assert.throws(() => commitValue("x", new Uint8Array(16)), VcrlError);
+  assert.throws(() => commitValue("x", new Uint8Array(16)), MdrlError);
 });
 ```
 
@@ -650,7 +650,7 @@ Expected: FAIL — `ERR_MODULE_NOT_FOUND`.
 ```ts
 import { fail } from "./errors.ts";
 
-/** RFC 8785 JCS. VCRL IR은 JSON number를 금지하므로 number는 오류로 처리한다. */
+/** RFC 8785 JCS. MDRL IR은 JSON number를 금지하므로 number는 오류로 처리한다. */
 export function canonicalize(value: unknown, path = "$"): string {
   if (value === null) return "null";
   switch (typeof value) {
@@ -681,8 +681,8 @@ export function canonicalize(value: unknown, path = "$"): string {
 import { createHash } from "node:crypto";
 import { canonicalize } from "./jcs.ts";
 
-export const DIGEST_PREFIX = "vcrl:sha256:";
-const DIGEST_RE = /^vcrl:sha256:[0-9a-f]{64}$/;
+export const DIGEST_PREFIX = "mdrl:sha256:";
+const DIGEST_RE = /^mdrl:sha256:[0-9a-f]{64}$/;
 
 export function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -735,7 +735,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/jcs.ts 04_구현_소스코드/mdrl/src/core/digest.ts 04_구현_소스코드/mdrl/src/core/commit.ts 04_구현_소스코드/mdrl/test/core/jcs.test.ts 04_구현_소스코드/mdrl/test/core/digest.test.ts && git commit -m "feat(vcrl): JCS 정규형, digest, 해시 커밋먼트"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/jcs.ts 04_구현_소스코드/mdrl/src/core/digest.ts 04_구현_소스코드/mdrl/src/core/commit.ts 04_구현_소스코드/mdrl/test/core/jcs.test.ts 04_구현_소스코드/mdrl/test/core/digest.test.ts && git commit -m "feat(mdrl): JCS 정규형, digest, 해시 커밋먼트"
 ```
 
 ---
@@ -748,7 +748,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 **Interfaces:**
 - Consumes: `fail`, `diag`, `capture`, `Diagnostic` (T1), `isEnumValue`, `EnumValue` (T1), `canonicalize` (T3), `digestOf`, `isDigest` (T3)
-- Produces: `type Instant = string`, `isInstant(v)`, `type Interval = { from: Instant; to?: Instant }`, `contains(iv, t): boolean`, `checkInterval(v: unknown, path): Diagnostic[]`; `type Ref = { kind: EnumValue<"module">; id: string; version: number }`, `parseRef(s, path?)`, `formatRef(r)`; `LANGUAGE_VERSION = "1.0"`, `type Dependency = { ref: string; digest: string }`, `type IrDocument<B = unknown> = { vcrl: string; module: EnumValue<"module">; id: string; version: string; depends_on: Dependency[]; visibility_default: EnumValue<"visibility">; body: B }`, `MODULE_RANK`, `validateEnvelope(doc: unknown): Diagnostic[]`, `refOf(doc): string`, `checkDependencies(docs: readonly IrDocument[]): Diagnostic[]`.
+- Produces: `type Instant = string`, `isInstant(v)`, `type Interval = { from: Instant; to?: Instant }`, `contains(iv, t): boolean`, `checkInterval(v: unknown, path): Diagnostic[]`; `type Ref = { kind: EnumValue<"module">; id: string; version: number }`, `parseRef(s, path?)`, `formatRef(r)`; `LANGUAGE_VERSION = "1.0"`, `type Dependency = { ref: string; digest: string }`, `type IrDocument<B = unknown> = { mdrl: string; module: EnumValue<"module">; id: string; version: string; depends_on: Dependency[]; visibility_default: EnumValue<"visibility">; body: B }`, `MODULE_RANK`, `validateEnvelope(doc: unknown): Diagnostic[]`, `refOf(doc): string`, `checkDependencies(docs: readonly IrDocument[]): Diagnostic[]`.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -758,7 +758,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkInterval, contains, isInstant } from "../../src/core/time.ts";
 import { formatRef, parseRef } from "../../src/core/ref.ts";
-import { VcrlError } from "../../src/core/errors.ts";
+import { MdrlError } from "../../src/core/errors.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-07-01T00:00:00.000Z";
@@ -788,10 +788,10 @@ test("refs", () => {
   const r = parseRef("vc:facts/nova-debut-01@3");
   assert.deepEqual(r, { kind: "facts", id: "nova-debut-01", version: 3 });
   assert.equal(formatRef(r), "vc:facts/nova-debut-01@3");
-  assert.throws(() => parseRef("vc:facts/x"), VcrlError);
+  assert.throws(() => parseRef("vc:facts/x"), MdrlError);
   assert.throws(
     () => parseRef("vc:unknown/x@1"),
-    (e: unknown) => e instanceof VcrlError && e.diagnostics[0]?.code === "CORE_ENUM_UNKNOWN",
+    (e: unknown) => e instanceof MdrlError && e.diagnostics[0]?.code === "CORE_ENUM_UNKNOWN",
   );
 });
 ```
@@ -807,7 +807,7 @@ import { digestOf } from "../../src/core/digest.ts";
 import type { EnumValue } from "../../src/core/enums.ts";
 
 function doc(module: EnumValue<"module">, id: string, deps: Dependency[] = []): IrDocument {
-  return { vcrl: "1.0", module, id, version: "1", depends_on: deps, visibility_default: "PARTIES", body: {} };
+  return { mdrl: "1.0", module, id, version: "1", depends_on: deps, visibility_default: "PARTIES", body: {} };
 }
 
 test("valid envelope has no diagnostics", () => {
@@ -815,7 +815,7 @@ test("valid envelope has no diagnostics", () => {
 });
 
 test("envelope errors are reported", () => {
-  const bad = { ...doc("facts", "f"), vcrl: "2.0", version: 1 };
+  const bad = { ...doc("facts", "f"), mdrl: "2.0", version: 1 };
   const codes = validateEnvelope(bad).map((d) => d.code);
   assert.ok(codes.includes("CORE_NUMBER_IN_IR"));
   assert.ok(codes.includes("CORE_TYPE_ERROR"));
@@ -922,7 +922,7 @@ export const LANGUAGE_VERSION = "1.0";
 
 export type Dependency = { ref: string; digest: string };
 export type IrDocument<B = unknown> = {
-  vcrl: string;
+  mdrl: string;
   module: EnumValue<"module">;
   id: string;
   version: string;
@@ -946,7 +946,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 export function validateEnvelope(doc: unknown): Diagnostic[] {
   if (!isObject(doc)) return [diag("CORE_TYPE_ERROR", "$", "document must be an object")];
   const out: Diagnostic[] = [...capture(() => canonicalize(doc))];
-  if (doc.vcrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.vcrl", `expected "${LANGUAGE_VERSION}"`));
+  if (doc.mdrl !== LANGUAGE_VERSION) out.push(diag("CORE_TYPE_ERROR", "$.mdrl", `expected "${LANGUAGE_VERSION}"`));
   if (!isEnumValue("module", doc.module)) out.push(diag("CORE_ENUM_UNKNOWN", "$.module", String(doc.module)));
   if (typeof doc.id !== "string" || !ID_RE.test(doc.id)) out.push(diag("CORE_TYPE_ERROR", "$.id"));
   if (typeof doc.version !== "string" || !VERSION_RE.test(doc.version)) out.push(diag("CORE_TYPE_ERROR", "$.version"));
@@ -1000,13 +1000,13 @@ export function checkDependencies(docs: readonly IrDocument[]): Diagnostic[] {
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/envelope.schema.json",
-  "title": "VCRL IR document envelope",
+  "$id": "https://mdrl.invalid/1.0/envelope.schema.json",
+  "title": "MDRL IR document envelope",
   "type": "object",
   "additionalProperties": false,
-  "required": ["vcrl", "module", "id", "version", "depends_on", "visibility_default", "body"],
+  "required": ["mdrl", "module", "id", "version", "depends_on", "visibility_default", "body"],
   "properties": {
-    "vcrl": { "const": "1.0" },
+    "mdrl": { "const": "1.0" },
     "module": { "enum": ["core", "facts", "constraint", "grant", "approval", "allocation"] },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
     "version": { "type": "string", "pattern": "^[1-9][0-9]*$" },
@@ -1018,7 +1018,7 @@ export function checkDependencies(docs: readonly IrDocument[]): Diagnostic[] {
         "required": ["ref", "digest"],
         "properties": {
           "ref": { "type": "string", "pattern": "^vc:[a-z]+/[A-Za-z0-9._-]+@[1-9][0-9]*$" },
-          "digest": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" }
+          "digest": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" }
         }
       }
     },
@@ -1028,7 +1028,7 @@ export function checkDependencies(docs: readonly IrDocument[]): Diagnostic[] {
 }
 ```
 
-(`vcrl.invalid`은 예약 TLD로, 스키마 식별자일 뿐 네트워크로 조회하지 않는다.)
+(`mdrl.invalid`은 예약 TLD로, 스키마 식별자일 뿐 네트워크로 조회하지 않는다.)
 
 - [ ] **Step 4: 통과 확인**
 
@@ -1038,7 +1038,7 @@ Expected: PASS. tsc가 `ajv/dist/2020.js` 타입 import에서 오류를 내면 �
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/time.ts 04_구현_소스코드/mdrl/src/core/ref.ts 04_구현_소스코드/mdrl/src/core/envelope.ts 04_구현_소스코드/mdrl/spec/schema/envelope.schema.json 04_구현_소스코드/mdrl/test/core/time.test.ts 04_구현_소스코드/mdrl/test/core/envelope.test.ts && git commit -m "feat(vcrl): 시각·참조·IR 봉투·의존 digest 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/time.ts 04_구현_소스코드/mdrl/src/core/ref.ts 04_구현_소스코드/mdrl/src/core/envelope.ts 04_구현_소스코드/mdrl/spec/schema/envelope.schema.json 04_구현_소스코드/mdrl/test/core/time.test.ts 04_구현_소스코드/mdrl/test/core/envelope.test.ts && git commit -m "feat(mdrl): 시각·참조·IR 봉투·의존 digest 검증"
 ```
 
 ---
@@ -1199,7 +1199,7 @@ Expected: core 테스트 전체 PASS, tsc 출력 없음.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/attest.ts 04_구현_소스코드/mdrl/src/core/index.ts 04_구현_소스코드/mdrl/test/core/attest.test.ts && git commit -m "feat(vcrl): Ed25519 증명 검증과 내장 SoD"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/attest.ts 04_구현_소스코드/mdrl/src/core/index.ts 04_구현_소스코드/mdrl/test/core/attest.test.ts && git commit -m "feat(mdrl): Ed25519 증명 검증과 내장 SoD"
 ```
 
 ---
@@ -1290,7 +1290,7 @@ export type FactsDocument = IrDocument<FactsBody>;
 ```json
 {
   "facts": {
-    "vcrl": "1.0",
+    "mdrl": "1.0",
     "module": "facts",
     "id": "nova-debut-01",
     "version": "1",
@@ -1322,7 +1322,7 @@ export type FactsDocument = IrDocument<FactsBody>;
         { "id": "c2", "source": "stm_v2", "edge": "PERFORMED_BY", "target": "vo_b", "share": "10000", "performer_role": "FEATURED", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c3", "source": "vo_a", "edge": "OWNED_BY", "target": "pty_member_a", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c4", "source": "vo_b", "edge": "OWNED_BY", "target": "pty_member_b", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
-        { "id": "c5", "source": "rcd_01", "edge": "CONTROLLED_BY", "target": "pty_label_x", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z", "evidence": "vcrl:sha256:0000000000000000000000000000000000000000000000000000000000000017" },
+        { "id": "c5", "source": "rcd_01", "edge": "CONTROLLED_BY", "target": "pty_label_x", "share": "10000", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z", "evidence": "mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000017" },
         { "id": "c6", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_b", "share": "6000", "role_detail": "LYRICS", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" },
         { "id": "c7", "source": "wrk_01", "edge": "WRITTEN_BY", "target": "pty_author_c", "share": "4000", "role_detail": "COMPOSITION", "status": "VERIFIED", "valid": { "from": "2026-01-01T00:00:00.000Z" }, "recorded_at": "2026-01-01T00:00:00.000Z" }
       ],
@@ -1554,8 +1554,8 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vcrl.invalid/1.0/facts.ir.schema.json",
-  "title": "VCRL facts IR document",
+  "$id": "https://mdrl.invalid/1.0/facts.ir.schema.json",
+  "title": "MDRL facts IR document",
   "type": "object",
   "allOf": [{ "$ref": "envelope.schema.json" }],
   "properties": {
@@ -1580,7 +1580,7 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
     "bps": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,3}|10000)$" },
     "commitment": {
       "type": "object", "additionalProperties": false, "required": ["commit"],
-      "properties": { "commit": { "type": "string", "pattern": "^vcrl:sha256:[0-9a-f]{64}$" } }
+      "properties": { "commit": { "type": "string", "pattern": "^mdrl:sha256:[0-9a-f]{64}$" } }
     },
     "bpsOrCommit": { "oneOf": [{ "$ref": "#/$defs/bps" }, { "$ref": "#/$defs/commitment" }] },
     "instant": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
@@ -1666,7 +1666,7 @@ Expected: PASS.
 - [ ] **Step 7: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/types.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/spec/schema/facts.ir.schema.json 04_구현_소스코드/mdrl/conformance/facts/001-basic/input.json 04_구현_소스코드/mdrl/test/helpers.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "feat(vcrl): facts IR 타입·스키마·구조 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/types.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/spec/schema/facts.ir.schema.json 04_구현_소스코드/mdrl/conformance/facts/001-basic/input.json 04_구현_소스코드/mdrl/test/helpers.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "feat(mdrl): facts IR 타입·스키마·구조 검증"
 ```
 
 ---
@@ -1927,7 +1927,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/temporal.ts 04_구현_소스코드/mdrl/src/facts/invariants.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/invariants.test.ts && git commit -m "feat(vcrl): 이중 시간축, share 합 불변식, 위임 순환·깊이 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/temporal.ts 04_구현_소스코드/mdrl/src/facts/invariants.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/invariants.test.ts && git commit -m "feat(mdrl): 이중 시간축, share 합 불변식, 위임 순환·깊이 검증"
 ```
 
 ---
@@ -2180,7 +2180,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/project.ts 04_구현_소스코드/mdrl/test/facts/project.test.ts && git commit -m "feat(vcrl): 권리 그래프 투영과 역할별 기여 벡터"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/project.ts 04_구현_소스코드/mdrl/test/facts/project.test.ts && git commit -m "feat(mdrl): 권리 그래프 투영과 역할별 기여 벡터"
 ```
 
 ---
@@ -2394,7 +2394,7 @@ Expected: 전체 PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/mandate.ts 04_구현_소스코드/mdrl/test/facts/mandate.test.ts && git commit -m "feat(vcrl): 위임 라우팅, 청구권자 도출과 커버리지 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/mandate.ts 04_구현_소스코드/mdrl/test/facts/mandate.test.ts && git commit -m "feat(mdrl): 위임 라우팅, 청구권자 도출과 커버리지 검증"
 ```
 
 ---
@@ -2404,7 +2404,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 **Files:**
 - Create: `src/facts/result.ts`, `src/facts/public.ts`, `src/facts/index.ts`, `scripts/print-projection.ts`
 - Create: `conformance/facts/001-basic/expected.json`, `conformance/facts/002-disputed-master/{input,expected}.json`, `conformance/facts/003-path-missing/{input,expected}.json`
-- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (끝에 12절 추가)
+- Modify: `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` (끝에 12절 추가)
 - Test: `test/facts/result.test.ts`, `test/conformance.test.ts`
 
 **Interfaces:**
@@ -2674,14 +2674,14 @@ Expected: 전체 PASS (conformance 3건 포함), tsc 출력 없음, `no placehol
 
 - [ ] **Step 7: 스펙에 구현 반영 사항 추가**
 
-`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝에 다음 절을 추가한다:
+`02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝에 다음 절을 추가한다:
 ```markdown
 
 ---
 
 ## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `04_구현_소스코드/mdrl`)
 
-1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
+1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `mdrl`에 subpath export(`mdrl/core`, `mdrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
 2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE` 포함). 정본은 `src/core/enums.ts`.
 3. **IR 수치 표기**: 봉투의 `version`도 문자열이다(`"1"`). 유리수는 기약분수 `"n/d"`(정수도 `"1/1"`).
 4. **의존 순환**: 의존은 낮은 rank로만 허용하므로 순환은 `CORE_DEP_DIRECTION`으로 보고한다. `CORE_DEP_CYCLE`은 두지 않는다.
@@ -2695,7 +2695,7 @@ Expected: 전체 PASS (conformance 3건 포함), tsc 출력 없음, `no placehol
 - [ ] **Step 8: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/public.ts 04_구현_소스코드/mdrl/src/facts/index.ts 04_구현_소스코드/mdrl/scripts 04_구현_소스코드/mdrl/conformance 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/conformance.test.ts "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "feat(vcrl): 투영 결과 IR, 공개본, facts 적합성 스위트"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/public.ts 04_구현_소스코드/mdrl/src/facts/index.ts 04_구현_소스코드/mdrl/scripts 04_구현_소스코드/mdrl/conformance 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/conformance.test.ts "02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "feat(mdrl): 투영 결과 IR, 공개본, facts 적합성 스위트"
 ```
 
 ---

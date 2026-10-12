@@ -1,4 +1,4 @@
-# VCRL(Vocal Combination Rights Language) 아키텍처 · 코어 규격 설계
+# MDRL(Vocal Combination Rights Language) 아키텍처 · 코어 규격 설계
 
 - **문서 상태**: 설계 합의(브레인스토밍 승인) — 서브프로젝트 1 레퍼런스 구현(계획 1-A~1-E) 완료, 후속 과제는 11절
 - **작성일**: 2026-09-28
@@ -24,14 +24,14 @@
 
 ### 1.2 목표
 
-- 다섯 영역의 규칙을 하나의 언어 패밀리 **VCRL**로 기술하고, VCRL IR을 **단일 정본(Single Source of Truth)** 으로 삼는다.
-- **검증 가능한 공개**: 플랫폼이 VCRL 문서를 작성·공개하고, 이해관계자(레이블·기획사·신탁단체·유통사·AI 제공자)는 이를 읽고 **독립적으로 재계산해 digest를 대조**할 수 있다. 이해관계자의 직접 작성·공동 서명은 본 버전의 범위가 아니다.
+- 다섯 영역의 규칙을 하나의 언어 패밀리 **MDRL**로 기술하고, MDRL IR을 **단일 정본(Single Source of Truth)** 으로 삼는다.
+- **검증 가능한 공개**: 플랫폼이 MDRL 문서를 작성·공개하고, 이해관계자(레이블·기획사·신탁단체·유통사·AI 제공자)는 이를 읽고 **독립적으로 재계산해 digest를 대조**할 수 있다. 이해관계자의 직접 작성·공동 서명은 본 버전의 범위가 아니다.
 - 공개 규격 + 레퍼런스 구현 + 공개 적합성 테스트 스위트를 제공한다.
 
 ### 1.3 범위 밖
 
 - 벡터 DB·임베딩(음성 유사도, 의미 검색 등). 본 문서의 "벡터"는 **권리 그래프 경로로 계산되는 역할별 기여 지분 벡터**만을 뜻한다.
-- 이해관계자의 VCRL 직접 작성·제출.
+- 이해관계자의 MDRL 직접 작성·제출.
 - 블록체인 스마트컨트랙트 실행. digest 앵커링은 선택 옵션으로 후순위.
 - 개별 계약 권리 귀속 확정, 요율 협상, 세무 판단.
 
@@ -51,11 +51,11 @@
 
 ```
 ┌─ 저작 계층 ───────────────────────────────────────────────────┐
-│ 백오피스 폼/슬라이더 ──(생성)──> VCRL 텍스트  <──(직접편집) 관리자 모드 │
+│ 백오피스 폼/슬라이더 ──(생성)──> MDRL 텍스트  <──(직접편집) 관리자 모드 │
 └──────────────────────────────┬────────────────────────────────┘
                                ▼ parse → resolve → typecheck → static verify
 ┌─ 정본 계층 ───────────────────────────────────────────────────┐
-│ VCRL-IR (정규 JSON, RFC 8785 JCS)  ── digest = sha256(JCS(IR)) │
+│ MDRL-IR (정규 JSON, RFC 8785 JCS)  ── digest = sha256(JCS(IR)) │
 │ 모듈: core · facts · constraint · grant · approval · allocation │
 │ 레지스트리: 모듈별 불변 버전 · 서명 · 활성화(SoD)                │
 └──────┬──────────────────┬───────────────────┬─────────────────┘
@@ -68,7 +68,7 @@
       Rights Manifest 번들       PostgreSQL 운영 스키마
       (공개·검증용)               (IR에서 파생, 수기 입력 금지)
                 ▼
-  외부 검증자: vcrl CLI / 레퍼런스 평가기로 재계산 → digest 대조
+  외부 검증자: mdrl CLI / 레퍼런스 평가기로 재계산 → digest 대조
   외부 어댑터: DDEX(RIN·MWN·ERN·DSR), ISRC/ISWC/ISNI/IPI, ODRL 2.2
 ```
 
@@ -82,7 +82,7 @@
 
 ---
 
-## 3. 코어 규격 (`vcrl.core`)
+## 3. 코어 규격 (`mdrl.core`)
 
 ### 3.1 타입 시스템
 
@@ -122,18 +122,18 @@
 
 - IR 문서 봉투:
   ```json
-  { "vcrl": "1.0", "module": "allocation", "id": "VC-ALLOC-NOVA-02", "version": 1,
-    "depends_on": [{ "ref": "vc:facts/nova-debut-01@3", "digest": "vcrl:sha256:ab12…" }],
+  { "mdrl": "1.0", "module": "allocation", "id": "VC-ALLOC-NOVA-02", "version": 1,
+    "depends_on": [{ "ref": "vc:facts/nova-debut-01@3", "digest": "mdrl:sha256:ab12…" }],
     "visibility_default": "PARTIES", "body": { … } }
   ```
 - 직렬화는 RFC 8785(JCS). 정수·BigInt·유리수는 모두 **문자열**로 표기한다(`"4500"`, `"3/7"`). JSON number 타입은 IR에서 사용하지 않는다.
-- `digest = "vcrl:sha256:" + hex(sha256(UTF-8(JCS(IR))))`.
+- `digest = "mdrl:sha256:" + hex(sha256(UTF-8(JCS(IR))))`.
 - 텍스트 → IR 변환은 결정적이다. 주석, 공백, 선언 순서는 digest에 영향을 주지 않는다. 순서가 의미를 갖지 않는 컬렉션은 IR에서 키 기준으로 정렬한다.
 
 ### 3.4 공개 등급과 커밋먼트
 
 - 모든 노드는 `visibility`를 가질 수 있다. 생략 시 모듈의 `visibility_default`를 따른다. 모듈별 기본값: facts의 엔티티 존재·식별자 = `PUBLIC`, share 값·증빙 = `PARTIES`, allocation의 split 비율 = `PARTIES`, 결과 금액 = `PARTIES`.
-- 공개본 생성 시 `PUBLIC`이 아닌 값은 `{ "commit": "vcrl:sha256:" + hex(sha256(salt ‖ JCS(value))) }`로 치환한다. salt는 값마다 32바이트 난수이며, 해당 값에 권리가 있는 당사자에게만 전달한다. salt 생성은 게시 시점의 1회성 작업이며 평가의 결정성과 무관하다.
+- 공개본 생성 시 `PUBLIC`이 아닌 값은 `{ "commit": "mdrl:sha256:" + hex(sha256(salt ‖ JCS(value))) }`로 치환한다. salt는 값마다 32바이트 난수이며, 해당 값에 권리가 있는 당사자에게만 전달한다. salt 생성은 게시 시점의 1회성 작업이며 평가의 결정성과 무관하다.
 - 공개 digest는 치환된 IR 기준으로 계산한다. 전체 IR의 digest와 공개 IR의 digest는 manifest에 함께 기록한다.
 - 검증 수준:
   - 제3자: 구조, digest 체인, 서명, 공개된 합계 불변식, 결과 digest 존재를 검증한다.
@@ -144,7 +144,7 @@
 - 게시된 `(module, id, version)`은 불변이다. 수정은 새 version을 발급하고 이전 버전에 `superseded_by`를 기록한다.
 - 의존은 `depends_on`에서 **digest로 고정**한다. 참조 대상의 새 버전이 나와도 기존 문서의 의미는 변하지 않는다.
 - 모듈 의존 방향: `core ← facts ← {constraint, grant} ← approval ← allocation`. 역방향·순환 의존은 컴파일 오류(`CORE_DEP_CYCLE`).
-- 언어 버전 `vcrl: "MAJOR.MINOR"`. 비호환 변경은 MAJOR를 올린다. 기존 VC-DSL v1 소스는 `dialect: legacy-v1` 변환기로 IR로 이관한다.
+- 언어 버전 `mdrl: "MAJOR.MINOR"`. 비호환 변경은 MAJOR를 올린다. 기존 VC-DSL v1 소스는 `dialect: legacy-v1` 변환기로 IR로 이관한다.
 
 ### 3.6 서명과 증명
 
@@ -164,7 +164,7 @@
 
 ### 4.1 문법 예시
 
-```vcrl
+```mdrl
 facts "nova-debut-01" version 3 {
   party pty_label_x   { kind: LABEL;     ids: { isni: "0000000123456789" } }
   party pty_member_a  { kind: PERFORMER }
@@ -230,9 +230,9 @@ Tier 1(순매출 → 3풀)과 Tier 2(권리자 풀 내부 안분)를 하나의 �
 
 > 이 절의 문법 예시는 초기 초안이다. 정본 문법은 `spec/grammar/allocation.ebnf`와 12.37~12.39를 따른다.
 
-```vcrl
+```mdrl
 allocation "VC-ALLOC-NOVA-02" version 1 {
-  uses facts "nova-debut-01"@vcrl:sha256:ab12…;
+  uses facts "nova-debut-01"@mdrl:sha256:ab12…;
   scope  { pack: pak_nova_summer_02; event: [PRIMARY, RESALE]; currency: KRW; }
   bind   { time: ISSUE_TIME; }
 
@@ -312,7 +312,7 @@ evaluate(policy_IR, vectors_IR, snapshot, revenue_events[])
 
 ### 6.1 `constraint`
 
-```vcrl
+```mdrl
 constraint "img_nova_L0" version 2 {
   forbid co_occurrence    { parties: [pty_a, pty_b] };
   forbid adjacent         { from: pty_a; to: pty_c; directed: true };
@@ -354,7 +354,7 @@ constraint "img_nova_L0" version 2 {
 
 ```
 manifest/
-  manifest.json      { vcrl, subject, as_of, known_at,
+  manifest.json      { mdrl, subject, as_of, known_at,
                        parts: [{ module, id, version, digest, public_digest }],
                        result_digest, attestations[] }
   facts.ir.json      공개본(커밋먼트 치환)
@@ -427,11 +427,11 @@ manifest/
 
 | 패키지 | 책임 |
 |---|---|
-| `@vcrl/core` | 타입(Bps, Ratio, Money), Enum 레지스트리, JCS, digest, 커밋먼트, Ed25519 검증, 오류 모델 |
-| `@vcrl/parser` | 재귀 하강 파서, 텍스트 → AST → IR, `legacy-v1` 변환기 |
-| `@vcrl/facts` | facts 정적 검증, 그래프 투영, 기여 벡터 계산 |
-| `@vcrl/allocation` | allocation 정적 검증, 평가기, `HIERARCHICAL_LRM_V1` |
-| `vcrl` (CLI) | `compile`, `verify`, `evaluate`, `diff` |
+| `@mdrl/core` | 타입(Bps, Ratio, Money), Enum 레지스트리, JCS, digest, 커밋먼트, Ed25519 검증, 오류 모델 |
+| `@mdrl/parser` | 재귀 하강 파서, 텍스트 → AST → IR, `legacy-v1` 변환기 |
+| `@mdrl/facts` | facts 정적 검증, 그래프 투영, 기여 벡터 계산 |
+| `@mdrl/allocation` | allocation 정적 검증, 평가기, `HIERARCHICAL_LRM_V1` |
+| `mdrl` (CLI) | `compile`, `verify`, `evaluate`, `diff` |
 
 ### 10.3 테스트 전략
 
@@ -468,7 +468,7 @@ manifest/
 
 | 과제 | 출처 | 우선순위 메모 |
 |---|---|---|
-| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널은 `VCRL_시스템통합_아키텍처_설계_v1.0.md` 결정 6(백엔드와 같은 저장소의 workspace 패키지, 외부 검증용 tarball) |
+| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널은 `MDRL_시스템통합_아키텍처_설계_v1.0.md` 결정 6(백엔드와 같은 저장소의 workspace 패키지, 외부 검증용 tarball) |
 | ~~평가 결과 IR의 JSON Schema·버전 태그~~ **완료(1-D, 12.48~12.49)** | 12.44 | |
 | facts 텍스트 입력(현재 출력 전용) | 12.44 | |
 | legacy-v1 변환기 | 12.44 | 사용자 결정으로 연기 |
@@ -490,7 +490,7 @@ manifest/
 
 ## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `04_구현_소스코드/mdrl`)
 
-1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
+1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `mdrl`에 subpath export(`mdrl/core`, `mdrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
 2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE`, `PLATFORM` 포함 — `PLATFORM`은 12.58). 정본은 `src/core/enums.ts`.
 3. **IR 수치 표기**: 봉투의 `version`도 문자열이다(`"1"`). 유리수는 기약분수 `"n/d"`(정수도 `"1/1"`).
 4. **의존 순환**: 의존은 낮은 rank로만 허용하므로 순환은 `CORE_DEP_DIRECTION`으로 보고한다. `CORE_DEP_CYCLE`은 두지 않는다.
@@ -501,7 +501,7 @@ manifest/
 9. **정적 검증 시점**: share 합·위임 불변식은 현재 지식(미대체 레코드) 기준으로 모든 유효기간 경계 시점에서 검사한다.
 10. **알 수 없는 키**: 봉투와 facts의 모든 객체에서 JSON Schema가 `additionalProperties: false`로 막는 키는 코드 검증기도 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
 11. **facts 공개본의 기본 등급(3.4 명확화)**: claim·mandate에 `visibility`가 없으면 문서의 `visibility_default`와 무관하게 `share`·`evidence`는 `PARTIES`로 취급해 커밋먼트로 치환한다. 원문 공개는 항목별로 `visibility: PUBLIC`을 명시해야 한다. 문서 단위 설정 실수로 계약 지분이 노출되는 것을 막기 위한 결정이다.
-12. **증명 서명 대상**: 서명 메시지는 `JCS({ctx:"vcrl-attest/1", signer, role, over, alg})`의 UTF-8 바이트다. digest만 서명하면 역할·서명자 바꿔치기가 가능하므로 함께 묶는다. `alg`는 `Ed25519`, 공개키도 Ed25519여야 한다.
+12. **증명 서명 대상**: 서명 메시지는 `JCS({ctx:"mdrl-attest/1", signer, role, over, alg})`의 UTF-8 바이트다. digest만 서명하면 역할·서명자 바꿔치기가 가능하므로 함께 묶는다. `alg`는 `Ed25519`, 공개키도 Ed25519여야 한다.
 13. **분쟁 그룹의 합 검사**: DISPUTED claim이 하나라도 있는 그룹은 10000bps 합 검사에서 제외한다(몫 전체가 `@hold`). 정적 검증과 투영이 같은 규칙을 쓴다.
 14. **정규형**: facts의 7개 엔티티 배열은 id 오름차순(코드 유닛 비교)이어야 하며 검증기가 강제한다(`CORE_TYPE_ERROR` "not sorted by id"). id와 참조 필드는 `^[A-Za-z0-9._-]+$`다. `u_digest`는 정규화된 u(스템별 `"n/d"`, 0 제외)에 대한 digest다.
 15. **투영 IR 생성**: 투영 IR은 `projectToIr` 하나로 생성한다(입력과 결과의 불일치 방지). `as_of`·`known_at`은 Instant 형식을 검증한다.
@@ -535,16 +535,16 @@ manifest/
 43. **오류 코드 커버리지**: 모든 오류 코드는 테스트나 적합성 기대값에서 단언되어야 한다(`test/error-catalog.test.ts`). 도달 불가 방어 코드(`ALLOC_ROUNDING_INVARIANT`)만 이유와 함께 예외로 둔다.
 44. **1-C 범위 밖**: legacy-v1 변환기(사용자 결정으로 연기), facts 텍스트 입력, `diff` 명령, 결과 IR의 JSON Schema·버전 태그, 설치형 배포(Node는 `node_modules` 안의 `.ts`를 실행하지 않으므로 배포 전 빌드 단계가 필요하다).
 45. **via_mandate 정규형**: IR의 `graph.via_mandate`는 `true`이거나 생략해야 한다. `false`는 생략과 의미가 같으므로 검증기와 스키마가 거부한다(같은 의미에 IR 형태가 하나여야 digest가 갈라지지 않고 텍스트 왕복이 성립한다).
-46. **입력 형태와 CLI 안전장치**: `projectVectors`는 객체가 아닌 usage를 `FACTS_USAGE_INVALID`(`$.usage`)로, `checkActivation`은 형태가 틀린 선언 청구권자를 `CORE_TYPE_ERROR`(`$.declared…`)로 돌려준다. CLI는 파일을 읽기 전에 명령별 필수 옵션을 모두 확인하고(종료 코드 2), 명령 이름은 소유 속성으로만 조회하며, `compile`은 `.vcrl` 파일만 받는다. 예상하지 못한 예외는 한 줄 진단 `CORE_TYPE_ERROR $ unexpected error: …`와 종료 코드 1로 바꾼다.
+46. **입력 형태와 CLI 안전장치**: `projectVectors`는 객체가 아닌 usage를 `FACTS_USAGE_INVALID`(`$.usage`)로, `checkActivation`은 형태가 틀린 선언 청구권자를 `CORE_TYPE_ERROR`(`$.declared…`)로 돌려준다. CLI는 파일을 읽기 전에 명령별 필수 옵션을 모두 확인하고(종료 코드 2), 명령 이름은 소유 속성으로만 조회하며, `compile`은 `.mdrl` 파일만 받는다. 예상하지 못한 예외는 한 줄 진단 `CORE_TYPE_ERROR $ unexpected error: …`와 종료 코드 1로 바꾼다.
 47. **검증기와 파서의 공통 한도·의존 범위**: 벡터 식 중첩 깊이는 파서와 검증기가 같은 한도(64)를 쓰며, v1.0의 안분 정책은 facts에만 의존할 수 있다(grant·approval 의존은 해당 모듈 구현 시 문법 `uses <module> …`과 함께 연다). facts 텍스트 표시는 자유 텍스트의 제어·양방향 문자를 이스케이프한다. JSON 중첩 깊이는 정규화 단계에서 256으로 제한한다(초과 시 CORE_TYPE_ERROR).
-48. **결과 IR 형식 태그 (계획 1-D)**: 투영 IR은 `"format": "vcrl-projection/1"`, 안분 평가 결과는 `"format": "vcrl-allocation-result/1"`을 갖는다. 형식 태그는 봉인 본문에 포함된다(형식 버전을 바꿔 끼울 수 없다). 안분 결과의 봉인 본문은 `trace`와 `result_digest`를 뺀 전체(입력 digest, `bind_time`, `pool_lines`, `lines`, `holdings`, `run_id`, `format`)이며, `trace`는 설명용 자료로 봉인 밖에 있고 재계산으로만 확인한다(12.50). 투영 IR은 `digest`를 뺀 전체가 봉인 본문이다. 형식 버전 `/N`은 봉인 본문의 표현이나 봉인 범위가 바뀔 때만 올리며, 언어 버전(`vcrl: "1.0"`)과는 독립이다. 평가기는 다른 `format`의 투영을 `CORE_TYPE_ERROR`(`$.projection.format`)로 거부한다. 도입으로 적합성 기대값의 digest만 바뀌고 금액·라인·보류는 그대로다.
+48. **결과 IR 형식 태그 (계획 1-D)**: 투영 IR은 `"format": "mdrl-projection/1"`, 안분 평가 결과는 `"format": "mdrl-allocation-result/1"`을 갖는다. 형식 태그는 봉인 본문에 포함된다(형식 버전을 바꿔 끼울 수 없다). 안분 결과의 봉인 본문은 `trace`와 `result_digest`를 뺀 전체(입력 digest, `bind_time`, `pool_lines`, `lines`, `holdings`, `run_id`, `format`)이며, `trace`는 설명용 자료로 봉인 밖에 있고 재계산으로만 확인한다(12.50). 투영 IR은 `digest`를 뺀 전체가 봉인 본문이다. 형식 버전 `/N`은 봉인 본문의 표현이나 봉인 범위가 바뀔 때만 올리며, 언어 버전(`mdrl: "1.0"`)과는 독립이다. 평가기는 다른 `format`의 투영을 `CORE_TYPE_ERROR`(`$.projection.format`)로 거부한다. 도입으로 적합성 기대값의 digest만 바뀌고 금액·라인·보류는 그대로다.
 49. **결과 IR 스키마**: `spec/schema/projection.ir.schema.json`, `spec/schema/allocation.result.schema.json`(JSON Schema 2020-12, `package.json`의 `./spec/*` export로 설치 후에도 참조 가능). 적합성 케이스의 투영·평가 결과가 스키마를 통과해야 한다(`trace`는 선택 필드)(테스트가 강제).
 50. **결과 검증 API**: `verifyAllocationResult(input, given)`는 제공된 결과를 신뢰하지 않고 입력으로 다시 평가해 대조한다. `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `projection_digest`·`result_digest`가 다르거나 내용이 재계산 결과와 다르면 `CORE_DIGEST_MISMATCH`. `given`에 `trace`가 있으면 재계산한 trace와 대조해 다르면 `CORE_DIGEST_MISMATCH`(`$.result.trace`). CLI `verify`는 이 함수를 쓴다. CLI 진단 출력은 경로·메시지의 제어·줄 구분·양방향 문자를 `\uXXXX`로 이스케이프한다.
-51. **배포용 빌드**: `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)으로 `dist/`에 JS·`.d.ts`·소스맵을 낸다. `package.json`의 `exports`는 `./core`·`./facts`·`./allocation`·`./text`(`types`·`default` 조건으로 `dist`를 가리킴)와 `./spec/*`·`./package.json`이고, `bin`은 `dist/bin/vcrl.js`, `files`는 `dist`와 `spec`, `prepack`은 빌드다. `private: true`는 유지한다. 개발·테스트는 계속 `src/*.ts`를 직접 실행한다. 배포 채널은 시스템 통합에서 정한다.
-52. **패키지 스모크 테스트**: `npm pack`한 tarball을 임시 디렉터리에 설치해 네 진입점 import, 설치된 `vcrl` CLI의 `compile`·`evaluate`, 설치된 CLI의 `verify`(정상 통과, 변조 시 종료 1), 스키마·`package.json` export 해석, 타입 선언 소비(`tsc`)를 확인하고 결과 digest가 적합성 기대값과 같은지 본다. 네트워크 없이 도는 별도 스크립트(`npm run smoke`)로 두고 `npm test`에는 넣지 않는다.
+51. **배포용 빌드**: `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)으로 `dist/`에 JS·`.d.ts`·소스맵을 낸다. `package.json`의 `exports`는 `./core`·`./facts`·`./allocation`·`./text`(`types`·`default` 조건으로 `dist`를 가리킴)와 `./spec/*`·`./package.json`이고, `bin`은 `dist/bin/mdrl.js`, `files`는 `dist`와 `spec`, `prepack`은 빌드다. `private: true`는 유지한다. 개발·테스트는 계속 `src/*.ts`를 직접 실행한다. 배포 채널은 시스템 통합에서 정한다.
+52. **패키지 스모크 테스트**: `npm pack`한 tarball을 임시 디렉터리에 설치해 네 진입점 import, 설치된 `mdrl` CLI의 `compile`·`evaluate`, 설치된 CLI의 `verify`(정상 통과, 변조 시 종료 1), 스키마·`package.json` export 해석, 타입 선언 소비(`tsc`)를 확인하고 결과 digest가 적합성 기대값과 같은지 본다. 네트워크 없이 도는 별도 스크립트(`npm run smoke`)로 두고 `npm test`에는 넣지 않는다.
 53. **역분개 (계획 1-E)**: `reverse({original, policy, eventId, refund, priors, runId})`는 정책·facts를 다시 평가하지 않고 봉인된 원 안분 결과만으로 한 이벤트를 `refund.amount`만큼 되돌린다. `refund.reason`은 Enum `reversal_reason`(`REFUND`·`CORRECTION`·`FRAUD`). `policy`는 원 결과의 `policy_digest`와 같아야 하며(아니면 `CORE_DIGEST_MISMATCH`) 권리 풀 이름을 얻는 데만 쓴다. 원 결과의 digest가 틀리면 `REV_ORIGINAL_DIGEST`, 이벤트가 없으면 `REV_UNKNOWN_EVENT`, 권리 풀 ≠ 라인·보류 합이면 `REV_ORIGINAL_INCONSISTENT`, 금액이 양의 정수 문자열이 아니면 `REV_AMOUNT`, 누적이 원 금액을 넘으면 `REV_EXCEEDS_REMAINING`.
 54. **`REVERSAL_REMAINING_LRM_V1`**: 항목의 남은 금액(원 금액 − 이전 역분개) 비례로 (1) tier1 풀, (2) 권리 풀 증분을 라인·보류의 버킷 그룹(첫 등장 순), (3) 그룹 증분을 그룹 안 항목에 `splitLrm`한다. 남은 금액 0인 항목은 제외하고, LRM 키는 버킷 이름·`line:<party>`·`hold:<reason>`. 증분은 0 이상이고 남은 금액을 넘지 않으며 층별 합이 보존되고, 누적이 원 금액에 이르면 모든 항목이 정확히 0이 된다. 누적 목표 방식(원 금액 × 누적/원 금액의 LRM)은 최대 잔여법의 비단조성(앨라배마 역설) 때문에 음수 증분이 생길 수 있어 채택하지 않았다. 환불을 나누는 방식에 따라 항목별 분배가 최소 단위만큼 달라질 수 있다.
-55. **역분개 결과 IR `vcrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). 이번 `refund.id`가 이전 역분개의 `refund.id`와 같으면 `REV_CHAIN_BROKEN`(`$.refund.id`, 중복 환불 id)이다. `verifyReversal({original, policy, priors}, given)`은 재계산 대조(객체·format·digest 대조 규칙(trace 비교 없음)). 엔진은 priors의 순서·일관성은 강제하지만 완전성(이전 역분개를 빠짐없이 넘겼는지)은 알 수 없다. 누락·동시 호출 방지는 호출자(시스템) 책임이다.
-56. **섀도 리포트 `vcrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 리포트 최상위 `currency`는 모든 쌍 정책의 공통 `policy.body.scope.currency`이고, 어느 쌍의 baseline·candidate 정책 통화가 평가에 성공한 첫 쌍의 통화와 다르면 `SHADOW_CURRENCY_MISMATCH`(`$.pairs[i]`)다(통화를 섞어 합산하지 않는다). 필드는 `format, currency, pairs, parties, buckets, holdings, totals, report_digest`. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
+55. **역분개 결과 IR `mdrl-reversal-result/1`과 체인**: 필드는 `format, run_id, original_run_id, original_result_digest, policy_digest, event_id, refund, sequence, cumulative, original_amount, previous_digest?(sequence > 1), method, pool_lines, lines, holdings, result_digest`. 금액은 음수 문자열, 증분 0인 항목은 뺀다. 라인은 원 키에 `line_seq = sequence + 1`, `reverses_line_seq = 원 line_seq`. `result_digest = digestOf(result_digest를 뺀 전체)`. `priors[k]`는 원 결과에 `priors[0..k-1]`을 적용한 상태에서 다시 계산한 결과와 digest가 같아야 한다(아니면 `REV_CHAIN_BROKEN`). 이번 `refund.id`가 이전 역분개의 `refund.id`와 같으면 `REV_CHAIN_BROKEN`(`$.refund.id`, 중복 환불 id)이다. `verifyReversal({original, policy, priors}, given)`은 재계산 대조(객체·format·digest 대조 규칙(trace 비교 없음)). 엔진은 priors의 순서·일관성은 강제하지만 완전성(이전 역분개를 빠짐없이 넘겼는지)은 알 수 없다. 누락·동시 호출 방지는 호출자(시스템) 책임이다.
+56. **섀도 리포트 `mdrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 리포트 최상위 `currency`는 모든 쌍 정책의 공통 `policy.body.scope.currency`이고, 어느 쌍의 baseline·candidate 정책 통화가 평가에 성공한 첫 쌍의 통화와 다르면 `SHADOW_CURRENCY_MISMATCH`(`$.pairs[i]`)다(통화를 섞어 합산하지 않는다). 필드는 `format, currency, pairs, parties, buckets, holdings, totals, report_digest`. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
 57. **스키마·적합성 (1-E)**: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`. 적합성 `conformance/reversal/`(부분 환불 두 번 뒤 한도 초과 거부, 잔액 전액으로 순합 0; 부정 보류 전액 역분개). CLI 명령은 추가하지 않았다.
-58. **서명 역할 `PLATFORM` (I-2a)**: Enum `attestation_role`에 `PLATFORM`(플랫폼 검증자)을 더했다. 권리 코어(`rights-core`)의 `verify-run`이 정산 결과를 재계산 대조한 뒤 검증 신원(`sys_verifier`)이 `result_digest`에 이 역할로 서명한다(통합 설계 10.2-6). 서명 메시지(`vcrl-attest/1`)는 역할 문자열을 그대로 묶으므로 서명·검증 규칙은 다른 역할과 같고, `checkAttestations`는 이제 `PLATFORM`을 `CORE_ENUM_UNKNOWN` 없이 받는다. 내장 SoD(`BUILTIN_SOD`)는 바꾸지 않았다(검증자 ≠ 실행자는 권리 코어가 DB `CHECK`로 강제한다). 값 추가만이므로 기존 IR·digest(스모크 digest 포함)는 변하지 않는다. Enum 레지스트리 버전을 `1.1`로 올렸다(값 추가, 3.x 규칙).
+58. **서명 역할 `PLATFORM` (I-2a)**: Enum `attestation_role`에 `PLATFORM`(플랫폼 검증자)을 더했다. 권리 코어(`rights-core`)의 `verify-run`이 정산 결과를 재계산 대조한 뒤 검증 신원(`sys_verifier`)이 `result_digest`에 이 역할로 서명한다(통합 설계 10.2-6). 서명 메시지(`mdrl-attest/1`)는 역할 문자열을 그대로 묶으므로 서명·검증 규칙은 다른 역할과 같고, `checkAttestations`는 이제 `PLATFORM`을 `CORE_ENUM_UNKNOWN` 없이 받는다. 내장 SoD(`BUILTIN_SOD`)는 바꾸지 않았다(검증자 ≠ 실행자는 권리 코어가 DB `CHECK`로 강제한다). 값 추가만이므로 기존 IR·digest(스모크 digest 포함)는 변하지 않는다. Enum 레지스트리 버전을 `1.1`로 올렸다(값 추가, 3.x 규칙).
