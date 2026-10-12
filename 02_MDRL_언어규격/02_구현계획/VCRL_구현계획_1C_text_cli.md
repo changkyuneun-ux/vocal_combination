@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript), TypeScript 5.9 (`erasableSyntaxOnly`, 타입검사 전용), `node:test`, `node:util.parseArgs`. 런타임 의존성 없음.
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` 5.2(문법 예시), 10.2(CLI), 12장(1~36). 사용자 결정(2026-09-28): allocation만 텍스트 입력, facts는 텍스트 출력만. 버킷 역할은 자동 추론하고 필요할 때만 `as ROLE`. legacy-v1 변환기는 연기.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 5.2(문법 예시), 10.2(CLI), 12장(1~36). 사용자 결정(2026-09-28): allocation만 텍스트 입력, facts는 텍스트 출력만. 버킷 역할은 자동 추론하고 필요할 때만 `as ROLE`. legacy-v1 변환기는 연기.
 
 ## Global Constraints
 
@@ -18,13 +18,13 @@
 - 오류 코드는 `src/core/errors.ts`의 `ERROR_CODES`에만 정의하고 `spec/error-codes.md`와 항상 일치시킨다(테스트가 강제). Enum 값은 `src/core/enums.ts`에만 정의한다.
 - 식별자 조회는 소유 속성만 본다(`Object.hasOwn`). `__proto__`는 유효한 id가 아니다.
 - `JSON.stringify`로 `Ratio`/BigInt가 든 값을 직렬화할 때는 BigInt-safe replacer를 쓴다.
-- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. 임시·재현용 파일은 남기지 않는다.
+- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. 임시·재현용 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## File Structure
 
 ```
-03_구현문서_코드/vcrl/
+04_구현_소스코드/mdrl/
   package.json            (Modify: "./text" export, "bin")
   tsconfig.json           (Modify: include "bin")
   spec/error-codes.md     (Modify: PARSE_*)
@@ -240,7 +240,7 @@ Expected: 전부 PASS(오류 코드 문서 동기화 포함).
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/errors.ts 03_구현문서_코드/vcrl/spec/error-codes.md 03_구현문서_코드/vcrl/src/text/lexer.ts 03_구현문서_코드/vcrl/test/text/lexer.test.ts && git commit -m "$(printf 'feat(vcrl): 텍스트 렉서와 파서 오류 코드\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/src/text/lexer.ts 04_구현_소스코드/mdrl/test/text/lexer.test.ts && git commit -m "$(printf 'feat(vcrl): 텍스트 렉서와 파서 오류 코드\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -845,7 +845,7 @@ Expected: PASS. 위치를 단언하는 테스트(`@1:41`, `@1:24`)가 다르면,
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/text/roles.ts 03_구현문서_코드/vcrl/src/text/parse-allocation.ts 03_구현문서_코드/vcrl/spec/grammar/allocation.ebnf 03_구현문서_코드/vcrl/conformance/text/001-basic.vcrl 03_구현문서_코드/vcrl/test/text/parse.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 텍스트 파서, 역할 추론, 문법 정본\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/roles.ts 04_구현_소스코드/mdrl/src/text/parse-allocation.ts 04_구현_소스코드/mdrl/spec/grammar/allocation.ebnf 04_구현_소스코드/mdrl/conformance/text/001-basic.vcrl 04_구현_소스코드/mdrl/test/text/parse.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 텍스트 파서, 역할 추론, 문법 정본\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1083,7 +1083,7 @@ Expected: PASS.
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/text/format-allocation.ts 03_구현문서_코드/vcrl/samples 03_구현문서_코드/vcrl/test/text/format-allocation.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 정규 텍스트 포매터와 예제 정책\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-allocation.ts 04_구현_소스코드/mdrl/samples 04_구현_소스코드/mdrl/test/text/format-allocation.test.ts && git commit -m "$(printf 'feat(vcrl): allocation 정규 텍스트 포매터와 예제 정책\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1218,7 +1218,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/text/format-facts.ts 03_구현문서_코드/vcrl/test/text/format-facts.test.ts && git commit -m "$(printf 'feat(vcrl): facts 읽기 전용 텍스트 표시\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/text/format-facts.ts 04_구현_소스코드/mdrl/test/text/format-facts.test.ts && git commit -m "$(printf 'feat(vcrl): facts 읽기 전용 텍스트 표시\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1332,7 +1332,7 @@ Expected: 전부 PASS(기존 공개본 테스트 포함).
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/result.ts 03_구현문서_코드/vcrl/src/facts/validate.ts 03_구현문서_코드/vcrl/test/facts/result.test.ts 03_구현문서_코드/vcrl/test/facts/structure.test.ts && git commit -m "$(printf 'feat(vcrl): 투영 재검증과 공개본 검증 보강\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "$(printf 'feat(vcrl): 투영 재검증과 공개본 검증 보강\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1745,7 +1745,7 @@ Expected: PASS. `evaluate` 테스트의 digest는 `conformance/allocation/001-ba
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/cli/main.ts 03_구현문서_코드/vcrl/bin/vcrl.ts 03_구현문서_코드/vcrl/src/text/index.ts 03_구현문서_코드/vcrl/package.json 03_구현문서_코드/vcrl/tsconfig.json 03_구현문서_코드/vcrl/test/cli.test.ts && git commit -m "$(printf 'feat(vcrl): vcrl CLI(compile·fmt·check·project·evaluate·verify·activate)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/cli/main.ts 04_구현_소스코드/mdrl/bin/vcrl.ts 04_구현_소스코드/mdrl/src/text/index.ts 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/test/cli.test.ts && git commit -m "$(printf 'feat(vcrl): vcrl CLI(compile·fmt·check·project·evaluate·verify·activate)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1754,7 +1754,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcr
 
 **Files:**
 - Create: `test/error-catalog.test.ts`
-- Modify: `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`
+- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`
 
 **Interfaces:**
 - Consumes: `ERROR_CODES`
@@ -1809,7 +1809,7 @@ Expected: PASS. 실패하면 `missing`에 나온 코드마다 그 코드를 단�
 
 - [ ] **Step 3: 스펙 12절에 반영**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`의 12절 끝(현재 마지막 항목 다음)에 번호를 이어 추가한다:
+`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`의 12절 끝(현재 마지막 항목 다음)에 번호를 이어 추가한다:
 ```markdown
 37. **allocation 텍스트 문법(계획 1-C)**: 정본은 `spec/grammar/allocation.ebnf`. 블록은 `uses facts "<id>"@<v> digest "<d>";`, `visibility`, `scope`, `bind`, `tier1`, `tier2 <권리자 풀 버킷> { split { … } }`, `guard`, `exceptions`, `rounding`이다. scope·bind·tier1·tier2·rounding은 필수이고 블록 순서는 자유다. 비율은 `%`(소수 둘째 자리까지) 또는 `bps`(정수), id는 식별자 또는 따옴표 문자열, 주석은 `//`. 문법 오류는 `PARSE_SYNTAX`이며 경로는 `@줄:열`이다. 텍스트 입력은 allocation만 받고(사용자 결정), facts는 읽기 전용 텍스트로 표시만 한다.
 38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`은 r, 실연 풀·멤버 비율은 `PERFORMER_FEATURED`, 실연 graph만 있으면 그 역할이다. `contract`는 역할을 정하지 않는다. 추론할 수 없거나 서로 다른 역할의 graph가 섞이면 `PARSE_ROLE_REQUIRED`.
@@ -1823,13 +1823,13 @@ Expected: PASS. 실패하면 `missing`에 나온 코드마다 그 코드를 단�
 
 - [ ] **Step 4: 전체 확인**
 
-Run: `npm test && npx tsc -p tsconfig.json && git -C "/Users/changkyuneun/Vocal Combination" status --porcelain 03_구현문서_코드/vcrl`
+Run: `npm test && npx tsc -p tsconfig.json && git -C "/Users/changkyuneun/Vocal Combination" status --porcelain 04_구현_소스코드/mdrl`
 Expected: 전체 PASS, tsc 출력 없음, 추적되지 않은 파일 없음.
 
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/test/error-catalog.test.ts "02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'test(vcrl): 오류 코드 커버리지 검사와 스펙 1-C 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/test/error-catalog.test.ts "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'test(vcrl): 오류 코드 커버리지 검사와 스펙 1-C 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---

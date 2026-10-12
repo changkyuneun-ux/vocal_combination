@@ -4,11 +4,11 @@
 
 **Goal:** VCRL 코어(정확한 유리수·bps, JCS 정규형·digest·커밋먼트, Enum·오류 레지스트리, IR 봉투·의존 검증, Ed25519 증명·SoD)와 `facts` 모듈(구조·불변식 검증, 이중 시간축 선택, 역할별 기여 벡터 투영, 위임 라우팅, 청구권자 도출, 결과 IR·공개본)을 레퍼런스 구현한다.
 
-**Architecture:** 단일 npm 패키지 `vcrl`(경로 `03_구현문서_코드/vcrl/`)에 `src/core`, `src/facts`를 두고 subpath export(`vcrl/core`, `vcrl/facts`)로 노출한다. 모든 함수는 순수 함수이며 IR(JSON, 숫자는 문자열)을 입력받아 `Diagnostic[]` 또는 `Result<T>`를 반환한다. 공개 적합성 스위트(`conformance/`)가 입력 IR → 기대 결과·digest를 고정한다.
+**Architecture:** 단일 npm 패키지 `vcrl`(경로 `04_구현_소스코드/mdrl/`)에 `src/core`, `src/facts`를 두고 subpath export(`vcrl/core`, `vcrl/facts`)로 노출한다. 모든 함수는 순수 함수이며 IR(JSON, 숫자는 문자열)을 입력받아 `Diagnostic[]` 또는 `Result<T>`를 반환한다. 공개 적합성 스위트(`conformance/`)가 입력 IR → 기대 결과·digest를 고정한다.
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript type stripping), TypeScript 5.9 (타입검사 전용, `erasableSyntaxOnly`), `node:test`, `node:crypto`. devDependency: `typescript`, `@types/node`, `ajv`(JSON Schema 테스트 전용).
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` (이하 "스펙")
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (이하 "스펙")
 
 **후속 계획:** 1-B `allocation`(평가기·`HIERARCHICAL_LRM_V1`·ALLOC_* 오류), 1-C `parser`(텍스트 문법 EBNF 전체·legacy-v1 변환)·`vcrl` CLI·적합성 스위트 확장.
 
@@ -22,12 +22,12 @@
 - 시각 표기: `YYYY-MM-DDTHH:mm:ss.sssZ` (UTC, 밀리초 3자리) 고정.
 - 오류 코드는 `src/core/errors.ts`의 `ERROR_CODES`에만 정의하고 `spec/error-codes.md`와 항상 일치시킨다.
 - 모든 Enum 값은 `src/core/enums.ts`의 `ENUMS`에만 정의한다.
-- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl` (git 루트는 `/Users/changkyuneun/Vocal Combination`). 커밋 시 이 패키지 파일만 `git add` 한다. 커밋 메시지 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl` (git 루트는 `/Users/changkyuneun/Vocal Combination`). 커밋 시 이 패키지 파일만 `git add` 한다. 커밋 메시지 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## File Structure
 
 ```
-03_구현문서_코드/vcrl/
+04_구현_소스코드/mdrl/
   package.json, tsconfig.json, .gitignore
   spec/
     error-codes.md                 오류 코드 정본 문서 (테스트로 동기화 강제)
@@ -66,7 +66,7 @@
 ### Task 1: 패키지 골격 + 오류·Enum 레지스트리
 
 **Files:**
-- Create: `03_구현문서_코드/vcrl/package.json`, `tsconfig.json`, `.gitignore`
+- Create: `04_구현_소스코드/mdrl/package.json`, `tsconfig.json`, `.gitignore`
 - Create: `src/core/errors.ts`, `src/core/enums.ts`, `spec/error-codes.md`
 - Test: `test/core/errors.test.ts`, `test/core/enums.test.ts`
 
@@ -123,7 +123,7 @@
 node_modules/
 ```
 
-Run: `cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl" && npm install`
+Run: `cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl" && npm install`
 Expected: `added N packages`, `package-lock.json` 생성.
 
 - [ ] **Step 2: 실패하는 테스트 작성**
@@ -365,7 +365,7 @@ Expected: 모든 테스트 PASS, tsc 출력 없음.
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/package.json 03_구현문서_코드/vcrl/package-lock.json 03_구현문서_코드/vcrl/tsconfig.json 03_구현문서_코드/vcrl/.gitignore 03_구현문서_코드/vcrl/src/core/errors.ts 03_구현문서_코드/vcrl/src/core/enums.ts 03_구현문서_코드/vcrl/spec/error-codes.md 03_구현문서_코드/vcrl/test/core && git commit -m "feat(vcrl): 패키지 골격, 오류·Enum 레지스트리"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/package-lock.json 04_구현_소스코드/mdrl/tsconfig.json 04_구현_소스코드/mdrl/.gitignore 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/src/core/enums.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/test/core && git commit -m "feat(vcrl): 패키지 골격, 오류·Enum 레지스트리"
 ```
 
 ---
@@ -558,7 +558,7 @@ Expected: PASS, tsc 출력 없음.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/ratio.ts 03_구현문서_코드/vcrl/src/core/bps.ts 03_구현문서_코드/vcrl/test/core/ratio.test.ts 03_구현문서_코드/vcrl/test/core/bps.test.ts && git commit -m "feat(vcrl): 정확한 유리수 Ratio와 bps 파싱"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/ratio.ts 04_구현_소스코드/mdrl/src/core/bps.ts 04_구현_소스코드/mdrl/test/core/ratio.test.ts 04_구현_소스코드/mdrl/test/core/bps.test.ts && git commit -m "feat(vcrl): 정확한 유리수 Ratio와 bps 파싱"
 ```
 
 ---
@@ -735,7 +735,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/jcs.ts 03_구현문서_코드/vcrl/src/core/digest.ts 03_구현문서_코드/vcrl/src/core/commit.ts 03_구현문서_코드/vcrl/test/core/jcs.test.ts 03_구현문서_코드/vcrl/test/core/digest.test.ts && git commit -m "feat(vcrl): JCS 정규형, digest, 해시 커밋먼트"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/jcs.ts 04_구현_소스코드/mdrl/src/core/digest.ts 04_구현_소스코드/mdrl/src/core/commit.ts 04_구현_소스코드/mdrl/test/core/jcs.test.ts 04_구현_소스코드/mdrl/test/core/digest.test.ts && git commit -m "feat(vcrl): JCS 정규형, digest, 해시 커밋먼트"
 ```
 
 ---
@@ -1038,7 +1038,7 @@ Expected: PASS. tsc가 `ajv/dist/2020.js` 타입 import에서 오류를 내면 �
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/time.ts 03_구현문서_코드/vcrl/src/core/ref.ts 03_구현문서_코드/vcrl/src/core/envelope.ts 03_구현문서_코드/vcrl/spec/schema/envelope.schema.json 03_구현문서_코드/vcrl/test/core/time.test.ts 03_구현문서_코드/vcrl/test/core/envelope.test.ts && git commit -m "feat(vcrl): 시각·참조·IR 봉투·의존 digest 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/time.ts 04_구현_소스코드/mdrl/src/core/ref.ts 04_구현_소스코드/mdrl/src/core/envelope.ts 04_구현_소스코드/mdrl/spec/schema/envelope.schema.json 04_구현_소스코드/mdrl/test/core/time.test.ts 04_구현_소스코드/mdrl/test/core/envelope.test.ts && git commit -m "feat(vcrl): 시각·참조·IR 봉투·의존 digest 검증"
 ```
 
 ---
@@ -1199,7 +1199,7 @@ Expected: core 테스트 전체 PASS, tsc 출력 없음.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/attest.ts 03_구현문서_코드/vcrl/src/core/index.ts 03_구현문서_코드/vcrl/test/core/attest.test.ts && git commit -m "feat(vcrl): Ed25519 증명 검증과 내장 SoD"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/attest.ts 04_구현_소스코드/mdrl/src/core/index.ts 04_구현_소스코드/mdrl/test/core/attest.test.ts && git commit -m "feat(vcrl): Ed25519 증명 검증과 내장 SoD"
 ```
 
 ---
@@ -1666,7 +1666,7 @@ Expected: PASS.
 - [ ] **Step 7: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/types.ts 03_구현문서_코드/vcrl/src/facts/validate.ts 03_구현문서_코드/vcrl/spec/schema/facts.ir.schema.json 03_구현문서_코드/vcrl/conformance/facts/001-basic/input.json 03_구현문서_코드/vcrl/test/helpers.ts 03_구현문서_코드/vcrl/test/facts/structure.test.ts && git commit -m "feat(vcrl): facts IR 타입·스키마·구조 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/types.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/spec/schema/facts.ir.schema.json 04_구현_소스코드/mdrl/conformance/facts/001-basic/input.json 04_구현_소스코드/mdrl/test/helpers.ts 04_구현_소스코드/mdrl/test/facts/structure.test.ts && git commit -m "feat(vcrl): facts IR 타입·스키마·구조 검증"
 ```
 
 ---
@@ -1927,7 +1927,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/temporal.ts 03_구현문서_코드/vcrl/src/facts/invariants.ts 03_구현문서_코드/vcrl/src/facts/validate.ts 03_구현문서_코드/vcrl/test/facts/invariants.test.ts && git commit -m "feat(vcrl): 이중 시간축, share 합 불변식, 위임 순환·깊이 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/temporal.ts 04_구현_소스코드/mdrl/src/facts/invariants.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/test/facts/invariants.test.ts && git commit -m "feat(vcrl): 이중 시간축, share 합 불변식, 위임 순환·깊이 검증"
 ```
 
 ---
@@ -2180,7 +2180,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/project.ts 03_구현문서_코드/vcrl/test/facts/project.test.ts && git commit -m "feat(vcrl): 권리 그래프 투영과 역할별 기여 벡터"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/project.ts 04_구현_소스코드/mdrl/test/facts/project.test.ts && git commit -m "feat(vcrl): 권리 그래프 투영과 역할별 기여 벡터"
 ```
 
 ---
@@ -2394,7 +2394,7 @@ Expected: 전체 PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/mandate.ts 03_구현문서_코드/vcrl/test/facts/mandate.test.ts && git commit -m "feat(vcrl): 위임 라우팅, 청구권자 도출과 커버리지 검증"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/mandate.ts 04_구현_소스코드/mdrl/test/facts/mandate.test.ts && git commit -m "feat(vcrl): 위임 라우팅, 청구권자 도출과 커버리지 검증"
 ```
 
 ---
@@ -2404,7 +2404,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcr
 **Files:**
 - Create: `src/facts/result.ts`, `src/facts/public.ts`, `src/facts/index.ts`, `scripts/print-projection.ts`
 - Create: `conformance/facts/001-basic/expected.json`, `conformance/facts/002-disputed-master/{input,expected}.json`, `conformance/facts/003-path-missing/{input,expected}.json`
-- Modify: `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` (끝에 12절 추가)
+- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (끝에 12절 추가)
 - Test: `test/facts/result.test.ts`, `test/conformance.test.ts`
 
 **Interfaces:**
@@ -2597,7 +2597,7 @@ Expected: PASS.
 - [ ] **Step 4: 적합성 입력 파생**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl" && node -e '
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl" && node -e '
 const f = require("fs");
 const base = () => JSON.parse(f.readFileSync("conformance/facts/001-basic/input.json", "utf8"));
 const write = (dir, i) => { f.mkdirSync(`conformance/facts/${dir}`, { recursive: true }); f.writeFileSync(`conformance/facts/${dir}/input.json`, JSON.stringify(i, null, 2) + "\n"); };
@@ -2674,12 +2674,12 @@ Expected: 전체 PASS (conformance 3건 포함), tsc 출력 없음, `no placehol
 
 - [ ] **Step 7: 스펙에 구현 반영 사항 추가**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝에 다음 절을 추가한다:
+`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝에 다음 절을 추가한다:
 ```markdown
 
 ---
 
-## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `03_구현문서_코드/vcrl`)
+## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `04_구현_소스코드/mdrl`)
 
 1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
 2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE` 포함). 정본은 `src/core/enums.ts`.
@@ -2695,7 +2695,7 @@ Expected: 전체 PASS (conformance 3건 포함), tsc 출력 없음, `no placehol
 - [ ] **Step 8: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/result.ts 03_구현문서_코드/vcrl/src/facts/public.ts 03_구현문서_코드/vcrl/src/facts/index.ts 03_구현문서_코드/vcrl/scripts 03_구현문서_코드/vcrl/conformance 03_구현문서_코드/vcrl/test/facts/result.test.ts 03_구현문서_코드/vcrl/test/conformance.test.ts "02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "feat(vcrl): 투영 결과 IR, 공개본, facts 적합성 스위트"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/result.ts 04_구현_소스코드/mdrl/src/facts/public.ts 04_구현_소스코드/mdrl/src/facts/index.ts 04_구현_소스코드/mdrl/scripts 04_구현_소스코드/mdrl/conformance 04_구현_소스코드/mdrl/test/facts/result.test.ts 04_구현_소스코드/mdrl/test/conformance.test.ts "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "feat(vcrl): 투영 결과 IR, 공개본, facts 적합성 스위트"
 ```
 
 ---

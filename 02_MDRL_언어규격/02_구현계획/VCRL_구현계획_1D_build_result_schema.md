@@ -10,7 +10,7 @@
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript), TypeScript 5.9, `node:test`, devDependency `ajv`(스키마 테스트), `npm pack`. 런타임 의존성 없음.
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` 12.48~12.52. 사용자 결정(2026-09-29): 사용 방식은 Node 라이브러리 + CLI, 형식 태그는 digest 계산에 포함.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 12.48~12.52. 사용자 결정(2026-09-29): 사용 방식은 Node 라이브러리 + CLI, 형식 태그는 digest 계산에 포함.
 
 ## Global Constraints
 
@@ -19,14 +19,14 @@
 - 라이브러리 코드에서 부동소수 금지. IR에는 JSON number를 쓰지 않는다.
 - 오류 코드는 `src/core/errors.ts`의 `ERROR_CODES`에만 정의한다. 이 계획은 새 오류 코드를 만들지 않는다(`CORE_TYPE_ERROR`, `CORE_DIGEST_MISMATCH`만 쓴다).
 - 적합성 기대값(`conformance/**/expected.json`)에서 바꿔도 되는 것은 `digest`·`result_digest` 값과 새 `format` 필드뿐이다. 금액·라인·보류·벡터·경로는 한 글자도 바꾸지 않는다.
-- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. `git stash`, `git reset`, `git checkout -- <path>`는 쓰지 않는다. 임시·재현용 파일은 남기지 않는다(스모크 테스트의 임시 디렉터리는 OS 임시 폴더에 만들고 지운다).
+- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. `git stash`, `git reset`, `git checkout -- <path>`는 쓰지 않는다. 임시·재현용 파일은 남기지 않는다(스모크 테스트의 임시 디렉터리는 OS 임시 폴더에 만들고 지운다).
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - 각 태스크 끝에서 `npm test`와 `npx tsc -p tsconfig.json`이 모두 통과해야 한다.
 
 ## File Structure
 
 ```
-03_구현문서_코드/vcrl/
+04_구현_소스코드/mdrl/
   .gitignore                                  (Modify: dist/, *.tgz)
   package.json                                (Modify: exports→dist, bin, files, scripts)
   tsconfig.build.json                         (Create: 배포 빌드 설정)
@@ -49,7 +49,7 @@
   test/schema.test.ts                         (Create)
   test/package.test.ts                        (Create)
   test/cli.test.ts                            (Modify)
-02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md  (Modify: 11절 상태)
+02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md  (Modify: 11절 상태)
 ```
 
 ---
@@ -192,7 +192,7 @@ Expected: fail 0, `TSC_OK`. (`test/cli.test.ts`는 기대 digest를 적합성 �
 - [ ] **Step 7: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/facts/result.ts src/allocation/types.ts src/allocation/evaluate.ts scripts/print-allocation.ts \
   conformance/facts/001-basic/expected.json conformance/facts/002-disputed-master/expected.json conformance/facts/004-competing-dispute/expected.json \
   conformance/allocation/001-basic/expected.json conformance/allocation/002-disputed-master/expected.json conformance/allocation/003-fraud-hold/expected.json \
@@ -451,7 +451,7 @@ Expected: 3개 PASS, 전체 fail 0, `TSC_OK`. 적합성 결과가 스키마에 �
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add spec/schema/projection.ir.schema.json spec/schema/allocation.result.schema.json test/schema.test.ts
 git commit -m "feat(vcrl): 투영·안분 결과 IR JSON Schema와 적합성 대조 테스트
 
@@ -670,7 +670,7 @@ Expected: fail 0, `TSC_OK`. 기존 CLI 테스트("evaluate from text reproduces 
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/allocation/verify.ts src/allocation/index.ts src/cli/main.ts test/allocation/verify.test.ts test/cli.test.ts
 git commit -m "feat(vcrl): 라이브러리 결과 검증 verifyAllocationResult, CLI verify가 이를 사용
 
@@ -687,7 +687,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `.gitignore`
 - Create: `scripts/smoke-pack.ts`
 - Test: `test/package.test.ts`
-- Modify: `/Users/changkyuneun/Vocal Combination/02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` (11절 상태)
+- Modify: `/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` (11절 상태)
 
 **Interfaces:**
 - Consumes: Task 1~3의 공개 API(`PROJECTION_FORMAT`, `ALLOCATION_RESULT_FORMAT`, `verifyAllocationResult`, `VerificationInput`)와 두 스키마 파일.
@@ -922,7 +922,7 @@ Expected: 마지막 줄 `smoke OK vcrl:sha256:<conformance/allocation/001-basic/
 
 - [ ] **Step 7: 설계문서 11절 상태 갱신**
 
-`/Users/changkyuneun/Vocal Combination/02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`에서:
+`/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`에서:
 - 11절 머리의 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C를 \`master\`에 머지한 시점).` 을 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C·1-D 반영).` 로 바꾼다.
 - 11.1.1 표의 "IR JSON 스키마" 행을 `| IR JSON 스키마 | \`spec/schema/\` envelope·facts IR·allocation IR, 투영 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |` 로 바꾼다.
 - 11.2 표의 첫 행(설치형 배포 빌드)을 `| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널(사설 레지스트리·git·tarball)은 시스템 통합에서 결정 |` 로 바꾼다.
@@ -934,9 +934,9 @@ Run: `npm test 2>&1 | grep -E "^ℹ (tests|pass|fail)" && npx tsc -p tsconfig.js
 Expected: fail 0, `TSC_OK`. 추적되지 않은 파일은 이번 태스크에서 만든 `tsconfig.build.json`, `scripts/smoke-pack.ts`, `test/package.test.ts`뿐이다.
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add tsconfig.build.json package.json .gitignore scripts/smoke-pack.ts test/package.test.ts \
-  "/Users/changkyuneun/Vocal Combination/02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md"
+  "/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md"
 git commit -m "build(vcrl): dist 배포 빌드, exports·bin을 dist로, tarball 스모크 테스트
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

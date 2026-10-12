@@ -488,7 +488,7 @@ manifest/
 
 ---
 
-## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `03_구현문서_코드/vcrl`)
+## 12. 구현 반영 사항 (계획 1-A, 레퍼런스 구현 `04_구현_소스코드/mdrl`)
 
 1. **패키지 구성**: 10.2의 다중 패키지 대신 단일 패키지 `vcrl`에 subpath export(`vcrl/core`, `vcrl/facts`)를 둔다. 외부 배포 시점에 분리한다.
 2. **Enum 레지스트리 추가 항목**: `module`, `party_kind`, `voice_kind`, `performer_role`, `mandate_right`(`MASTER|WORK|PERFORMER`), `attestation_role`(`SPACE_OPS`, `SPACE_SETTLE`, `PLATFORM` 포함 — `PLATFORM`은 12.58). 정본은 `src/core/enums.ts`.

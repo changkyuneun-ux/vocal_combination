@@ -8,7 +8,7 @@
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript 직접 실행, Fastify 5, pg 8, PostgreSQL 17 Docker) + **pg-boss 12**(런타임 의존성 1개 추가).
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` **10절(I-2a 결정, 정본)**, 5.4~5.7, 9.3; `데이터모델_v2.8.md` 3.7; 코어 규격 12.50·12.53~12.55.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **10절(I-2a 결정, 정본)**, 5.4~5.7, 9.3; `데이터모델_v2.8.md` 3.7; 코어 규격 12.50·12.53~12.55.
 
 ## Global Constraints
 
@@ -47,7 +47,7 @@ rights-core/
   test/settlement-fixtures.ts           (Create)
   test/revenue/revenue.test.ts, test/platform/jobs.test.ts, test/engine-bridge/settle.test.ts,
   test/settlement/batch.test.ts, test/settlement/refund.test.ts, test/http/settlement-api.test.ts, test/scenario/settlement.test.ts
-02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 7: 10.4 결과)
+02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 7: 10.4 결과)
 ```
 
 ---
@@ -1665,7 +1665,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `rights-core/src/scenario/settlement.ts`, `rights-core/test/scenario/settlement.test.ts`
-- Modify: `rights-core/src/scenario/main.ts`, `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md`(10.4)
+- Modify: `rights-core/src/scenario/main.ts`, `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`(10.4)
 
 **Interfaces:**
 - Consumes: I-1 시나리오(`runScenario`가 남긴 DB 상태 — 1만 조합 발행), Task 1~6, 실제 pg-boss(`startBossJobs`).
@@ -1737,7 +1737,7 @@ Expected: 두 리포트와 마지막 줄 `SCENARIO PASS`. 실패하면 원인을
 
 - [ ] **Step 5: 결과 기록**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` 10절 끝에 실제 값으로 채운 표를 추가한다:
+`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 10절 끝에 실제 값으로 채운 표를 추가한다:
 ```markdown
 ### 10.4 I-2a 결과 (YYYY-MM-DD)
 
@@ -1756,7 +1756,7 @@ Expected: 두 리포트와 마지막 줄 `SCENARIO PASS`. 실패하면 원인을
 
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
-git add rights-core/src/scenario/settlement.ts rights-core/src/scenario/main.ts rights-core/test/scenario/settlement.test.ts "../02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md"
+git add rights-core/src/scenario/settlement.ts rights-core/src/scenario/main.ts rights-core/test/scenario/settlement.test.ts "../02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
 git commit -m "feat(rights-core): 정산 시나리오(3만 건·환불·역분개)와 I-2a 결과 기록
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

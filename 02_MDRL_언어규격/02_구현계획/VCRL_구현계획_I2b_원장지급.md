@@ -8,7 +8,7 @@
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript, Fastify 5, pg 8, pg-boss 12, PostgreSQL 17 Docker).
 
-**상위 스펙(정본):** `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` **11절(I-2b 결정 1~14)**, 10절(I-2a), 5.7. 모든 태스크의 요구사항은 11.2의 해당 결정 번호를 따른다.
+**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **11절(I-2b 결정 1~14)**, 10절(I-2a), 5.7. 모든 태스크의 요구사항은 11.2의 해당 결정 번호를 따른다.
 
 ## Global Constraints
 
@@ -38,7 +38,7 @@ rights-core/
   src/ledger/routes.ts, src/payout/routes.ts, src/settlement/routes.ts, src/http/server.ts, main.ts (Modify/Create)
   src/scenario/ledger.ts, main.ts
   test/ledger/*.test.ts, test/payout/*.test.ts, test/settlement/{quarantine,operator,revision,invariants,guards-insert}.test.ts, test/scenario/ledger.test.ts
-02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 10: 11.4 결과, 10.5 완료 표시)
+02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 10: 11.4 결과, 10.5 완료 표시)
 ```
 
 ---

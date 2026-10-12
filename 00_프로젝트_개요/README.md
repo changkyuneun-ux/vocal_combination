@@ -17,12 +17,12 @@
 
 | 영역 | 문서명 | 경로 | 설명 |
 | :--- | :--- | :--- | :--- |
-| **MDRL 언어 규격** | **MDRL 언어레퍼런스북 v1.0** | [`02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md`](file:///Users/changkyuneun/Vocal%20Combination/02_MDRL_%EC%96%B8%EC%96%B4%EA%B7%9C%EA%B2%A9/MDRL_%EC%96%B8%EC%96%B4%EB%A0%88%ED%8D%BC%EB%9F%B0%EC%8A%A4%EB%B6%81_v1.0.md) | 5개 계층(Facts, Grant, Allocation, Ledger, Profiles) 공식 규격 매뉴얼 |
-| **데이터 모델** | **데이터모델 v2.8** | [`03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`](file:///Users/changkyuneun/Vocal%20Combination/03_dobedupop_%ED%94%8C%EB%9E%AB%ED%8F%BC%EC%84%A4%EA%B3%84/%EC%B5%9C%EC%8B%A0%EC%84%A4%EA%B3%84/%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%AA%A8%EB%8D%B8_v2.8.md) | 플랫폼/정산/권리 원장 및 엔티티 전체 데이터 스키마 정의 |
-| **백오피스 UI 가이드** | **백오피스 UI설계가이드 v1.6** | [`03_dobedupop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md`](file:///Users/changkyuneun/Vocal%20Combination/03_dobedupop_%ED%94%8C%EB%9E%AB%ED%8F%BC%EC%84%A4%EA%B3%84/%EC%B5%9C%EC%8B%A0%EC%84%A4%EA%B3%84/%EB%B0%B1%EC%98%A4%ED%94%BC%EC%8A%A4_UI%EC%84%A4%EA%B3%84%EA%B0%80%EC%9D%B4%EB%93%9C_%EC%9E%91%ED%92%88%EC%8A%AC%EB%A1%AF%EC%8A%A4%ED%85%9C_%ED%8Pack%EA%B4%80%EB%A6%AC_v1.6.md) | 작품, 슬롯, 스템, 팩 관리 등 관리자 콘솔 화면별 상세 가이드 |
+| **MDRL 언어 규격** | **MDRL 언어레퍼런스북 v1.0** | [`02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md`](../02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md) | 5개 계층(Facts, Grant, Allocation, Ledger, Profiles) 공식 규격 매뉴얼 |
+| **데이터 모델** | **데이터모델 v2.8** | [`03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`](../03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md) | 플랫폼/정산/권리 원장 및 엔티티 전체 데이터 스키마 정의 |
+| **백오피스 UI 가이드** | **백오피스 UI설계가이드 v1.6** | [`03_dobedupop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md`](../03_dobedupop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md) | 작품, 슬롯, 스템, 팩 관리 등 관리자 콘솔 화면별 상세 가이드 |
 | **백오피스 구성방안** | **백오피스 구성방안 v1.8** | `03_dobedupop_플랫폼설계/최신설계/보컬조합_백오피스_구성방안_v1.8_20260922.docx` | 관리자 화면 IA, 기능 요구사항, 구성안 총괄 |
 | **사업 기획서** | **사업기획서 v1.15** | `01_기획_비즈니스/최신_사업기획서/보컬조합_사업기획서_v1.15_20260922.docx` | 비즈니스 모델, 수익 구조, 특허 연계 사업화 방안 |
-| **최신 프로토타입** | **dobedupop Backoffice v2.7** | [`04_구현_소스코드/prototypes/dobedupop-backoffice-prototype_v2.7.html`](file:///Users/changkyuneun/Vocal%20Combination/04_%EA%B5%AC%ED%98%84_%EC%86%8C%EC%8A%A4%EC%BD%94%EB%93%9C/prototypes/dobedupop-backoffice-prototype_v2.7.html) | 최신 단독 실행형 백오피스 대화형 HTML 프로토타입 |
+| **최신 프로토타입** | **dobedupop Backoffice v2.7** | [`04_구현_소스코드/prototypes/dobedupop-backoffice-prototype_v2.7.html`](../04_구현_소스코드/prototypes/dobedupop-backoffice-prototype_v2.7.html) | 최신 단독 실행형 백오피스 대화형 HTML 프로토타입 |
 
 ---
 
@@ -43,7 +43,7 @@ Vocal Combination/
 │   ├── 01_핵심설계/                         # 안분정책, 정산DSL, 정책게이팅, 권리스탬프
 │   ├── 02_구현계획/                         # VCRL/MDRL 단계별 구현 계획 (1A~1E, I1~I2v)
 │   ├── 03_정산인프라_연계설계/                # 권리정산 인프라 구조 설계
-│   └── 규격_히스토리/                       # 마스터규격 v0.1~v0.6 및 초기 초안 문서
+│   └── 규격_히스토리/                       # 마스터규격 v0.1~v0.3, 언어규격 v0.4~v0.6, MDRL 특허 초안
 │
 ├── 03_dobedupop_플랫폼설계/                  # [설계] dobedupop 서비스 및 관리자 콘솔 설계
 │   ├── 최신설계/                            # ★ 데이터모델 v2.8, UI가이드 v1.6, 백오피스 v1.8, IA
@@ -56,7 +56,7 @@ Vocal Combination/
 │   │   └── prototypes_히스토리/             # v2.3~v2.6 이전 프로토타입
 │   ├── backoffice/                         # React 19 + Vite 기반 관리자 콘솔 웹앱
 │   ├── rights-core/                        # Fastify + PostgreSQL + pg-boss 백엔드/원장 서버
-│   ├── vcrl/                               # MDRL TypeScript 레퍼런스 컴파일러 & CLI
+│   ├── mdrl/                               # MDRL TypeScript 레퍼런스 컴파일러 & CLI (패키지명 vcrl)
 │   └── Vocal-Combination-App/              # 초기 독립 웹앱 레거시 코드
 │
 ├── 05_참고자료/                            # [참고] 외부 벤치마킹, 기술 동향 리포트
@@ -75,12 +75,12 @@ cd 04_구현_소스코드
 # 1. 의존성 설치
 npm install
 
-# 2. MDRL(vcrl) 단위 테스트 실행 (300개 테스트)
-npm test --prefix vcrl
+# 2. MDRL 엔진 단위 테스트 실행 (패키지명 vcrl, 300개 테스트)
+npm test --prefix mdrl
 
 # 3. dobedupop Backoffice 웹앱 실행 (Vite, http://localhost:5173)
 npm run dev -w backoffice
 
-# 4. rights-core 백엔드 실행
+# 4. rights-core 백엔드 실행 (PostgreSQL 필요: docker compose up -d)
 npm run dev -w rights-core
 ```

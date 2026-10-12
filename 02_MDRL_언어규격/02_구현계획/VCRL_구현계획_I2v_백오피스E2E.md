@@ -8,7 +8,7 @@
 
 **Tech Stack:** 기존 rights-core(Node ≥ 24, TypeScript erasable syntax, Fastify 5, pg 8, pg-boss 12, PostgreSQL 17 Docker). backoffice: React 19, react-router 7, @tanstack/react-query 5, Vite 7, TypeScript 5.9, Vitest 3, @playwright/test 1.5x.
 
-**상위 스펙(정본):** `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` **12절(결정 1~8, 완료 기준 12.3)**. 기존 동작은 9~11절. 모든 태스크의 요구사항은 12.2의 해당 결정 번호를 따른다.
+**상위 스펙(정본):** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` **12절(결정 1~8, 완료 기준 12.3)**. 기존 동작은 9~11절. 모든 태스크의 요구사항은 12.2의 해당 결정 번호를 따른다.
 
 ## Global Constraints
 
@@ -27,7 +27,7 @@
 ## File Structure
 
 ```
-03_구현문서_코드/
+04_구현_소스코드/
   package.json                         (Modify: workspaces에 "backoffice", 스크립트 "dev")
   rights-core/
     package.json                       (Modify: "dev:db", "dev" 스크립트)
@@ -59,7 +59,7 @@
     src/styles.css
     e2e/{fixtures,golden-path,rejections,contract}.spec.ts
 .claude/launch.json                    (Create/Modify: rights-core-dev, backoffice)
-02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 12: 12.4 결과)
+02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Task 12: 12.4 결과)
 ```
 
 ---
@@ -298,7 +298,7 @@ export function requireAnyRole(actor: Actor, roles: readonly Role[]): void;   //
 
 **Files:**
 - Create: `backoffice/package.json`, `backoffice/tsconfig.json`, `backoffice/vite.config.ts`, `backoffice/index.html`, `backoffice/src/main.tsx`, `backoffice/src/styles.css`, `backoffice/src/app/{App,Layout,Header,routes}.tsx`, `backoffice/src/app/actor.ts`, `backoffice/src/api/{client,types,hooks}.ts`, `backoffice/src/components/{DataTable,Pager,Form,ErrorPanel,StatusBadge,Money,Digest,Instant,Section}.tsx`, `backoffice/src/format.ts`, `backoffice/src/format.test.ts`, `backoffice/src/pages/dashboard/Dashboard.tsx`(빈 자리), `.claude/launch.json`
-- Modify: `03_구현문서_코드/package.json`
+- Modify: `04_구현_소스코드/package.json`
 
 **Interfaces (Produces):**
 ```ts
@@ -337,8 +337,8 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 - `.claude/launch.json`(git 루트 `/Users/changkyuneun/Vocal Combination/.claude/launch.json`, 있으면 항목 추가):
 ```json
 { "version": "0.0.1", "configurations": [
-  { "name": "rights-core-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "03_구현문서_코드/rights-core"], "port": 8080 },
-  { "name": "backoffice", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "03_구현문서_코드/backoffice"], "port": 5173 }
+  { "name": "rights-core-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "04_구현_소스코드/rights-core"], "port": 8080 },
+  { "name": "backoffice", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "04_구현_소스코드/backoffice"], "port": 5173 }
 ] }
 ```
 
@@ -493,7 +493,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 
 ### Task 12: 수동 검증과 결과 기록
 
-**Files:** Modify `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md`(12.4 추가)
+**Files:** Modify `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`(12.4 추가)
 
 **Requirements (12.3):**
 - 컨트롤러(사람 역할)가 브라우저 창(`.claude/launch.json`의 두 서버)으로 `/dev/reset` 후 권장 검증 순서 11단계를 화면만으로 진행하고, 단계마다 화면 캡처를 남긴다(캡처 파일은 저장소에 넣지 않고 결과 표에 단계별 관찰값을 적는다).

@@ -4,11 +4,11 @@
 
 **Goal:** 스펙 5장의 `allocation` 모듈을 구현한다. 안분 정책 IR 검증, 벡터 식(graph·contract·member_pct·performance_pool·mix·cap·floor_guarantee) 평가, `HIERARCHICAL_LRM_V1` 원 단위 배분, 결정적 평가기(`evaluate`)와 결과 IR·digest, 그리고 스펙 12.20의 팩 활성화 판정(`FACTS_DISPUTE_OPEN`)을 만든다.
 
-**Architecture:** 1-A 패키지(`03_구현문서_코드/vcrl`)에 `src/allocation/`을 추가하고 `vcrl/allocation` subpath로 노출한다. 평가기는 순수 함수다. 입력은 정책 IR, facts 문서, `projectToIr` 결과, 스냅샷(멤버 비율), 매출 이벤트이고, 출력은 풀 라인·권리자 라인·보류 라인·trace·`result_digest`다. 모든 비율은 `Ratio`(BigInt 유리수), 금액은 BigInt 최소 통화 단위다.
+**Architecture:** 1-A 패키지(`04_구현_소스코드/mdrl`)에 `src/allocation/`을 추가하고 `vcrl/allocation` subpath로 노출한다. 평가기는 순수 함수다. 입력은 정책 IR, facts 문서, `projectToIr` 결과, 스냅샷(멤버 비율), 매출 이벤트이고, 출력은 풀 라인·권리자 라인·보류 라인·trace·`result_digest`다. 모든 비율은 `Ratio`(BigInt 유리수), 금액은 BigInt 최소 통화 단위다.
 
 **Tech Stack:** Node.js ≥ 24 (네이티브 TypeScript), TypeScript 5.9 (`erasableSyntaxOnly`, 타입검사 전용), `node:test`, devDependency `ajv`(스키마 테스트 전용).
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` 5장, 12장(특히 12.7, 12.13, 12.16, 12.20)
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 5장, 12장(특히 12.7, 12.13, 12.16, 12.20)
 
 **후속 계획:** 1-C `parser`(텍스트 문법 EBNF, legacy-v1 변환)·`vcrl` CLI·오류 코드별 최소 재현 케이스·공개본 검증 보강. 템플릿 계승(`ALLOC_WIDENING`), 역분개(`REVERSAL`), 다통화는 이번 범위 밖이다(스펙 12.30에 기록).
 
@@ -23,13 +23,13 @@
 - 검증기는 JSON Schema가 `additionalProperties: false`로 막는 키를 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
 - 배열 정규형: 순서가 의미 없는 배열(이벤트 등)은 id 엄격 오름차순(코드 유닛 비교)이어야 한다.
 - `JSON.stringify`로 `Ratio`/BigInt가 든 값을 직렬화할 때는 BigInt-safe replacer를 쓴다.
-- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 이 작업과 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다.
+- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 이 작업과 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## File Structure
 
 ```
-03_구현문서_코드/vcrl/
+04_구현_소스코드/mdrl/
   package.json                    (Modify: "./allocation" export)
   spec/error-codes.md             (Modify: ALLOC_*, FACTS_DISPUTE_OPEN)
   spec/schema/allocation.ir.schema.json   (Create)
@@ -280,7 +280,7 @@ Expected: 1-A 테스트 98개 포함 전부 PASS(오류 코드 문서 동기화 
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/core/errors.ts 03_구현문서_코드/vcrl/src/core/enums.ts 03_구현문서_코드/vcrl/src/core/shape.ts 03_구현문서_코드/vcrl/src/core/envelope.ts 03_구현문서_코드/vcrl/src/core/index.ts 03_구현문서_코드/vcrl/src/facts/validate.ts 03_구현문서_코드/vcrl/src/allocation/types.ts 03_구현문서_코드/vcrl/spec/error-codes.md 03_구현문서_코드/vcrl/test/core/shape.test.ts 03_구현문서_코드/vcrl/test/core/errors.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 오류·Enum 레지스트리, 공용 형태 검사, allocation 타입\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/core/errors.ts 04_구현_소스코드/mdrl/src/core/enums.ts 04_구현_소스코드/mdrl/src/core/shape.ts 04_구현_소스코드/mdrl/src/core/envelope.ts 04_구현_소스코드/mdrl/src/core/index.ts 04_구현_소스코드/mdrl/src/facts/validate.ts 04_구현_소스코드/mdrl/src/allocation/types.ts 04_구현_소스코드/mdrl/spec/error-codes.md 04_구현_소스코드/mdrl/test/core/shape.test.ts 04_구현_소스코드/mdrl/test/core/errors.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 오류·Enum 레지스트리, 공용 형태 검사, allocation 타입\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -461,7 +461,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/lrm.ts 03_구현문서_코드/vcrl/test/prop.ts 03_구현문서_코드/vcrl/test/allocation/lrm.test.ts && git commit -m "$(printf 'feat(vcrl): HIERARCHICAL_LRM_V1 한 층 배분과 속성 테스트 도구\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/lrm.ts 04_구현_소스코드/mdrl/test/prop.ts 04_구현_소스코드/mdrl/test/allocation/lrm.test.ts && git commit -m "$(printf 'feat(vcrl): HIERARCHICAL_LRM_V1 한 층 배분과 속성 테스트 도구\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -673,7 +673,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/vectors.ts 03_구현문서_코드/vcrl/test/allocation/vectors.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 벡터 연산(mix·usage·cap·floor)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/vectors.ts 04_구현_소스코드/mdrl/test/allocation/vectors.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 벡터 연산(mix·usage·cap·floor)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1216,7 +1216,7 @@ Expected: 전부 PASS. tsc가 `ajv/dist/2020.js` 타입 import에서 오류를 �
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/validate.ts 03_구현문서_코드/vcrl/spec/schema/allocation.ir.schema.json 03_구현문서_코드/vcrl/conformance/allocation/001-basic/input.json 03_구현문서_코드/vcrl/test/helpers.ts 03_구현문서_코드/vcrl/test/allocation/validate.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 정책 정적 검증과 allocation 스키마\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/validate.ts 04_구현_소스코드/mdrl/spec/schema/allocation.ir.schema.json 04_구현_소스코드/mdrl/conformance/allocation/001-basic/input.json 04_구현_소스코드/mdrl/test/helpers.ts 04_구현_소스코드/mdrl/test/allocation/validate.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 정책 정적 검증과 allocation 스키마\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1401,7 +1401,7 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/expr.ts 03_구현문서_코드/vcrl/test/allocation/expr.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 벡터 식 평가\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/expr.ts 04_구현_소스코드/mdrl/test/allocation/expr.test.ts && git commit -m "$(printf 'feat(vcrl): 안분 벡터 식 평가\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1811,7 +1811,7 @@ Expected: 전부 PASS. "hand-computed" 테스트가 실패하면 기대값을 �
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/evaluate.ts 03_구현문서_코드/vcrl/test/helpers.ts 03_구현문서_코드/vcrl/test/allocation/evaluate.test.ts && git commit -m "$(printf 'feat(vcrl): 결정적 안분 평가기와 결과 IR\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/evaluate.ts 04_구현_소스코드/mdrl/test/helpers.ts 04_구현_소스코드/mdrl/test/allocation/evaluate.test.ts && git commit -m "$(printf 'feat(vcrl): 결정적 안분 평가기와 결과 IR\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1940,7 +1940,7 @@ Expected: PASS. (`004-competing-dispute`의 선언 청구권자에 따라 커버
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/facts/activation.ts 03_구현문서_코드/vcrl/src/facts/index.ts 03_구현문서_코드/vcrl/test/facts/activation.test.ts && git commit -m "$(printf 'feat(vcrl): 팩 활성화 판정과 FACTS_DISPUTE_OPEN\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/facts/activation.ts 04_구현_소스코드/mdrl/src/facts/index.ts 04_구현_소스코드/mdrl/test/facts/activation.test.ts && git commit -m "$(printf 'feat(vcrl): 팩 활성화 판정과 FACTS_DISPUTE_OPEN\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---
@@ -1949,7 +1949,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcr
 
 **Files:**
 - Create: `src/allocation/index.ts`, `scripts/print-allocation.ts`, `conformance/allocation/001-basic/expected.json`, `conformance/allocation/{002-disputed-master,003-fraud-hold}/{input,expected}.json`, `test/allocation/property.test.ts`
-- Modify: `package.json`, `test/conformance.test.ts`, `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`
+- Modify: `package.json`, `test/conformance.test.ts`, `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`
 
 **Interfaces:**
 - Consumes: `evaluate`, `EvaluationInput` (T6), `evaluationInput`, `loadAllocationCase`, `loadFactsCase` (helpers), `projectToIr`, `digestOf`, `rng`, `int`, `shuffle` (test/prop.ts)
@@ -1971,7 +1971,7 @@ export * from "./evaluate.ts";
 - [ ] **Step 2: 적합성 입력 파생**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl" && node -e '
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl" && node -e '
 const f = require("fs");
 const base = () => JSON.parse(f.readFileSync("conformance/allocation/001-basic/input.json", "utf8"));
 const write = (dir, i) => { f.mkdirSync(`conformance/allocation/${dir}`, { recursive: true }); f.writeFileSync(`conformance/allocation/${dir}/input.json`, JSON.stringify(i, null, 2) + "\n"); };
@@ -2171,7 +2171,7 @@ test("property: projection digest ignores usage scale and key order", () => {
 
 - [ ] **Step 5: 스펙 12절에 반영**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝(12.20 다음)에 추가:
+`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝(12.20 다음)에 추가:
 ```markdown
 21. **allocation IR 형태(계획 1-B)**: `body = { scope{pack, events[], currency}, bind{time}, tier1{buckets[{name,bps}], rights}, tier2{split[{name,bps,role,vector}]}, rounding{method,tie} }`. 벡터 식은 `fn` 7종(`graph{role, via_mandate?}`, `contract{party}`, `member_pct`, `performance_pool{mode, fixed?, usage?, featured_weight?}`, `mix{parts[{weight, of}]}`, `cap{max, of}`, `floor_guarantee{min, of}`)이며 비율 인자는 bps 문자열이다. 스키마는 `spec/schema/allocation.ir.schema.json`. 텍스트 문법(5.2의 예시)은 1-C 파서가 이 IR로 변환한다.
 22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 투영의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
@@ -2193,7 +2193,7 @@ Expected: 전체 PASS(적합성 facts 4건 + allocation 3건 포함), tsc 출력
 - [ ] **Step 7: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination" && git add 03_구현문서_코드/vcrl/src/allocation/index.ts 03_구현문서_코드/vcrl/package.json 03_구현문서_코드/vcrl/scripts/print-allocation.ts 03_구현문서_코드/vcrl/conformance/allocation 03_구현문서_코드/vcrl/test/conformance.test.ts 03_구현문서_코드/vcrl/test/allocation/property.test.ts "02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'feat(vcrl): allocation 적합성 스위트, 속성 테스트, 패키지 노출과 스펙 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
+cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdrl/src/allocation/index.ts 04_구현_소스코드/mdrl/package.json 04_구현_소스코드/mdrl/scripts/print-allocation.ts 04_구현_소스코드/mdrl/conformance/allocation 04_구현_소스코드/mdrl/test/conformance.test.ts 04_구현_소스코드/mdrl/test/allocation/property.test.ts "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" && git commit -m "$(printf 'feat(vcrl): allocation 적합성 스위트, 속성 테스트, 패키지 노출과 스펙 반영\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>')"
 ```
 
 ---

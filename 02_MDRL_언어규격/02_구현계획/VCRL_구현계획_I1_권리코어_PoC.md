@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js ≥ 24(TypeScript 직접 실행), TypeScript 5.9(`erasableSyntaxOnly`, 타입검사 전용), `node:test`, Fastify 5, node-postgres(`pg`) 8, PostgreSQL 17(Docker Compose), npm workspaces(`vcrl`, `rights-core`).
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `02_설계문서/데이터모델_v2.8.md`, `VCRL_아키텍처_코어규격_설계_v1.0.md`.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`, `VCRL_아키텍처_코어규격_설계_v1.0.md`.
 
 ## Global Constraints
 
@@ -27,7 +27,7 @@
 ## File Structure
 
 ```
-03_구현문서_코드/
+04_구현_소스코드/
   package.json                       (Create: workspaces ["vcrl","rights-core"])
   package-lock.json                  (Create by npm install; vcrl/package-lock.json 삭제)
   docker-compose.yml                 (Create: postgres:17, 포트 54329)
@@ -51,7 +51,7 @@
     test/platform/migrate.test.ts  test/registry/registry.test.ts  test/registry/disputes.test.ts
     test/engine-bridge/facts.test.ts  test/engine-bridge/architecture.test.ts
     test/policy/policy.test.ts  test/issuance/issuance.test.ts  test/http/api.test.ts  test/scenario/scenario.test.ts
-02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md  (Modify in Task 8: 9.5 결과)
+02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md  (Modify in Task 8: 9.5 결과)
 ```
 
 ---
@@ -74,7 +74,7 @@
 
 - [ ] **Step 1: workspace와 Docker 구성**
 
-`03_구현문서_코드/package.json`:
+`04_구현_소스코드/package.json`:
 ```json
 {
   "name": "vocal-combination-code",
@@ -84,7 +84,7 @@
 }
 ```
 
-`03_구현문서_코드/docker-compose.yml`:
+`04_구현_소스코드/docker-compose.yml`:
 ```yaml
 services:
   postgres:
@@ -3101,7 +3101,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `rights-core/src/scenario/{prng,synthetic-song,run,main}.ts`
 - Test: `rights-core/test/scenario/scenario.test.ts`
-- Modify: `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` (9.5 결과 절 추가)
+- Modify: `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` (9.5 결과 절 추가)
 
 **Interfaces:**
 - Consumes: 전부. 시나리오는 HTTP가 아니라 서비스 함수를 직접 호출한다(발행 지연을 서비스 수준에서 잰다).
@@ -3427,7 +3427,7 @@ Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁
 
 - [ ] **Step 6: 결과 기록**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md` 끝에 다음 절을 추가한다(값은 Step 5의 실제 리포트로 채운다. 표의 모든 칸을 실제 값으로 쓴다):
+`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md` 끝에 다음 절을 추가한다(값은 Step 5의 실제 리포트로 채운다. 표의 모든 칸을 실제 값으로 쓴다):
 
 ```markdown
 ### 9.5 I-1 PoC 결과 (YYYY-MM-DD)
@@ -3450,7 +3450,7 @@ Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁
 ```bash
 cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드"
 git add rights-core/src/scenario/prng.ts rights-core/src/scenario/synthetic-song.ts rights-core/src/scenario/run.ts rights-core/src/scenario/main.ts \
-  rights-core/test/scenario/scenario.test.ts "../02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md"
+  rights-core/test/scenario/scenario.test.ts "../02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
 git commit -m "feat(rights-core): 합성 곡 1만 조합 시나리오 러너와 PoC 결과 기록
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

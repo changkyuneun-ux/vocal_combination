@@ -8,11 +8,11 @@
 
 **Tech Stack:** 기존 vcrl 패키지 그대로(Node ≥ 24, TypeScript 직접 실행, `node:test`, BigInt, 런타임 의존성 0, ajv는 테스트 전용).
 
-**상위 스펙:** `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`(12절, 11.2), `VCRL_시스템통합_아키텍처_설계_v1.0.md` 5.7. 설계 결정은 이 계획의 "설계 결정" 절이 정본이며 Task 4가 코어 규격 12.53~12.57로 옮긴다.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`(12절, 11.2), `VCRL_시스템통합_아키텍처_설계_v1.0.md` 5.7. 설계 결정은 이 계획의 "설계 결정" 절이 정본이며 Task 4가 코어 규격 12.53~12.57로 옮긴다.
 
 ## Global Constraints
 
-- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. `git stash`, `git reset`, `git checkout -- <path>`는 쓰지 않는다. 임시 파일은 남기지 않는다.
+- 작업 디렉터리: `/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl` (git 루트 `/Users/changkyuneun/Vocal Combination`). 저장소에는 무관한 커밋 안 된 변경이 많다. `git add`는 태스크에 나열된 파일만 한다. `git stash`, `git reset`, `git checkout -- <path>`는 쓰지 않는다. 임시 파일은 남기지 않는다.
 - 커밋 메시지: 제목, 빈 줄, 마지막 줄에 정확히 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - TypeScript는 erasable syntax만(`enum`·`namespace`·parameter property 금지). 상대 import는 `.ts` 확장자, 타입 전용 import는 `import type`.
 - 런타임 의존성 0. 라이브러리 코드에서 부동소수 금지(금액·비율은 BigInt·Ratio). IR의 숫자는 모두 문자열.
@@ -52,8 +52,8 @@ vcrl/
   test/allocation/shadow.test.ts      (Create)
   test/conformance.test.ts            (Modify: reversal 케이스)
   test/schema.test.ts                 (Modify: 두 스키마)
-02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md   (Modify, Task 4)
-02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 4)
+02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md   (Modify, Task 4)
+02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md (Modify, Task 4)
 ```
 
 ---
@@ -462,7 +462,7 @@ Expected: reverse 5 PASS, 전체 fail 0, `TSC_OK`.
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/core/enums.ts src/core/errors.ts spec/error-codes.md src/allocation/reverse.ts src/allocation/index.ts test/allocation/reverse.test.ts
 git commit -m "feat(vcrl): 역분개 reverse(남은 금액 비례 계층 LRM, 체인 재도출)
 
@@ -595,7 +595,7 @@ Expected: 모두 통과, `TSC_OK`. 속성 테스트가 실패하면 실패한 tr
 - [ ] **Step 5: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/allocation/reverse.ts test/allocation/reverse.test.ts test/allocation/reverse.property.test.ts
 git commit -m "feat(vcrl): verifyReversal과 역분개 속성 테스트
 
@@ -851,7 +851,7 @@ Expected: shadow 4 PASS, 전체 fail 0(`error-catalog`가 SHADOW 코드를 찾�
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add src/core/errors.ts spec/error-codes.md src/allocation/shadow.ts src/allocation/index.ts test/allocation/shadow.test.ts
 git commit -m "feat(vcrl): 섀도 리포트 shadowReport·verifyShadowReport
 
@@ -864,7 +864,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`, `conformance/reversal/001-partial-then-full/{input,expected}.json`, `conformance/reversal/002-fraud-hold-full/{input,expected}.json`
-- Modify: `test/schema.test.ts`, `test/conformance.test.ts`, `02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`, `02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md`
+- Modify: `test/schema.test.ts`, `test/conformance.test.ts`, `02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`, `02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`
 
 **Interfaces:**
 - Consumes: Task 1~3 전부.
@@ -1117,7 +1117,7 @@ Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그
 
 - [ ] **Step 5: 스펙 문서 반영**
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md`:
+`02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md`:
 - 12절 끝(52번 뒤)에 다음 항목을 추가한다(이 계획의 "설계 결정" 1~9를 옮긴다):
 ```markdown
 53. **역분개 (계획 1-E)**: `reverse({original, policy, eventId, refund, priors, runId})`는 정책·facts를 다시 평가하지 않고 봉인된 원 안분 결과만으로 한 이벤트를 `refund.amount`만큼 되돌린다. `refund.reason`은 Enum `reversal_reason`(`REFUND`·`CORRECTION`·`FRAUD`). `policy`는 원 결과의 `policy_digest`와 같아야 하며(아니면 `CORE_DIGEST_MISMATCH`) 권리 풀 이름을 얻는 데만 쓴다. 원 결과의 digest가 틀리면 `REV_ORIGINAL_DIGEST`, 이벤트가 없으면 `REV_UNKNOWN_EVENT`, 권리 풀 ≠ 라인·보류 합이면 `REV_ORIGINAL_INCONSISTENT`, 금액이 양의 정수 문자열이 아니면 `REV_AMOUNT`, 누적이 원 금액을 넘으면 `REV_EXCEEDS_REMAINING`.
@@ -1131,7 +1131,7 @@ Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그
 - 11.2 표에서 `역분개(REVERSAL)와 line_seq 증가` 행과 `섀도 시뮬레이션 리포트` 행의 과제명을 `~~…~~ **완료(1-E, 12.53~12.57)**`로 바꾼다.
 - 11절 상태 기준 문장의 "(계획 1-A·1-B·1-C·1-D 반영)"을 "(계획 1-A~1-E 반영)"으로 바꾼다.
 
-`02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md`:
+`02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md`:
 - 2.3의 `reverse(runId: string, eventId: string, amount: bigint)` 줄을 `reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" | "CORRECTION" | "FRAUD"; amount: bigint }): Promise<Result<ReversalRun>>  // 원 결과·이전 역분개 봉인을 읽어 vcrl reverse 호출(코어 규격 12.53~12.55)`로 바꾼다.
 - 5.7 첫 항목을 "인터페이스: `engine-bridge.reverse`는 원 run의 결과 봉인과 같은 이벤트의 이전 역분개 봉인들을 읽어 vcrl `reverse`를 호출하고, 결과(`vcrl-reversal-result/1`)를 봉인해 `allocation_line(line_kind=REVERSAL, line_seq=k+1, reversal_of_line_id=원 라인)`·음수 `pool_line`·음수 `unallocated_holding`으로 기록한다. 부분 환불은 누적 상한까지(엔진이 `REV_EXCEEDS_REMAINING`으로 강제)."로 바꾸고, "엔진 지원 전 임시 처리" 문장과 "따라서 정산 MVP(I-2) 시작 전에 엔진 역분개를 구현한다." 문장을 "엔진 역분개는 1-E에서 구현했다."로 바꾼다.
 - 5.1 3번의 "(엔진 섀도 리포트 전까지는 `evaluate` 2회 호출로 차액 계산)"을 "(vcrl `shadowReport`, 코어 규격 12.56)"으로 바꾼다.
@@ -1140,13 +1140,13 @@ Expected: fail 0, `TSC_OK`, `smoke OK vcrl:sha256:5dc63e54…`(기존 digest 그
 - [ ] **Step 6: 커밋**
 
 ```bash
-cd "/Users/changkyuneun/Vocal Combination/03_구현문서_코드/vcrl"
+cd "/Users/changkyuneun/Vocal Combination/04_구현_소스코드/mdrl"
 git add spec/schema/reversal.result.schema.json spec/schema/shadow.report.schema.json conformance/reversal test/conformance.test.ts test/schema.test.ts
 git commit -m "feat(vcrl): 역분개·섀도 IR 스키마와 역분개 적합성 케이스
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 cd "/Users/changkyuneun/Vocal Combination"
-git add "02_설계문서/VCRL_보컬조합권리언어/VCRL_아키텍처_코어규격_설계_v1.0.md" "02_설계문서/VCRL_보컬조합권리언어/VCRL_시스템통합_아키텍처_설계_v1.0.md"
+git add "02_MDRL_언어규격/02_구현계획/VCRL_아키텍처_코어규격_설계_v1.0.md" "02_MDRL_언어규격/02_구현계획/VCRL_시스템통합_아키텍처_설계_v1.0.md"
 git commit -m "docs(vcrl): 코어 규격 12.53~12.57 역분개·섀도, 통합 설계 5.7·2.3 갱신
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
