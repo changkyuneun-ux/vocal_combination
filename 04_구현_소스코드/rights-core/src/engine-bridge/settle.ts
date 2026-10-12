@@ -11,7 +11,7 @@ export type RunEvent = { eventId: string; type: "PRIMARY" | "RESALE"; amount: bi
 export type RunRows = {
   pool: { eventId: string; bucket: string; amount: bigint }[];
   lines: { eventId: string; party: string; role: string; bucket: string; lineSeq: number; amount: bigint }[];
-  holdings: { eventId: string; bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW"; amount: bigint }[];
+  holdings: { eventId: string; bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW" | "LICENSE_UNVERIFIED"; amount: bigint }[];
 };
 export type RunEvaluation = { ok: true; eventsDigest: string; resultDigest: string; rows: RunRows } | { ok: false; diagnostics: Diagnostic[] };
 

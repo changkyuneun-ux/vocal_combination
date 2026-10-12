@@ -8,7 +8,7 @@ export type ReversalRows = {
   sequence: number; resultDigest: string;
   pool: { bucket: string; amount: bigint }[];
   lines: { party: string; role: string; bucket: string; lineSeq: number; reversesLineSeq: number; amount: bigint }[];
-  holdings: { bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW"; amount: bigint }[];
+  holdings: { bucket: string; reason: "RIGHTS_DISPUTE" | "FRAUD_REVIEW" | "LICENSE_UNVERIFIED"; amount: bigint }[];
 };
 
 /**
