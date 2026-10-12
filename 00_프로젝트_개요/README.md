@@ -1,28 +1,30 @@
-# dobedubpop & MDRL 프로젝트 마스터 가이드
+# dobedupop & MDRL 프로젝트 마스터 가이드
 
 ## 1. 프로젝트 개요
 
 | 구분 | 내용 |
 | :--- | :--- |
-| **플랫폼명** | **dobedubpop (두비덥팝)** |
+| **플랫폼명** | **dobedupop (두비덥팝)** |
 | **권리관리 언어** | **MDRL (Music Derivative Rights Language, 음악 2차이용 권리관리언어)** |
 | **목적** | 음악 원곡(Work)과 음성(Voice), 스템(Stem)을 조합하는 2차 창작(보컬 조합, 리믹스 등) 환경에서 **다자간 권리관계 명문화, 이용허락 결정적 판정, 1원 오차 없는 정산 분배**를 실현하는 플랫폼 및 언어 인프라 |
-| **관리자 콘솔** | **dobedubpop Console (Backoffice)** |
+| **관리자 콘솔** | **dobedupop Console (Backoffice)** |
 
 ---
 
-## 2. 최신 확정 문서 (단일 진실 공급원 - SSOT) 색인
+## 2. 영역별 기준 문서 색인
 
-프로젝트 분석이나 구현 시 아래 최신 문서를 최우선 기준으로 참조하십시오. (과거 버전은 각 폴더 내 `히스토리/`에 보존되어 있습니다.)
+사업·언어·제품 설계는 서로 다른 기준입니다. 현재 실행 가능 여부는 패키지 exports·소스·마이그레이션·테스트로 확인합니다. 목표 설계가 곧 현재 구현을 의미하지 않습니다. [기준 관리 원칙](문서_기준과_구현계약.md)을 함께 적용합니다.
 
 | 영역 | 문서명 | 경로 | 설명 |
 | :--- | :--- | :--- | :--- |
-| **MDRL 언어 규격** | **MDRL 언어레퍼런스북 v1.0** | [`02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md`](../02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md) | 5개 계층(Facts, Grant, Allocation, Ledger, Profiles) 공식 규격 매뉴얼 |
-| **데이터 모델** | **데이터모델 v2.8** | [`03_dobedubpop_플랫폼설계/최신설계/데이터모델_v2.8.md`](../03_dobedubpop_플랫폼설계/최신설계/데이터모델_v2.8.md) | 플랫폼/정산/권리 원장 및 엔티티 전체 데이터 스키마 정의 |
-| **백오피스 UI 가이드** | **백오피스 UI설계가이드 v1.6** | [`03_dobedubpop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md`](../03_dobedubpop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md) | 작품, 슬롯, 스템, 팩 관리 등 관리자 콘솔 화면별 상세 가이드 |
-| **백오피스 구성방안** | **백오피스 구성방안 v1.8** | `03_dobedubpop_플랫폼설계/최신설계/보컬조합_백오피스_구성방안_v1.8_20260922.docx` | 관리자 화면 IA, 기능 요구사항, 구성안 총괄 |
+| **MDRL 언어 규격** | **MDRL 언어레퍼런스북 v1.0** | [`02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md`](../02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md) | Core·Facts·Grant·Allocation·Ledger 개념과 횡단 확장 Profiles 설명 |
+| **플랫폼 연계·버전관리** | **MDRL 플랫폼 연계 및 버전관리 표준설계** | [`02_MDRL_언어규격/01_핵심설계/MDRL_플랫폼연계_및_버전관리_표준설계.md`](../02_MDRL_언어규격/01_핵심설계/MDRL_플랫폼연계_및_버전관리_표준설계.md) | 4단계 라이프사이클(생성·검증·계산·감사) 및 3계층 버전관리·배포 표준 |
+| **데이터 모델** | **데이터모델 v2.8** | [`03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`](../03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md) | 플랫폼/정산/권리 원장 및 엔티티 전체 데이터 스키마 정의 |
+| **백오피스 UI 가이드** | **백오피스 UI설계가이드 v1.6** | [`03_dobedupop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md`](../03_dobedupop_플랫폼설계/최신설계/백오피스_UI설계가이드_작품슬롯스템_팩관리_v1.6.md) | 작품, 슬롯, 스템, 팩 관리 등 관리자 콘솔 화면별 상세 가이드 |
+| **백오피스 구성방안** | **백오피스 구성방안 v1.8** | `03_dobedupop_플랫폼설계/최신설계/보컬조합_백오피스_구성방안_v1.8_20260922.docx` | 관리자 화면 IA, 기능 요구사항, 구성안 총괄 |
 | **사업 기획서** | **사업기획서 v1.15** | `01_기획_비즈니스/최신_사업기획서/보컬조합_사업기획서_v1.15_20260922.docx` | 비즈니스 모델, 수익 구조, 특허 연계 사업화 방안 |
-| **최신 프로토타입** | **dobedubpop Backoffice v2.7** | [`04_구현_소스코드/prototypes/dobedubpop-backoffice-prototype_v2.7.html`](../04_구현_소스코드/prototypes/dobedubpop-backoffice-prototype_v2.7.html) | 최신 단독 실행형 백오피스 대화형 HTML 프로토타입 |
+| **최신 프로토타입** | **dobedupop Backoffice v2.7** | [`04_구현_소스코드/prototypes/dobedupop-backoffice-prototype_v2.7.html`](../04_구현_소스코드/prototypes/dobedupop-backoffice-prototype_v2.7.html) | 최신 단독 실행형 백오피스 대화형 HTML 프로토타입 |
+| **정리 계획** | **프로젝트 문서 및 코드 정리계획** | [`00_프로젝트_개요/프로젝트_문서코드_정리계획.md`](프로젝트_문서코드_정리계획.md) | dobedupop & MDRL 일괄 정리 마스터 플랜 |
 
 ---
 
@@ -39,19 +41,19 @@ Vocal Combination/
 │   └── 기획_히스토리/                       # v1.12~v1.14 등 이전 사업기획서 이력
 │
 ├── 02_MDRL_언어규격/                        # [규격] 음악 2차이용 권리관리 언어 마스터 규격
-│   ├── MDRL_언어레퍼런스북_v1.0.md           # ★ MDRL 공식 레퍼런스 북 v1.0 (SSOT)
+│   ├── MDRL_언어레퍼런스북_v1.0.md           # 언어 개념·목표 규격 및 현재 API 안내
 │   ├── 01_핵심설계/                         # 안분정책, 정산DSL, 정책게이팅, 권리스탬프
 │   ├── 02_구현계획/                         # MDRL 단계별 구현 계획 (1A~1E, I1~I2v)
 │   ├── 03_정산인프라_연계설계/                # 권리정산 인프라 구조 설계
 │   └── 규격_히스토리/                       # 마스터규격 v0.1~v0.3, 언어규격 v0.4~v0.6, MDRL 특허 초안
 │
-├── 03_dobedubpop_플랫폼설계/                  # [설계] dobedubpop 서비스 및 관리자 콘솔 설계
+├── 03_dobedupop_플랫폼설계/                  # [설계] dobedupop 서비스 및 관리자 콘솔 설계
 │   ├── 최신설계/                            # ★ 데이터모델 v2.8, UI가이드 v1.6, 백오피스 v1.8, IA
 │   └── 설계_히스토리/                       # 구버전 데이터모델(v2.1~2.7), 이전 UI가이드 등
 │
 ├── 04_구현_소스코드/                        # [개발] 소스 코드 및 프로토타입
 │   ├── prototypes/                         # HTML 목업 및 화면 프로토타입
-│   │   ├── dobedubpop-backoffice-prototype_v2.7.html  # ★ 최신 백오피스 HTML 프로토타입
+│   │   ├── dobedupop-backoffice-prototype_v2.7.html  # ★ 최신 백오피스 HTML 프로토타입
 │   │   ├── mockups/                        # 정산 콘솔, 모바일 팬 UX 등 서브 화면 목업
 │   │   └── prototypes_히스토리/             # v2.3~v2.6 이전 프로토타입
 │   ├── backoffice/                         # React 19 + Vite 기반 관리자 콘솔 웹앱
@@ -75,12 +77,22 @@ cd 04_구현_소스코드
 # 1. 의존성 설치
 npm install
 
-# 2. MDRL 엔진 단위 테스트 실행 (300개 테스트)
+npm run build -w mdrl
+docker compose up -d
+npm run dev:db -w rights-core
+
+# 2. MDRL 엔진 단위 테스트 실행
 npm test --prefix mdrl
 
-# 3. dobedubpop Backoffice 웹앱 실행 (Vite, http://localhost:5173)
+# 3. dobedupop Backoffice 웹앱 실행 (Vite, http://localhost:5173)
 npm run dev -w backoffice
 
 # 4. rights-core 백엔드 실행 (PostgreSQL 필요: docker compose up -d)
 npm run dev -w rights-core
 ```
+
+## 정합화 기준과 구현 연결
+
+- [문서 기준·구현 계약](문서_기준과_구현계약.md)
+- [제품 기능 대응표](제품_기능_대응표.md)
+- [이번 변경 검증 결과](정합화_검증결과_20261012.md)
