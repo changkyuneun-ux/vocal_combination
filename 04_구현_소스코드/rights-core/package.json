@@ -13,7 +13,8 @@
     "dev": "node src/dev/main.ts",
     "migrate": "node src/platform/migrate-cli.ts",
     "prescenario": "npm run build --prefix ../mdrl",
-    "scenario": "node src/scenario/main.ts"
+    "scenario": "node src/scenario/main.ts",
+    "scenario:dynamite": "npm run build --prefix ../mdrl && node src/scenario/dynamite.ts"
   },
   "dependencies": {
     "fastify": "^5.0.0",

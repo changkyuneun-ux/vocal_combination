@@ -1,0 +1,668 @@
+{
+  "assumptions": {
+    "price": "3300",
+    "slots": [
+      {
+        "id": "slt_verse1",
+        "label": "1절",
+        "startMs": 0,
+        "endMs": 40000
+      },
+      {
+        "id": "slt_pre",
+        "label": "프리코러스",
+        "startMs": 40000,
+        "endMs": 60000
+      },
+      {
+        "id": "slt_chorus",
+        "label": "후렴",
+        "startMs": 60000,
+        "endMs": 100000
+      },
+      {
+        "id": "slt_bridge",
+        "label": "브리지",
+        "startMs": 100000,
+        "endMs": 140000
+      }
+    ],
+    "names": {
+      "pty_label": "레이블 L (마스터 보유)",
+      "pty_author_1": "작가 W1 (작사·작곡 50%)",
+      "pty_author_2": "작가 W2 (작사·작곡 50%)",
+      "pty_cmo": "저작권 신탁단체 C (W1 위임)",
+      "pty_agency": "보컬리스트 D의 소속사 G",
+      "pty_vocal_a": "보컬리스트 A",
+      "pty_vocal_b": "보컬리스트 B",
+      "pty_vocal_c": "보컬리스트 C",
+      "pty_vocal_d": "보컬리스트 D"
+    },
+    "policyText": "allocation \"pol_dynamite_fan\" version 1 {\n  uses facts \"fsc_dynamite\"@1 digest \"mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000000\";\n  scope { pack: pak_dynamite_fan; events: [PRIMARY, TRAFFIC]; currency: KRW; }\n  bind { time: ISSUE_TIME; }\n  tier1 {\n    platform = 25%;\n    ops = 5%;\n    rights = 70%;\n  }\n  tier2 rights {\n    split {\n      master = graph(MASTER_OWNER) : 40%;\n      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) : 40%;\n      work = graph(WORK_AUTHOR) via mandate : 15%;\n      agency = contract(pty_agency) : 5% as AGENCY;\n    }\n  }\n  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n}\n",
+    "combinations": [
+      {
+        "vcId": "vc_dyn_001",
+        "fan": "팬 F1",
+        "picks": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "purchases": 300
+      },
+      {
+        "vcId": "vc_dyn_002",
+        "fan": "팬 F2",
+        "picks": [
+          "a",
+          "a",
+          "b",
+          "b"
+        ],
+        "purchases": 150
+      },
+      {
+        "vcId": "vc_dyn_003",
+        "fan": "팬 F3",
+        "picks": [
+          "c",
+          "d",
+          "d",
+          "c"
+        ],
+        "purchases": 90
+      }
+    ]
+  },
+  "policy": {
+    "policyId": "pol_dynamite_fan",
+    "version": 1,
+    "factsDigest": "mdrl:sha256:8455359c15e5d1a17692590399d9d961c6d44dd564dd615af48482ca6ae13576",
+    "policyDigest": "mdrl:sha256:c6ef08e36d04a7bfecaa7665a62a4b43219556899f76b989816cd2d46733115f"
+  },
+  "grants": [
+    {
+      "case": "팬앱에서 vc_dyn_001 조합·감상",
+      "result": "PERMIT",
+      "reasons": []
+    },
+    {
+      "case": "같은 조합을 다운로드해 외부 SNS에 게시",
+      "result": "DENY",
+      "reasons": [
+        "GRANT_SCOPE_WIDENING"
+      ]
+    },
+    {
+      "case": "보컬리스트 D가 동의를 철회한 뒤 vc_dyn_001 조합·감상",
+      "result": "DENY",
+      "reasons": [
+        "GRANT_REVOKED"
+      ]
+    }
+  ],
+  "issued": [
+    {
+      "vcId": "vc_dyn_001",
+      "fan": "팬 F1",
+      "members": {
+        "pty_vocal_a": 2500,
+        "pty_vocal_b": 2500,
+        "pty_vocal_c": 2500,
+        "pty_vocal_d": 2500
+      },
+      "snapshotId": "snp_vc_dyn_001",
+      "projectionDigest": "mdrl:sha256:a296123d483f63e0231f2cbab272cd224a94fdf43039e0b6d6d9b37c1ec918e9"
+    },
+    {
+      "vcId": "vc_dyn_002",
+      "fan": "팬 F2",
+      "members": {
+        "pty_vocal_a": 5000,
+        "pty_vocal_b": 5000
+      },
+      "snapshotId": "snp_vc_dyn_002",
+      "projectionDigest": "mdrl:sha256:af31688c4646006b531c084a1205ec93ba86319dd86b0833a1c9520a1e3fe368"
+    },
+    {
+      "vcId": "vc_dyn_003",
+      "fan": "팬 F3",
+      "members": {
+        "pty_vocal_c": 5000,
+        "pty_vocal_d": 5000
+      },
+      "snapshotId": "snp_vc_dyn_003",
+      "projectionDigest": "mdrl:sha256:677a0ce8c57d27243f5c15475900ebad4bdf3d5ffc81aa5572a8672d1d3d4754"
+    }
+  ],
+  "rejectedSolo": "ISSUE_NOT_SETTLEABLE",
+  "revenue": [
+    {
+      "vc_id": "vc_dyn_001",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 300,
+      "krw": "990000"
+    },
+    {
+      "vc_id": "vc_dyn_002",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 150,
+      "krw": "495000"
+    },
+    {
+      "vc_id": "vc_dyn_003",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 89,
+      "krw": "293700"
+    },
+    {
+      "vc_id": "vc_dyn_003",
+      "event_type": "PURCHASE",
+      "integrity_status": "FLAGGED",
+      "n": 1,
+      "krw": "3300"
+    },
+    {
+      "vc_id": null,
+      "event_type": "REFUND",
+      "integrity_status": "CLEAR",
+      "n": 1,
+      "krw": "3300"
+    }
+  ],
+  "runStatus": [
+    {
+      "status": "VERIFIED",
+      "n": 3
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
+      "vc_id": "vc_dyn_001",
+      "status": "CONFIRMED",
+      "result_digest": "mdrl:sha256:d0a66ff53dca54687110f624b8ad4bc0c7d15c9922bf363d4b3a860ed4efac72"
+    },
+    {
+      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_002",
+      "vc_id": "vc_dyn_002",
+      "status": "CONFIRMED",
+      "result_digest": "mdrl:sha256:37691e8b963014393a2b509d82301a6a5e934cf9dd550c072fce5bd6195b8178"
+    },
+    {
+      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_003",
+      "vc_id": "vc_dyn_003",
+      "status": "CONFIRMED",
+      "result_digest": "mdrl:sha256:fca27796d7f219aec25499dafc03a86530120c9b4403e6a382143eee3e7e68a5"
+    }
+  ],
+  "firstEvent": {
+    "eventId": "ev_dyn_001_0001",
+    "pool": [
+      {
+        "bucket": "rights",
+        "krw": "2310"
+      },
+      {
+        "bucket": "platform",
+        "krw": "825"
+      },
+      {
+        "bucket": "ops",
+        "krw": "165"
+      }
+    ],
+    "lines": [
+      {
+        "party_id": "pty_label",
+        "role": "MASTER_OWNER",
+        "bucket": "master",
+        "krw": "924"
+      },
+      {
+        "party_id": "pty_vocal_a",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "krw": "251"
+      },
+      {
+        "party_id": "pty_vocal_c",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "krw": "251"
+      },
+      {
+        "party_id": "pty_vocal_d",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "krw": "251"
+      },
+      {
+        "party_id": "pty_author_2",
+        "role": "WORK_AUTHOR",
+        "bucket": "work",
+        "krw": "173"
+      },
+      {
+        "party_id": "pty_cmo",
+        "role": "CMO",
+        "bucket": "work",
+        "krw": "173"
+      },
+      {
+        "party_id": "pty_vocal_b",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "krw": "171"
+      },
+      {
+        "party_id": "pty_agency",
+        "role": "AGENCY",
+        "bucket": "agency",
+        "krw": "116"
+      }
+    ]
+  },
+  "byParty": [
+    {
+      "party_id": "pty_author_2",
+      "role": "WORK_AUTHOR",
+      "settled_krw": "93247",
+      "reversed_krw": "-173"
+    },
+    {
+      "party_id": "pty_cmo",
+      "role": "CMO",
+      "settled_krw": "93247",
+      "reversed_krw": "-173"
+    },
+    {
+      "party_id": "pty_agency",
+      "role": "AGENCY",
+      "settled_krw": "62524",
+      "reversed_krw": "-116"
+    },
+    {
+      "party_id": "pty_label",
+      "role": "MASTER_OWNER",
+      "settled_krw": "498036",
+      "reversed_krw": "-924"
+    },
+    {
+      "party_id": "pty_vocal_a",
+      "role": "PERFORMER_FEATURED",
+      "settled_krw": "144600",
+      "reversed_krw": "-251"
+    },
+    {
+      "party_id": "pty_vocal_b",
+      "role": "PERFORMER_FEATURED",
+      "settled_krw": "120600",
+      "reversed_krw": "-171"
+    },
+    {
+      "party_id": "pty_vocal_c",
+      "role": "PERFORMER_FEATURED",
+      "settled_krw": "116418",
+      "reversed_krw": "-251"
+    },
+    {
+      "party_id": "pty_vocal_d",
+      "role": "PERFORMER_FEATURED",
+      "settled_krw": "116418",
+      "reversed_krw": "-251"
+    }
+  ],
+  "pools": [
+    {
+      "bucket": "ops",
+      "krw": "88935"
+    },
+    {
+      "bucket": "platform",
+      "krw": "444675"
+    },
+    {
+      "bucket": "rights",
+      "krw": "1245090"
+    }
+  ],
+  "holdings": [
+    {
+      "event_id": "ev_dyn_003_0001",
+      "bucket": "rights",
+      "reason": "FRAUD_REVIEW",
+      "krw": "2310"
+    }
+  ],
+  "reversals": [
+    {
+      "reversal_id": "rev_ev_rf_0001",
+      "original_run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
+      "event_id": "ev_dyn_001_0001",
+      "refund_event_id": "ev_rf_0001",
+      "result_digest": "mdrl:sha256:8a1c4f34cf639c9a8ffbf5b049d58e17ca4c9df517b6511cd9fa685658b116ea"
+    }
+  ],
+  "journal": [
+    {
+      "kind": "PAYOUT",
+      "n": 8
+    },
+    {
+      "kind": "PAYOUT_SETTLED",
+      "n": 8
+    },
+    {
+      "kind": "REVERSAL",
+      "n": 1
+    },
+    {
+      "kind": "SETTLEMENT",
+      "n": 3
+    }
+  ],
+  "payout": {
+    "counts": {
+      "PENDING": 8,
+      "HELD": 0,
+      "CARRIED": 0
+    },
+    "instructions": [
+      {
+        "party_id": "pty_author_2",
+        "status": "PAID",
+        "gross_krw": "93074",
+        "withholding_krw": "3070",
+        "net_krw": "90004",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_cmo",
+        "status": "PAID",
+        "gross_krw": "93074",
+        "withholding_krw": "0",
+        "net_krw": "93074",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_agency",
+        "status": "PAID",
+        "gross_krw": "62408",
+        "withholding_krw": "0",
+        "net_krw": "62408",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_label",
+        "status": "PAID",
+        "gross_krw": "497112",
+        "withholding_krw": "0",
+        "net_krw": "497112",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_vocal_a",
+        "status": "PAID",
+        "gross_krw": "144349",
+        "withholding_krw": "4760",
+        "net_krw": "139589",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_vocal_b",
+        "status": "PAID",
+        "gross_krw": "120429",
+        "withholding_krw": "3970",
+        "net_krw": "116459",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_vocal_d",
+        "status": "PAID",
+        "gross_krw": "116167",
+        "withholding_krw": "3830",
+        "net_krw": "112337",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_vocal_c",
+        "status": "PAID",
+        "gross_krw": "116167",
+        "withholding_krw": "3830",
+        "net_krw": "112337",
+        "hold_reason": null
+      }
+    ]
+  },
+  "statements": [
+    {
+      "partyId": "pty_agency",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.067Z",
+      "opening": "0",
+      "settled": "62524",
+      "reversed": "-116",
+      "holdReleased": "0",
+      "payoutGross": "62408",
+      "withholding": "0",
+      "payoutNet": "62408",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_author_2",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.068Z",
+      "opening": "0",
+      "settled": "93247",
+      "reversed": "-173",
+      "holdReleased": "0",
+      "payoutGross": "93074",
+      "withholding": "3070",
+      "payoutNet": "90004",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_cmo",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.069Z",
+      "opening": "0",
+      "settled": "93247",
+      "reversed": "-173",
+      "holdReleased": "0",
+      "payoutGross": "93074",
+      "withholding": "0",
+      "payoutNet": "93074",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_label",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.070Z",
+      "opening": "0",
+      "settled": "498036",
+      "reversed": "-924",
+      "holdReleased": "0",
+      "payoutGross": "497112",
+      "withholding": "0",
+      "payoutNet": "497112",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_vocal_a",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.071Z",
+      "opening": "0",
+      "settled": "144600",
+      "reversed": "-251",
+      "holdReleased": "0",
+      "payoutGross": "144349",
+      "withholding": "4760",
+      "payoutNet": "139589",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_vocal_b",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.072Z",
+      "opening": "0",
+      "settled": "120600",
+      "reversed": "-171",
+      "holdReleased": "0",
+      "payoutGross": "120429",
+      "withholding": "3970",
+      "payoutNet": "116459",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_vocal_c",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.073Z",
+      "opening": "0",
+      "settled": "116418",
+      "reversed": "-251",
+      "holdReleased": "0",
+      "payoutGross": "116167",
+      "withholding": "3830",
+      "payoutNet": "112337",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    },
+    {
+      "partyId": "pty_vocal_d",
+      "from": "2026-01-01T00:00:00.000Z",
+      "to": "2026-05-01T00:00:00.074Z",
+      "opening": "0",
+      "settled": "116418",
+      "reversed": "-251",
+      "holdReleased": "0",
+      "payoutGross": "116167",
+      "withholding": "3830",
+      "payoutNet": "112337",
+      "payoutFailedRestored": "0",
+      "withholdingRestored": "0",
+      "netRestored": "0",
+      "adjusted": "0",
+      "closing": "0"
+    }
+  ],
+  "traffic": {
+    "ok": true,
+    "pool": [
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "bucket": "platform",
+        "amount": "3000"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "bucket": "ops",
+        "amount": "600"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "bucket": "rights",
+        "amount": "8400"
+      }
+    ],
+    "lines": [
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_label",
+        "role": "MASTER_OWNER",
+        "bucket": "master",
+        "line_seq": "1",
+        "amount": "3360"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_vocal_a",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "line_seq": "1",
+        "amount": "912"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_vocal_b",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "line_seq": "1",
+        "amount": "624"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_vocal_c",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "line_seq": "1",
+        "amount": "912"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_vocal_d",
+        "role": "PERFORMER_FEATURED",
+        "bucket": "performer",
+        "line_seq": "1",
+        "amount": "912"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_author_2",
+        "role": "WORK_AUTHOR",
+        "bucket": "work",
+        "line_seq": "1",
+        "amount": "630"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_cmo",
+        "role": "CMO",
+        "bucket": "work",
+        "line_seq": "1",
+        "amount": "630"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_agency",
+        "role": "AGENCY",
+        "bucket": "agency",
+        "line_seq": "1",
+        "amount": "420"
+      }
+    ],
+    "holdings": [],
+    "resultDigest": "mdrl:sha256:0c8ff820946a70e02aa7d4aaada0a1991f0f4d89b8f4b8bd5aed41eada96230f"
+  }
+}
