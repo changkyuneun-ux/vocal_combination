@@ -3,8 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { evaluate } from "mdrl/allocation";
-import { evaluateGrant, type GrantRule, type Requirement } from "mdrl/grant";
 import { createUser, ensureSystemIdentities, loadActor, type Actor } from "../platform/actor.ts";
 import { fixedClock, type Clock } from "../platform/clock.ts";
 import { createDb, type Db, type Tx } from "../platform/db.ts";
@@ -12,7 +10,7 @@ import { ADMIN_URL, createFreshDatabase } from "../platform/dbadmin.ts";
 import { startBossJobs, JOB_NAMES, type JobHandler, type JobName } from "../platform/jobs.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
-import { sealInputs } from "../engine-bridge/settle.ts";
+import { decideGrant, simulateEvents, type GrantRule, type Requirement } from "../engine-bridge/simulate.ts";
 import * as reg from "../registry/service.ts";
 import * as policy from "../policy/service.ts";
 import * as issuance from "../issuance/service.ts";
@@ -69,7 +67,7 @@ export const POLICY_TEXT = `allocation "pol_dynamite_fan" version 1 {
   tier2 rights {
     split {
       master = graph(MASTER_OWNER) : 40%;
-      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) : 40%;
+      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) via mandate : 40%;
       work = graph(WORK_AUTHOR) via mandate : 15%;
       agency = contract(pty_agency) : 5% as AGENCY;
     }
@@ -141,12 +139,12 @@ function grantDemo() {
   const at = { as_of: "2026-03-10T00:00:00.000Z", known_at: "2026-03-10T00:00:00.000Z" };
   const listen = scope(["PREVIEW", "COMBINE"], ["FAN_APP"], ["FAN_COMMUNITY"]);
   const download = scope(["DOWNLOAD"], ["EXTERNAL_SNS"], ["PUBLIC"]);
-  const show = (case_: string, d: ReturnType<typeof evaluateGrant>) => ({ case: case_, result: d.result, reasons: [...d.reason_codes] });
+  const show = (case_: string, d: ReturnType<typeof decideGrant>) => ({ case: case_, result: d.result, reasons: [...d.reason_codes] });
   return [
-    show("팬앱에서 vc_dyn_001 조합·감상", evaluateGrant({ requirements: reqs(COMBINATIONS[0].picks, listen), grants, ...at })),
-    show("같은 조합을 다운로드해 외부 SNS에 게시", evaluateGrant({ requirements: reqs(COMBINATIONS[0].picks, download), grants, ...at })),
+    show("팬앱에서 vc_dyn_001 조합·감상", decideGrant({ requirements: reqs(COMBINATIONS[0].picks, listen), grants, ...at })),
+    show("같은 조합을 다운로드해 외부 SNS에 게시", decideGrant({ requirements: reqs(COMBINATIONS[0].picks, download), grants, ...at })),
     show("보컬리스트 D가 동의를 철회한 뒤 vc_dyn_001 조합·감상",
-      evaluateGrant({ requirements: reqs(COMBINATIONS[0].picks, listen), grants: grants.map((g) => (g.id === "g_consent_d" ? { ...g, status: "REVOKED" as const } : g)), ...at })),
+      decideGrant({ requirements: reqs(COMBINATIONS[0].picks, listen), grants: grants.map((g) => (g.id === "g_consent_d" ? { ...g, status: "REVOKED" as const } : g)), ...at })),
   ];
 }
 
@@ -269,8 +267,7 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
 
       // 9. 감상 매출(TRAFFIC): 코어 수집은 아직 구매·재판매·환불만 받으므로, 같은 발행 봉인 입력으로 엔진을 직접 호출한다.
       const traffic = await db.tx(async (tx) => {
-        const s = await sealInputs(ctx, tx, seals[0]!.snapshotId);
-        return evaluate({ policy: s.policy, facts: s.facts, projection: s.projection, snapshot: s.snapshot, runId: "sim_traffic_2026_03",
+        return simulateEvents(ctx, tx, { snapshotId: seals[0]!.snapshotId, runId: "sim_traffic_2026_03",
           events: [{ id: "ev_traffic_2026_03_vc_dyn_001", type: "TRAFFIC", amount: "12000", currency: "KRW", integrity: "CLEAR" }] });
       });
 
@@ -290,12 +287,12 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
           lines: await rows(db, "SELECT party_id, role, bucket, amount_krw::text AS krw FROM allocation_line WHERE event_id = $1 AND line_seq = 1 ORDER BY amount_krw DESC, party_id", [firstEvent]),
         },
         byParty: await rows(db, `SELECT l.party_id, l.role, sum(l.amount_krw) FILTER (WHERE l.line_seq = 1)::text AS settled_krw, COALESCE(sum(l.amount_krw) FILTER (WHERE l.line_seq > 1), 0)::text AS reversed_krw
-                                 FROM allocation_line l JOIN settlement_run r USING (run_id) WHERE r.batch_id = 'bat_dyn_2026_03' GROUP BY 1,2 ORDER BY 3 DESC`),
-        pools: await rows(db, `SELECT p.bucket, sum(p.amount_krw)::text AS krw FROM pool_line p JOIN settlement_run r USING (run_id) WHERE r.batch_id = 'bat_dyn_2026_03' GROUP BY 1 ORDER BY 2 DESC`),
+                                 FROM allocation_line l JOIN settlement_run r USING (run_id) WHERE r.batch_id = 'bat_dyn_2026_03' GROUP BY 1,2 ORDER BY sum(l.amount_krw) FILTER (WHERE l.line_seq = 1) DESC, l.party_id`),
+        pools: await rows(db, `SELECT p.bucket, sum(p.amount_krw)::text AS krw FROM pool_line p JOIN settlement_run r USING (run_id) WHERE r.batch_id = 'bat_dyn_2026_03' GROUP BY 1 ORDER BY sum(p.amount_krw) DESC, p.bucket`),
         holdings: await rows(db, "SELECT event_id, bucket, reason, amount_krw::text AS krw FROM unallocated_holding ORDER BY event_id, line_seq"),
         reversals: await rows(db, "SELECT reversal_id, original_run_id, event_id, refund_event_id, result_digest FROM reversal_run ORDER BY reversal_id"),
         journal: await rows(db, "SELECT kind, count(*)::int AS n FROM journal_entry GROUP BY kind ORDER BY kind"),
-        payout: { counts: run.counts, instructions: await rows(db, "SELECT party_id, status, gross_krw::text, withholding_krw::text, net_krw::text, hold_reason FROM payout_instruction ORDER BY gross_krw DESC") },
+        payout: { counts: run.counts, instructions: await rows(db, "SELECT party_id, status, gross_krw::text, withholding_krw::text, net_krw::text, hold_reason FROM payout_instruction ORDER BY gross_krw::bigint DESC, party_id") },
         statements: await db.tx(async (tx) => Promise.all(payees.map((p) => partyStatement(tx, p, T0, payClock.now())))),
         traffic: traffic.ok
           ? { ok: true, pool: traffic.value.pool_lines, lines: traffic.value.lines, holdings: traffic.value.holdings, resultDigest: traffic.value.result_digest }

@@ -13,7 +13,8 @@ export type VectorExpr =
   | { fn: "floor_guarantee"; min: string; of: VectorExpr };
 
 export type Tier1Bucket = { name: string; bps: string };
-export type SplitBucket = { name: string; bps: string; role: ClaimantRole; vector: VectorExpr };
+/** `via_mandate`: 버킷 벡터(cap·floor_guarantee 적용 후)를 버킷 역할의 위임(mandate)으로 수령인에게 보낸다. */
+export type SplitBucket = { name: string; bps: string; role: ClaimantRole; vector: VectorExpr; via_mandate?: true };
 
 export type AllocationBody = {
   scope: { pack: string; events: EnumValue<"event_type">[]; currency: string };

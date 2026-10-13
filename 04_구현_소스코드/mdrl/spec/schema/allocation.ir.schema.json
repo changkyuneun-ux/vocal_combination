@@ -61,7 +61,8 @@
         "name": { "$ref": "#/$defs/name" },
         "bps": { "$ref": "#/$defs/bps" },
         "role": { "$ref": "#/$defs/role" },
-        "vector": { "$ref": "#/$defs/vector" }
+        "vector": { "$ref": "#/$defs/vector" },
+        "via_mandate": { "const": true }
       }
     },
     "vector": {

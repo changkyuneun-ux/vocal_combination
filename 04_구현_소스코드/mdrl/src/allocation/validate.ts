@@ -272,9 +272,13 @@ export function validateAllocation(doc: unknown): Diagnostic[] {
   }
   if (obj(b.tier2, "$.body.tier2")) {
     out.push(...rejectUnknownKeys(b.tier2, ["split"], "$.body.tier2"));
-    buckets(b.tier2.split, "$.body.tier2.split", ["role", "vector"], (bk, bp) => {
+    buckets(b.tier2.split, "$.body.tier2.split", ["role", "vector", "via_mandate"], (bk, bp) => {
       enumCheck("claimant_role", bk.role, `${bp}.role`);
       vector(bk.vector, `${bp}.vector`);
+      if (bk.via_mandate !== undefined && bk.via_mandate !== true) out.push(diag("CORE_TYPE_ERROR", `${bp}.via_mandate`, "must be true or omitted"));
+      else if (bk.via_mandate === true && isEnumValue("claimant_role", bk.role) && ROLE_RIGHT[bk.role] === undefined) {
+        out.push(diag("CORE_TYPE_ERROR", `${bp}.via_mandate`, `${bk.role} has no mandate right`));
+      }
       if (isEnumValue("claimant_role", bk.role)) {
         const leaf = roleMismatch(bk.role, leavesOf(bk.vector));
         if (leaf !== undefined) out.push(diag("CORE_TYPE_ERROR", `${bp}.role`, `role mismatch: ${bk.role} vs ${leaf}`));

@@ -62,7 +62,8 @@ export function formatAllocation(doc: AllocationDocument): string {
   lines.push("    split {");
   for (const s of b.tier2.split) {
     const role = inferRole(s.vector) === s.role ? "" : ` as ${s.role}`;
-    lines.push(`      ${s.name} = ${vectorText(s.vector)} : ${formatPercent(s.bps)}${role};`);
+    const via = s.via_mandate === true ? " via mandate" : "";
+    lines.push(`      ${s.name} = ${vectorText(s.vector)}${via} : ${formatPercent(s.bps)}${role};`);
   }
   lines.push("    }");
   lines.push("  }");

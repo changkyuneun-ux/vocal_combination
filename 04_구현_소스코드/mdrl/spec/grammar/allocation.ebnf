@@ -8,7 +8,8 @@ scope       = "scope" "{" "pack" ":" id ";" "events" ":" "[" ident { "," ident }
 bind        = "bind" "{" "time" ":" ident ";" "}" ;
 tier1       = "tier1" "{" { ident "=" ratio ";" } "}" ;
 tier2       = "tier2" ident "{" "split" "{" { bucket } "}" "}" ;  (* tier2 뒤 이름 = 권리자 풀이 되는 tier1 버킷 *)
-bucket      = ident "=" vector ":" ratio [ "as" ident ] ";" ;
+bucket      = ident "=" vector [ "via" "mandate" ] ":" ratio [ "as" ident ] ";" ;
+(* 버킷 끝의 via mandate: cap·floor_guarantee까지 적용한 버킷 벡터를 버킷 역할의 위임 수령인에게 보낸다(예: 소속사에 위임한 실연자 몫 → 소속사). *)
 vector      = primary { "|>" ( "cap" "(" ratio ")" | "floor_guarantee" "(" ratio ")" ) } ;
 primary     = "graph" "(" ident ")" [ "via" "mandate" ]
             | "contract" "(" id ")"

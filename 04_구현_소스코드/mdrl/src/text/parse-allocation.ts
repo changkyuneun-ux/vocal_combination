@@ -195,6 +195,12 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
       const name = ident("bucket name");
       expectP("=");
       const vec = vector();
+      let viaMandate = false;
+      if (isW(peek(), "via")) {
+        next();
+        expectW("mandate");
+        viaMandate = true;
+      }
       expectP(":");
       const bps = ratio();
       let role: string | undefined;
@@ -206,7 +212,7 @@ function parseProgram(toks: readonly Token[]): AllocationDocument {
       }
       if (role === undefined) fail("PARSE_ROLE_REQUIRED", at(start), `bucket ${name}: add "as <ROLE>"`);
       expectP(";");
-      out.push({ name, bps, role: role as ClaimantRole, vector: vec });
+      out.push({ name, bps, role: role as ClaimantRole, vector: vec, ...(viaMandate ? { via_mandate: true as const } : {}) });
     }
     expectP("}");
     return out;

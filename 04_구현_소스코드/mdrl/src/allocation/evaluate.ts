@@ -6,6 +6,7 @@ import { isPlainObject } from "../core/jcs.ts";
 import { formatRatio, fromBps } from "../core/ratio.ts";
 import { isId, rejectUnknownKeys } from "../core/shape.ts";
 import { isInstant } from "../core/time.ts";
+import { ROLE_RIGHT, routeVector } from "../facts/mandate.ts";
 import { HOLD, type PartyVector } from "../facts/project.ts";
 import { PROJECTION_FORMAT, type ProjectionIr } from "../facts/result.ts";
 import type { ClaimantRole, FactsDocument } from "../facts/types.ts";
@@ -85,7 +86,7 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   };
   const bucketVectors: PartyVector[] = [];
   body.tier2.split.forEach((b, i) => {
-    const r = attempt(() => evalVector(b.vector, ctx, `$.body.tier2.split[${i}].vector`));
+    const r = attempt(() => bucketVector(b, ctx, `$.body.tier2.split[${i}]`));
     if (r.ok) bucketVectors.push(r.value);
     else errors.push(...r.errors);
   });
@@ -109,6 +110,17 @@ export function evaluate(input: EvaluationInput): Result<AllocationResult> {
   };
   // trace는 설명용 자료로 봉인 밖에 둔다(스펙 12.48). 결과에는 남기되 result_digest 계산에서는 뺀다.
   return ok({ ...result, result_digest: digestOf({ ...result, trace: undefined }) });
+}
+
+/** 버킷 벡터: 식을 평가하고(cap·floor_guarantee 포함), via_mandate면 버킷 역할의 위임으로 수령인에게 보낸다. */
+function bucketVector(b: SplitBucket, ctx: ExprContext, path: string): PartyVector {
+  const vec = evalVector(b.vector, ctx, `${path}.vector`);
+  if (b.via_mandate !== true) return vec;
+  const right = ROLE_RIGHT[b.role];
+  if (right === undefined) throw new MdrlError([diag("CORE_TYPE_ERROR", `${path}.via_mandate`, `${b.role} has no mandate right`)]);
+  const routed = routeVector(ctx.facts, vec, right, ctx.asOf, ctx.knownAt);
+  if (!routed.ok) throw new MdrlError(routed.errors);
+  return routed.value;
 }
 
 /** 입력의 digest를 계산한다. 계산 오류(예: JSON number)는 그 입력의 경로 접두사를 붙여 out에 모은다. */
