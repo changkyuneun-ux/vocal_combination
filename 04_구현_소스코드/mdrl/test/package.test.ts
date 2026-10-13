@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const MODULES = ["core", "facts", "allocation", "text"];
+const MODULES = ["core", "facts", "allocation", "text", "grant", "profiles"];
 
 test("exports point at built files that mirror src (spec 12.51)", () => {
   assert.deepEqual(Object.keys(pkg.exports).sort(), [...MODULES.map((m) => `./${m}`), "./spec/*", "./package.json"].sort());

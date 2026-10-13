@@ -86,6 +86,7 @@ test("parseFacts reports syntax errors with line:col", () => {
   const parsed = parseFacts(bad);
   assert.equal(parsed.ok, false);
   if (!parsed.ok) {
+    assert.ok(parsed.errors[0]);
     assert.equal(parsed.errors[0].code, "PARSE_SYNTAX");
     assert.equal(parsed.errors[0].path.startsWith("@2:"), true);
   }

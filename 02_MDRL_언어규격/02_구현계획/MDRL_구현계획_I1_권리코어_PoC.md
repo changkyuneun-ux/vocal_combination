@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js ≥ 24(TypeScript 직접 실행), TypeScript 5.9(`erasableSyntaxOnly`, 타입검사 전용), `node:test`, Fastify 5, node-postgres(`pg`) 8, PostgreSQL 17(Docker Compose), npm workspaces(`mdrl`, `rights-core`).
 
-**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `03_dobedubpop_플랫폼설계/최신설계/데이터모델_v2.8.md`, `MDRL_아키텍처_코어규격_설계_v1.0.md`.
+**상위 스펙:** `02_MDRL_언어규격/02_구현계획/MDRL_시스템통합_아키텍처_설계_v1.0.md` 2~6절과 **9절(I-1 설계 결정)**, `03_dobedupop_플랫폼설계/최신설계/데이터모델_v2.8.md`, `MDRL_아키텍처_코어규격_설계_v1.0.md`.
 
 ## Global Constraints
 

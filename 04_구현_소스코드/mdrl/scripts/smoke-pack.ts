@@ -44,11 +44,15 @@ try {
   put("snapshot.json", alloc.snapshot);
   put("events.json", alloc.events);
 
-  // 1) 라이브러리: 네 진입점을 import해 컴파일 → 투영 → 평가 → 검증.
+  // 1) 라이브러리: 여섯 진입점을 import해 컴파일 → 투영 → 평가 → 검증.
   const args = { asOf: facts.as_of, knownAt: facts.known_at, runId: alloc.run_id };
   put("check.mjs", `
 import { readFileSync } from "node:fs";
 import { digestOf } from "mdrl/core";
+import { evaluateGrant } from "mdrl/grant";
+import { ProfileRegistry } from "mdrl/profiles";
+if (!ProfileRegistry.has("vocal-combination")) throw new Error("missing vocal profile");
+if (evaluateGrant({ requirements: [], grants: [], as_of: "2026-01-01T00:00:00.000Z", known_at: "2026-01-01T00:00:00.000Z" }).result !== "DENY") throw new Error("empty grants must deny");
 import { projectToIr } from "mdrl/facts";
 import { evaluate, verifyAllocationResult } from "mdrl/allocation";
 import { compileAllocation } from "mdrl/text";
@@ -96,6 +100,10 @@ console.log(r.value.result_digest);
   put("types.ts", `
 import { ALLOCATION_RESULT_FORMAT, evaluate, verifyAllocationResult, type AllocationResult, type VerificationInput } from "mdrl/allocation";
 import { digestOf, type Diagnostic } from "mdrl/core";
+import { evaluateGrant, type GrantEvaluationInput, type GrantDecisionOutput } from "mdrl/grant";
+import { ProfileRegistry, type ProfileDefinition } from "mdrl/profiles";
+export const grantCheck = (input: GrantEvaluationInput): GrantDecisionOutput => evaluateGrant(input);
+export const profile: ProfileDefinition | undefined = ProfileRegistry.get("vocal-combination");
 import { PROJECTION_FORMAT, projectToIr, type ProjectionIr } from "mdrl/facts";
 import { compileAllocation } from "mdrl/text";
 export const formats: ["mdrl-allocation-result/1", "mdrl-projection/1"] = [ALLOCATION_RESULT_FORMAT, PROJECTION_FORMAT];

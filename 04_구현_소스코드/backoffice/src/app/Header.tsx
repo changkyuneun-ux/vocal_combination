@@ -95,7 +95,7 @@ export function Header() {
   const known = rows.some((u) => u.userId === actor);
   return (
     <header className="header">
-      <div className="app-name">MDRL 검증 백오피스</div>
+      <div className="app-name">dobedupop · MDRL 검증 백오피스</div>
       <VirtualClock onError={setToast} />
       <div className="right">
         <label>사용자{" "}

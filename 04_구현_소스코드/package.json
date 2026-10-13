@@ -1,5 +1,5 @@
 {
-  "name": "dobedubpop-platform",
+  "name": "dobedupop-platform",
   "private": true,
   "workspaces": ["mdrl", "rights-core", "backoffice"],
   "scripts": {

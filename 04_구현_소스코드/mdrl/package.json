@@ -10,6 +10,8 @@
     "./facts": { "types": "./dist/src/facts/index.d.ts", "default": "./dist/src/facts/index.js" },
     "./allocation": { "types": "./dist/src/allocation/index.d.ts", "default": "./dist/src/allocation/index.js" },
     "./text": { "types": "./dist/src/text/index.d.ts", "default": "./dist/src/text/index.js" },
+    "./grant": { "types": "./dist/src/grant/index.d.ts", "default": "./dist/src/grant/index.js" },
+    "./profiles": { "types": "./dist/src/profiles/index.d.ts", "default": "./dist/src/profiles/index.js" },
     "./spec/*": "./spec/*",
     "./package.json": "./package.json"
   },

@@ -1,6 +1,8 @@
 # MDRL (Music Derivative Rights Language) 공식 레퍼런스 북 v1.0
 **음악 n차 저작권(권리관계, 이용허락, 수익 배분) 정의 언어 규격 매뉴얼**
 
+> 적용 범위: 1~7장은 공통 언어의 개념·목표 규격을 포함한다. 모든 문법·프로파일 확장이 현재 플랫폼에서 실행되는 것은 아니다. 현재 공개 호출 계약은 8장, 플랫폼 연결의 후속 기준은 Grant·프로파일 통합 설계 베이스라인을 따른다.
+
 ---
 
 ## 목차 (Table of Contents)
@@ -39,7 +41,7 @@
   - [7.1 프로파일 작성 규칙](#71-프로파일-작성-규칙)
   - [7.2 프로파일 1: 보컬 트랙 조합 (Vocal Combination)](#72-프로파일-1-보컬-트랙-조합-vocal-combination)
   - [7.3 프로파일 2: AI 믹스 & 보이스 (AI Mix & Voice)](#73-프로파일-2-ai-믹스--보이스-ai-mix--voice)
-- [8. 레퍼런스 구현체 TypeScript API 가이드](#8-레퍼런스-구현체-typescript-api-가이드)
+- [8. 레퍼런스 구현체 공개 API 계약](#8-레퍼런스-구현체-공개-api-계약)
 
 ---
 
@@ -418,56 +420,62 @@ allocation "ALLOC-DEFAULT-01" version 1 {
 
 ---
 
-## 8. 레퍼런스 구현체 TypeScript API 가이드
+## 8. 레퍼런스 구현체 공개 API 계약
 
-MDRL 표준 레퍼런스 엔진(`mdrl` 패키지)의 주요 사용법입니다:
+- 기준: workspace 패키지 `mdrl@0.1.0`, Node.js 24 이상, ESM.
+- 이 장은 현재 실행 계약이다. 앞 장의 범용 언어 설계와 플랫폼 구현 범위는 [기준 관리 원칙](../00_프로젝트_개요/문서_기준과_구현계약.md)으로 구분한다.
+- `@rights-dsl/mdrl` 또는 패키지 루트 `mdrl` import는 제공하지 않는다.
 
-```typescript
-import {
-  parseFacts, compileFacts, formatFacts,
-  parseGrant, compileGrant, formatGrant, evaluateGrant,
-  parseAllocation, compileAllocation, formatAllocation, evaluate,
-  ProfileRegistry, VocalCombinationProfile, AiMixProfile
-} from "@rights-dsl/mdrl";
+| import 경로 | 공개 기능 |
+|---|---|
+| `mdrl/core` | digest, Scope·시간·기본 타입 검증 |
+| `mdrl/facts` | Facts 검증, `projectToIr` |
+| `mdrl/text` | Facts·Grant·Allocation parse/compile/format |
+| `mdrl/grant` | `evaluateGrant`, Grant 입력·출력 타입, 검증 함수 |
+| `mdrl/allocation` | `evaluate`, `verifyAllocationResult`, 결과 타입 |
+| `mdrl/profiles` | `ProfileRegistry`, 보컬 조합·AI 믹스 정의 |
+| `mdrl/spec/*` | 배포된 문법·스키마 파일 |
 
-// 1. 프로파일 확인
-ProfileRegistry.register(VocalCombinationProfile);
-ProfileRegistry.register(AiMixProfile);
+### 8.1 입력·출력 규칙
 
-// 2. Facts 선언 및 파싱/검증
-const factsResult = compileFacts(factsSourceText);
-if (!factsResult.ok) throw new Error("Facts validation failed");
-const factsDoc = factsResult.value;
+- `compileFacts`, `compileGrant`, `compileAllocation`, `projectToIr`, `evaluate`: `ok`를 검사한 뒤 `value`를 사용한다. 실패 시 `errors`를 처리한다.
+- `projectToIr(facts, usage, asOf, knownAt)`: 사용량은 스템 ID별 밀리초 정수 문자열이다.
+- `evaluate({ policy, facts, projection, snapshot, events, runId })`: 모든 필드를 전달한다. 시점은 projection에 포함되며 evaluate에 직접 전달하지 않는다.
+- `snapshot`: `{ members: { partyId: "n/d" } }` 형식. 합계 등 상세 제약은 검증기를 적용한다.
+- RevenueEvent: `id`, `type`, `amount`, `currency`, `integrity` 필수. 금액은 정수 문자열이다.
+- `evaluateGrant({ requirements, grants, as_of, known_at })`: 직접 `GrantDecisionOutput`을 반환한다. Allocation Result 래퍼와 혼동하지 않는다.
+- Grant의 구조 검증, 수권 근거 확인, grantee 적합성, 공동권리자 커버리지를 호출자가 보장해야 한다. 현재 Grant 평가기만으로 업무 승인을 완결하지 않는다.
+- `mdrl/profiles` import는 기본 정의를 등록한다. 등록이 파서·평가기 확장 또는 플랫폼 사용 승인을 의미하지 않는다.
+- CLI의 compile/evaluate는 현재 Allocation 중심이다. 라이브러리의 Grant API와 CLI 지원 범위를 동일시하지 않는다.
 
-// 3. Grant 선언 및 이용허락 판정 (Fail-Closed)
-const grantDoc = compileGrant(grantSourceText).value;
-const decision = evaluateGrant({
-  requirements: [{
-    asset: "rcd_01",
-    right_type: "MASTER",
-    scope: requestScope
-  }],
-  grants: grantDoc.body.grants,
-  as_of: "2026-07-01T00:00:00.000Z",
-  known_at: "2026-07-01T00:00:00.000Z"
-});
+### 8.2 실행 가능한 예제
 
-console.log("Grant Decision:", decision.result); // PERMIT | PERMIT_WITH_OBLIGATION | DENY | REVIEW_REQUIRED
+[공개 API 예제](../04_구현_소스코드/mdrl/samples/public-api.mjs)는 저장소의 적합성 데이터를 사용해 컴파일 → 투영 → 정산 → 재검증을 실행한다. 별도의 Grant 예제는 허락 누락 시 DENY를 확인한다. 이는 독립 API 예제이며 Grant를 통과한 서비스 발행 흐름이 아니다.
 
-// 4. 안분 정책 컴파일 및 정산 평가
-const allocDoc = compileAllocation(allocSourceText).value;
-const settlement = evaluate({
-  policy: allocDoc,
-  facts: factsDoc,
-  events: [{ id: "evt_01", type: "PRIMARY", amount: "10000", currency: "KRW" }],
-  as_of: "2026-07-01T00:00:00.000Z",
-  known_at: "2026-07-01T00:00:00.000Z"
-});
-
-console.log("Settlement Result Digest:", settlement.result_digest);
-console.log("Allocated Lines:", settlement.lines);
-console.log("Holdings:", settlement.holdings);
+```bash
+cd 04_구현_소스코드
+npm run build -w mdrl
+node mdrl/samples/public-api.mjs
 ```
 
----
-*본 레퍼런스 북은 음악 n차 저작권 관리 표준 외부 DSL 마스터 규격 v0.4 및 MDRL 엔진 구현을 기준으로 작성된 정본 매뉴얼입니다.*
+핵심 호출은 다음과 같다. 전체 입력 로딩·오류 처리는 링크된 실행 파일에 포함한다.
+
+```javascript
+import { projectToIr } from "mdrl/facts";
+import { evaluate } from "mdrl/allocation";
+import { evaluateGrant } from "mdrl/grant";
+import { ProfileRegistry } from "mdrl/profiles";
+
+// facts·usage·policy·snapshot·events·runId는 호출자가 준비한다.
+const projectionResult = projectToIr(facts, usage, asOf, knownAt);
+if (!projectionResult.ok) throw new Error(JSON.stringify(projectionResult.errors));
+const result = evaluate({ policy, facts, projection: projectionResult.value, snapshot, events, runId });
+if (!result.ok) throw new Error(JSON.stringify(result.errors));
+console.log(result.value.result_digest);
+```
+
+### 8.3 배포 계약 검증
+
+- `npm run smoke -w mdrl`: tarball 설치 후 공개 진입점 import, Grant 누락 거부, 프로파일 조회, 타입 선언 소비, Allocation 결과 digest, CLI verify를 검증한다.
+- smoke가 빌드 산출물을 정리하므로 이후 서버 실행 전 `npm run build -w mdrl`을 실행한다.
+- Grant·프로파일의 플랫폼 적용은 [통합 설계 베이스라인](02_구현계획/MDRL_Grant_프로파일_통합설계_베이스라인_v1.0.md)을 따른다. 현재 발행·정산에 연결됐다는 의미는 아니다.

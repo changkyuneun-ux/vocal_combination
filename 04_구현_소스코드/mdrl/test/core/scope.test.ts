@@ -47,6 +47,7 @@ test("validateScope rejects invalid fields", () => {
   const invalid = { ...scopeA, unknown_prop: 123 };
   const errs = validateScope(invalid);
   assert.equal(errs.length > 0, true);
+  assert.ok(errs[0]);
   assert.equal(errs[0].code, "CORE_TYPE_ERROR");
 });
 
@@ -84,7 +85,7 @@ test("assertScopeNarrowing enforces sub-scope invariant", () => {
       assertScopeNarrowing(scopeB, scopeA);
     },
     (err: unknown) => {
-      return err instanceof MdrlError && err.diagnostics[0].code === "GRANT_SCOPE_WIDENING";
+      return err instanceof MdrlError && err.diagnostics[0]?.code === "GRANT_SCOPE_WIDENING";
     }
   );
 });

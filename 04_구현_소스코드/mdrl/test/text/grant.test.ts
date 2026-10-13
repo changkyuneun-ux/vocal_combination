@@ -57,6 +57,7 @@ test("parseGrant reports syntax errors", () => {
   const parsed = parseGrant(bad);
   assert.equal(parsed.ok, false);
   if (!parsed.ok) {
+    assert.ok(parsed.errors[0]);
     assert.equal(parsed.errors[0].code, "PARSE_SYNTAX");
     assert.equal(parsed.errors[0].path.startsWith("@2:"), true);
   }

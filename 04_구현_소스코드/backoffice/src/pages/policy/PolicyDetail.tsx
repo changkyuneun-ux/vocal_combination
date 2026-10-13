@@ -12,6 +12,7 @@ import { ApiError } from "../../api/client.ts";
 import { useAction, useGet, useList } from "../../api/hooks.ts";
 import { activateVersion, approveVersion, compilePolicy, packExists, peekSyntheticSong, rebindPolicy } from "../../api/policy.ts";
 import type { PolicyVersion, PolicyVersionDetail } from "../../api/types.ts";
+import { PolicyDiffViewer } from "./PolicyDiffViewer.tsx";
 
 const SEED_HINT = "개발 도구 > 데이터에서 합성 곡을 먼저 불러오세요";
 const INV = ["versions", "policies", "version"];
@@ -59,6 +60,7 @@ function PolicyEditor({ policyId }: { policyId: string }) {
   const [text, setText] = useState("");
   const [packId, setPackId] = useState("");
   const [hint, setHint] = useState("");
+  const [showDiff, setShowDiff] = useState(false);
 
   // 이 정책의 최신 버전이 있으면 그 팩·원문으로 채운다(처음 한 번).
   const [filled, setFilled] = useState("");
@@ -112,7 +114,20 @@ function PolicyEditor({ policyId }: { policyId: string }) {
             <Diagnostics error={compile.error} />
           </div>
         </Section>
-        <Section title="버전">
+        <Section
+          title="버전"
+          actions={
+            versions.pages.length >= 2 ? (
+              <button
+                type="button"
+                className={`btn ${showDiff ? "primary" : ""}`}
+                onClick={() => setShowDiff((prev) => !prev)}
+              >
+                {showDiff ? "Diff 닫기" : "버전 Diff 비교"}
+              </button>
+            ) : undefined
+          }
+        >
           <ErrorPanel error={versionsError} />
           {versions.pages.length === 0 ? <p className="muted">버전이 없습니다. 컴파일하면 첫 버전이 생깁니다.</p> : (
             <ul className="stack versions">
@@ -122,6 +137,13 @@ function PolicyEditor({ policyId }: { policyId: string }) {
           <Pager next={versions.next} loadMore={versions.loadMore} />
         </Section>
       </div>
+      {showDiff && (
+        <PolicyDiffViewer
+          policyId={policyId}
+          versions={versions.pages}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
     </>
   );
 }
