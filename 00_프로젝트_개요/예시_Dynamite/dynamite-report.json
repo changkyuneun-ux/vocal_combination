@@ -38,7 +38,7 @@
       "pty_vocal_c": "보컬리스트 C",
       "pty_vocal_d": "보컬리스트 D"
     },
-    "policyText": "allocation \"pol_dynamite_fan\" version 1 {\n  uses facts \"fsc_dynamite\"@1 digest \"mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000000\";\n  scope { pack: pak_dynamite_fan; events: [PRIMARY, TRAFFIC]; currency: KRW; }\n  bind { time: ISSUE_TIME; }\n  tier1 {\n    platform = 25%;\n    ops = 5%;\n    rights = 70%;\n  }\n  tier2 rights {\n    split {\n      master = graph(MASTER_OWNER) : 40%;\n      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) : 40%;\n      work = graph(WORK_AUTHOR) via mandate : 15%;\n      agency = contract(pty_agency) : 5% as AGENCY;\n    }\n  }\n  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n}\n",
+    "policyText": "allocation \"pol_dynamite_fan\" version 1 {\n  uses facts \"fsc_dynamite\"@1 digest \"mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000000\";\n  scope { pack: pak_dynamite_fan; events: [PRIMARY, TRAFFIC]; currency: KRW; }\n  bind { time: ISSUE_TIME; }\n  tier1 {\n    platform = 25%;\n    ops = 5%;\n    rights = 70%;\n  }\n  tier2 rights {\n    split {\n      master = graph(MASTER_OWNER) : 40%;\n      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) via mandate : 40%;\n      work = graph(WORK_AUTHOR) via mandate : 15%;\n      agency = contract(pty_agency) : 5% as AGENCY;\n    }\n  }\n  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n}\n",
     "combinations": [
       {
         "vcId": "vc_dyn_001",
@@ -79,7 +79,7 @@
     "policyId": "pol_dynamite_fan",
     "version": 1,
     "factsDigest": "mdrl:sha256:8455359c15e5d1a17692590399d9d961c6d44dd564dd615af48482ca6ae13576",
-    "policyDigest": "mdrl:sha256:c6ef08e36d04a7bfecaa7665a62a4b43219556899f76b989816cd2d46733115f"
+    "policyDigest": "mdrl:sha256:3b192da727bc8f1f8bad4165cc1edcd9c6b8976a6989467d49ecdf6d37071946"
   },
   "grants": [
     {
@@ -185,19 +185,19 @@
       "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
       "vc_id": "vc_dyn_001",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:d0a66ff53dca54687110f624b8ad4bc0c7d15c9922bf363d4b3a860ed4efac72"
+      "result_digest": "mdrl:sha256:63b2949e60f7f87ca9bdf9e2e428187e5cac36abec105708504fd0b7f4e15409"
     },
     {
       "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_002",
       "vc_id": "vc_dyn_002",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:37691e8b963014393a2b509d82301a6a5e934cf9dd550c072fce5bd6195b8178"
+      "result_digest": "mdrl:sha256:030b4b0ad60cccfde568200d051ca7d214a34053c330eaa2e343f1c2a19aea44"
     },
     {
       "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_003",
       "vc_id": "vc_dyn_003",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:fca27796d7f219aec25499dafc03a86530120c9b4403e6a382143eee3e7e68a5"
+      "result_digest": "mdrl:sha256:592ea4bbc49fe70162d752dd1ac2d60e59e8cc7a8c78d6520faa59079c0325ac"
     }
   ],
   "firstEvent": {
@@ -224,6 +224,12 @@
         "krw": "924"
       },
       {
+        "party_id": "pty_agency",
+        "role": "AGENCY",
+        "bucket": "performer",
+        "krw": "251"
+      },
+      {
         "party_id": "pty_vocal_a",
         "role": "PERFORMER_FEATURED",
         "bucket": "performer",
@@ -231,12 +237,6 @@
       },
       {
         "party_id": "pty_vocal_c",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "krw": "251"
-      },
-      {
-        "party_id": "pty_vocal_d",
         "role": "PERFORMER_FEATURED",
         "bucket": "performer",
         "krw": "251"
@@ -269,28 +269,16 @@
   },
   "byParty": [
     {
-      "party_id": "pty_author_2",
-      "role": "WORK_AUTHOR",
-      "settled_krw": "93247",
-      "reversed_krw": "-173"
-    },
-    {
-      "party_id": "pty_cmo",
-      "role": "CMO",
-      "settled_krw": "93247",
-      "reversed_krw": "-173"
-    },
-    {
-      "party_id": "pty_agency",
-      "role": "AGENCY",
-      "settled_krw": "62524",
-      "reversed_krw": "-116"
-    },
-    {
       "party_id": "pty_label",
       "role": "MASTER_OWNER",
       "settled_krw": "498036",
       "reversed_krw": "-924"
+    },
+    {
+      "party_id": "pty_agency",
+      "role": "AGENCY",
+      "settled_krw": "178942",
+      "reversed_krw": "-367"
     },
     {
       "party_id": "pty_vocal_a",
@@ -311,24 +299,30 @@
       "reversed_krw": "-251"
     },
     {
-      "party_id": "pty_vocal_d",
-      "role": "PERFORMER_FEATURED",
-      "settled_krw": "116418",
-      "reversed_krw": "-251"
+      "party_id": "pty_author_2",
+      "role": "WORK_AUTHOR",
+      "settled_krw": "93247",
+      "reversed_krw": "-173"
+    },
+    {
+      "party_id": "pty_cmo",
+      "role": "CMO",
+      "settled_krw": "93247",
+      "reversed_krw": "-173"
     }
   ],
   "pools": [
     {
-      "bucket": "ops",
-      "krw": "88935"
+      "bucket": "rights",
+      "krw": "1245090"
     },
     {
       "bucket": "platform",
       "krw": "444675"
     },
     {
-      "bucket": "rights",
-      "krw": "1245090"
+      "bucket": "ops",
+      "krw": "88935"
     }
   ],
   "holdings": [
@@ -345,17 +339,17 @@
       "original_run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
       "event_id": "ev_dyn_001_0001",
       "refund_event_id": "ev_rf_0001",
-      "result_digest": "mdrl:sha256:8a1c4f34cf639c9a8ffbf5b049d58e17ca4c9df517b6511cd9fa685658b116ea"
+      "result_digest": "mdrl:sha256:67321c533b743abb7e0bc368b9d94b27f5d99cec6f8eb7b71d289ce32a379fdb"
     }
   ],
   "journal": [
     {
       "kind": "PAYOUT",
-      "n": 8
+      "n": 7
     },
     {
       "kind": "PAYOUT_SETTLED",
-      "n": 8
+      "n": 7
     },
     {
       "kind": "REVERSAL",
@@ -368,41 +362,25 @@
   ],
   "payout": {
     "counts": {
-      "PENDING": 8,
+      "PENDING": 7,
       "HELD": 0,
       "CARRIED": 0
     },
     "instructions": [
-      {
-        "party_id": "pty_author_2",
-        "status": "PAID",
-        "gross_krw": "93074",
-        "withholding_krw": "3070",
-        "net_krw": "90004",
-        "hold_reason": null
-      },
-      {
-        "party_id": "pty_cmo",
-        "status": "PAID",
-        "gross_krw": "93074",
-        "withholding_krw": "0",
-        "net_krw": "93074",
-        "hold_reason": null
-      },
-      {
-        "party_id": "pty_agency",
-        "status": "PAID",
-        "gross_krw": "62408",
-        "withholding_krw": "0",
-        "net_krw": "62408",
-        "hold_reason": null
-      },
       {
         "party_id": "pty_label",
         "status": "PAID",
         "gross_krw": "497112",
         "withholding_krw": "0",
         "net_krw": "497112",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_agency",
+        "status": "PAID",
+        "gross_krw": "178575",
+        "withholding_krw": "0",
+        "net_krw": "178575",
         "hold_reason": null
       },
       {
@@ -422,7 +400,7 @@
         "hold_reason": null
       },
       {
-        "party_id": "pty_vocal_d",
+        "party_id": "pty_vocal_c",
         "status": "PAID",
         "gross_krw": "116167",
         "withholding_krw": "3830",
@@ -430,11 +408,19 @@
         "hold_reason": null
       },
       {
-        "party_id": "pty_vocal_c",
+        "party_id": "pty_author_2",
         "status": "PAID",
-        "gross_krw": "116167",
-        "withholding_krw": "3830",
-        "net_krw": "112337",
+        "gross_krw": "93074",
+        "withholding_krw": "3070",
+        "net_krw": "90004",
+        "hold_reason": null
+      },
+      {
+        "party_id": "pty_cmo",
+        "status": "PAID",
+        "gross_krw": "93074",
+        "withholding_krw": "0",
+        "net_krw": "93074",
         "hold_reason": null
       }
     ]
@@ -443,14 +429,14 @@
     {
       "partyId": "pty_agency",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.067Z",
+      "to": "2026-05-01T00:00:00.059Z",
       "opening": "0",
-      "settled": "62524",
-      "reversed": "-116",
+      "settled": "178942",
+      "reversed": "-367",
       "holdReleased": "0",
-      "payoutGross": "62408",
+      "payoutGross": "178575",
       "withholding": "0",
-      "payoutNet": "62408",
+      "payoutNet": "178575",
       "payoutFailedRestored": "0",
       "withholdingRestored": "0",
       "netRestored": "0",
@@ -460,7 +446,7 @@
     {
       "partyId": "pty_author_2",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.068Z",
+      "to": "2026-05-01T00:00:00.060Z",
       "opening": "0",
       "settled": "93247",
       "reversed": "-173",
@@ -477,7 +463,7 @@
     {
       "partyId": "pty_cmo",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.069Z",
+      "to": "2026-05-01T00:00:00.061Z",
       "opening": "0",
       "settled": "93247",
       "reversed": "-173",
@@ -494,7 +480,7 @@
     {
       "partyId": "pty_label",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.070Z",
+      "to": "2026-05-01T00:00:00.062Z",
       "opening": "0",
       "settled": "498036",
       "reversed": "-924",
@@ -511,7 +497,7 @@
     {
       "partyId": "pty_vocal_a",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.071Z",
+      "to": "2026-05-01T00:00:00.063Z",
       "opening": "0",
       "settled": "144600",
       "reversed": "-251",
@@ -528,7 +514,7 @@
     {
       "partyId": "pty_vocal_b",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.072Z",
+      "to": "2026-05-01T00:00:00.064Z",
       "opening": "0",
       "settled": "120600",
       "reversed": "-171",
@@ -545,24 +531,7 @@
     {
       "partyId": "pty_vocal_c",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.073Z",
-      "opening": "0",
-      "settled": "116418",
-      "reversed": "-251",
-      "holdReleased": "0",
-      "payoutGross": "116167",
-      "withholding": "3830",
-      "payoutNet": "112337",
-      "payoutFailedRestored": "0",
-      "withholdingRestored": "0",
-      "netRestored": "0",
-      "adjusted": "0",
-      "closing": "0"
-    },
-    {
-      "partyId": "pty_vocal_d",
-      "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.074Z",
+      "to": "2026-05-01T00:00:00.065Z",
       "opening": "0",
       "settled": "116418",
       "reversed": "-251",
@@ -607,6 +576,14 @@
       },
       {
         "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "party": "pty_agency",
+        "role": "AGENCY",
+        "bucket": "performer",
+        "line_seq": "1",
+        "amount": "912"
+      },
+      {
+        "event_id": "ev_traffic_2026_03_vc_dyn_001",
         "party": "pty_vocal_a",
         "role": "PERFORMER_FEATURED",
         "bucket": "performer",
@@ -624,14 +601,6 @@
       {
         "event_id": "ev_traffic_2026_03_vc_dyn_001",
         "party": "pty_vocal_c",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "line_seq": "1",
-        "amount": "912"
-      },
-      {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_vocal_d",
         "role": "PERFORMER_FEATURED",
         "bucket": "performer",
         "line_seq": "1",
@@ -663,6 +632,6 @@
       }
     ],
     "holdings": [],
-    "resultDigest": "mdrl:sha256:0c8ff820946a70e02aa7d4aaada0a1991f0f4d89b8f4b8bd5aed41eada96230f"
+    "resultDigest": "mdrl:sha256:30d2170c4a0e6fe52cbef15be7f831674e962fe4a98ba822b466861912fcaaa8"
   }
 }
