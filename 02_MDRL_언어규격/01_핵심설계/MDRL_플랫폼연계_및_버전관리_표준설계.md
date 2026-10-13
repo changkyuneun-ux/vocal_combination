@@ -51,7 +51,7 @@ flowchart LR
 * **이중 시간축(Bitemporal Axis) 보장**:
   * 법적 효력 구간인 `valid_from` ~ `valid_to`(효력 시간)와 플랫폼에 등록된 `recorded_at` ~ `superseded_at`(기록 시간)을 분리 관리하여, 계약 변경 시에도 과거 시점의 권리 상태를 왜곡 없이 복원합니다.
 * **결정적 직렬화(Deterministic Digest)**:
-  * 엔티티 정렬, 밀리초 UTC 통일, RFC 8785(JCS) 정규화를 거쳐 `mdrl:sha256:<hash>` 지문을 생성하고 `sealed_document`에 영구 보존합니다.
+  * 엔티티 정렬, 밀리초 UTC 통일, RFC 8785(JCS) 정규화를 거쳐 `mdrl:sha256:<hash>` digest를 생성하고 `sealed_document`에 영구 보존합니다.
 
 #### 2) 표준 적합성 점검 및 보완 권고사항
 * ✅ **우수**: 관계형 정규화의 유연성과 블록체인/해시체인 수준의 불변성을 완벽히 양립함.

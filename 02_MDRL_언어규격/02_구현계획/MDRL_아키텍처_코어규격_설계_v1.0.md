@@ -323,7 +323,7 @@ constraint "img_nova_L0" version 2 {
 
 - 제약 파라미터는 party 목록 + `position ANY | FROM | TO` 구조이며 v2.7 `combination_constraint_party` 행과 1:1 대응한다.
 - 인접 판정 순서: `(start_ms, stem.sort_order, stem_id)`, 미배정 슬롯은 건너뜀.
-- 조합 지문: `sha256(JCS(combination_manifest))`. 유일성 범위 `PACK | FAN_PACK`(기본 PACK), 충돌 시 `CONSTRAINT_IDENTITY_COLLISION`.
+- 조합 구성 해시: `sha256(JCS(combination_manifest))`. 유일성 범위 `PACK | FAN_PACK`(기본 PACK), 충돌 시 `CONSTRAINT_IDENTITY_COLLISION`.
 - 계승 연산자: `SUBSET | LE | GE | SUPERSET | WITHIN_RANGE | LOCK_ONLY_ADD | EQUAL` (v2.7 `inheritance_rule`).
 
 ### 6.2 `grant`
@@ -341,7 +341,7 @@ constraint "img_nova_L0" version 2 {
 - SoD 선언: `distinct(EDITOR, ACTIVATOR)`, `distinct(SPACE_OPS, SPACE_SETTLE)`.
 - 승인 모드 `AUTO | LABEL | AGENCY`. 플랫폼 개입은 승인 모드가 아니라 `REVIEW_REQUIRED` 경로로 처리한다.
 - 승인자는 `eligible_clauses`의 부분집합만 승인할 수 있다(축소 전용).
-- 스탬프 조항 `PERSONAL_HOLD | PLATFORM_DISTRIBUTE | LIMITED_USE | COMMERCIAL | DOWNLOAD`(v2.7). `COMMERCIAL`·`DOWNLOAD` 조항은 `export_watermark_id`·`fingerprint_ref` 필수(v2.7 유출 관문). 기간 한정은 `PACK_WINDOW`.
+- 스탬프 조항 `PERSONAL_HOLD | PLATFORM_DISTRIBUTE | LIMITED_USE | COMMERCIAL | DOWNLOAD`(v2.7). `COMMERCIAL`·`DOWNLOAD` 조항은 `export_watermark_id`(반출 워터마크)·`fingerprint_ref`(반출 지문 참조) 필수(v2.7 유출 관문). 기간 한정은 `PACK_WINDOW`.
 - 스탬프 발행과 `ISSUED` 전환은 단일 트랜잭션.
 
 ---
@@ -359,7 +359,7 @@ manifest/
                        result_digest, attestations[] }
   facts.ir.json      공개본(커밋먼트 치환)
   constraint.ir.json · grant.ir.json · approval.ir.json · allocation.ir.json
-  snapshot.json      u 벡터, combination_manifest, 지문
+  snapshot.json      u 벡터, combination_manifest, 조합 구성 해시
   vectors.json       역할별 PartyVector, paths
   settlement.json    lines, holdings, trace (금액은 PARTIES 등급)
 ```
