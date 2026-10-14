@@ -3,99 +3,131 @@
     "price": "3300",
     "slots": [
       {
-        "id": "slt_verse1",
-        "label": "1절",
+        "id": "slt_part_jungkook",
+        "owner": "jungkook",
+        "label": "정국 파트",
         "startMs": 0,
-        "endMs": 40000
+        "endMs": 71890
       },
       {
-        "id": "slt_pre",
-        "label": "프리코러스",
-        "startMs": 40000,
-        "endMs": 60000
+        "id": "slt_part_jimin",
+        "owner": "jimin",
+        "label": "지민 파트",
+        "startMs": 71890,
+        "endMs": 112710
       },
       {
-        "id": "slt_chorus",
-        "label": "후렴",
-        "startMs": 60000,
-        "endMs": 100000
+        "id": "slt_part_v",
+        "owner": "v",
+        "label": "뷔 파트",
+        "startMs": 112710,
+        "endMs": 138950
       },
       {
-        "id": "slt_bridge",
-        "label": "브리지",
-        "startMs": 100000,
-        "endMs": 140000
+        "id": "slt_part_jin",
+        "owner": "jin",
+        "label": "진 파트",
+        "startMs": 138950,
+        "endMs": 161920
+      },
+      {
+        "id": "slt_part_rm",
+        "owner": "rm",
+        "label": "RM 파트",
+        "startMs": 161920,
+        "endMs": 180000
+      },
+      {
+        "id": "slt_part_jhope",
+        "owner": "jhope",
+        "label": "제이홉 파트",
+        "startMs": 180000,
+        "endMs": 186550
+      },
+      {
+        "id": "slt_part_suga",
+        "owner": "suga",
+        "label": "슈가 파트",
+        "startMs": 186550,
+        "endMs": 192790
       }
     ],
     "names": {
-      "pty_label": "레이블 L (마스터 보유)",
-      "pty_author_1": "작가 W1 (작사·작곡 50%)",
-      "pty_author_2": "작가 W2 (작사·작곡 50%)",
-      "pty_cmo": "저작권 신탁단체 C (W1 위임)",
-      "pty_agency": "보컬리스트 D의 소속사 G",
-      "pty_vocal_a": "보컬리스트 A",
-      "pty_vocal_b": "보컬리스트 B",
-      "pty_vocal_c": "보컬리스트 C",
-      "pty_vocal_d": "보컬리스트 D"
+      "pty_bighit_label": "빅히트 뮤직 — 레이블(마스터 보유, 가정)",
+      "pty_bighit_agency": "빅히트 뮤직 — 소속사(멤버 실연 몫 수령, 가정)",
+      "pty_david_stewart": "David Stewart(작사·작곡, 지분 가정 50%)",
+      "pty_jessica_agombar": "Jessica Agombar(작사·작곡, 지분 가정 50%)",
+      "pty_jungkook": "정국",
+      "pty_jimin": "지민",
+      "pty_v": "뷔",
+      "pty_jin": "진",
+      "pty_rm": "RM",
+      "pty_jhope": "제이홉",
+      "pty_suga": "슈가"
     },
-    "policyText": "allocation \"pol_dynamite_fan\" version 1 {\n  uses facts \"fsc_dynamite\"@1 digest \"mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000000\";\n  scope { pack: pak_dynamite_fan; events: [PRIMARY, TRAFFIC]; currency: KRW; }\n  bind { time: ISSUE_TIME; }\n  tier1 {\n    platform = 25%;\n    ops = 5%;\n    rights = 70%;\n  }\n  tier2 rights {\n    split {\n      master = graph(MASTER_OWNER) : 40%;\n      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) via mandate : 40%;\n      work = graph(WORK_AUTHOR) via mandate : 15%;\n      agency = contract(pty_agency) : 5% as AGENCY;\n    }\n  }\n  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n}\n",
+    "policyText": "allocation \"pol_dynamite_fan\" version 1 {\n  uses facts \"fsc_dynamite\"@1 digest \"mdrl:sha256:0000000000000000000000000000000000000000000000000000000000000000\";\n  scope { pack: pak_dynamite_fan; events: [PRIMARY, TRAFFIC]; currency: KRW; }\n  bind { time: ISSUE_TIME; }\n  tier1 {\n    platform = 25%;\n    ops = 5%;\n    rights = 70%;\n  }\n  tier2 rights {\n    split {\n      master = graph(MASTER_OWNER) : 40%;\n      performer = performance_pool(HYBRID, fixed: 40%, usage: 60%, featured_weight: 70%) |> cap(50%) via mandate : 45%;\n      work = graph(WORK_AUTHOR) : 15%;\n    }\n  }\n  rounding { method: HIERARCHICAL_LRM_V1; tie: party_id_asc; }\n}\n",
     "combinations": [
       {
-        "vcId": "vc_dyn_001",
+        "vcId": "vc_bts_orig",
         "fan": "팬 F1",
-        "picks": [
-          "a",
-          "b",
-          "c",
-          "d"
-        ],
+        "title": "원곡 배치",
+        "swap": {},
+        "purchases": 1200
+      },
+      {
+        "vcId": "vc_bts_swap",
+        "fan": "팬 F2",
+        "title": "정국·지민 파트 맞바꾸기",
+        "swap": {
+          "jungkook": "jimin",
+          "jimin": "jungkook"
+        },
+        "purchases": 500
+      },
+      {
+        "vcId": "vc_bts_vocal",
+        "fan": "팬 F3",
+        "title": "랩 파트를 보컬 멤버가",
+        "swap": {
+          "rm": "jin",
+          "suga": "v",
+          "jhope": "jimin"
+        },
         "purchases": 300
       },
       {
-        "vcId": "vc_dyn_002",
-        "fan": "팬 F2",
-        "picks": [
-          "a",
-          "a",
-          "b",
-          "b"
-        ],
-        "purchases": 150
-      },
-      {
-        "vcId": "vc_dyn_003",
-        "fan": "팬 F3",
-        "picks": [
-          "c",
-          "d",
-          "d",
-          "c"
-        ],
-        "purchases": 90
+        "vcId": "vc_bts_jin",
+        "fan": "팬 F4",
+        "title": "진이 정국·지민 파트까지",
+        "swap": {
+          "jungkook": "jin",
+          "jimin": "jin"
+        },
+        "purchases": 200
       }
     ]
   },
   "policy": {
     "policyId": "pol_dynamite_fan",
     "version": 1,
-    "factsDigest": "mdrl:sha256:8455359c15e5d1a17692590399d9d961c6d44dd564dd615af48482ca6ae13576",
-    "policyDigest": "mdrl:sha256:3b192da727bc8f1f8bad4165cc1edcd9c6b8976a6989467d49ecdf6d37071946"
+    "factsDigest": "mdrl:sha256:296efce0943fea781b63ce1051ba89b9479ccf8d632323fe8a9722b6c53074ec",
+    "policyDigest": "mdrl:sha256:5749385fa6e0fc3f6def30072a03f8de75264a978aec698be91f697b613e4fad"
   },
   "grants": [
     {
-      "case": "팬앱에서 vc_dyn_001 조합·감상",
+      "case": "팬앱에서 원곡 배치 조합 감상",
       "result": "PERMIT",
       "reasons": []
     },
     {
-      "case": "같은 조합을 다운로드해 외부 SNS에 게시",
+      "case": "같은 조합을 내려받아 외부 SNS에 게시",
       "result": "DENY",
       "reasons": [
         "GRANT_SCOPE_WIDENING"
       ]
     },
     {
-      "case": "보컬리스트 D가 동의를 철회한 뒤 vc_dyn_001 조합·감상",
+      "case": "멤버 한 명의 동의가 철회된 뒤(가정) 같은 조합 감상",
       "result": "DENY",
       "reasons": [
         "GRANT_REVOKED"
@@ -104,67 +136,141 @@
   ],
   "issued": [
     {
-      "vcId": "vc_dyn_001",
+      "vcId": "vc_bts_orig",
       "fan": "팬 F1",
-      "members": {
-        "pty_vocal_a": 2500,
-        "pty_vocal_b": 2500,
-        "pty_vocal_c": 2500,
-        "pty_vocal_d": 2500
+      "title": "원곡 배치",
+      "singers": {
+        "jungkook": "jungkook",
+        "jimin": "jimin",
+        "v": "v",
+        "jin": "jin",
+        "rm": "rm",
+        "jhope": "jhope",
+        "suga": "suga"
       },
-      "snapshotId": "snp_vc_dyn_001",
-      "projectionDigest": "mdrl:sha256:a296123d483f63e0231f2cbab272cd224a94fdf43039e0b6d6d9b37c1ec918e9"
+      "members": {
+        "pty_jungkook": 1429,
+        "pty_jimin": 1429,
+        "pty_v": 1428,
+        "pty_jin": 1429,
+        "pty_rm": 1428,
+        "pty_jhope": 1429,
+        "pty_suga": 1428
+      },
+      "snapshotId": "snp_vc_bts_orig",
+      "projectionDigest": "mdrl:sha256:cdc2a4eadb591e7e43434fb0218413ce3f7092eb7f321062e7737cb2a4297ad0",
+      "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
     },
     {
-      "vcId": "vc_dyn_002",
+      "vcId": "vc_bts_swap",
       "fan": "팬 F2",
-      "members": {
-        "pty_vocal_a": 5000,
-        "pty_vocal_b": 5000
+      "title": "정국·지민 파트 맞바꾸기",
+      "singers": {
+        "jungkook": "jimin",
+        "jimin": "jungkook",
+        "v": "v",
+        "jin": "jin",
+        "rm": "rm",
+        "jhope": "jhope",
+        "suga": "suga"
       },
-      "snapshotId": "snp_vc_dyn_002",
-      "projectionDigest": "mdrl:sha256:af31688c4646006b531c084a1205ec93ba86319dd86b0833a1c9520a1e3fe368"
+      "members": {
+        "pty_jimin": 1429,
+        "pty_jungkook": 1429,
+        "pty_v": 1428,
+        "pty_jin": 1429,
+        "pty_rm": 1428,
+        "pty_jhope": 1429,
+        "pty_suga": 1428
+      },
+      "snapshotId": "snp_vc_bts_swap",
+      "projectionDigest": "mdrl:sha256:67f81f9700a60cc535d9873ca28c726fa662f0b46f3ff23f32098107a491cf3a",
+      "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
     },
     {
-      "vcId": "vc_dyn_003",
+      "vcId": "vc_bts_vocal",
       "fan": "팬 F3",
-      "members": {
-        "pty_vocal_c": 5000,
-        "pty_vocal_d": 5000
+      "title": "랩 파트를 보컬 멤버가",
+      "singers": {
+        "jungkook": "jungkook",
+        "jimin": "jimin",
+        "v": "v",
+        "jin": "jin",
+        "rm": "jin",
+        "jhope": "jimin",
+        "suga": "v"
       },
-      "snapshotId": "snp_vc_dyn_003",
-      "projectionDigest": "mdrl:sha256:677a0ce8c57d27243f5c15475900ebad4bdf3d5ffc81aa5572a8672d1d3d4754"
+      "members": {
+        "pty_jungkook": 1429,
+        "pty_jimin": 2857,
+        "pty_v": 2857,
+        "pty_jin": 2857
+      },
+      "snapshotId": "snp_vc_bts_vocal",
+      "projectionDigest": "mdrl:sha256:ad9c1ce2d3e1833252aff24cc8903f9fe3baf1044975ee323c25c2d3074d59aa",
+      "membersDigest": "mdrl:sha256:475db79842ec531d431f49d12aa9a294318b82cdcb10650ea35b248edafa95f8"
+    },
+    {
+      "vcId": "vc_bts_jin",
+      "fan": "팬 F4",
+      "title": "진이 정국·지민 파트까지",
+      "singers": {
+        "jungkook": "jin",
+        "jimin": "jin",
+        "v": "v",
+        "jin": "jin",
+        "rm": "rm",
+        "jhope": "jhope",
+        "suga": "suga"
+      },
+      "members": {
+        "pty_jin": 4286,
+        "pty_v": 1428,
+        "pty_rm": 1429,
+        "pty_jhope": 1429,
+        "pty_suga": 1428
+      },
+      "snapshotId": "snp_vc_bts_jin",
+      "projectionDigest": "mdrl:sha256:f86a6768a7b642a5e9b2bc0bdc5f52a38bf98402e89fea05e2acb8c792283643",
+      "membersDigest": "mdrl:sha256:d2b281080c579201906e8108c8047a373b8ba29a5443022b36b7d67aad07d8eb"
     }
   ],
   "rejectedSolo": "ISSUE_NOT_SETTLEABLE",
   "revenue": [
     {
-      "vc_id": "vc_dyn_001",
+      "vc_id": "vc_bts_jin",
       "event_type": "PURCHASE",
       "integrity_status": "CLEAR",
-      "n": 300,
-      "krw": "990000"
+      "n": 199,
+      "krw": "656700"
     },
     {
-      "vc_id": "vc_dyn_002",
-      "event_type": "PURCHASE",
-      "integrity_status": "CLEAR",
-      "n": 150,
-      "krw": "495000"
-    },
-    {
-      "vc_id": "vc_dyn_003",
-      "event_type": "PURCHASE",
-      "integrity_status": "CLEAR",
-      "n": 89,
-      "krw": "293700"
-    },
-    {
-      "vc_id": "vc_dyn_003",
+      "vc_id": "vc_bts_jin",
       "event_type": "PURCHASE",
       "integrity_status": "FLAGGED",
       "n": 1,
       "krw": "3300"
+    },
+    {
+      "vc_id": "vc_bts_orig",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 1200,
+      "krw": "3960000"
+    },
+    {
+      "vc_id": "vc_bts_swap",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 500,
+      "krw": "1650000"
+    },
+    {
+      "vc_id": "vc_bts_vocal",
+      "event_type": "PURCHASE",
+      "integrity_status": "CLEAR",
+      "n": 300,
+      "krw": "990000"
     },
     {
       "vc_id": null,
@@ -177,31 +283,37 @@
   "runStatus": [
     {
       "status": "VERIFIED",
-      "n": 3
+      "n": 4
     }
   ],
   "runs": [
     {
-      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
-      "vc_id": "vc_dyn_001",
+      "run_id": "run_bat_bts_2026_03_snp_vc_bts_jin",
+      "vc_id": "vc_bts_jin",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:63b2949e60f7f87ca9bdf9e2e428187e5cac36abec105708504fd0b7f4e15409"
+      "result_digest": "mdrl:sha256:6ec8dbd81971576ff4a5f033a86f715a572138c7966b7a9bffd1c59340a6000d"
     },
     {
-      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_002",
-      "vc_id": "vc_dyn_002",
+      "run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
+      "vc_id": "vc_bts_orig",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:030b4b0ad60cccfde568200d051ca7d214a34053c330eaa2e343f1c2a19aea44"
+      "result_digest": "mdrl:sha256:d9ca6ebb9a1081593d420bd6be9d6d801116f6e258a6c1e8c722e172dd18f7d3"
     },
     {
-      "run_id": "run_bat_dyn_2026_03_snp_vc_dyn_003",
-      "vc_id": "vc_dyn_003",
+      "run_id": "run_bat_bts_2026_03_snp_vc_bts_swap",
+      "vc_id": "vc_bts_swap",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:592ea4bbc49fe70162d752dd1ac2d60e59e8cc7a8c78d6520faa59079c0325ac"
+      "result_digest": "mdrl:sha256:dae572b34d405ce64b5e6062726190b7a5bdbca74d0353a0c3e4c41f68beac2c"
+    },
+    {
+      "run_id": "run_bat_bts_2026_03_snp_vc_bts_vocal",
+      "vc_id": "vc_bts_vocal",
+      "status": "CONFIRMED",
+      "result_digest": "mdrl:sha256:df18e8e733a7e12ca4e1aa7d670a659a1fd78da95c1af8260290b26070b253af"
     }
   ],
   "firstEvent": {
-    "eventId": "ev_dyn_001_0001",
+    "eventId": "ev_orig_0001",
     "pool": [
       {
         "bucket": "rights",
@@ -218,116 +330,176 @@
     ],
     "lines": [
       {
-        "party_id": "pty_label",
+        "party_id": "pty_bighit_agency",
+        "role": "AGENCY",
+        "bucket": "performer",
+        "krw": "1040"
+      },
+      {
+        "party_id": "pty_bighit_label",
         "role": "MASTER_OWNER",
         "bucket": "master",
         "krw": "924"
       },
       {
-        "party_id": "pty_agency",
-        "role": "AGENCY",
-        "bucket": "performer",
-        "krw": "251"
-      },
-      {
-        "party_id": "pty_vocal_a",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "krw": "251"
-      },
-      {
-        "party_id": "pty_vocal_c",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "krw": "251"
-      },
-      {
-        "party_id": "pty_author_2",
+        "party_id": "pty_david_stewart",
         "role": "WORK_AUTHOR",
         "bucket": "work",
         "krw": "173"
       },
       {
-        "party_id": "pty_cmo",
-        "role": "CMO",
+        "party_id": "pty_jessica_agombar",
+        "role": "WORK_AUTHOR",
         "bucket": "work",
         "krw": "173"
+      }
+    ]
+  },
+  "contributions": {
+    "vc_bts_orig": [
+      {
+        "party": "pty_jhope",
+        "amount": "81"
       },
       {
-        "party_id": "pty_vocal_b",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "krw": "171"
+        "party": "pty_jimin",
+        "amount": "191"
       },
       {
-        "party_id": "pty_agency",
-        "role": "AGENCY",
-        "bucket": "agency",
-        "krw": "116"
+        "party": "pty_jin",
+        "amount": "134"
+      },
+      {
+        "party": "pty_jungkook",
+        "amount": "292"
+      },
+      {
+        "party": "pty_rm",
+        "amount": "118"
+      },
+      {
+        "party": "pty_suga",
+        "amount": "80"
+      },
+      {
+        "party": "pty_v",
+        "amount": "144"
+      }
+    ],
+    "vc_bts_swap": [
+      {
+        "party": "pty_jhope",
+        "amount": "81"
+      },
+      {
+        "party": "pty_jimin",
+        "amount": "292"
+      },
+      {
+        "party": "pty_jin",
+        "amount": "134"
+      },
+      {
+        "party": "pty_jungkook",
+        "amount": "191"
+      },
+      {
+        "party": "pty_rm",
+        "amount": "118"
+      },
+      {
+        "party": "pty_suga",
+        "amount": "80"
+      },
+      {
+        "party": "pty_v",
+        "amount": "144"
+      }
+    ],
+    "vc_bts_vocal": [
+      {
+        "party": "pty_jimin",
+        "amount": "257"
+      },
+      {
+        "party": "pty_jin",
+        "amount": "237"
+      },
+      {
+        "party": "pty_jungkook",
+        "amount": "337"
+      },
+      {
+        "party": "pty_v",
+        "amount": "209"
+      }
+    ],
+    "vc_bts_jin": [
+      {
+        "party": "pty_jhope",
+        "amount": "105"
+      },
+      {
+        "party": "pty_jin",
+        "amount": "520"
+      },
+      {
+        "party": "pty_rm",
+        "amount": "142"
+      },
+      {
+        "party": "pty_suga",
+        "amount": "104"
+      },
+      {
+        "party": "pty_v",
+        "amount": "169"
       }
     ]
   },
   "byParty": [
     {
-      "party_id": "pty_label",
+      "party_id": "pty_bighit_agency",
+      "role": "AGENCY",
+      "settled_krw": "2286960",
+      "reversed_krw": "-1040"
+    },
+    {
+      "party_id": "pty_bighit_label",
       "role": "MASTER_OWNER",
-      "settled_krw": "498036",
+      "settled_krw": "2031876",
       "reversed_krw": "-924"
     },
     {
-      "party_id": "pty_agency",
-      "role": "AGENCY",
-      "settled_krw": "178942",
-      "reversed_krw": "-367"
-    },
-    {
-      "party_id": "pty_vocal_a",
-      "role": "PERFORMER_FEATURED",
-      "settled_krw": "144600",
-      "reversed_krw": "-251"
-    },
-    {
-      "party_id": "pty_vocal_b",
-      "role": "PERFORMER_FEATURED",
-      "settled_krw": "120600",
-      "reversed_krw": "-171"
-    },
-    {
-      "party_id": "pty_vocal_c",
-      "role": "PERFORMER_FEATURED",
-      "settled_krw": "116418",
-      "reversed_krw": "-251"
-    },
-    {
-      "party_id": "pty_author_2",
+      "party_id": "pty_david_stewart",
       "role": "WORK_AUTHOR",
-      "settled_krw": "93247",
+      "settled_krw": "380427",
       "reversed_krw": "-173"
     },
     {
-      "party_id": "pty_cmo",
-      "role": "CMO",
-      "settled_krw": "93247",
+      "party_id": "pty_jessica_agombar",
+      "role": "WORK_AUTHOR",
+      "settled_krw": "380427",
       "reversed_krw": "-173"
     }
   ],
   "pools": [
     {
       "bucket": "rights",
-      "krw": "1245090"
+      "krw": "5079690"
     },
     {
       "bucket": "platform",
-      "krw": "444675"
+      "krw": "1814175"
     },
     {
       "bucket": "ops",
-      "krw": "88935"
+      "krw": "362835"
     }
   ],
   "holdings": [
     {
-      "event_id": "ev_dyn_003_0001",
+      "event_id": "ev_jin_0001",
       "bucket": "rights",
       "reason": "FRAUD_REVIEW",
       "krw": "2310"
@@ -336,20 +508,20 @@
   "reversals": [
     {
       "reversal_id": "rev_ev_rf_0001",
-      "original_run_id": "run_bat_dyn_2026_03_snp_vc_dyn_001",
-      "event_id": "ev_dyn_001_0001",
+      "original_run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
+      "event_id": "ev_orig_0001",
       "refund_event_id": "ev_rf_0001",
-      "result_digest": "mdrl:sha256:67321c533b743abb7e0bc368b9d94b27f5d99cec6f8eb7b71d289ce32a379fdb"
+      "result_digest": "mdrl:sha256:90225f67f1695f4ad4b0787d41a43289676afc81b9714345ae5e125d673fd49e"
     }
   ],
   "journal": [
     {
       "kind": "PAYOUT",
-      "n": 7
+      "n": 4
     },
     {
       "kind": "PAYOUT_SETTLED",
-      "n": 7
+      "n": 4
     },
     {
       "kind": "REVERSAL",
@@ -357,86 +529,62 @@
     },
     {
       "kind": "SETTLEMENT",
-      "n": 3
+      "n": 4
     }
   ],
   "payout": {
     "counts": {
-      "PENDING": 7,
+      "PENDING": 4,
       "HELD": 0,
       "CARRIED": 0
     },
     "instructions": [
       {
-        "party_id": "pty_label",
+        "party_id": "pty_bighit_agency",
         "status": "PAID",
-        "gross_krw": "497112",
+        "gross_krw": "2285920",
         "withholding_krw": "0",
-        "net_krw": "497112",
+        "net_krw": "2285920",
         "hold_reason": null
       },
       {
-        "party_id": "pty_agency",
+        "party_id": "pty_bighit_label",
         "status": "PAID",
-        "gross_krw": "178575",
+        "gross_krw": "2030952",
         "withholding_krw": "0",
-        "net_krw": "178575",
+        "net_krw": "2030952",
         "hold_reason": null
       },
       {
-        "party_id": "pty_vocal_a",
+        "party_id": "pty_david_stewart",
         "status": "PAID",
-        "gross_krw": "144349",
-        "withholding_krw": "4760",
-        "net_krw": "139589",
+        "gross_krw": "380254",
+        "withholding_krw": "83650",
+        "net_krw": "296604",
         "hold_reason": null
       },
       {
-        "party_id": "pty_vocal_b",
+        "party_id": "pty_jessica_agombar",
         "status": "PAID",
-        "gross_krw": "120429",
-        "withholding_krw": "3970",
-        "net_krw": "116459",
-        "hold_reason": null
-      },
-      {
-        "party_id": "pty_vocal_c",
-        "status": "PAID",
-        "gross_krw": "116167",
-        "withholding_krw": "3830",
-        "net_krw": "112337",
-        "hold_reason": null
-      },
-      {
-        "party_id": "pty_author_2",
-        "status": "PAID",
-        "gross_krw": "93074",
-        "withholding_krw": "3070",
-        "net_krw": "90004",
-        "hold_reason": null
-      },
-      {
-        "party_id": "pty_cmo",
-        "status": "PAID",
-        "gross_krw": "93074",
-        "withholding_krw": "0",
-        "net_krw": "93074",
+        "gross_krw": "380254",
+        "withholding_krw": "83650",
+        "net_krw": "296604",
         "hold_reason": null
       }
     ]
   },
   "statements": [
     {
-      "partyId": "pty_agency",
+      "partyId": "pty_bighit_agency",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.059Z",
+      "to": "2026-05-01T00:00:00.035Z",
       "opening": "0",
-      "settled": "178942",
-      "reversed": "-367",
+      "settled": "2286960",
+      "reversed": "-1040",
       "holdReleased": "0",
-      "payoutGross": "178575",
+      "payoutGross": "2285920",
       "withholding": "0",
-      "payoutNet": "178575",
+      "payoutNet": "2285920",
       "payoutFailedRestored": "0",
       "withholdingRestored": "0",
       "netRestored": "0",
@@ -444,50 +592,16 @@
       "closing": "0"
     },
     {
-      "partyId": "pty_author_2",
+      "partyId": "pty_bighit_label",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.060Z",
+      "to": "2026-05-01T00:00:00.036Z",
       "opening": "0",
-      "settled": "93247",
-      "reversed": "-173",
-      "holdReleased": "0",
-      "payoutGross": "93074",
-      "withholding": "3070",
-      "payoutNet": "90004",
-      "payoutFailedRestored": "0",
-      "withholdingRestored": "0",
-      "netRestored": "0",
-      "adjusted": "0",
-      "closing": "0"
-    },
-    {
-      "partyId": "pty_cmo",
-      "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.061Z",
-      "opening": "0",
-      "settled": "93247",
-      "reversed": "-173",
-      "holdReleased": "0",
-      "payoutGross": "93074",
-      "withholding": "0",
-      "payoutNet": "93074",
-      "payoutFailedRestored": "0",
-      "withholdingRestored": "0",
-      "netRestored": "0",
-      "adjusted": "0",
-      "closing": "0"
-    },
-    {
-      "partyId": "pty_label",
-      "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.062Z",
-      "opening": "0",
-      "settled": "498036",
+      "settled": "2031876",
       "reversed": "-924",
       "holdReleased": "0",
-      "payoutGross": "497112",
+      "payoutGross": "2030952",
       "withholding": "0",
-      "payoutNet": "497112",
+      "payoutNet": "2030952",
       "payoutFailedRestored": "0",
       "withholdingRestored": "0",
       "netRestored": "0",
@@ -495,16 +609,16 @@
       "closing": "0"
     },
     {
-      "partyId": "pty_vocal_a",
+      "partyId": "pty_david_stewart",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.063Z",
+      "to": "2026-05-01T00:00:00.037Z",
       "opening": "0",
-      "settled": "144600",
-      "reversed": "-251",
+      "settled": "380427",
+      "reversed": "-173",
       "holdReleased": "0",
-      "payoutGross": "144349",
-      "withholding": "4760",
-      "payoutNet": "139589",
+      "payoutGross": "380254",
+      "withholding": "83650",
+      "payoutNet": "296604",
       "payoutFailedRestored": "0",
       "withholdingRestored": "0",
       "netRestored": "0",
@@ -512,33 +626,16 @@
       "closing": "0"
     },
     {
-      "partyId": "pty_vocal_b",
+      "partyId": "pty_jessica_agombar",
       "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.064Z",
+      "to": "2026-05-01T00:00:00.038Z",
       "opening": "0",
-      "settled": "120600",
-      "reversed": "-171",
+      "settled": "380427",
+      "reversed": "-173",
       "holdReleased": "0",
-      "payoutGross": "120429",
-      "withholding": "3970",
-      "payoutNet": "116459",
-      "payoutFailedRestored": "0",
-      "withholdingRestored": "0",
-      "netRestored": "0",
-      "adjusted": "0",
-      "closing": "0"
-    },
-    {
-      "partyId": "pty_vocal_c",
-      "from": "2026-01-01T00:00:00.000Z",
-      "to": "2026-05-01T00:00:00.065Z",
-      "opening": "0",
-      "settled": "116418",
-      "reversed": "-251",
-      "holdReleased": "0",
-      "payoutGross": "116167",
-      "withholding": "3830",
-      "payoutNet": "112337",
+      "payoutGross": "380254",
+      "withholding": "83650",
+      "payoutNet": "296604",
       "payoutFailedRestored": "0",
       "withholdingRestored": "0",
       "netRestored": "0",
@@ -550,88 +647,56 @@
     "ok": true,
     "pool": [
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "event_id": "ev_traffic_2026_03_orig",
         "bucket": "platform",
-        "amount": "3000"
+        "amount": "12500"
       },
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "event_id": "ev_traffic_2026_03_orig",
         "bucket": "ops",
-        "amount": "600"
+        "amount": "2500"
       },
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
+        "event_id": "ev_traffic_2026_03_orig",
         "bucket": "rights",
-        "amount": "8400"
+        "amount": "35000"
       }
     ],
     "lines": [
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_label",
+        "event_id": "ev_traffic_2026_03_orig",
+        "party": "pty_bighit_label",
         "role": "MASTER_OWNER",
         "bucket": "master",
         "line_seq": "1",
-        "amount": "3360"
+        "amount": "14000"
       },
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_agency",
+        "event_id": "ev_traffic_2026_03_orig",
+        "party": "pty_bighit_agency",
         "role": "AGENCY",
         "bucket": "performer",
         "line_seq": "1",
-        "amount": "912"
+        "amount": "15750"
       },
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_vocal_a",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "line_seq": "1",
-        "amount": "912"
-      },
-      {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_vocal_b",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "line_seq": "1",
-        "amount": "624"
-      },
-      {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_vocal_c",
-        "role": "PERFORMER_FEATURED",
-        "bucket": "performer",
-        "line_seq": "1",
-        "amount": "912"
-      },
-      {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_author_2",
+        "event_id": "ev_traffic_2026_03_orig",
+        "party": "pty_david_stewart",
         "role": "WORK_AUTHOR",
         "bucket": "work",
         "line_seq": "1",
-        "amount": "630"
+        "amount": "2625"
       },
       {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_cmo",
-        "role": "CMO",
+        "event_id": "ev_traffic_2026_03_orig",
+        "party": "pty_jessica_agombar",
+        "role": "WORK_AUTHOR",
         "bucket": "work",
         "line_seq": "1",
-        "amount": "630"
-      },
-      {
-        "event_id": "ev_traffic_2026_03_vc_dyn_001",
-        "party": "pty_agency",
-        "role": "AGENCY",
-        "bucket": "agency",
-        "line_seq": "1",
-        "amount": "420"
+        "amount": "2625"
       }
     ],
     "holdings": [],
-    "resultDigest": "mdrl:sha256:30d2170c4a0e6fe52cbef15be7f831674e962fe4a98ba822b466861912fcaaa8"
+    "resultDigest": "mdrl:sha256:cadf3328c6587b8433d6ef801f3e438792630f9c21e2a90e96d8986e6d53d5d5"
   }
 }
