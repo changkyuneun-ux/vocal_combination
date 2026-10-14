@@ -110,8 +110,8 @@
   "policy": {
     "policyId": "pol_dynamite_fan",
     "version": 1,
-    "factsDigest": "mdrl:sha256:296efce0943fea781b63ce1051ba89b9479ccf8d632323fe8a9722b6c53074ec",
-    "policyDigest": "mdrl:sha256:5749385fa6e0fc3f6def30072a03f8de75264a978aec698be91f697b613e4fad"
+    "factsDigest": "mdrl:sha256:2e77bb42dcb9910a452abe7231f5746e4321a2738aa280c11afcfaa5ecff9258",
+    "policyDigest": "mdrl:sha256:1cbc37c4fa849f3cdae269c7afa93232274f120c4227c7875e35f20b23057828"
   },
   "grants": [
     {
@@ -158,7 +158,7 @@
         "pty_suga": 1428
       },
       "snapshotId": "snp_vc_bts_orig",
-      "projectionDigest": "mdrl:sha256:cdc2a4eadb591e7e43434fb0218413ce3f7092eb7f321062e7737cb2a4297ad0",
+      "projectionDigest": "mdrl:sha256:75c8d707d210b05ca87582b2f896cd2d9157928b08b72db7e1c74e8da4396aed",
       "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
     },
     {
@@ -184,7 +184,7 @@
         "pty_suga": 1428
       },
       "snapshotId": "snp_vc_bts_swap",
-      "projectionDigest": "mdrl:sha256:67f81f9700a60cc535d9873ca28c726fa662f0b46f3ff23f32098107a491cf3a",
+      "projectionDigest": "mdrl:sha256:b3a321025a6835a3a6c6266955b91e8e664b5f25fc4109130a35af7ec971eaec",
       "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
     },
     {
@@ -207,7 +207,7 @@
         "pty_jin": 2857
       },
       "snapshotId": "snp_vc_bts_vocal",
-      "projectionDigest": "mdrl:sha256:ad9c1ce2d3e1833252aff24cc8903f9fe3baf1044975ee323c25c2d3074d59aa",
+      "projectionDigest": "mdrl:sha256:0ab4def07908139024af4406787762ef7a9bfe5297b2dad6d131bb63b65c2f82",
       "membersDigest": "mdrl:sha256:475db79842ec531d431f49d12aa9a294318b82cdcb10650ea35b248edafa95f8"
     },
     {
@@ -231,7 +231,7 @@
         "pty_suga": 1428
       },
       "snapshotId": "snp_vc_bts_jin",
-      "projectionDigest": "mdrl:sha256:f86a6768a7b642a5e9b2bc0bdc5f52a38bf98402e89fea05e2acb8c792283643",
+      "projectionDigest": "mdrl:sha256:b064f16205f4fb4a4ba643ee394483456521493539840770f6d25baad0ffe95c",
       "membersDigest": "mdrl:sha256:d2b281080c579201906e8108c8047a373b8ba29a5443022b36b7d67aad07d8eb"
     }
   ],
@@ -291,25 +291,25 @@
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_jin",
       "vc_id": "vc_bts_jin",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:6ec8dbd81971576ff4a5f033a86f715a572138c7966b7a9bffd1c59340a6000d"
+      "result_digest": "mdrl:sha256:a843e381bd758a193ccbb43b2fd33d481ccd1efddbadae6e8341091c28a21373"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
       "vc_id": "vc_bts_orig",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:d9ca6ebb9a1081593d420bd6be9d6d801116f6e258a6c1e8c722e172dd18f7d3"
+      "result_digest": "mdrl:sha256:76591e949aaa5c53382e9f221fefd80643f7b2f9d69ceb440f2a4e5b2cae87a1"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_swap",
       "vc_id": "vc_bts_swap",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:dae572b34d405ce64b5e6062726190b7a5bdbca74d0353a0c3e4c41f68beac2c"
+      "result_digest": "mdrl:sha256:53dff2ab27ea9a20f2adc5a9a6bfa75cd5bf05fb63263f3f81b31ec5c3ef165f"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_vocal",
       "vc_id": "vc_bts_vocal",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:df18e8e733a7e12ca4e1aa7d670a659a1fd78da95c1af8260290b26070b253af"
+      "result_digest": "mdrl:sha256:5fc55cab327b0dd455f27f64102e71f37c9904916057ca5ccd1681401f367308"
     }
   ],
   "firstEvent": {
@@ -511,7 +511,7 @@
       "original_run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
       "event_id": "ev_orig_0001",
       "refund_event_id": "ev_rf_0001",
-      "result_digest": "mdrl:sha256:90225f67f1695f4ad4b0787d41a43289676afc81b9714345ae5e125d673fd49e"
+      "result_digest": "mdrl:sha256:3840925dcdba8f481579fee8b54fee9b11421df174b8dd72adb9b28a8834b253"
     }
   ],
   "journal": [
@@ -697,6 +697,6 @@
       }
     ],
     "holdings": [],
-    "resultDigest": "mdrl:sha256:cadf3328c6587b8433d6ef801f3e438792630f9c21e2a90e96d8986e6d53d5d5"
+    "resultDigest": "mdrl:sha256:ad79bd5a85d874246a14e58ffcb96d8e6092d50922f24d76f3c56d5603585d21"
   }
 }

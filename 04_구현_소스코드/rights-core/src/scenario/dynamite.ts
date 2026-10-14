@@ -125,13 +125,13 @@ async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   await reg.registerStem(tx, clock, { stemId: "stm_mr", slotId: "slt_mr", recordingId: RECORDING, rightsBearing: false });
   const base = { factsScopeId: SCOPE, status: "VERIFIED" as const, validFrom: T0 };
   for (const m of MEMBERS) {
-    await reg.registerVoice(tx, clock, { voiceId: `vo_${m.key}`, factsScopeId: SCOPE, kind: "HUMAN" });
+    await reg.registerVoice(tx, clock, { voiceId: `voc_${m.key}`, factsScopeId: SCOPE, kind: "HUMAN" });
     for (const s of SLOTS) {
       const stemId = `stm_${m.key}_${s.owner}`;
       await reg.registerStem(tx, clock, { stemId, slotId: s.id, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true });
-      await reg.recordClaim(tx, clock, { ...base, claimId: `c_perf_${m.key}_${s.owner}`, sourceId: stemId, edge: "PERFORMED_BY", targetId: `vo_${m.key}`, shareBps: 10000, performerRole: "FEATURED" });
+      await reg.recordClaim(tx, clock, { ...base, claimId: `c_perf_${m.key}_${s.owner}`, sourceId: stemId, edge: "PERFORMED_BY", targetId: `voc_${m.key}`, shareBps: 10000, performerRole: "FEATURED" });
     }
-    await reg.recordClaim(tx, clock, { ...base, claimId: `c_own_${m.key}`, sourceId: `vo_${m.key}`, edge: "OWNED_BY", targetId: `pty_${m.key}`, shareBps: 10000 });
+    await reg.recordClaim(tx, clock, { ...base, claimId: `c_own_${m.key}`, sourceId: `voc_${m.key}`, edge: "OWNED_BY", targetId: `pty_${m.key}`, shareBps: 10000 });
     await reg.recordMandate(tx, clock, { ...base, mandateId: `m_agency_${m.key}`, fromPartyId: `pty_${m.key}`, toPartyId: "pty_bighit_agency", rightKind: "PERFORMER", shareBps: 10000 });
   }
   await reg.recordClaim(tx, clock, { ...base, claimId: "c_master", sourceId: RECORDING, edge: "CONTROLLED_BY", targetId: "pty_bighit_label", shareBps: 10000 });
@@ -155,12 +155,12 @@ function grantDemo() {
   const grants: GrantRule[] = [
     rule("g_master", "pty_bighit_label", RECORDING, "MASTER"),
     rule("g_work", "pty_david_stewart", "wrk_dynamite", "WORK"),
-    ...MEMBERS.map((m) => rule(`g_consent_${m.key}`, `pty_${m.key}`, `vo_${m.key}`, "PERFORMER")),
+    ...MEMBERS.map((m) => rule(`g_consent_${m.key}`, `pty_${m.key}`, `voc_${m.key}`, "PERFORMER")),
   ];
   const reqs = (c: (typeof COMBINATIONS)[number], s: ReturnType<typeof scope>): Requirement[] => [
     { id: "r_master", asset: RECORDING, right_type: "MASTER", scope: s },
     { id: "r_work", asset: "wrk_dynamite", right_type: "WORK", scope: s },
-    ...[...new Set(SLOTS.map((sl) => singerOf(c, sl.owner)))].map((k) => ({ id: `r_vocal_${k}`, asset: `vo_${k}`, right_type: "PERFORMER", scope: s })),
+    ...[...new Set(SLOTS.map((sl) => singerOf(c, sl.owner)))].map((k) => ({ id: `r_vocal_${k}`, asset: `voc_${k}`, right_type: "PERFORMER", scope: s })),
   ];
   const at = { as_of: "2026-03-10T00:00:00.000Z", known_at: "2026-03-10T00:00:00.000Z" };
   const listen = scope(["PREVIEW", "COMBINE"], ["FAN_APP"], ["FAN_COMMUNITY"]);
