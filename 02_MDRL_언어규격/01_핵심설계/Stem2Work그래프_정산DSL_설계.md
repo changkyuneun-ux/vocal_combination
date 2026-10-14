@@ -21,7 +21,7 @@
 
 ```mermaid
 graph TD
-    STEM[STEM 스템 파일] -->|PERFORMED_BY| VOICE[VOICE 보이스 에셋]
+    STEM[STEM 스템 파일] -->|PERFORMED_BY| VOICE[VOICE 보이스]
     STEM -->|IN_SLOT| SLOT[SLOT 파트 슬롯]
     STEM -->|OF_RECORDING| REC[RECORDING 녹음 버전]
     STEM -->|PART_OF| PACK[PACK / IMAGE 팩 이미지]
@@ -42,7 +42,7 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | `STEM` | `stem_id` (`stm_`) | `stem` | 조합 타임라인에 배치되는 오디오 녹음 파일 최소 단위 |
 | `SLOT` | `slot_id` (`slt_`) | `part_slot` | 곡의 타임라인 구간 (Section) 및 악기/보컬 레이어 (Layer) |
-| `VOICE` | `voice_asset_id` (`vo_`) | `voice_asset` | 아티스트 또는 가상 AI 음성 에셋 |
+| `VOICE` | `voice_id` (`voc_`) | `voice` | 누구의 목소리인가를 나타내는 권리 대상(사람 또는 AI). 오디오 파일이 아니다(오디오는 `STEM`). 팩 화면의 멤버 목록 `voice_asset`과는 다른 엔티티다(데이터모델 v2.8 3.2) |
 | `PACK` | `pack_id` (`pak_`) | `vocal_pack` | L1 퍼블리싱 단위 (보컬팩 이미지) |
 | `IMAGE` | `image_id` (`rim_`) | `rights_image` | L0 원본 권리 이미지 템플릿 |
 | `RECORDING`| `recording_id` (`rcd_`) | `recording_version`| 마스터 음원 녹음 버전 |
@@ -54,7 +54,7 @@ graph TD
 | 엣지 유형 | 방향 (Source → Target) | 속성 (Attributes) | 설명 및 비즈니스 규칙 |
 | :--- | :--- | :--- | :--- |
 | `PERFORMED_BY` | `STEM` → `VOICE` | `share_bps` | 스템 내 가창 기여도 (한 스템에 듀엣/코러스 등 복수 실연자 시 분할) |
-| `OWNED_BY` | `VOICE` → `PARTY(MEMBER/AI)` | `share_bps` | 보이스 에셋의 권리 귀속 (개인 멤버 또는 AI 원천 제공자) |
+| `OWNED_BY` | `VOICE` → `PARTY(MEMBER/AI)` | `share_bps` | 보이스의 권리 귀속 (개인 멤버 또는 AI 원천 제공자) |
 | `IN_SLOT` | `STEM` → `SLOT` | 구조적 연결 | 스템이 속한 곡의 구간 및 레이어 |
 | `OF_RECORDING` | `STEM` → `RECORDING` | 구조적 연결 | 스템이 추출된 원본 마스터 녹음 버전 |
 | `PART_OF` | `STEM` → `PACK` | `selectable`, `locked` | 팩 내 스템 선택 가능 여부 및 필수 잠금 여부 |
