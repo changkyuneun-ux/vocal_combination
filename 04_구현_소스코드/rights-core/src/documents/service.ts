@@ -89,6 +89,32 @@ export async function uploadDocument(
   return { created: true, document: await getDocument(tx, documentId) };
 }
 
+/**
+ * 생성 문서(원천 문서 설계 S4): 표준 계약 서명본·실연 동의서 원문. 시스템이 만들므로 올리기 형식 검사(PDF·이미지)를 거치지 않고
+ * 사람이 읽는 HTML(UTF-8)도 받는다. 출처는 TEMPLATE_SIGNED, 모든 당사자가 서명했으므로 상태는 CONFIRMED다. 소유 테넌트를 직접 정한다.
+ */
+export async function storeGeneratedDocument(
+  tx: Tx, clock: Clock, store: DocumentStore,
+  input: { owner: string; documentId: string; kind: DocumentKind; title: string; parties: string[]; effectiveFrom: string | null; effectiveTo: string | null; html: string; by: string },
+): Promise<DocumentRef> {
+  const meta = await parseMeta(tx, { kind: input.kind, title: input.title, parties: input.parties, effectiveFrom: input.effectiveFrom ?? undefined, effectiveTo: input.effectiveTo ?? undefined });
+  const bytes = new TextEncoder().encode(input.html);
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  const { uri } = await store.put(input.owner, bytes);
+  await withSystemScope(tx, async () => {
+    if ((await tx.query("SELECT 1 FROM source_document WHERE document_id = $1", [input.documentId])).rowCount !== 0) {
+      throw conflict("DOCUMENT_EXISTS", `document ${input.documentId} exists`);
+    }
+    await tx.query(
+      `INSERT INTO source_document (document_id, version, owner_tenant_id, kind, title, parties, effective_from, effective_to,
+         file_sha256, byte_size, mime, storage_uri, origin, status, confidentiality, uploaded_by, uploaded_at, retention_until)
+       VALUES ($1,1,$2,$3,$4,$5,$6,$7,$8,$9,'text/html',$10,'TEMPLATE_SIGNED','CONFIRMED','PARTIES',$11,$12,$13)`,
+      [input.documentId, input.owner, meta.kind, meta.title, meta.parties, meta.effectiveFrom, meta.effectiveTo, hash, bytes.byteLength, uri, input.by, clock.now(), retentionUntil(meta.effectiveTo)]);
+  });
+  await audit(tx, clock, { actor: input.by, action: "DOCUMENT_GENERATED", entityType: "source_document", entityId: input.documentId, after: { version: 1, sha256: hash, kind: meta.kind } });
+  return { documentId: input.documentId, version: 1 };
+}
+
 /** 새 버전 올리기: 원문을 고치면 새 버전이다. 메타데이터는 주지 않은 항목만 이전 버전에서 이어받는다. 이전 버전과 연결된 기록은 그대로 이전 버전을 가리킨다. */
 export async function uploadVersion(
   tx: Tx, clock: Clock, store: DocumentStore, actor: Actor, documentId: string, input: DocumentMeta & { mime: string; bytes: Uint8Array },

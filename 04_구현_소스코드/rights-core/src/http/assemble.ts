@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import type { Clock } from "../platform/clock.ts";
 import { createDb, poolMaxFromEnv } from "../platform/db.ts";
 import { startOutboxPoller } from "../platform/outbox.ts";
+import { devSignatureProvider } from "../contracts/esign.ts";
 import { startValidationSweeper, sweepIntervalFromEnv } from "../validation/sweeper.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
@@ -62,6 +63,8 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
     db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio, push, documents,
     // 본인 인증 공급자: 개발 서버는 코드를 응답으로 돌려주는 개발용 공급자, 운영은 실제 공급자(휴대폰·PASS)를 붙인다(미설정이면 503).
     ...(opts.dev !== undefined && { identity: devIdentityProvider }),
+    // 전자서명 공급자(결정 D1): 국내 사업자를 정할 때까지 개발 서버만 개발용 임의 공급자를 붙인다(운영은 미설정이면 503).
+    ...(opts.dev !== undefined && { esign: devSignatureProvider }),
     ...(opts.pspSecret === undefined ? {} : { pspSecret: opts.pspSecret }),
     ...(opts.dev === undefined ? {} : { dev: { ...opts.dev, jobs: createDevJobs(jobs) } }),
   });

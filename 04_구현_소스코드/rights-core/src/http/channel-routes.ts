@@ -14,6 +14,8 @@ import { confirmRequest, declineRequest, listConfirmations } from "../registry/c
 import { checkCombination, defaultMembers } from "../fan/decision.ts";
 import { recordPlay } from "../revenue/traffic.ts";
 import { withActor, type Deps } from "./server.ts";
+import { performerConsentOriginal } from "../contracts/service.ts";
+import { signerRoutes } from "../contracts/routes.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
 function me(actor: Actor) {
@@ -74,12 +76,21 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/push/subscriptions", async (req, reply) =>
     reply.status(201).send(await withActor(deps, req, (tx, actor) => subscribePush(tx, deps.clock, actor.userId, req.body as Record<string, any>))));
   app.get("/consents", async (req) => withActor(deps, req, (tx, actor) => listConsents(tx, { party: actor.partyId! })));
+  // 나에게 온 표준 계약 서명 요청(원천 문서 설계 S4)
+  signerRoutes(app, deps);
   app.post("/consents", async (req, reply) => {
     const b = req.body as Omit<ConsentDraft, "partyId" | "rightType" | "validFrom" | "validTo"> & { validFrom?: string; validTo?: string };
     // 기간을 주지 않으면 지금(코어 시계)부터 1년이다. 무기한 동의는 받지 않는다.
     const from = b.validFrom ?? deps.clock.now();
     const to = b.validTo ?? new Date(Date.parse(from) + 365 * 86_400_000).toISOString();
-    const out = await withActor(deps, req, (tx, actor) => signConsent(tx, deps.clock, actor, { ...b, validFrom: from, validTo: to, partyId: actor.partyId!, rightType: "PERFORMER" }));
+    const out = await withActor(deps, req, async (tx, actor) => {
+      const draft: ConsentDraft = { ...b, validFrom: from, validTo: to, partyId: actor.partyId!, rightType: "PERFORMER" };
+      // 동의서 원문(원천 문서 설계 S4): 원문 저장소가 있으면 동의 내용으로 동의서를 만들어 근거 문서로 남긴다.
+      if (deps.documents !== undefined && b.sourceDocument === undefined && b.sourceContractUri === undefined) {
+        draft.sourceDocument = await performerConsentOriginal(tx, deps.clock, deps.documents, actor, draft, String(req.headers["user-agent"] ?? ""));
+      }
+      return signConsent(tx, deps.clock, actor, draft);
+    });
     return reply.status(201).send(out);
   });
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/consents/:id/revoke", async (req) =>

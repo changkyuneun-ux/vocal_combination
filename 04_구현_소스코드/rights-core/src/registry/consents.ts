@@ -61,15 +61,16 @@ async function checkAsset(tx: Tx, d: ConsentDraft): Promise<void> {
   if (!ok) throw invalid("CONSENT_ASSET_MISMATCH", `${d.rightType} consent of ${d.partyId} cannot target ${d.assetId} in ${d.factsScopeId}`);
 }
 
-export async function signConsent(tx: Tx, clock: Clock, actor: Actor, raw: ConsentDraft): Promise<Consent> {
+/** signedContract: 모든 당사자가 서명한 표준 계약(원천 문서 설계 S4)에서 만든 동의. 서명 권한·본인 인증은 전자서명이 이미 확인했다. */
+export async function signConsent(tx: Tx, clock: Clock, actor: Actor, raw: ConsentDraft, opts: { signedContract?: boolean } = {}): Promise<Consent> {
   const d0: ConsentDraft = raw.sourceDocument === undefined ? raw : { ...raw, sourceDocument: parseRefs([raw.sourceDocument], "sourceDocument")[0]! };
   // 근거 문서가 있으면 계약서 주소 대신 문서 참조를 쓴다(문서는 요청자에게 보이고 거부·폐기되지 않아야 한다).
   if (d0.sourceDocument !== undefined) await evidenceDigest(tx, [d0.sourceDocument]);
   const d: ConsentDraft = d0.sourceDocument !== undefined && d0.sourceContractUri === undefined
     ? { ...d0, sourceContractUri: `doc:${d0.sourceDocument.documentId}@${d0.sourceDocument.version}` } : d0;
-  authorize(actor, d.partyId, d.rightType, d.sourceContractUri);
+  if (!opts.signedContract) authorize(actor, d.partyId, d.rightType, d.sourceContractUri);
   // 실연자 본인 서명은 본인 인증을 마친 계정만(플랫폼의 계약서 옮겨 적기는 계약 원문이 근거다).
-  if (d.rightType === "PERFORMER" && actor.scope !== "platform" && !(await isIdentityVerified(tx, actor.userId))) {
+  if (!opts.signedContract && d.rightType === "PERFORMER" && actor.scope !== "platform" && !(await isIdentityVerified(tx, actor.userId))) {
     throw new DomainError("IDENTITY_REQUIRED", 403, `${actor.userId} must complete identity verification before signing`);
   }
   await checkAsset(tx, d);

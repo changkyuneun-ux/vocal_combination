@@ -91,7 +91,7 @@ test("ensureDevUsers is idempotent: 8 dev users (7 platform + 1 portal label) + 
   await db.tx((tx) => ensureDevUsers(tx, clock));
   const r = await db.tx((tx) => tx.query("SELECT user_id FROM user_account ORDER BY user_id"));
   assert.equal(r.rowCount, DEV_USERS.length + 3);
-  assert.equal(DEV_USERS.length, 10);
+  assert.equal(DEV_USERS.length, 12);
   assert.equal(new Set(r.rows.map((x) => x.user_id)).size, r.rowCount);
 });
 test("ensureDevUsers creates the system identities and the editor roles", async () => {

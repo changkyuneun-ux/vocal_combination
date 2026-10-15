@@ -52,7 +52,9 @@ export function documentRoutes(app: FastifyInstance, deps: Deps): void {
   app.get<{ Params: { id: string } }>("/documents/:id", async (req) => withActor(deps, req, (tx) => getDocument(tx, req.params.id)));
   app.get<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/file", async (req, reply) => {
     const f = await withActor(deps, req, (tx) => readDocumentFile(tx, storeOf(deps), ref(req.params)));
-    return reply.type(f.mime).header("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(f.title)}`).send(Buffer.from(f.bytes));
+    // 생성 문서(HTML)는 스크립트 없이 보여 준다(값은 이스케이프하지만 한 겹 더 막는다).
+    if (f.mime === "text/html") reply.header("content-security-policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'");
+    return reply.type(f.mime === "text/html" ? "text/html; charset=utf-8" : f.mime).header("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(f.title)}`).send(Buffer.from(f.bytes));
   });
   app.post<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/clauses", async (req, reply) =>
     reply.status(201).send(await withActor(deps, req, (tx, actor) => addClause(tx, deps.clock, actor, ref(req.params), (req.body ?? {}) as Record<string, unknown>))));

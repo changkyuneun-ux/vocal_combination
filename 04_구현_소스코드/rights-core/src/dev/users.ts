@@ -17,6 +17,8 @@ export const DEV_USERS: readonly { userId: string; displayName: string; roles: R
   { userId: "usr_settle", displayName: "정산 담당", roles: ["SPACE_SETTLE"] },
   { userId: "usr_settle2", displayName: "정산 담당 2", roles: ["SPACE_SETTLE"] },
   { userId: "usr_compliance", displayName: "컴플라이언스", roles: ["COMPLIANCE"] },
+  { userId: "usr_legal", displayName: "법무(작성)", roles: ["LEGAL"] },
+  { userId: "usr_legal2", displayName: "법무(승인)", roles: ["LEGAL"] },
   { userId: "usr_label", displayName: "레이블 담당(포털)", roles: ["RIGHTS_EDITOR", "EDITOR"], tenantId: DEV_TENANT.tenantId },
   { userId: "usr_partner", displayName: "유통 파트너(연동)", roles: [], tenantId: DEV_PARTNER.tenantId },
 ];

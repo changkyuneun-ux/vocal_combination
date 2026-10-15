@@ -61,3 +61,8 @@ ul.versions { list-style: none; margin: 0; padding: 0; } li.ver { border-bottom:
 .cards { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0 0 8px; }
 .card { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; display: grid; }
 .card strong { font-size: 18px; }
+/* 표준 계약 마법사(원천 문서 설계 S4) */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; margin-bottom: 8px; }
+fieldset.field { border: 1px solid var(--line, #ddd); padding: 4px 8px; }
+.check { display: inline-flex; gap: 4px; align-items: center; margin-right: 10px; }
+ul.plain { list-style: none; margin: 0; padding: 0; }

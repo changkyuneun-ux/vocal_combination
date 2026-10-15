@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { prepareSettled } from "../../backoffice/e2e/fixtures.ts";
+import { ok, prepareSettled } from "../../backoffice/e2e/fixtures.ts";
 
 /**
  * 실연자 앱(다음 작업 11, 모바일 화면): 로그인 → 본인 인증 → 사용 이력·수익·알림 → 이의제기 → 동의 철회·재동의.
  * 백오피스 E2E의 정산 준비(합성 곡, 3개 조합 발행, 매출, 정산 확정)를 그대로 쓴다. 합성 곡 시드가 멤버별 실연자 계정을 만든다.
  */
 test("실연자 앱: 본인 인증부터 동의 철회까지", async ({ page, request }) => {
-  await prepareSettled(request);
+  const settled = await prepareSettled(request);
 
   await page.goto("/");
   await page.getByLabel("계정 id").fill("usr_singer_b");
@@ -61,5 +61,21 @@ test("실연자 앱: 본인 인증부터 동의 철회까지", async ({ page, re
     await expect(voice).toContainText("철회함");
     await voice.getByRole("button", { name: "동의하기" }).click();
     await expect(voice).toContainText("동의함");
+  });
+
+  await test.step("계약 서명: 소속사가 보낸 수익 수령 위임계약을 읽고 서명", async () => {
+    await ok(request, "usr_editor", "POST", "/parties", { partyId: "pty_e2e_agency", partyType: "LABEL", displayName: "소속사 E" });
+    await ok(request, "usr_editor", "POST", "/contracts", {
+      contractId: "ctr_e2e_mandate", templateId: "tpl_performer_mandate", factsScopeId: settled.factsScopeId,
+      answers: { performer: "pty_member_b", agency: "pty_e2e_agency", shareBps: 2000, validFrom: "2026-01-01", validTo: "2027-01-01" },
+    });
+    await page.reload();
+    const card = page.locator('[data-contract="ctr_e2e_mandate"]');
+    await card.getByRole("button", { name: "계약서 읽기" }).click();
+    await expect(card.frameLocator("iframe[title='계약서']").getByText("제2조 위임 범위")).toBeVisible();
+    await card.getByRole("button", { name: "읽었고 서명합니다" }).click();
+    await expect(card).toHaveCount(0);
+    const c = await ok<{ signatures: { partyId: string; signedAt?: string }[] }>(request, "usr_editor", "GET", "/contracts/ctr_e2e_mandate");
+    expect(c.signatures.find((s) => s.partyId === "pty_member_b")?.signedAt).toBeTruthy();
   });
 });

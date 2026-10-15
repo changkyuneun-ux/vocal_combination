@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, currentUser, setUser, type Claim, type Confirmation, type Consent, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
+import { api, ApiError, currentUser, setUser, type Claim, type Confirmation, type Consent, type ContractDetail, type ContractSummary, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
 import { EDGE_LABEL, KIND_LABEL, newConsentId, revocable, won, yearPeriod } from "./logic.ts";
 
 type Tab = "consents" | "usage" | "money" | "objections" | "notifications";
@@ -195,6 +195,36 @@ function Confirmations() {
   );
 }
 
+/** 나에게 온 표준 계약(원천 문서 설계 S4): 계약서를 읽고 내 몫에 서명한다. 모두 서명하면 만든 쪽이 기록에 반영한다. */
+function Contracts({ partyId }: { partyId: string }) {
+  const q = useLoad(() => api<ContractSummary[]>("GET", "/contracts"), []);
+  const [open, setOpen] = useState<ContractDetail | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  const me = (c: ContractSummary) => c.signatures.find((s) => s.partyId === partyId);
+  const waiting = (q.data ?? []).filter((c) => c.status === "SENT" && me(c) && !me(c)!.signedAt);
+  const act = async (fn: () => Promise<unknown>) => { try { await fn(); setErr(null); setOpen(null); q.reload(); } catch (e) { setErr(e); } };
+  return (
+    <>
+      <h2>계약 서명 요청</h2>
+      <Err e={q.error ?? err} />
+      {waiting.length === 0 && <p className="muted">서명할 계약이 없습니다.</p>}
+      {waiting.map((c) => (
+        <article key={c.contractId} className="card" data-contract={c.contractId}>
+          <div className="row"><strong>{c.title}</strong><span className="muted small">{c.createdAt.slice(0, 10)}</span></div>
+          <p className="small">당사자: {c.signatures.map((s) => `${s.displayName}${s.signedAt ? "(서명함)" : ""}`).join(", ")}</p>
+          {open?.contractId === c.contractId
+            ? <>
+              <iframe title="계약서" sandbox="" srcDoc={open.html} className="contract-frame" />
+              <div className="row"><button className="primary" onClick={() => void act(() => api("POST", `/contracts/${encodeURIComponent(c.contractId)}/sign`))}>읽었고 서명합니다</button>
+                <button onClick={() => setOpen(null)}>닫기</button></div>
+            </>
+            : <button onClick={() => void (async () => { try { setOpen(await api<ContractDetail>("GET", `/contracts/${encodeURIComponent(c.contractId)}`)); } catch (e) { setErr(e); } })()}>계약서 읽기</button>}
+        </article>
+      ))}
+    </>
+  );
+}
+
 function Objections() {
   const claims = useLoad(() => api<Claim[]>("GET", "/claims"), []);
   const mine = useLoad(() => api<Objection[]>("GET", "/objections"), []);
@@ -290,7 +320,7 @@ export function App() {
         <button className="link" onClick={() => { setUser(null); setUserState(null); }}>나가기</button>
       </header>
       <main className="screen">
-        {tab === "consents" && <Consents />}
+        {tab === "consents" && <><Consents /><Contracts partyId={me.data.partyId} /></>}
         {tab === "usage" && <UsageTab />}
         {tab === "money" && <Money />}
         {tab === "objections" && <Objections />}

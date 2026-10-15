@@ -33,3 +33,9 @@ export type Confirmation = { requestId: number; recordType: "CLAIM" | "MANDATE";
 export type Claim = { claimId: string; edge: string; sourceId: string; targetId: string; shareBps: number; status: string; title: string };
 export type Objection = { disputeId: string; claimId: string; reason: string; status: string; openedAt: string; closedAt?: string };
 export type Notice = { notificationId: number; kind: string; title: string; body: string; createdAt: string; read: boolean; pushed: boolean };
+/** 표준 계약 서명 요청(원천 문서 설계 S4). */
+export type ContractSummary = {
+  contractId: string; title: string; status: "SENT" | "SIGNED" | "COMPLETED" | "CANCELLED"; createdAt: string;
+  signatures: { partyId: string; displayName: string; signedAt?: string }[];
+};
+export type ContractDetail = ContractSummary & { html: string; sha256: string };

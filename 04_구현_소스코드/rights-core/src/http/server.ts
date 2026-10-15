@@ -27,6 +27,8 @@ import type { AudioDeps } from "../audio/deps.ts";
 import type { DocumentStore } from "../documents/store.ts";
 import { documentRoutes } from "../documents/routes.ts";
 import { validationRoutes } from "../validation/routes.ts";
+import { contractRoutes, devEsignRoutes } from "../contracts/routes.ts";
+import type { SignatureProvider } from "../contracts/esign.ts";
 import type { IdentityProvider } from "../performer/identity.ts";
 import type { PushSender } from "../performer/notifications.ts";
 
@@ -35,7 +37,7 @@ import type { PushSender } from "../performer/notifications.ts";
  * audio는 오디오 처리 서비스 연동(스템 업로드·검사·렌더). identity는 본인 인증 공급자, push는 웹 푸시 전송자(실연자 앱).
  * 없으면 해당 경로가 503이다.
  */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender; documents?: DocumentStore };
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender; documents?: DocumentStore; esign?: SignatureProvider };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
@@ -103,15 +105,15 @@ export function buildServer(deps: Deps): FastifyInstance {
       register(sub);
     }, { prefix: `/${ch}` });
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); });
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); });
   channel("portal", (sub) => {
-    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps);
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
   });
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
   channel("partner", (sub) => { partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
   // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).
   pspWebhookRoutes(app, deps);
-  if (deps.dev !== undefined) devRoutes(app, { ...deps, dev: deps.dev });
+  if (deps.dev !== undefined) { devRoutes(app, { ...deps, dev: deps.dev }); devEsignRoutes(app, deps); }
   return app;
 }
