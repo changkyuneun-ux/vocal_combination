@@ -30,4 +30,9 @@ test("점검 이슈 표시, 경고 위험 수용 요청·승인", async ({ page,
   await row().getByRole("button", { name: "수용 승인" }).click();
   await expect(row()).toContainText("위험 수용");
   await expect(page.getByLabel("점검 요약")).toContainText("위험 수용 1");
+
+  // 정기 검사(S3b): 운영이 지금 돌릴 수 있다. 방금 검사한 곡은 다시 보지 않는다.
+  await as(page, "usr_ops");
+  await page.getByRole("button", { name: "정기 검사 지금 실행" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /정기 검사: 곡 \d+개를 다시 검사했습니다/ })).toBeVisible();
 });

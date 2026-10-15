@@ -36,6 +36,10 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
        FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id AND d.version = e.document_version
       WHERE (e.record_type = 'CLAIM' AND (e.record_id, e.record_version) IN (SELECT claim_id, version FROM right_claim WHERE facts_scope_id = $1 AND superseded_at IS NULL))
          OR (e.record_type = 'MANDATE' AND (e.record_id, e.record_version) IN (SELECT mandate_id, version FROM mandate WHERE facts_scope_id = $1 AND superseded_at IS NULL))`, [scopeId]);
+  // 같은 문서의 최신(거부되지 않은) 버전: 개정·해지는 새 버전으로 올라오므로 효력 기간은 최신 버전이 정한다(S3b).
+  const latest = new Map<string, any>((await q(
+    `SELECT DISTINCT ON (document_id) document_id, version, title, effective_to FROM source_document
+      WHERE document_id = ANY($1) AND status <> 'REJECTED' ORDER BY document_id, version DESC`, [[...new Set(evidence.map((e) => e.document_id as string))]])).map((d) => [d.document_id, d]));
   const evOf = (type: string, id: string, v: number) => evidence.filter((e) => e.record_type === type && e.record_id === id && e.record_version === v);
   const rec = (type: string, id: string) => `${type}:${id}`;
 
@@ -69,8 +73,16 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
       out.push({ rule: "DOC_DOCUMENT_REJECTED", severity: "BLOCK", subjectType: "RECORD", subjectId: `${subject}@${e.document_id}`,
         related: [{ documentId: e.document_id, version: e.version }], message: `${subject}가 거부된 문서 "${e.title}" v${e.version}을 근거로 삼고 있다`, hint: "올바른 문서 버전을 근거로 다시 연결한다" });
     }
-    if (e.effective_to !== null) {
-      const end = iso(e.effective_to)!;
+    const newest = latest.get(e.document_id);
+    if (newest !== undefined && newest.version > e.version) {
+      out.push({ rule: "DOC_NEWER_VERSION", severity: "WARN", subjectType: "RECORD", subjectId: `${subject}@${e.document_id}`,
+        related: [{ documentId: e.document_id, version: e.version }, { documentId: e.document_id, version: newest.version }],
+        message: `${subject}가 근거 문서 "${e.title}"의 v${e.version}을 가리키는데 v${newest.version}(개정·해지)이 올라왔다`, hint: "새 버전의 내용을 확인하고 기록의 근거를 새 버전으로 바꾼다(내용이 바뀌었으면 기록도 고친다)" });
+    }
+    // 효력 종료: 인용한 버전과 최신 버전 중 이른 쪽(해지는 최신 버전의 종료일로 들어온다).
+    const ends = [e.effective_to, newest?.effective_to].filter((x) => x !== null && x !== undefined).map((x) => iso(x)!).sort();
+    if (ends.length > 0) {
+      const end = ends[0]!;
       if (end <= now) {
         out.push({ rule: "DOC_PERIOD_EXPIRED", severity: "BLOCK", subjectType: "DOCUMENT", subjectId: `${e.document_id}@${e.version}`,
           related: [{ type: e.record_type, id: e.record_id }], message: `근거 문서 "${e.title}"의 효력이 ${end.slice(0, 10)}에 끝났다`, hint: "갱신 계약을 새 버전으로 올리고 근거를 바꾼다" });
@@ -178,6 +190,9 @@ export async function revalidate(tx: Tx, clock: Clock, scopeId: string) {
     for (const l of live.filter((x) => !seen.has(key(x.rule_code, x.subject_type, x.subject_id)))) {
       await tx.query("UPDATE validation_issue SET status = 'RESOLVED', closed_at = $2, checked_at = $2 WHERE issue_id = $1", [l.issue_id, now]);
     }
+    await tx.query(
+      `INSERT INTO validation_check (facts_scope_id, checked_at, owner_tenant_id) VALUES ($1,$2,$3)
+       ON CONFLICT (facts_scope_id) DO UPDATE SET checked_at = EXCLUDED.checked_at`, [scopeId, now, scope.owner_tenant_id]);
     const issues = (await tx.query("SELECT * FROM validation_issue WHERE facts_scope_id = $1 AND (status IN ('OPEN','ACCEPTED') OR closed_at >= $2) ORDER BY status, severity, rule_code, subject_id",
       [scopeId, new Date(Date.parse(now) - 30 * DAY).toISOString()])).rows.map(toIssue);
     const open = issues.filter((i) => i.status === "OPEN");
@@ -261,4 +276,56 @@ export async function setEnforcement(tx: Tx, clock: Clock, actor: Actor, tenantI
   if (r.rowCount === 0) throw notFound("tenant", tenantId);
   await audit(tx, clock, { actor: actor.userId, action: "VALIDATION_ENFORCEMENT", entityType: "tenant", entityId: tenantId, after: { enforced } });
   return { tenantId, enforced };
+}
+
+/**
+ * 문서가 닿는 곡(원천 문서 설계 S3b): 그 문서(어느 버전이든)를 근거로 삼는 현재 기록·동의의 곡, 그리고 문서 당사자가
+ * 권리자·위임 당사자로 나오는 곡(플랫폼 계약·AI 동의처럼 당사자 단위로 보는 규칙). 시스템 범위에서 찾는다.
+ */
+export async function scopesTouchedByDocument(tx: Tx, documentId: string): Promise<string[]> {
+  return withSystemScope(tx, async () => (await tx.query(
+    `WITH doc AS (SELECT DISTINCT unnest(parties) AS party FROM source_document WHERE document_id = $1)
+     SELECT c.facts_scope_id FROM record_evidence e JOIN right_claim c ON e.record_type = 'CLAIM' AND c.claim_id = e.record_id AND c.version = e.record_version
+      WHERE e.document_id = $1 AND c.superseded_at IS NULL
+     UNION SELECT m.facts_scope_id FROM record_evidence e JOIN mandate m ON e.record_type = 'MANDATE' AND m.mandate_id = e.record_id AND m.version = e.record_version
+      WHERE e.document_id = $1 AND m.superseded_at IS NULL
+     UNION SELECT facts_scope_id FROM consent_agreement WHERE source_document_id = $1
+     UNION SELECT facts_scope_id FROM right_claim WHERE superseded_at IS NULL AND (target_id IN (SELECT party FROM doc) OR source_id IN (SELECT party FROM doc))
+     UNION SELECT facts_scope_id FROM mandate WHERE superseded_at IS NULL AND (from_party_id IN (SELECT party FROM doc) OR to_party_id IN (SELECT party FROM doc))
+     ORDER BY 1`, [documentId])).rows.map((r) => r.facts_scope_id as string));
+}
+
+/** 문서가 바뀐 뒤(새 문서·개정·거부·폐기) 그 문서가 닿는 곡을 모두 다시 검사한다. 다시 검사한 곡 id를 돌려준다. */
+export async function revalidateForDocument(tx: Tx, clock: Clock, documentId: string): Promise<string[]> {
+  const scopes = await scopesTouchedByDocument(tx, documentId);
+  for (const s of scopes) await revalidate(tx, clock, s);
+  return scopes;
+}
+
+/** 정기 검사에서 다시 볼 곡: 검사한 지 하루가 지났거나 검사한 적이 없는 곡, 마지막 검사 뒤 기한·수용 만료가 지난 곡, 마지막 검사 뒤 근거 문서·동의의 효력이 끝났거나 만료 임박 구간(30일)에 새로 들어온 곡. */
+export const SWEEP_STALE_HOURS = 24;
+
+export async function dueForSweep(tx: Tx, now: string, limit: number): Promise<string[]> {
+  return withSystemScope(tx, async () => (await tx.query(
+    `WITH last AS (SELECT s.facts_scope_id, k.checked_at FROM facts_scope s LEFT JOIN validation_check k ON k.facts_scope_id = s.facts_scope_id)
+     SELECT facts_scope_id FROM last l WHERE
+       l.checked_at IS NULL OR l.checked_at <= $1::timestamptz - make_interval(hours => $2)
+       OR EXISTS (SELECT 1 FROM validation_issue i WHERE i.facts_scope_id = l.facts_scope_id
+                   AND ((i.status = 'OPEN' AND i.severity = 'WARN' AND i.due_at <= $1) OR (i.status = 'ACCEPTED' AND i.accept_until <= $1)))
+       OR EXISTS (SELECT 1 FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id
+                   JOIN right_claim c ON e.record_type = 'CLAIM' AND c.claim_id = e.record_id AND c.version = e.record_version AND c.superseded_at IS NULL
+                  WHERE c.facts_scope_id = l.facts_scope_id AND ((d.effective_to > l.checked_at + make_interval(days => $3) AND d.effective_to <= $1::timestamptz + make_interval(days => $3)) OR (d.effective_to > l.checked_at AND d.effective_to <= $1)))
+       OR EXISTS (SELECT 1 FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id
+                   JOIN mandate m ON e.record_type = 'MANDATE' AND m.mandate_id = e.record_id AND m.version = e.record_version AND m.superseded_at IS NULL
+                  WHERE m.facts_scope_id = l.facts_scope_id AND ((d.effective_to > l.checked_at + make_interval(days => $3) AND d.effective_to <= $1::timestamptz + make_interval(days => $3)) OR (d.effective_to > l.checked_at AND d.effective_to <= $1)))
+       OR EXISTS (SELECT 1 FROM consent_agreement a WHERE a.facts_scope_id = l.facts_scope_id AND a.revoked_at IS NULL
+                   AND ((a.valid_to > l.checked_at + make_interval(days => $3) AND a.valid_to <= $1::timestamptz + make_interval(days => $3)) OR (a.valid_to > l.checked_at AND a.valid_to <= $1)))
+     ORDER BY l.checked_at NULLS FIRST, facts_scope_id LIMIT $4`, [now, SWEEP_STALE_HOURS, SOON_DAYS, limit])).rows.map((r) => r.facts_scope_id as string));
+}
+
+/** 정기 검사(원천 문서 설계 S3b): 다시 볼 곡을 골라 검사한다. 곡마다 따로 검사하므로 한 곡의 실패가 다른 곡을 막지 않게 호출자가 트랜잭션을 나눌 수 있다. */
+export async function sweepValidation(tx: Tx, clock: Clock, limit = 200): Promise<{ checked: string[] }> {
+  const scopes = await dueForSweep(tx, clock.now(), limit);
+  for (const s of scopes) await revalidate(tx, clock, s);
+  return { checked: scopes };
 }

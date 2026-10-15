@@ -46,6 +46,10 @@ export function ValidationPage() {
   const queue = useGet<Issue[]>(["validation-issues"], "/validation-issues?status=OPEN", { enabled: currentApp() === "ops" });
   const [reason, setReason] = useState("");
   const [err, setErr] = useState<ApiError | null>(null);
+  const [swept, setSwept] = useState<number | null>(null);
+  const sweep = async () => {
+    try { setSwept((await api<{ checked: string[] }>("POST", "/validation/sweep")).checked.length); done(null); } catch (e) { setErr(e as ApiError); }
+  };
   const done = (e: ApiError | null) => { setErr(e); void check.refetch(); void queue.refetch(); };
   const c = check.data;
   return (
@@ -65,7 +69,9 @@ export function ValidationPage() {
         </>}
       </Section>
       {currentApp() === "ops" && (
-        <Section title="전체 이슈 큐(열림)">
+        <Section title="전체 이슈 큐(열림)" actions={<button type="button" className="btn tiny" onClick={() => void sweep()}>정기 검사 지금 실행</button>}>
+          <p className="muted small">서버는 매시간 정기 검사를 돌린다: 하루 넘게 검사하지 않은 곡, 마지막 검사 뒤 기한·문서 만료가 지난 곡만 다시 본다. 문서를 개정·거부하면 그 문서가 닿는 곡은 바로 다시 검사한다.</p>
+          {swept !== null && <p role="status">정기 검사: 곡 {swept}개를 다시 검사했습니다.</p>}
           <ErrorPanel error={queue.error} />
           <DataTable rows={queue.data ?? []} empty="열린 이슈가 없습니다." columns={[{ key: "scopeId", label: "곡", render: (i: Issue) => <code>{i.scopeId}</code> }, ...columns(reason, done)]} />
         </Section>

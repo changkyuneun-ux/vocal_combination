@@ -4,6 +4,7 @@ import { DomainError } from "../platform/errors.ts";
 import { optFilter } from "../platform/paging.ts";
 import { addClause, disposeDocument, getDocument, listDocuments, readDocumentFile, rejectDocument, uploadDocument, uploadVersion, type DocumentMeta } from "./service.ts";
 import type { DocumentStore } from "./store.ts";
+import { revalidateForDocument } from "../validation/service.ts";
 
 function storeOf(deps: Deps): DocumentStore {
   if (deps.documents === undefined) throw new DomainError("DOCUMENTS_NOT_CONFIGURED", 503, "source document storage is not configured");
@@ -28,12 +29,22 @@ const ref = (p: { id: string; v: string }) => ({ documentId: p.id, version: Numb
 
 /** 원천 문서(원천 문서 설계 S1): 권리자 포털·운영 백오피스. 보이는 범위는 RLS(소유 테넌트·문서 당사자·플랫폼)가 정한다. */
 export function documentRoutes(app: FastifyInstance, deps: Deps): void {
+  // 연관성 재검사(S3b): 개정(해지는 종료일을 담은 새 버전)·거부·폐기 뒤 그 문서가 닿는 곡을 같은 트랜잭션에서 다시 검사한다.
+  const recheck = async <T>(tx: Parameters<typeof revalidateForDocument>[0], documentId: string, done: Promise<T>): Promise<T> => {
+    const out = await done;
+    await revalidateForDocument(tx, deps.clock, documentId);
+    return out;
+  };
   app.post("/documents", async (req, reply) => {
-    const out = await withActor(deps, req, (tx, actor) => uploadDocument(tx, deps.clock, storeOf(deps), actor, upload(req)));
+    const out = await withActor(deps, req, async (tx, actor) => {
+      const r = await uploadDocument(tx, deps.clock, storeOf(deps), actor, upload(req));
+      if (r.created) await revalidateForDocument(tx, deps.clock, r.document.documentId); // 새 문서가 빠진 문서 이슈를 닫을 수 있다(S3b)
+      return r;
+    });
     return reply.status(out.created ? 201 : 200).send(out.document);
   });
   app.post<{ Params: { id: string } }>("/documents/:id/versions", async (req, reply) =>
-    reply.status(201).send(await withActor(deps, req, (tx, actor) => uploadVersion(tx, deps.clock, storeOf(deps), actor, req.params.id, upload(req)))));
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => recheck(tx, req.params.id, uploadVersion(tx, deps.clock, storeOf(deps), actor, req.params.id, upload(req))))));
   app.get("/documents", async (req) => withActor(deps, req, (tx) => {
     const q = req.query as Record<string, unknown>;
     return listDocuments(tx, { ...(optFilter(q, "kind") !== undefined && { kind: optFilter(q, "kind") }), ...(optFilter(q, "party") !== undefined && { party: optFilter(q, "party") }) });
@@ -46,7 +57,7 @@ export function documentRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/clauses", async (req, reply) =>
     reply.status(201).send(await withActor(deps, req, (tx, actor) => addClause(tx, deps.clock, actor, ref(req.params), (req.body ?? {}) as Record<string, unknown>))));
   app.post<{ Params: { id: string; v: string }; Body: { reason?: string } }>("/documents/:id/versions/:v/reject", async (req) =>
-    withActor(deps, req, (tx, actor) => rejectDocument(tx, deps.clock, actor, ref(req.params), req.body?.reason)));
+    withActor(deps, req, (tx, actor) => recheck(tx, req.params.id, rejectDocument(tx, deps.clock, actor, ref(req.params), req.body?.reason))));
   app.post<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/dispose", async (req) =>
-    withActor(deps, req, (tx, actor) => disposeDocument(tx, deps.clock, storeOf(deps), actor, ref(req.params))));
+    withActor(deps, req, (tx, actor) => recheck(tx, req.params.id, disposeDocument(tx, deps.clock, storeOf(deps), actor, ref(req.params)))));
 }

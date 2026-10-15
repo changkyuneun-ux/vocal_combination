@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import type { Clock } from "../platform/clock.ts";
 import { createDb, poolMaxFromEnv } from "../platform/db.ts";
 import { startOutboxPoller } from "../platform/outbox.ts";
+import { startValidationSweeper, sweepIntervalFromEnv } from "../validation/sweeper.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
 import { OUTBOX_HANDLERS } from "../issuance/service.ts";
@@ -65,6 +66,7 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
     ...(opts.dev === undefined ? {} : { dev: { ...opts.dev, jobs: createDevJobs(jobs) } }),
   });
   const stopPoller = startOutboxPoller(db, { ...OUTBOX_HANDLERS, ...pushOutboxHandlers(push) }, opts.clock, 1000);
+  const stopSweeper = startValidationSweeper(db, opts.clock, sweepIntervalFromEnv(process.env));
   await app.listen({ port: opts.port, host: "127.0.0.1" });
   console.log(`rights-core listening on http://127.0.0.1:${opts.port}`);
   let stopping = false;
@@ -72,6 +74,7 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
     if (stopping) return;
     stopping = true;
     stopPoller();
+    stopSweeper();
     await app.close();
     await jobs.stop();
     await db.close();

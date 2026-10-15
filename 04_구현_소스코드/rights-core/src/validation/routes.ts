@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { optFilter } from "../platform/paging.ts";
-import { notFound } from "../platform/errors.ts";
-import { acceptIssue, dismissIssue, listIssues, requestAcceptance, revalidate, setEnforcement } from "./service.ts";
+import { DomainError, notFound } from "../platform/errors.ts";
+import { requireRole } from "../platform/actor.ts";
+import { acceptIssue, dismissIssue, listIssues, requestAcceptance, revalidate, setEnforcement, sweepValidation } from "./service.ts";
 
 /** 정합성 검증(원천 문서 설계 S3a): 곡 단위 점검, 이슈 큐, 위험 수용·오탐 처리, 적용 범위. 권리자 포털·운영 백오피스. */
 export function validationRoutes(app: FastifyInstance, deps: Deps): void {
@@ -22,6 +23,12 @@ export function validationRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Params: { id: string } }>("/validation-issues/:id/accept", async (req) => withActor(deps, req, (tx, actor) => acceptIssue(tx, deps.clock, actor, Number(req.params.id))));
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/validation-issues/:id/dismiss", async (req) =>
     withActor(deps, req, (tx, actor) => dismissIssue(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
+  // 정기 검사(S3b)를 지금 돌린다: 운영 전용. 서버는 같은 검사를 주기적으로 돌린다(assemble.ts).
+  app.post("/validation/sweep", async (req) => withActor(deps, req, (tx, actor) => {
+    requireRole(actor, "SPACE_OPS");
+    if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform operators run the validation sweep");
+    return sweepValidation(tx, deps.clock);
+  }));
   app.put<{ Params: { id: string }; Body: { enforced?: boolean } }>("/tenants/:id/validation", async (req) =>
     withActor(deps, req, (tx, actor) => setEnforcement(tx, deps.clock, actor, req.params.id, req.body?.enforced)));
 }
