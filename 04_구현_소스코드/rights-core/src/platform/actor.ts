@@ -56,8 +56,8 @@ export async function loadActor(tx: Tx, userId: string): Promise<Actor> {
 
 /** 요청 트랜잭션의 조회 범위를 행위자 기준으로 좁힌다. 이후 같은 트랜잭션의 모든 쿼리에 RLS가 적용된다. */
 export async function applyActorScope(tx: Tx, actor: Actor): Promise<void> {
-  await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true), set_config('rc.party_id', $3, true)",
-    [actor.scope, actor.tenantId, actor.partyId ?? ""]);
+  await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true), set_config('rc.party_id', $3, true), set_config('rc.user_id', $4, true)",
+    [actor.scope, actor.tenantId, actor.partyId ?? "", actor.userId]);
 }
 
 /**

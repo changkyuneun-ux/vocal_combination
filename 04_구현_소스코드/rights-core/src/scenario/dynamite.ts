@@ -13,6 +13,7 @@ import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
 import { simulateEvents } from "../engine-bridge/simulate.ts";
 import { decideGrant, loadGrantRules, type GrantRule, type Requirement } from "../engine-bridge/grant.ts";
 import { signConsent } from "../registry/consents.ts";
+import { markIdentityVerified } from "../performer/identity.ts";
 import * as reg from "../registry/service.ts";
 import * as policy from "../policy/service.ts";
 import * as issuance from "../issuance/service.ts";
@@ -163,6 +164,7 @@ async function signConsents(tx: Tx, clock: Clock, rights: Actor): Promise<void> 
   }
   for (const m of MEMBERS) {
     await createUser(tx, clock, { userId: `usr_member_${m.key}`, displayName: m.name, roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: `pty_${m.key}` });
+    await markIdentityVerified(tx, clock, `usr_member_${m.key}`, "SCENARIO"); // 실연자 앱에서 본인 인증을 마쳤다고 가정
     const self = await loadActor(tx, `usr_member_${m.key}`);
     await applyActorScope(tx, self);
     await signConsent(tx, clock, self, { ...base, consentId: `cst_vocal_${m.key}`, partyId: `pty_${m.key}`, rightType: "PERFORMER", assetId: `voc_${m.key}` });

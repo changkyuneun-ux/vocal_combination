@@ -11,6 +11,7 @@ export type { Usage };
 import { sealIssue, type IssueSeal } from "../engine-bridge/issue.ts";
 import { preflightIssue } from "../engine-bridge/preflight.ts";
 import { activePolicyForPack } from "../policy/service.ts";
+import { notifyParty } from "../performer/notifications.ts";
 import type { OutboxHandlers } from "../platform/outbox.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
@@ -180,6 +181,15 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   const diags = await preflightIssue(ctx, tx, seal);
   if (diags.length > 0) throw invalid("ISSUE_NOT_SETTLEABLE", `combination ${input.vcId} cannot be settled under ${active.policyId}@${active.version}`, diags);
   await audit(tx, clock, { actor: actor.userId, action: "ISSUED", entityType: "rights_snapshot", entityId: snapshotId, after: { projection: seal.projectionDigest, license: license.decision.digest } });
+  // 실연자 앱 알림: 내 보이스(스템)가 새 조합에 쓰였다.
+  const used = new Map<string, string[]>();
+  for (const a of input.assignments) {
+    const s = byStem.get(a.stemId)!;
+    if (s.rights_bearing && s.performer_party_id !== null) used.set(s.performer_party_id as string, [...(used.get(s.performer_party_id as string) ?? []), a.slotId]);
+  }
+  for (const [party, slots] of [...used].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    await notifyParty(tx, clock, party, { kind: "USAGE", title: "내 보이스가 새 조합에 쓰였습니다", body: `조합 ${input.vcId}의 ${slots.join(", ")} 파트`, ref: { vcId: input.vcId, snapshotId } });
+  }
   return seal;
 }
 
@@ -203,6 +213,8 @@ export async function recordIssueRejection(
 
 /** Outbox 핸들러: 분쟁이 열리면 그 facts 범위의 ACTIVE 팩을 일시정지한다(통합 설계 5.6-1). 재활성화는 수동이다. */
 export const OUTBOX_HANDLERS: OutboxHandlers = {
+  /** 알림 푸시: 기본은 아무것도 보내지 않는다(알림함에만 남음). 푸시가 설정되면 pushOutboxHandlers가 이 처리기를 덮어쓴다. */
+  async notification_push() {},
   async dispute_opened(tx, payload: { factsScopeId: string; disputeId: string }, clock) {
     // openDispute와 같은 순서(pack_id)로 먼저 잠근다. UPDATE의 행 순서는 정해져 있지 않아 교착할 수 있다.
     await tx.query("SELECT pack_id FROM vocal_pack WHERE facts_scope_id = $1 ORDER BY pack_id FOR UPDATE", [payload.factsScopeId]);

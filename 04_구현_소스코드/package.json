@@ -5,7 +5,8 @@
     "mdrl",
     "audio-service",
     "rights-core",
-    "backoffice"
+    "backoffice",
+    "performer-app"
   ],
   "scripts": {
     "dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"

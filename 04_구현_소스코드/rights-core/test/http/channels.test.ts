@@ -1,6 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createUser } from "../../src/platform/actor.ts";
+import { markIdentityVerified } from "../../src/performer/identity.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
@@ -21,6 +22,7 @@ await w.db.tx(async (tx) => {
   await registerParty(tx, c0, { partyId: "pty_fan_1", partyType: "FAN", displayName: "fan", tenantId: "tnt_platform_default" });
   await createUser(tx, c0, { userId: "usr_label", displayName: "label", roles: ["RIGHTS_EDITOR"], tenantId: "tnt_lbl" });
   await createUser(tx, c0, { userId: "usr_perf_a", displayName: "a", roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: "pty_member_a" });
+  await markIdentityVerified(tx, c0, "usr_perf_a", "TEST");
   await createUser(tx, c0, { userId: "usr_fan", displayName: "fan", roles: [], tenantId: "tnt_platform_default", partyId: "pty_fan_1" });
   await createUser(tx, c0, { userId: "usr_partner", displayName: "partner", roles: [], tenantId: "tnt_partner" });
 });

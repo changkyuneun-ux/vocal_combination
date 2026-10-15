@@ -6,6 +6,9 @@ import { iso, type Tx } from "../platform/db.ts";
 import * as issuance from "../issuance/service.ts";
 import { listConsents, revokeConsent, signConsent, type ConsentDraft } from "../registry/consents.ts";
 import { fanRenderFile, queueRender, renderPreview } from "../audio/render.ts";
+import { confirmVerification, startVerification } from "../performer/identity.ts";
+import { listNotifications, markRead, subscribePush } from "../performer/notifications.ts";
+import { myClaims, myObjections, myVoices, openObjection } from "../performer/service.ts";
 import { withActor, type Deps } from "./server.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
@@ -40,13 +43,39 @@ async function myUsages(tx: Tx, partyId: string) {
   )).rows.map((r) => ({ snapshotId: r.snapshot_id as string, vcId: r.vc_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!, slotId: r.slot_id as string, stemId: r.stem_id as string, durationMs: r.duration_ms as number })));
 }
 
-/** 실연자 앱: 본인 파티의 동의·명세·사용 이력만. 동의 서명은 언제나 본인 파티의 실연 동의다. */
+/**
+ * 실연자 앱(다음 작업 11): 본인 파티의 동의·명세·사용 이력·이의제기·알림만. 동의 서명은 언제나 본인 파티의 실연 동의이고,
+ * 본인 인증을 마친 계정만 서명할 수 있다.
+ */
 export function performerRoutes(app: FastifyInstance, deps: Deps): void {
-  app.get("/me", async (req) => withActor(deps, req, async (_tx, actor) => me(actor)));
+  app.get("/me", async (req) => withActor(deps, req, async (tx, actor) => {
+    const u = (await tx.query("SELECT display_name, identity_verified_at, identity_method FROM user_account WHERE user_id = $1", [actor.userId])).rows[0];
+    return { ...me(actor), displayName: u.display_name as string, identityVerified: u.identity_verified_at !== null, ...(u.identity_method && { identityMethod: u.identity_method as string }) };
+  }));
+  app.post("/identity/start", async (req) => withActor(deps, req, (tx, actor) => startVerification(tx, deps.clock, deps.identity, actor)));
+  app.post<{ Body: { challengeId?: number; code?: string } }>("/identity/confirm", async (req) =>
+    withActor(deps, req, (tx, actor) => confirmVerification(tx, deps.clock, actor, req.body ?? {})));
+  app.get("/voices", async (req) => withActor(deps, req, (tx, actor) => myVoices(tx, actor.partyId!)));
+  app.post<{ Body: { claimId?: string; reason?: string } }>("/objections", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => openObjection(tx, deps.clock, actor, req.body ?? {}))));
+  app.get("/objections", async (req) => withActor(deps, req, (tx, actor) => myObjections(tx, actor.userId)));
+  app.get("/claims", async (req) => withActor(deps, req, (tx, actor) => myClaims(tx, actor.partyId!)));
+  app.get("/notifications", async (req) => withActor(deps, req, (tx, actor) => listNotifications(tx, actor.userId)));
+  app.post<{ Params: { id: string } }>("/notifications/:id/read", async (req) =>
+    withActor(deps, req, async (tx, actor) => { await markRead(tx, deps.clock, actor.userId, Number(req.params.id)); return {}; }));
+  app.get("/push/vapid-key", async (req) => withActor(deps, req, async () => {
+    if (deps.push === undefined) throw new DomainError("PUSH_NOT_CONFIGURED", 503, "web push is not configured");
+    return { publicKey: deps.push.publicKey };
+  }));
+  app.post("/push/subscriptions", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => subscribePush(tx, deps.clock, actor.userId, req.body as Record<string, any>))));
   app.get("/consents", async (req) => withActor(deps, req, (tx, actor) => listConsents(tx, { party: actor.partyId! })));
   app.post("/consents", async (req, reply) => {
-    const b = req.body as Omit<ConsentDraft, "partyId" | "rightType">;
-    const out = await withActor(deps, req, (tx, actor) => signConsent(tx, deps.clock, actor, { ...b, partyId: actor.partyId!, rightType: "PERFORMER" }));
+    const b = req.body as Omit<ConsentDraft, "partyId" | "rightType" | "validFrom" | "validTo"> & { validFrom?: string; validTo?: string };
+    // 기간을 주지 않으면 지금(코어 시계)부터 1년이다. 무기한 동의는 받지 않는다.
+    const from = b.validFrom ?? deps.clock.now();
+    const to = b.validTo ?? new Date(Date.parse(from) + 365 * 86_400_000).toISOString();
+    const out = await withActor(deps, req, (tx, actor) => signConsent(tx, deps.clock, actor, { ...b, validFrom: from, validTo: to, partyId: actor.partyId!, rightType: "PERFORMER" }));
     return reply.status(201).send(out);
   });
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/consents/:id/revoke", async (req) =>

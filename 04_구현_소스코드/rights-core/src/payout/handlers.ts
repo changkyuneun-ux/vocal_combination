@@ -8,6 +8,7 @@ import type { AccountKey, AccountKind } from "../ledger/accounts.ts";
 import { postEntry } from "../ledger/journal.ts";
 import type { PayoutProvider, ProviderResult } from "./provider.ts";
 import type { PayoutDeps as RunDeps } from "./service.ts";
+import { notifyParty } from "../performer/notifications.ts";
 
 /**
  * 지급 작업 의존성: 지급 실행과 같은 db·clock·jobs에 PSP 어댑터. (SettleDeps도 그대로 넘길 수 있다.)
@@ -277,6 +278,9 @@ async function applyResult(tx: Tx, clock: Clock, i: Instruction, r: { status: "P
     actor: ACTOR, action: r.status === "PAID" ? "PAYOUT_PAID" : "PAYOUT_FAILED", entityType: "payout_instruction", entityId: i.instructionId,
     after: { netKrw: i.net.toString(), entryId, reason: r.reason ?? null },
   });
+  if (r.status === "PAID") {
+    await notifyParty(tx, clock, i.partyId, { kind: "PAYOUT", title: "지급이 완료됐습니다", body: `실지급 ${i.net.toLocaleString("ko-KR")}원이 지급됐습니다(${i.instructionId}).`, ref: { instructionId: i.instructionId } });
+  }
   const ref = i.providerRef ?? newRef;
   if (ref === null) return;
   const pending = (await tx.query(

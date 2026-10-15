@@ -1,0 +1,11 @@
+{
+  "name": "dobedubpop 실연자",
+  "short_name": "실연자",
+  "description": "내 보이스 동의·사용 이력·수익·이의제기·알림",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2a44",
+  "lang": "ko",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

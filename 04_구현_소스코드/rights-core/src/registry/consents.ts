@@ -5,6 +5,8 @@ import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { enqueue } from "../platform/outbox.ts";
+import { notifyParty } from "../performer/notifications.ts";
+import { isIdentityVerified } from "../performer/identity.ts";
 
 export type RightType = "PERFORMER" | "MASTER" | "WORK";
 export type ConsentDraft = {
@@ -56,6 +58,10 @@ async function checkAsset(tx: Tx, d: ConsentDraft): Promise<void> {
 
 export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: ConsentDraft): Promise<Consent> {
   authorize(actor, d.partyId, d.rightType, d.sourceContractUri);
+  // 실연자 본인 서명은 본인 인증을 마친 계정만(플랫폼의 계약서 옮겨 적기는 계약 원문이 근거다).
+  if (d.rightType === "PERFORMER" && actor.scope !== "platform" && !(await isIdentityVerified(tx, actor.userId))) {
+    throw new DomainError("IDENTITY_REQUIRED", 403, `${actor.userId} must complete identity verification before signing`);
+  }
   await checkAsset(tx, d);
   const signedAt = clock.now();
   const draft: ConsentRow = {
@@ -96,6 +102,7 @@ export async function revokeConsent(tx: Tx, clock: Clock, actor: Actor, consentI
   await tx.query("UPDATE consent_agreement SET revoked_by = $2, revoked_at = $3, revoke_reason = $4 WHERE consent_id = $1", [consentId, actor.userId, at, reason]);
   await audit(tx, clock, { actor: actor.userId, action: "CONSENT_REVOKE", entityType: "consent_agreement", entityId: consentId, after: { reason } });
   await enqueue(tx, clock, "consent_revoked", { consentId, factsScopeId: cur.facts_scope_id as string, partyId: cur.party_id as string, revokedAt: at });
+  await notifyParty(tx, clock, cur.party_id as string, { kind: "CONSENT", title: "동의를 철회했습니다", body: `동의 ${consentId}가 철회됐습니다. 이 보이스를 쓰는 새 조합은 발행되지 않습니다.`, ref: { consentId } });
   return getConsent(tx, consentId);
 }
 

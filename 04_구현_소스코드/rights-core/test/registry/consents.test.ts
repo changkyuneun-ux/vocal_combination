@@ -1,6 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createUser } from "../../src/platform/actor.ts";
+import { markIdentityVerified } from "../../src/performer/identity.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { processOutbox } from "../../src/platform/outbox.ts";
@@ -23,6 +24,7 @@ await w.db.tx(async (tx) => {
   const c0 = fixedClock("2026-01-01T00:00:00.000Z", 0);
   for (const m of ["a", "b"]) {
     await createUser(tx, c0, { userId: `usr_perf_${m}`, displayName: m, roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: `pty_member_${m}` });
+    await markIdentityVerified(tx, c0, `usr_perf_${m}`, "TEST"); // 본인 인증을 마친 실연자 계정
   }
 });
 

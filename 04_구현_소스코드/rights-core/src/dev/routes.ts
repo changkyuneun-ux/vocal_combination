@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
 import { ensureDevUsers } from "./users.ts";
-import { loadActor } from "../platform/actor.ts";
+import { loadActor, createUser } from "../platform/actor.ts";
 import { JOB_NAMES, type JobName } from "../platform/jobs.ts";
 import { SONG, seedSyntheticSong } from "../scenario/synthetic-song.ts";
 import type { Deps } from "../http/server.ts";
@@ -90,6 +90,10 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
         throw new DomainError("ALREADY_SEEDED", 409, "the synthetic song is already seeded (POST /dev/reset first)");
       }
       await seedSyntheticSong(tx, clock, await loadActor(tx, "usr_editor"));
+      // 실연자 앱 확인용: 합성 곡 멤버마다 실연자 계정(본인 인증 전, 소속 없는 개인)을 만든다.
+      for (const m of SONG.members) {
+        await createUser(tx, clock, { userId: `usr_singer_${m}`, displayName: `멤버 ${m}`, roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: `pty_member_${m}` });
+      }
     });
     return reply.status(201).send(seedPayload);
   });

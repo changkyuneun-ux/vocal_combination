@@ -14,6 +14,8 @@ import { createDevJobs } from "../dev/jobs.ts";
 import { buildServer } from "./server.ts";
 import { createFsAudioStore, httpAnalyzer, localAnalyzer, localRenderer } from "../audio/deps.ts";
 import { audioJobHandlers } from "../audio/handlers.ts";
+import { devIdentityProvider } from "../performer/identity.ts";
+import { pushOutboxHandlers, webPushSender } from "../performer/notifications.ts";
 
 /** 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다. */
 export const DEFAULT_BLOB_DIR = fileURLToPath(new URL("../../.blobs/", import.meta.url));
@@ -47,15 +49,19 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   };
   if (opts.prepare !== undefined) await opts.prepare(db);
   const jobs = await startBossJobs(opts.url, workOptionsFromEnv(process.env));
+  // 웹 푸시(VAPID): 키가 환경에 없으면 실행마다 새 키를 만든다(개발용). 구독은 키가 바뀌면 다시 해야 하므로 운영은 키를 고정한다.
+  const push = webPushSender(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY ? { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY } : undefined);
   const handlers = { ...jobHandlers({ db, ctx, clock: opts.clock, jobs }), ...payoutJobHandlers({ db, clock: opts.clock, jobs, provider: opts.provider }), ...audioJobHandlers({ db, clock: opts.clock, audio }) };
   for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
   await jobs.work(handlers as Record<JobName, JobHandler>);
   const app = buildServer({
-    db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio,
+    db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio, push,
+    // 본인 인증 공급자: 개발 서버는 코드를 응답으로 돌려주는 개발용 공급자, 운영은 실제 공급자(휴대폰·PASS)를 붙인다(미설정이면 503).
+    ...(opts.dev !== undefined && { identity: devIdentityProvider }),
     ...(opts.pspSecret === undefined ? {} : { pspSecret: opts.pspSecret }),
     ...(opts.dev === undefined ? {} : { dev: { ...opts.dev, jobs: createDevJobs(jobs) } }),
   });
-  const stopPoller = startOutboxPoller(db, OUTBOX_HANDLERS, opts.clock, 1000);
+  const stopPoller = startOutboxPoller(db, { ...OUTBOX_HANDLERS, ...pushOutboxHandlers(push) }, opts.clock, 1000);
   await app.listen({ port: opts.port, host: "127.0.0.1" });
   console.log(`rights-core listening on http://127.0.0.1:${opts.port}`);
   let stopping = false;

@@ -18,7 +18,7 @@ async function lockScopePacks(tx: Tx, scopeId: string): Promise<void> {
  * 분쟁 개시(통합 설계 5.6): 대상의 새 버전을 DISPUTED로 기록하고 dispute 행과 Outbox 이벤트를 남긴다.
  * 현재 버전은 잠그지 않고 읽으므로, 기록할 때 읽은 버전을 expectedVersion으로 넘겨 그 사이의 다른 기록을 VERSION_CONFLICT로 거부한다.
  */
-export async function openDispute(tx: Tx, clock: Clock, input: { disputeId: string; targetType: "RIGHT_CLAIM" | "MANDATE"; targetId: string; reason: string }): Promise<void> {
+export async function openDispute(tx: Tx, clock: Clock, input: { disputeId: string; targetType: "RIGHT_CLAIM" | "MANDATE"; targetId: string; reason: string; openedBy?: string }): Promise<void> {
   let scopeId: string;
   if (input.targetType === "RIGHT_CLAIM") {
     const { version, ...cur } = await currentClaim(tx, input.targetId);
@@ -34,8 +34,8 @@ export async function openDispute(tx: Tx, clock: Clock, input: { disputeId: stri
   const openedAt = clock.now();
   await fenceScope(tx, scopeId, openedAt);
   await tx.query(
-    "INSERT INTO dispute (dispute_id, target_type, target_id, facts_scope_id, dispute_reason, opened_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [input.disputeId, input.targetType, input.targetId, scopeId, input.reason, openedAt],
+    "INSERT INTO dispute (dispute_id, target_type, target_id, facts_scope_id, dispute_reason, opened_at, opened_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [input.disputeId, input.targetType, input.targetId, scopeId, input.reason, openedAt, input.openedBy ?? null],
   );
   await enqueue(tx, clock, "dispute_opened", { disputeId: input.disputeId, factsScopeId: scopeId });
 }

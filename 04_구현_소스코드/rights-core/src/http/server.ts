@@ -23,10 +23,15 @@ import { fanRenderRoutes, fanRoutes, partnerRoutes, performerRoutes, portalRoute
 import { monitorRoutes } from "../monitor/routes.ts";
 import { audioOpsRoutes, stemAudioRoutes } from "../audio/routes.ts";
 import type { AudioDeps } from "../audio/deps.ts";
+import type { IdentityProvider } from "../performer/identity.ts";
+import type { PushSender } from "../performer/notifications.ts";
 
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
-/** audio는 오디오 처리 서비스 연동(스템 업로드·검사). 없으면 업로드 경로가 503이다. */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps };
+/**
+ * audio는 오디오 처리 서비스 연동(스템 업로드·검사·렌더). identity는 본인 인증 공급자, push는 웹 푸시 전송자(실연자 앱).
+ * 없으면 해당 경로가 503이다.
+ */
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
