@@ -24,5 +24,5 @@ export function newConsentId(voiceId: string, nowMs: number): string {
   return `cst_app_${voiceId}_${nowMs.toString(36)}`;
 }
 
-export const KIND_LABEL: Record<string, string> = { USAGE: "사용", CONSENT: "동의", PAYOUT: "지급", OBJECTION: "이의제기", IDENTITY: "본인 인증" };
+export const KIND_LABEL: Record<string, string> = { USAGE: "사용", CONSENT: "동의", PAYOUT: "지급", OBJECTION: "이의제기", IDENTITY: "본인 인증", CONFIRMATION: "확인 요청" };
 export const EDGE_LABEL: Record<string, string> = { OWNED_BY: "보이스 소유", PERFORMED_BY: "스템 실연" };

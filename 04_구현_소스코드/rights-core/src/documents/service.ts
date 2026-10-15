@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -136,11 +136,19 @@ export async function getDocument(tx: Tx, documentId: string) {
   if (rows.length === 0) throw notFound("document", documentId);
   const links = (await tx.query(
     "SELECT record_type, record_id, record_version, document_version FROM record_evidence WHERE document_id = $1 ORDER BY record_type, record_id, record_version", [documentId])).rows;
+  const clauses = (await tx.query("SELECT * FROM document_clause WHERE document_id = $1 ORDER BY page NULLS LAST, marked_at, clause_id", [documentId])).rows;
+  const clauseLinks = (await tx.query(
+    "SELECT clause_id, record_type, record_id, record_version FROM record_clause WHERE clause_id = ANY($1) ORDER BY record_type, record_id, record_version", [clauses.map((c) => c.clause_id)])).rows;
   return {
     documentId, ownerTenantId: rows[0].owner_tenant_id as string,
     versions: rows.map((r) => ({
       ...toVersion(r),
       records: links.filter((l) => l.document_version === r.version).map((l) => ({ type: l.record_type as string, id: l.record_id as string, version: l.record_version as number })),
+      clauses: clauses.filter((c) => c.document_version === r.version).map((c) => ({
+        clauseId: c.clause_id as string, page: c.page as number | null, quote: c.quote as string, clauseType: c.clause_type as string, ...(c.note !== null && { note: c.note as string }),
+        markedBy: c.marked_by as string, markedAt: iso(c.marked_at)!,
+        records: clauseLinks.filter((l) => l.clause_id === c.clause_id).map((l) => ({ type: l.record_type as string, id: l.record_id as string, version: l.record_version as number })),
+      })),
     })),
   };
 }
@@ -204,6 +212,24 @@ export async function disposeDocument(tx: Tx, clock: Clock, store: DocumentStore
   return getDocument(tx, ref.documentId);
 }
 
+export const CLAUSE_TYPES = ["SHARE", "RIGHT_HOLDER", "MANDATE", "SCOPE", "PERIOD", "SPLIT_RATE", "OTHER"] as const;
+
+/** 조항 표시(원천 문서 설계 S3): 원문의 근거 위치(쪽·인용). 사람이 표시한다(자동 추출은 하지 않는다, D2). 거부·폐기된 버전에는 표시하지 않는다. */
+export async function addClause(tx: Tx, clock: Clock, actor: Actor, ref: DocumentRef, input: { page?: unknown; quote?: unknown; clauseType?: unknown; note?: unknown }) {
+  requireEditor(actor);
+  const d = (await tx.query("SELECT status, disposed_at FROM source_document WHERE document_id = $1 AND version = $2", [ref.documentId, ref.version])).rows[0];
+  if (d === undefined) throw notFound("document", `${ref.documentId}@${ref.version}`);
+  if (d.status === "REJECTED" || d.disposed_at !== null) throw invalid("DOCUMENT_UNUSABLE", `${ref.documentId}@${ref.version} is not usable`);
+  if (typeof input.quote !== "string" || input.quote.trim() === "") throw bad("quote is required (the clause text)");
+  if (!CLAUSE_TYPES.includes(input.clauseType as (typeof CLAUSE_TYPES)[number])) throw bad(`clauseType must be one of ${CLAUSE_TYPES.join(", ")}`);
+  if (input.page !== undefined && input.page !== null && !(Number.isInteger(input.page) && (input.page as number) >= 1)) throw bad("page must be a positive integer");
+  const clauseId = `cls_${randomBytes(8).toString("hex")}`;
+  await tx.query(
+    "INSERT INTO document_clause (clause_id, document_id, document_version, page, quote, clause_type, note, marked_by, marked_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+    [clauseId, ref.documentId, ref.version, input.page ?? null, input.quote.trim(), input.clauseType, typeof input.note === "string" && input.note.trim() !== "" ? input.note.trim() : null, actor.userId, clock.now()]);
+  return { clauseId, ...ref };
+}
+
 /** 근거 참조 모양 검사(요청 본문). */
 export function parseRefs(v: unknown, name = "evidenceDocuments"): DocumentRef[] {
   if (!Array.isArray(v) || v.length === 0 || !v.every((r) => typeof r === "object" && r !== null && typeof r.documentId === "string" && Number.isInteger(r.version))) {
@@ -241,10 +267,24 @@ export async function linkEvidence(tx: Tx, clock: Clock, userId: string, type: "
 /** 주장·위임의 새 버전이 근거를 바꾸지 않았으면(같은 증빙 digest) 이전 버전의 연결을 이어받는다. */
 export async function carryEvidence(tx: Tx, clock: Clock, type: "CLAIM" | "MANDATE", recordId: string, version: number): Promise<void> {
   if (version <= 1) return;
-  await withSystemScope(tx, () => tx.query(
-    `INSERT INTO record_evidence (record_type, record_id, record_version, document_id, document_version, linked_by, linked_at)
-     SELECT record_type, record_id, $3, document_id, document_version, linked_by, $4 FROM record_evidence
-      WHERE record_type = $1 AND record_id = $2 AND record_version = $3 - 1 ON CONFLICT DO NOTHING`, [type, recordId, version, clock.now()]));
+  await withSystemScope(tx, async () => {
+    await tx.query(
+      `INSERT INTO record_evidence (record_type, record_id, record_version, document_id, document_version, linked_by, linked_at)
+       SELECT record_type, record_id, $3, document_id, document_version, linked_by, $4 FROM record_evidence
+        WHERE record_type = $1 AND record_id = $2 AND record_version = $3 - 1 ON CONFLICT DO NOTHING`, [type, recordId, version, clock.now()]);
+    await carryClauses(tx, clock, type, recordId, version);
+  });
+}
+
+/** 조항 연결도 이어받는다(새 버전이 그 조항의 문서를 여전히 근거로 삼는 경우만). */
+export async function carryClauses(tx: Tx, clock: Clock, type: "CLAIM" | "MANDATE", recordId: string, version: number): Promise<void> {
+  await tx.query(
+    `INSERT INTO record_clause (record_type, record_id, record_version, clause_id, linked_by, linked_at)
+     SELECT k.record_type, k.record_id, $3, k.clause_id, k.linked_by, $4 FROM record_clause k JOIN document_clause c ON c.clause_id = k.clause_id
+      WHERE k.record_type = $1 AND k.record_id = $2 AND k.record_version = $3 - 1
+        AND EXISTS (SELECT 1 FROM record_evidence e WHERE e.record_type = $1 AND e.record_id = $2 AND e.record_version = $3
+                     AND e.document_id = c.document_id AND e.document_version = c.document_version)
+     ON CONFLICT DO NOTHING`, [type, recordId, version, clock.now()]);
 }
 
 /** 기록들의 근거 문서(요약 화면용). */

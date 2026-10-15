@@ -9,6 +9,7 @@ import { useGet } from "../../api/hooks.ts";
 import { CLAIM_EDGES, RECORD_STATUSES, VISIBILITIES, compact, opts, toIso } from "../../api/registry.ts";
 import type { ScopeFacts } from "../../api/types.ts";
 import { toEvidence, useDocumentOptions } from "../../api/documents.ts";
+import { currentApp } from "../../app/apps.ts";
 
 export function Claims() {
   const [scope, setScope] = useScopeParam();
@@ -43,7 +44,7 @@ export function Claims() {
                 { name: "shareBps", label: "지분(bps)", type: "number", required: true },
                 { name: "performerRole", label: "연주자 역할", type: "select", options: opts(["FEATURED", "NON_FEATURED"]) },
                 { name: "roleDetail", label: "역할 상세", type: "text" },
-                { name: "status", label: "상태", type: "select", required: true, options: opts(RECORD_STATUSES), initial: "VERIFIED" },
+                { name: "status", label: "상태", type: "select", required: true, options: opts(RECORD_STATUSES), initial: currentApp() === "portal" ? "ASSERTED" : "VERIFIED" },
                 { name: "validFrom", label: "유효 시작(UTC)", type: "datetime", required: true },
                 { name: "validTo", label: "유효 끝(UTC)", type: "datetime" },
                 { name: "evidenceDocument", label: "근거 문서", type: "select", options: docs },

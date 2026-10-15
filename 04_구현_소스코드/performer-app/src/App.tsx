@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, currentUser, setUser, type Claim, type Consent, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
+import { api, ApiError, currentUser, setUser, type Claim, type Confirmation, type Consent, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
 import { EDGE_LABEL, KIND_LABEL, newConsentId, revocable, won, yearPeriod } from "./logic.ts";
 
 type Tab = "consents" | "usage" | "money" | "objections" | "notifications";
@@ -167,6 +167,34 @@ function Money() {
   );
 }
 
+/** 나에게 온 권리 기록 확인 요청(원천 문서 설계 S3): 확인하면 확정, 거절하면 분쟁이 열린다. */
+function Confirmations() {
+  const q = useLoad(() => api<Confirmation[]>("GET", "/confirmations"), []);
+  const [reason, setReason] = useState<Record<number, string>>({});
+  const [err, setErr] = useState<unknown>(null);
+  const act = async (fn: () => Promise<unknown>) => { try { await fn(); setErr(null); q.reload(); } catch (e) { setErr(e); } };
+  const open = (q.data ?? []).filter((r) => r.status === "OPEN");
+  return (
+    <>
+      <h2>확인 요청</h2>
+      <Err e={q.error ?? err} />
+      {open.length === 0 && <p className="muted">확인할 요청이 없습니다.</p>}
+      {open.map((r) => (
+        <article key={r.requestId} className="card" data-confirmation={r.recordId}>
+          <div className="row"><strong>{r.recordType === "CLAIM" ? "권리 주장" : "위임"} {r.recordId}</strong><span className="muted small">{r.dueAt.slice(0, 10)}까지</span></div>
+          <p className="small">{r.requestedBy}님이 나를 당사자로 등록했습니다. 내용이 맞으면 확인해 주세요.</p>
+          <div className="row">
+            <button onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/confirm`))}>확인</button>
+            <input aria-label="거절 사유" placeholder="거절 사유" value={reason[r.requestId] ?? ""} onChange={(e) => setReason({ ...reason, [r.requestId]: e.target.value })} />
+            <button className="danger" disabled={(reason[r.requestId] ?? "").trim() === ""}
+              onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/decline`, { reason: reason[r.requestId] }))}>거절</button>
+          </div>
+        </article>
+      ))}
+    </>
+  );
+}
+
 function Objections() {
   const claims = useLoad(() => api<Claim[]>("GET", "/claims"), []);
   const mine = useLoad(() => api<Objection[]>("GET", "/objections"), []);
@@ -178,6 +206,7 @@ function Objections() {
   };
   return (
     <section>
+      <Confirmations />
       <h2>나와 관련된 권리 주장</h2>
       <Err e={claims.error ?? err} />
       {claims.data?.map((c) => (

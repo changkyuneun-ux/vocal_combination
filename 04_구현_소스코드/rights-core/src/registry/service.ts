@@ -4,6 +4,7 @@ import { iso, type Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { fenceRecording, fenceScope, fenceWork, lookup, scopeExists, type EntityKind } from "./repo.ts";
 import { carryEvidence, evidenceDigest, linkEvidence, type DocumentRef } from "../documents/service.ts";
+import { withSystemScope } from "../platform/actor.ts";
 
 export type PartyType = "LABEL" | "AGENCY" | "PUBLISHER" | "CMO" | "AUTHOR" | "ARTIST" | "MEMBER" | "SESSION" | "AI_PROVIDER" | "FAN" | "PLATFORM";
 export type ClaimEdge = "PERFORMED_BY" | "OWNED_BY" | "CONTROLLED_BY" | "WRITTEN_BY" | "CONTRIBUTED_BY";
@@ -130,6 +131,7 @@ export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft, opts: Rec
       d.status, d.validFrom, d.validTo ?? null, recordedAt, evidence.digest, d.visibility ?? null, d.sourceRef ?? null],
   );
   await evidence.link(tx, clock, "CLAIM", d.claimId, version);
+  await supersedeRequests(tx, "CLAIM", d.claimId, version, recordedAt);
   return { id: d.claimId, version, recordedAt };
 }
 
@@ -153,6 +155,7 @@ export async function recordMandate(tx: Tx, clock: Clock, d: MandateDraft, opts:
       d.validFrom, d.validTo ?? null, recordedAt, d.visibility ?? null, d.sourceRef ?? null, evidence.digest],
   );
   await evidence.link(tx, clock, "MANDATE", d.mandateId, version);
+  await supersedeRequests(tx, "MANDATE", d.mandateId, version, recordedAt);
   return { id: d.mandateId, version, recordedAt };
 }
 
@@ -182,6 +185,13 @@ export async function currentMandate(tx: Tx, mandateId: string): Promise<Mandate
     ...(r.source_ref !== null && { sourceRef: r.source_ref }),
     ...(r.evidence_digest !== null && { evidenceDigest: r.evidence_digest }),
   };
+}
+
+/** 기록이 새 버전이 되면 그 전 버전에 대한 열린 확인 요청은 의미가 없어진다(원천 문서 설계 S3). */
+async function supersedeRequests(tx: Tx, type: "CLAIM" | "MANDATE", id: string, version: number, at: string): Promise<void> {
+  await withSystemScope(tx, () => tx.query(
+    "UPDATE confirmation_request SET status = 'SUPERSEDED', decided_at = $4 WHERE record_type = $1 AND record_id = $2 AND status = 'OPEN' AND record_version < $3",
+    [type, id, version, at]));
 }
 
 /**

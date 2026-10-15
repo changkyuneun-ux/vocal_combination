@@ -9,6 +9,7 @@ import { useGet } from "../../api/hooks.ts";
 import { RECORD_STATUSES, RIGHT_KINDS, VISIBILITIES, compact, opts, toIso } from "../../api/registry.ts";
 import type { ScopeFacts } from "../../api/types.ts";
 import { toEvidence, useDocumentOptions } from "../../api/documents.ts";
+import { currentApp } from "../../app/apps.ts";
 
 export function Mandates() {
   const docs = useDocumentOptions();
@@ -41,7 +42,7 @@ export function Mandates() {
                 { name: "toPartyId", label: "수임자 id", type: "text", required: true },
                 { name: "rightKind", label: "권리 종류", type: "select", required: true, options: opts(RIGHT_KINDS) },
                 { name: "shareBps", label: "지분(bps)", type: "number", required: true },
-                { name: "status", label: "상태", type: "select", required: true, options: opts(RECORD_STATUSES), initial: "VERIFIED" },
+                { name: "status", label: "상태", type: "select", required: true, options: opts(RECORD_STATUSES), initial: currentApp() === "portal" ? "ASSERTED" : "VERIFIED" },
                 { name: "validFrom", label: "유효 시작(UTC)", type: "datetime", required: true },
                 { name: "validTo", label: "유효 끝(UTC)", type: "datetime" },
                 { name: "visibility", label: "공개 범위", type: "select", options: opts(VISIBILITIES) },

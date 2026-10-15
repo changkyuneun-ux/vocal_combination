@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { DomainError } from "../platform/errors.ts";
 import { optFilter } from "../platform/paging.ts";
-import { disposeDocument, getDocument, listDocuments, readDocumentFile, rejectDocument, uploadDocument, uploadVersion, type DocumentMeta } from "./service.ts";
+import { addClause, disposeDocument, getDocument, listDocuments, readDocumentFile, rejectDocument, uploadDocument, uploadVersion, type DocumentMeta } from "./service.ts";
 import type { DocumentStore } from "./store.ts";
 
 function storeOf(deps: Deps): DocumentStore {
@@ -43,6 +43,8 @@ export function documentRoutes(app: FastifyInstance, deps: Deps): void {
     const f = await withActor(deps, req, (tx) => readDocumentFile(tx, storeOf(deps), ref(req.params)));
     return reply.type(f.mime).header("content-disposition", `inline; filename*=UTF-8''${encodeURIComponent(f.title)}`).send(Buffer.from(f.bytes));
   });
+  app.post<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/clauses", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => addClause(tx, deps.clock, actor, ref(req.params), (req.body ?? {}) as Record<string, unknown>))));
   app.post<{ Params: { id: string; v: string }; Body: { reason?: string } }>("/documents/:id/versions/:v/reject", async (req) =>
     withActor(deps, req, (tx, actor) => rejectDocument(tx, deps.clock, actor, ref(req.params), req.body?.reason)));
   app.post<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/dispose", async (req) =>

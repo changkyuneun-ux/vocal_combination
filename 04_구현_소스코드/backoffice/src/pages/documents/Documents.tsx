@@ -43,16 +43,66 @@ function Upload({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
+const CLAUSE_TYPE: Record<string, string> = { SHARE: "지분", RIGHT_HOLDER: "권리자", MANDATE: "위임", SCOPE: "이용 범위", PERIOD: "기간", SPLIT_RATE: "분배율", OTHER: "기타" };
+
+/** 조항 표시와 기록 연결(원천 문서 설계 S3): 왼쪽 원문을 보며 근거 문장을 옮겨 적고, 그 조항을 권리 주장·위임·동의에 연결한다. */
+function Clauses({ id, v }: { id: string; v: DocumentDetail["versions"][number] }) {
+  const [c, setC] = useState({ page: "", quote: "", clauseType: "SHARE", note: "" });
+  const [link, setLink] = useState<Record<string, { recordType: string; recordId: string }>>({});
+  const [err, setErr] = useState<ApiError | null>(null);
+  const [msg, setMsg] = useState("");
+  const act = async (fn: () => Promise<unknown>, done: string) => { try { await fn(); setErr(null); setMsg(done); } catch (e) { setErr(e as ApiError); } };
+  return (
+    <div className="stack" aria-label="조항">
+      <h3>조항(근거 위치)</h3>
+      <div className="inline-form">
+        <input aria-label="쪽" placeholder="쪽" value={c.page} onChange={(e) => setC({ ...c, page: e.target.value.replace(/\D/g, "") })} />
+        <select aria-label="조항 종류" value={c.clauseType} onChange={(e) => setC({ ...c, clauseType: e.target.value })}>
+          {Object.entries(CLAUSE_TYPE).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        <textarea aria-label="조항 원문" placeholder="원문에서 근거 문장을 옮겨 적는다" value={c.quote} onChange={(e) => setC({ ...c, quote: e.target.value })} />
+        <button type="button" className="btn" disabled={c.quote.trim() === "" || v.status === "REJECTED"} onClick={() => void act(
+          () => api("POST", `/documents/${encodeURIComponent(id)}/versions/${v.version}/clauses`, { quote: c.quote, clauseType: c.clauseType, ...(c.page && { page: Number(c.page) }), ...(c.note && { note: c.note }) }),
+          "조항을 표시했습니다. 새로 고치면 목록에 보입니다.")}>조항 표시</button>
+      </div>
+      {msg && <p className="muted" role="status">{msg}</p>}
+      <ErrorPanel error={err} />
+      {v.clauses.length === 0 ? <p className="muted">표시한 조항이 없습니다.</p> : v.clauses.map((k) => (
+        <div key={k.clauseId} className="card" data-clause={k.clauseId}>
+          <p><span className="badge">{CLAUSE_TYPE[k.clauseType] ?? k.clauseType}</span> {k.page !== null && <span className="muted">p.{k.page}</span>} “{k.quote}”</p>
+          <p className="small">근거로 삼은 기록: {k.records.length === 0 ? "없음" : k.records.map((r) => `${r.type} ${r.id} v${r.version}`).join(", ")}</p>
+          <div className="inline-form">
+            <select aria-label="연결할 기록 종류" value={link[k.clauseId]?.recordType ?? "CLAIM"} onChange={(e) => setLink({ ...link, [k.clauseId]: { recordType: e.target.value, recordId: link[k.clauseId]?.recordId ?? "" } })}>
+              <option value="CLAIM">권리 주장</option><option value="MANDATE">위임</option><option value="CONSENT">동의</option>
+            </select>
+            <input aria-label="연결할 기록 id" placeholder="기록 id" value={link[k.clauseId]?.recordId ?? ""} onChange={(e) => setLink({ ...link, [k.clauseId]: { recordType: link[k.clauseId]?.recordType ?? "CLAIM", recordId: e.target.value } })} />
+            <button type="button" className="btn tiny" disabled={!link[k.clauseId]?.recordId} onClick={() => void act(
+              () => api("POST", `/clauses/${encodeURIComponent(k.clauseId)}/links`, { recordType: link[k.clauseId]?.recordType ?? "CLAIM", recordId: link[k.clauseId]!.recordId }),
+              "기록에 연결했습니다. 기록이 이 문서를 아직 근거로 삼지 않았다면 근거를 더한 새 버전이 생깁니다.")}>기록에 연결</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Detail({ id }: { id: string }) {
   const q = useGet<DocumentDetail>(["document", id], `/documents/${encodeURIComponent(id)}`);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState<ApiError | null>(null);
   const act = async (fn: () => Promise<unknown>) => { try { await fn(); setErr(null); void q.refetch(); } catch (e) { setErr(e as ApiError); } };
   const d = q.data;
+  const latest = d?.versions[0];
+  const fileUrl = (v: number) => `/api/${currentApp() === "ops" ? "ops" : "portal"}/documents/${encodeURIComponent(id)}/versions/${v}/file`;
   return (
     <Section title={`문서 ${id}`}>
       <ErrorPanel error={q.error ?? err} />
-      {d && <>
+      {d && latest && <>
+        <div className="split">
+          <div>{latest.disposedAt ? <p className="muted">원문이 폐기되었습니다(해시·기록은 남아 있다).</p>
+            : <iframe title="원문" src={fileUrl(latest.version)} style={{ width: "100%", height: "32rem", border: "1px solid var(--line, #ccc)" }} />}</div>
+          <Clauses id={id} v={latest} />
+        </div>
         <label className="field"><span>거부 사유(잘못 올린 버전 표시)</span><input aria-label="거부 사유" value={reason} onChange={(e) => setReason(e.target.value)} /></label>
         <DataTable rows={d.versions} columns={[
           { key: "version", label: "버전" },
@@ -63,7 +113,7 @@ function Detail({ id }: { id: string }) {
           { key: "retention", label: "보관 기한", render: (v) => v.retentionUntil?.slice(0, 10) ?? "효력 끝 미정" },
           { key: "records", label: "근거로 삼은 기록", render: (v) => (v.records.length === 0 ? "—" : v.records.map((r) => <div key={`${r.type}${r.id}${r.version}`}><code>{r.type} {r.id} v{r.version}</code></div>)) },
           { key: "act", label: "", render: (v) => <>
-            {!v.disposedAt && <a className="btn tiny" href={`/api/${currentApp() === "ops" ? "ops" : "portal"}/documents/${encodeURIComponent(id)}/versions/${v.version}/file`} target="_blank" rel="noreferrer">원문 열기</a>}
+            {!v.disposedAt && <a className="btn tiny" href={fileUrl(v.version)} target="_blank" rel="noreferrer">원문 열기</a>}
             {v.status !== "REJECTED" && <button type="button" className="btn tiny" disabled={reason.trim() === ""}
               onClick={() => void act(() => api("POST", `/documents/${encodeURIComponent(id)}/versions/${v.version}/reject`, { reason }))}>거부</button>}
             {currentApp() === "ops" && !v.disposedAt && <button type="button" className="btn tiny"

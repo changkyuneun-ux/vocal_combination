@@ -10,6 +10,7 @@ import { confirmVerification, startVerification } from "../performer/identity.ts
 import { listNotifications, markRead, subscribePush } from "../performer/notifications.ts";
 import { myClaims, myObjections, myVoices, openObjection } from "../performer/service.ts";
 import { myContributions } from "../performer/contributions.ts";
+import { confirmRequest, declineRequest, listConfirmations } from "../registry/confirmations.ts";
 import { checkCombination, defaultMembers } from "../fan/decision.ts";
 import { recordPlay } from "../revenue/traffic.ts";
 import { withActor, type Deps } from "./server.ts";
@@ -88,6 +89,11 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
     return partyStatement(tx, actor.partyId!, from, to);
   }));
   app.get("/usages", async (req) => withActor(deps, req, (tx, actor) => myUsages(tx, actor.partyId!)));
+  /** 나에게 온 권리 기록 확인 요청(원천 문서 설계 S3): 확인하면 VERIFIED, 거절하면 분쟁이 열린다. */
+  app.get("/confirmations", async (req) => withActor(deps, req, (tx, actor) => listConfirmations(tx, { party: actor.partyId! })));
+  app.post<{ Params: { id: string } }>("/confirmations/:id/confirm", async (req) => withActor(deps, req, (tx, actor) => confirmRequest(tx, deps.clock, actor, Number(req.params.id))));
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/decline", async (req) =>
+    withActor(deps, req, (tx, actor) => declineRequest(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
   /** 멤버별 기여분(다음 작업 16): 위임 전 내 몫의 참고값(엔진 시뮬레이션, 봉인·원장에 쓰지 않음). */
   app.get("/contributions", async (req) => withActor(deps, req, (tx, actor) => {
     const { from, to } = period(req.query as Record<string, unknown>);

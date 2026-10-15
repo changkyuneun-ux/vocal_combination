@@ -9,6 +9,8 @@ import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 import { parseRefs } from "../documents/service.ts";
 import { rightsSummary } from "./summary.ts";
+import { linkClause } from "./evidence-links.ts";
+import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
@@ -41,8 +43,19 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     const { linkedBy: _ignored, ...rest } = b;
     return (b.evidenceDocuments === undefined ? rest : { ...rest, evidenceDocuments: parseRefs(b.evidenceDocuments), linkedBy: actor.userId }) as T;
   };
-  created<reg.ClaimDraft>("/claims", (tx, b, actor) => reg.recordClaim(tx, deps.clock, withEvidence(b, actor)), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
-  created<reg.MandateDraft>("/mandates", (tx, b, actor) => reg.recordMandate(tx, deps.clock, withEvidence(b, actor)), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);
+  // 상대 당사자 확인(원천 문서 설계 S3, 결정 D5): 확인 대상 기록을 VERIFIED로 바로 쓰는 것은 플랫폼과 상대 본인만.
+  // ASSERTED로 쓰면 상대에게 확인 요청이 자동으로 간다.
+  const recordWithConfirmation = async (tx: any, actor: Actor, type: "CLAIM" | "MANDATE", b: any, write: () => Promise<reg.Recorded>) => {
+    await assertMayRecordVerified(tx, actor, type, b);
+    const rec = await write();
+    if (b.status === "ASSERTED" && needsConfirmation(type, b.edge)) {
+      const cp = await counterpartyOf(tx, type, b);
+      if (!(actor.partyId === cp)) await requestConfirmation(tx, deps.clock, actor, type, rec.id);
+    }
+    return rec;
+  };
+  created<reg.ClaimDraft>("/claims", (tx, b, actor) => recordWithConfirmation(tx, actor, "CLAIM", b, () => reg.recordClaim(tx, deps.clock, withEvidence(b, actor))), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
+  created<reg.MandateDraft>("/mandates", (tx, b, actor) => recordWithConfirmation(tx, actor, "MANDATE", b, () => reg.recordMandate(tx, deps.clock, withEvidence(b, actor))), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);
   created<any>("/disputes", (tx, b) => openDispute(tx, deps.clock, b));
   app.post<{ Params: { id: string }; Body: { resolution?: { shareBps?: number; targetId?: string } } }>("/disputes/:id/close", async (req) =>
     withActor(deps, req, async (tx, actor) => {
@@ -72,6 +85,24 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
   app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
+  // 조항 → 기록 근거 연결, 확인 요청(원천 문서 설계 S3).
+  app.post<{ Params: { cid: string } }>("/clauses/:cid/links", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => {
+    if (actor.scope !== "platform") requireRole(actor, "RIGHTS_EDITOR");
+    return linkClause(tx, deps.clock, actor, req.params.cid, (req.body ?? {}) as Record<string, unknown>);
+  })));
+  app.get("/confirmations", async (req) => withActor(deps, req, (tx) => listConfirmations(tx, {
+    ...(optFilter(q0(req), "status") !== undefined && { status: optFilter(q0(req), "status") }), ...(optFilter(q0(req), "party") !== undefined && { party: optFilter(q0(req), "party") }),
+  })));
+  app.post<{ Body: { recordType?: string; recordId?: string } }>("/confirmations", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => {
+    const b = req.body ?? {};
+    if ((b.recordType !== "CLAIM" && b.recordType !== "MANDATE") || typeof b.recordId !== "string") throw new DomainError("BAD_REQUEST", 400, "recordType (CLAIM | MANDATE) and recordId are required");
+    return requestConfirmation(tx, deps.clock, actor, b.recordType, b.recordId);
+  })));
+  app.post<{ Params: { id: string } }>("/confirmations/:id/confirm", async (req) => withActor(deps, req, (tx, actor) => confirmRequest(tx, deps.clock, actor, Number(req.params.id))));
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/decline", async (req) =>
+    withActor(deps, req, (tx, actor) => declineRequest(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/platform-verify", async (req) =>
+    withActor(deps, req, (tx, actor) => platformVerify(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
   // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
   app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
   app.get("/disputes", async (req) =>

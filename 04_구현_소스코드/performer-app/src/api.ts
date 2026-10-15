@@ -29,6 +29,7 @@ export type Contributions = {
   total: string;
   items: { vcId: string; snapshotId: string; batchId: string; periodStart: string; periodEnd: string; events: number; contributionKrw: string; heldEvents: number }[];
 };
+export type Confirmation = { requestId: number; recordType: "CLAIM" | "MANDATE"; recordId: string; recordVersion: number; counterpartyId: string; requestedBy: string; dueAt: string; status: string; disputeId?: string };
 export type Claim = { claimId: string; edge: string; sourceId: string; targetId: string; shareBps: number; status: string; title: string };
 export type Objection = { disputeId: string; claimId: string; reason: string; status: string; openedAt: string; closedAt?: string };
 export type Notice = { notificationId: number; kind: string; title: string; body: string; createdAt: string; read: boolean; pushed: boolean };

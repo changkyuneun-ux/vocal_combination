@@ -6,7 +6,8 @@ export type DocumentVersion = {
   uploadedBy: string; uploadedAt: string; retentionUntil: string | null; disposedAt?: string;
 };
 export type DocumentSummary = DocumentVersion & { documentId: string; ownerTenantId: string };
-export type DocumentDetail = { documentId: string; ownerTenantId: string; versions: (DocumentVersion & { records: { type: string; id: string; version: number }[] })[] };
+export type Clause = { clauseId: string; page: number | null; quote: string; clauseType: string; note?: string; markedBy: string; markedAt: string; records: { type: string; id: string; version: number }[] };
+export type DocumentDetail = { documentId: string; ownerTenantId: string; versions: (DocumentVersion & { records: { type: string; id: string; version: number }[]; clauses: Clause[] })[] };
 
 export const DOCUMENT_KIND_LABEL: Record<string, string> = {
   MASTER_CONTRACT: "녹음 계약", PUBLISHING: "퍼블리싱(작품) 계약", PERFORMER_CONSENT: "실연 동의서", MANDATE: "위임·전속 계약", PLATFORM_CONTRACT: "플랫폼 계약", EVIDENCE: "기타 증빙",

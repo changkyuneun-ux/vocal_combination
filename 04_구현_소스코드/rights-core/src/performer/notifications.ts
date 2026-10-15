@@ -5,7 +5,7 @@ import { iso, type Tx } from "../platform/db.ts";
 import { notFound } from "../platform/errors.ts";
 import { enqueue, type OutboxHandlers } from "../platform/outbox.ts";
 
-export type NotificationKind = "USAGE" | "CONSENT" | "PAYOUT" | "OBJECTION" | "IDENTITY";
+export type NotificationKind = "USAGE" | "CONSENT" | "PAYOUT" | "OBJECTION" | "IDENTITY" | "CONFIRMATION";
 export type PushPayload = { title: string; body: string; kind: NotificationKind; notificationId: number; ref: unknown };
 export type PushSubscriptionRow = { endpoint: string; p256dh: string; auth: string };
 
