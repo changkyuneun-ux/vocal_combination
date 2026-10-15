@@ -13,6 +13,7 @@ import { useAction, useGet, useList } from "../../api/hooks.ts";
 import { activateVersion, approveVersion, compilePolicy, packExists, peekSyntheticSong, rebindPolicy } from "../../api/policy.ts";
 import type { PolicyVersion, PolicyVersionDetail } from "../../api/types.ts";
 import { PolicyDiffViewer } from "./PolicyDiffViewer.tsx";
+import { PolicyFormEditor } from "./PolicyFormEditor.tsx";
 
 const SEED_HINT = "개발 도구 > 데이터에서 합성 곡을 먼저 불러오세요";
 const INV = ["versions", "policies", "version"];
@@ -56,6 +57,8 @@ function PolicyEditor({ policyId }: { policyId: string }) {
   const versions = useList<PolicyVersion>("versions", `/policies/${encodeURIComponent(policyId)}/versions`);
   const latest = versions.pages[0];
   const latestDetail = useGet<PolicyVersionDetail>(["version", policyId, latest?.version ?? 0], `/policies/${encodeURIComponent(policyId)}/versions/${latest?.version ?? 0}`, { enabled: latest !== undefined });
+  const active = versions.pages.find((v) => v.status === "ACTIVE");
+  const activeDetail = useGet<PolicyVersionDetail>(["version", policyId, active?.version ?? 0], `/policies/${encodeURIComponent(policyId)}/versions/${active?.version ?? 0}`, { enabled: active !== undefined });
   const actor = useActor();
   const [text, setText] = useState("");
   const [packId, setPackId] = useState("");
@@ -101,8 +104,9 @@ function PolicyEditor({ policyId }: { policyId: string }) {
         <ErrorPanel error={rebind.error} />
         {latest && <p className="muted">최신 v{latest.version}</p>}
       </Section>
+      {packId && <PolicyFormEditor packId={packId} text={text} baseText={activeDetail.data?.sourceText} onText={setText} />}
       <div className="split">
-        <Section title="MDRL 편집기" actions={import.meta.env.DEV ? <button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button> : undefined}>
+        <Section title="MDRL 편집기(고급)" actions={import.meta.env.DEV ? <button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button> : undefined}>
           <div className="stack">
             {hint && <p className="muted" role="status">{hint}</p>}
             <label className="field"><span>팩 id</span><input value={packId} onChange={(e) => setPackId(e.target.value)} placeholder="pak_nova_summer" /></label>
