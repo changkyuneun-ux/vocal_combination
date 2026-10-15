@@ -26,7 +26,6 @@ export function InstructionDetail() {
   const m = useAction(resubmitPayout, ["payout", "payout-instructions", "payout-runs"]);
   const d = q.data;
   const reason = d ? failureReason(d.audit) : null;
-  const tokenMismatch = d && d.decidedAccountRef !== null && d.submittedAccountRef !== null && d.decidedAccountRef !== d.submittedAccountRef;
   return (
     <>
       <Section title={`지급 지시 ${instructionId}`} actions={
@@ -43,7 +42,7 @@ export function InstructionDetail() {
               <li>전송 시도: {d.submitAttemptedAt ? <Instant iso={d.submitAttemptedAt} /> : "없음"}</li>
               <li>결과 불명: {d.submitUnknownAt ? <span className="badge warn">불명 <Instant iso={d.submitUnknownAt} /></span> : "없음"}</li>
               <li>판정한 계좌 토큰: {d.decidedAccountRef ?? "—"} · 전송한 계좌 토큰: {d.submittedAccountRef ?? "—"}
-                {tokenMismatch && <span className="badge bad"> 토큰 불일치</span>}</li>
+                {d.accountRefMismatch && <span className="badge bad"> 토큰 불일치</span>}<span className="muted"> (토큰은 끝 4자만 표시)</span></li>
               <li>PSP 참조: {d.providerRef ?? "—"} · 멱등 키: <code>{d.idempotencyKey}</code></li>
               <li>분개: PAYOUT {d.entryId ?? "—"} · 결과 {d.settledEntryId ?? "—"}</li>
             </ul>

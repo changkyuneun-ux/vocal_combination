@@ -8,6 +8,7 @@ import { useAction, useGet } from "../../api/hooks.ts";
 import { useAll } from "../../api/all.ts";
 import { useClock } from "../../api/clock.ts";
 import { setPayoutProfile } from "../../api/payout.ts";
+import { api, ApiError } from "../../api/client.ts";
 import type { LedgerAccount, PayoutPolicyData, PayoutProfile, ProfileInput } from "../../api/types.ts";
 import { isCooling } from "./logic.ts";
 
@@ -51,6 +52,35 @@ function Editor({ partyId, profile, onDone }: { partyId: string; profile: Payout
   );
 }
 
+/**
+ * 계좌 토큰은 마스킹돼 온다(조회 통제 2단계). 원문은 사유를 적어야 보이고, 서버가 그 열람을 기록한다(정산 담당만).
+ */
+function Unmask({ partyId, masked }: { partyId: string; masked: string }) {
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [shown, setShown] = useState<string | null>(null);
+  const [err, setErr] = useState<ApiError | null>(null);
+  const reveal = async () => {
+    try {
+      const full = await api<PayoutProfile>("GET", `/parties/${encodeURIComponent(partyId)}/payout-profile?unmask=1&reason=${encodeURIComponent(reason)}`);
+      setShown(full.payoutAccountRef); setAsking(false); setErr(null);
+    } catch (e) { setErr(e as ApiError); }
+  };
+  if (shown !== null) return <span>{shown} <button type="button" className="btn tiny" onClick={() => setShown(null)}>가리기</button></span>;
+  return (
+    <span>{masked}{" "}
+      {asking ? (
+        <span className="inline-form">
+          <input aria-label={`권리자[${partyId}] 열람 사유`} value={reason} placeholder="열람 사유(기록됨)" onChange={(e) => setReason(e.target.value)} />
+          <button type="button" className="btn tiny" disabled={reason.trim() === ""} onClick={() => void reveal()}>원문 보기</button>
+          <button type="button" className="btn tiny" onClick={() => setAsking(false)}>취소</button>
+          <ErrorPanel error={err} />
+        </span>
+      ) : <button type="button" className="btn tiny" aria-label={`권리자[${partyId}] 계좌 토큰 원문`} onClick={() => setAsking(true)}>원문…</button>}
+    </span>
+  );
+}
+
 function Row({ partyId, now, actor }: { partyId: string; now: string | undefined; actor: string }) {
   const [open, setOpen] = useState(false);
   const q = useGet<PayoutProfile>(["payout-profile", partyId], `/parties/${encodeURIComponent(partyId)}/payout-profile`);
@@ -62,7 +92,7 @@ function Row({ partyId, now, actor }: { partyId: string; now: string | undefined
       <tr>
         <td>{partyId}</td>
         <td>{q.isPending ? <span className="muted">읽는 중…</span> : missing ? <span className="muted">프로필 없음</span> : p ? p.taxType : <span className="muted">—</span>}</td>
-        <td>{p?.payoutAccountRef ?? <span className="muted">—</span>}</td>
+        <td>{p?.payoutAccountRef ? <Unmask partyId={partyId} masked={p.payoutAccountRef} /> : <span className="muted">—</span>}</td>
         <td>{p ? (p.kycVerified ? "예" : "아니오") : "—"}</td>
         <td>{p ? <Instant iso={p.firstPayableAt} /> : "—"}</td>
         <td>

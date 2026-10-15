@@ -106,7 +106,11 @@ export type InstructionRow = {
 };
 export type WebhookRow = { providerEventId: string; providerRef: string; status: string; payload: unknown; receivedAt: string; processedAt: string | null };
 export type AuditRow = { auditId: number; occurredAt: string; actor: string; action: string; entityType: string; entityId: string; after: unknown };
-export type InstructionDetailData = InstructionRow & { webhooks: WebhookRow[]; audit: AuditRow[] };
+/** 계좌 토큰은 마스킹돼 온다. 판정·전송 토큰이 다른지는 서버가 원문으로 비교해 accountRefMismatch로 준다. */
+export type InstructionDetailData = InstructionRow & { webhooks: WebhookRow[]; audit: AuditRow[]; accountRefMismatch: boolean };
+export type InspectionRow = { inspectionId: number; occurredAt: string; actor: string; targetTenantId: string; nodeType: string; nodeId: string; panel: string; piiUnmasked: boolean; reason?: string; breakGlassId?: number };
+export type BreakGlassRow = { breakGlassId: number; userId: string; targetTenantId: string; reason: string; startedAt: string; expiresAt: string; endedAt?: string };
+export type TenantRow = { tenantId: string; tenantType: string; name: string; status: string };
 export type StatementData = {
   partyId: string; from: string; to: string; opening: string; settled: string; reversed: string; holdReleased: string;
   payoutGross: string; withholding: string; payoutNet: string; payoutFailedRestored: string; withholdingRestored: string; netRestored: string;

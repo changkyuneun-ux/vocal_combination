@@ -26,6 +26,7 @@ import { Ledger } from "../pages/ledger/Ledger.tsx";
 import { EntryDetail } from "../pages/ledger/EntryDetail.tsx";
 import { Section } from "../components/Section.tsx";
 import { PortalHome } from "../pages/portal/Home.tsx";
+import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
 import type { AppKind } from "./apps.ts";
 
 export function Placeholder({ title }: { title: string }) {
@@ -68,6 +69,7 @@ const opsRoutes: RouteDef[] = [
   { path: "/payout/runs", title: "지급 run", element: <PayoutRuns /> },
   { path: "/payout/runs/:payoutRunId", title: "지급 run 상세", element: <PayoutRunDetail /> },
   { path: "/payout/instructions/:instructionId", title: "지급 지시 상세", element: <InstructionDetail /> },
+  { path: "/control", title: "조회 통제", element: <OpsControl /> },
 ];
 
 /**
@@ -88,7 +90,7 @@ const devRoutes: RouteDef[] = import.meta.env.DEV
 
 export function routesFor(kind: AppKind): RouteDef[] {
   return kind === "portal"
-    ? [{ path: "/", title: "내 테넌트", element: <PortalHome /> }, ...rightsRoutes]
+    ? [{ path: "/", title: "내 테넌트", element: <PortalHome /> }, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }]
     : [...opsRoutes, ...rightsRoutes, ...devRoutes];
 }
 
@@ -106,6 +108,7 @@ export function menuFor(kind: AppKind): MenuGroup[] {
       { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
       { title: "4 발행", items: [{ to: "/issues", label: "발행 조회" }] },
       { title: "5 명세", items: [{ to: "/statements", label: "명세서" }] },
+      { title: "6 투명성", items: [{ to: "/inspections", label: "플랫폼 열람 기록" }] },
     ];
   }
   return [
@@ -122,6 +125,7 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     { title: "8 지급", items: [
       { to: "/payout/profiles", label: "지급 프로필" }, { to: "/payout/runs", label: "지급 run" }, { to: "/statements", label: "명세서" },
     ] },
-    ...(import.meta.env.DEV ? [{ title: "9 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
+    { title: "9 조회 통제", items: [{ to: "/control", label: "열람 기록·break-glass" }] },
+    ...(import.meta.env.DEV ? [{ title: "10 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
   ];
 }

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { requireRole } from "../platform/actor.ts";
+import { maskRef, unmaskRequested } from "../platform/inspection.ts";
 import { DomainError } from "../platform/errors.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
@@ -62,10 +63,26 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     }));
   const qs = (req: { query: unknown }) => req.query as Record<string, unknown>;
   read("/payout-policy", (tx) => q.getPayoutPolicy(tx));
-  read("/parties/:id/payout-profile", (tx, req) => q.getPayoutProfile(tx, req.params.id));
+  // 계좌 토큰은 기본 마스킹(조회 통제 2단계). unmask=1&reason=…이면 열람을 기록하고 원문을 준다.
+  app.get<{ Params: { id: string } }>("/parties/:id/payout-profile", async (req) => withActor(deps, req, async (tx, actor) => {
+    requireRole(actor, "SPACE_SETTLE");
+    const p = await q.getPayoutProfile(tx, req.params.id);
+    const open = await unmaskRequested(tx, deps.clock, actor, qs(req), { partyId: req.params.id, nodeType: "party_payout_profile", nodeId: req.params.id, ip: req.ip });
+    return open ? p : { ...p, payoutAccountRef: maskRef(p.payoutAccountRef) };
+  }));
   read("/payout-runs", (tx, req) => q.listPayoutRuns(tx, parsePage(qs(req))));
-  read("/payout-runs/:id/instructions", (tx, req) => q.listInstructions(tx, req.params.id, { status: optFilter(qs(req), "status") }, parsePage(qs(req))));
-  read("/payouts/:id", (tx, req) => q.getPayout(tx, req.params.id));
+  read("/payout-runs/:id/instructions", async (tx, req) => {
+    const page = await q.listInstructions(tx, req.params.id, { status: optFilter(qs(req), "status") }, parsePage(qs(req)));
+    return { ...page, items: page.items.map((i) => ({ ...i, submittedAccountRef: maskRef(i.submittedAccountRef), decidedAccountRef: maskRef(i.decidedAccountRef) })) };
+  });
+  app.get<{ Params: { id: string } }>("/payouts/:id", async (req) => withActor(deps, req, async (tx, actor) => {
+    requireRole(actor, "SPACE_SETTLE");
+    const d = await q.getPayout(tx, req.params.id);
+    const open = await unmaskRequested(tx, deps.clock, actor, qs(req), { partyId: d.partyId, nodeType: "payout_instruction", nodeId: req.params.id, ip: req.ip });
+    // 판정·전송 토큰이 같은지는 원문으로 비교해 알려 준다(마스킹된 값끼리는 비교할 수 없다).
+    const accountRefMismatch = d.decidedAccountRef !== null && d.submittedAccountRef !== null && d.decidedAccountRef !== d.submittedAccountRef;
+    return open ? { ...d, accountRefMismatch } : { ...d, submittedAccountRef: maskRef(d.submittedAccountRef), decidedAccountRef: maskRef(d.decidedAccountRef), accountRefMismatch };
+  }));
 }
 
 /**

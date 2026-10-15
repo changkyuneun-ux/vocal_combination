@@ -249,7 +249,12 @@ test("payout policy and profile", async () => {
   assert.deepEqual(p, { policyId: "default", minPayoutKrw: "10000", initialHoldDays: 30, taxBps: { DOMESTIC_INDIVIDUAL: 330, DOMESTIC_CORP: 0, FOREIGN: 2200, EXEMPT: 0 }, accountCoolingHours: 72 });
   const pr = await ok("/parties/pty_member_a/payout-profile");
   assert.deepEqual(Object.keys(pr).sort(), ["accountChangedAt", "accountChangedBy", "coolingUntil", "firstPayableAt", "kycVerified", "partyId", "payoutAccountRef", "taxType", "updatedAt"]);
-  assert.equal(pr.payoutAccountRef, "tok_pty_member_a");
+  assert.equal(pr.payoutAccountRef, "****er_a", "account tokens are masked by default (inspection control level 2)");
+  assert.equal((await get("/parties/pty_member_a/payout-profile?unmask=1")).statusCode, 400, "unmasking needs a reason");
+  const open = await ok("/parties/pty_member_a/payout-profile?unmask=1&reason=" + encodeURIComponent("정산 이의 dsp_1 확인"));
+  assert.equal(open.payoutAccountRef, "tok_pty_member_a");
+  const logged = (await w.db.pool.query("SELECT actor_user_id, node_type, pii_unmasked, reason FROM inspection_audit_log WHERE node_id = 'pty_member_a' ORDER BY inspection_id DESC LIMIT 1")).rows[0];
+  assert.deepEqual(logged, { actor_user_id: "usr_settle", node_type: "party_payout_profile", pii_unmasked: true, reason: "정산 이의 dsp_1 확인" });
   assert.equal(pr.accountChangedAt, "2026-04-10T00:00:00.000Z");
   assert.equal(pr.coolingUntil, "2026-04-13T00:00:00.000Z");
   assert.equal((await get("/parties/pty_nope/payout-profile")).statusCode, 404);

@@ -1,5 +1,5 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
-import { api, as, expect, ok, poll, prepareSettled, resetAll, test } from "./fixtures.ts";
+import { api, as, expect, ok, poll, prepareSettled, resetAll, test, masked } from "./fixtures.ts";
 
 /**
  * 거부 경로 5개(통합 설계 12.3). 각 테스트는 resetAll로 시작하고(prepareSettled도 reset부터 한다), 준비는 api 보조로 빠르게 만든 뒤
@@ -134,7 +134,7 @@ test.describe("거부 경로", () => {
     await page.getByLabel(`권리자[${p}] 계좌 토큰 입력`).fill(`acct_${p}_v2`);
     await page.getByRole("button", { name: `권리자[${p}] 프로필 저장`, exact: true }).click();
     const profileRow = region(page, "권리자별 프로필").getByRole("row").filter({ has: page.getByRole("cell", { name: p, exact: true }) });
-    await expect(profileRow).toContainText(`acct_${p}_v2`);
+    await expect(profileRow).toContainText(masked(`acct_${p}_v2`));
 
     await ok(request, null, "POST", "/dev/jobs/resume", { name: "submit-payout" });
     await page.goto(`/payout/instructions/${encodeURIComponent(target.instructionId)}`);

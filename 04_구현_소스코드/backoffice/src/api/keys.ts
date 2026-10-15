@@ -93,7 +93,7 @@ export const INSTRUCTION_KEYS = [
   "settledEntryId", "submitAttemptedAt", "submitUnknownAt", "submittedAccountRef", "decidedAccountRef", "createdAt",
 ] as const satisfies readonly (keyof InstructionRow)[];
 export const INSTRUCTION_AMOUNT_KEYS = ["grossKrw", "withholdingKrw", "netKrw"] as const satisfies readonly (keyof InstructionRow)[];
-export const INSTRUCTION_DETAIL_KEYS = [...INSTRUCTION_KEYS, "webhooks", "audit"] as const satisfies readonly (keyof InstructionDetailData)[];
+export const INSTRUCTION_DETAIL_KEYS = [...INSTRUCTION_KEYS, "webhooks", "audit", "accountRefMismatch"] as const satisfies readonly (keyof InstructionDetailData)[];
 export const WEBHOOK_KEYS = ["providerEventId", "providerRef", "status", "payload", "receivedAt", "processedAt"] as const satisfies readonly (keyof WebhookRow)[];
 export const AUDIT_KEYS = ["auditId", "occurredAt", "actor", "action", "entityType", "entityId", "after"] as const satisfies readonly (keyof AuditRow)[];
 export const STATEMENT_KEYS = [

@@ -53,6 +53,11 @@ export async function resetAll(request: APIRequestContext): Promise<void> {
   await ok(request, null, "POST", "/dev/reset", {});
 }
 
+/** 화면에 보이는 계좌 토큰(조회 통제 2단계: 끝 4자만 보인다). */
+export function masked(ref: string): string {
+  return ref.length <= 4 ? "****" : `****${ref.slice(-4)}`;
+}
+
 /** 헤더의 사용자 전환 select를 바꾼다. */
 export async function as(page: Page, userId: string): Promise<void> {
   await page.getByLabel("사용자 전환").selectOption(userId);

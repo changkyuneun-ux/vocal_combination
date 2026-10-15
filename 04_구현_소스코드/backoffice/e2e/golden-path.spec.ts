@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { advance, api, as, expect, ok, poll, resetAll, test } from "./fixtures.ts";
+import { advance, api, as, expect, ok, poll, resetAll, test, masked } from "./fixtures.ts";
 
 /**
  * 정상 경로 11단계(통합 설계 12.2-8). 모든 조작은 화면으로 하고, api는 비동기 상태를 기다리거나 값을 단언할 때만 쓴다.
@@ -254,7 +254,7 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
       await page.getByLabel(`권리자[${p}] KYC 확인`).check();
       await page.getByRole("button", { name: `권리자[${p}] 프로필 저장`, exact: true }).click();
       await expect(page.getByRole("button", { name: `권리자[${p}] 프로필 저장`, exact: true })).toHaveCount(0);
-      await expect(rowOf(p)).toContainText(`acct_${p}`);
+      await expect(rowOf(p)).toContainText(masked(`acct_${p}`));
       await expect(rowOf(p)).toContainText("냉각 중");
     }
 

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { requireAnyRole, requireRole } from "./actor.ts";
 import { audit } from "./audit.ts";
+import { endBreakGlass, listBreakGlass, listInspections, startBreakGlass } from "./inspection.ts";
 import { DomainError } from "./errors.ts";
 import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
 
@@ -21,6 +22,17 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
       )).rows;
       return rows.map((r) => ({ tenantId: r.tenant_id as string, tenantType: r.tenant_type as string, name: r.name as string, status: r.status as string }));
     }));
+
+  /**
+   * 조회 통제(다음 작업 7). 열람 기록과 break-glass 기록은 플랫폼 범위에서 전부, 테넌트 범위에서는 자기 테넌트가 대상인 것만 보인다(투명성).
+   */
+  app.get("/inspections", async (req) => withActor(deps, req, (tx, actor) =>
+    listInspections(tx, { ...(actor.scope === "platform" && typeof (req.query as any).tenant === "string" && { tenant: (req.query as any).tenant }) })));
+  app.get("/break-glass", async (req) => withActor(deps, req, (tx) => listBreakGlass(tx)));
+  app.post("/break-glass", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => startBreakGlass(tx, deps.clock, actor, req.body as any))));
+  app.post<{ Params: { id: string } }>("/break-glass/:id/end", async (req) =>
+    withActor(deps, req, (tx, actor) => endBreakGlass(tx, deps.clock, actor, Number(req.params.id))));
 
   /** 테넌트 등록(권리자 온보딩): 플랫폼 운영(SPACE_OPS, 플랫폼 범위)만. */
   app.post("/tenants", async (req, reply) => {

@@ -5,6 +5,7 @@ import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
 import { assertChannel, type Channel } from "./channels.ts";
+import { activeBreakGlass, applyBreakGlass, inspectRoute } from "../platform/inspection.ts";
 import { platformRoutes } from "../platform/routes.ts";
 import { registryRoutes } from "../registry/routes.ts";
 import { policyRoutes } from "../policy/routes.ts";
@@ -33,7 +34,16 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
     if (req.channel === undefined) throw new DomainError("CHANNEL_REQUIRED", 404, "user APIs live under a channel: /ops, /portal, /performer, /fan, /partner");
     assertChannel(req.channel, actor);
     await applyActorScope(tx, actor);
-    return fn(tx, actor);
+    // 3단계 통제: 플랫폼 사용자가 break-glass를 열어 두었으면 그 테넌트 소유 데이터에도 쓸 수 있다(RLS rc_can_write).
+    const bg = actor.scope === "platform" ? await activeBreakGlass(tx, actor.userId, () => deps.clock.now()) : undefined;
+    if (bg !== undefined) await applyBreakGlass(tx, bg);
+    const out = await fn(tx, actor);
+    // 1단계 통제: 운영 채널에서 다른 테넌트의 레코드 상세를 읽었으면 같은 트랜잭션에서 열람을 기록한다.
+    if (req.channel === "ops" && req.method === "GET") {
+      const route = (req.routeOptions.url ?? "").replace(/^\/ops/, "");
+      await inspectRoute(tx, deps.clock, actor, route, req.params as Record<string, string>, req.ip, bg?.breakGlassId);
+    }
+    return out;
   });
 }
 
