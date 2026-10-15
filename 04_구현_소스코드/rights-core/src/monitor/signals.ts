@@ -40,6 +40,7 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
   const renderBad = await n(tx, "SELECT count(*) AS n FROM combination_render WHERE verify_result IN ('MISMATCH','WATERMARK_MISSING')");
   const byCode = (await tx.query("SELECT code, count(*)::int AS n FROM issue_rejection WHERE occurred_at > $1 GROUP BY code ORDER BY code", [ago7])).rows;
   const rate = issued7 + rejected7 === 0 ? 0 : rejected7 / (issued7 + rejected7);
+  const cache = (await tx.query("SELECT count(*)::int AS n, COALESCE(sum(hits), 0)::int AS hits FROM decision_cache WHERE expires_at > $1", [now])).rows[0];
 
   const flagged = await n(tx, "SELECT count(*) AS n FROM revenue_event WHERE integrity_status = 'FLAGGED' AND event_type <> 'REFUND'");
   const unsettled = (await tx.query(
@@ -92,6 +93,8 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
         sig("rejected-7d", "최근 7일 게이트 거부", rejected7, warnIf(rejected7)),
         sig("reject-rate", "거부율(7일)", `${(rate * 100).toFixed(1)}%`, rate > 0.2 ? "bad" : rate > 0 ? "warn" : "ok"),
         ...byCode.map((r) => sig(`rejected-${r.code}`, `거부 사유 ${r.code}`, r.n as number, "warn")),
+        sig("decision-cache", "판정 캐시 항목(유효)", cache.n as number, "ok"),
+        sig("decision-cache-hits", "판정 캐시 적중(유효 항목 누적)", cache.hits as number, "ok"),
         sig("render-pending", "렌더 대기", renders.PENDING ?? 0, "ok"),
         sig("render-failed", "렌더 실패", renders.FAILED ?? 0, badIf(renders.FAILED ?? 0)),
         sig("render-mismatch", "렌더 무결성 불일치", renderBad, badIf(renderBad)),

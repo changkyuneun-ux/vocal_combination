@@ -13,6 +13,7 @@ import { preflightIssue } from "../engine-bridge/preflight.ts";
 import { activePolicyForPack } from "../policy/service.ts";
 import { notifyParty } from "../performer/notifications.ts";
 import type { OutboxHandlers } from "../platform/outbox.ts";
+import { invalidateDecisions } from "../decisions/cache.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
   requireRole(actor, "RIGHTS_EDITOR");
@@ -80,6 +81,7 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   const diags = await checkPackActivation(ctx, tx, { factsDigest: active.factsDigest, declared: await declaredClaimants(tx, packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `pack ${packId} cannot be activated`, diags);
   await tx.query("UPDATE vocal_pack SET status = 'ACTIVE' WHERE pack_id = $1", [packId]);
+  await invalidateDecisions(tx, pack.factsScopeId, { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "PACK_ACTIVATED", entityType: "vocal_pack", entityId: packId, after: { policy: `${active.policyId}@${active.version}` } });
 }
 
@@ -221,6 +223,7 @@ export const OUTBOX_HANDLERS: OutboxHandlers = {
     const paused = (await tx.query(
       "UPDATE vocal_pack SET status = 'PAUSED' WHERE facts_scope_id = $1 AND status = 'ACTIVE' RETURNING pack_id", [payload.factsScopeId],
     )).rows;
+    if (paused.length > 0) await invalidateDecisions(tx, payload.factsScopeId, { all: true });
     for (const p of paused) {
       await audit(tx, clock, { actor: "system:outbox", action: "PACK_PAUSED", entityType: "vocal_pack", entityId: p.pack_id, after: { disputeId: payload.disputeId } });
     }

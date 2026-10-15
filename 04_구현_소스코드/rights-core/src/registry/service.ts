@@ -1,3 +1,4 @@
+import { invalidateDecisions } from "../decisions/cache.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
@@ -111,6 +112,7 @@ export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft, opts: Rec
   await requireEndpoint(tx, dstKind, d.targetId, d.factsScopeId, "target");
   const recordedAt = clock.now();
   await fenceScope(tx, d.factsScopeId, recordedAt);
+  await invalidateDecisions(tx, d.factsScopeId, { all: true }); // 주장·위임이 바뀌면 곡의 판정 캐시 전부
   const version = await nextVersion(tx, "right_claim", "claim_id", d.claimId, d.factsScopeId, recordedAt, opts.expectedVersion);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "right_claim", "claim_id", d.claimId, version, recordedAt);
@@ -131,6 +133,7 @@ export async function recordMandate(tx: Tx, clock: Clock, d: MandateDraft, opts:
   await requireEndpoint(tx, "party", d.toPartyId, d.factsScopeId, "to");
   const recordedAt = clock.now();
   await fenceScope(tx, d.factsScopeId, recordedAt);
+  await invalidateDecisions(tx, d.factsScopeId, { all: true }); // 주장·위임이 바뀌면 곡의 판정 캐시 전부
   const version = await nextVersion(tx, "mandate", "mandate_id", d.mandateId, d.factsScopeId, recordedAt, opts.expectedVersion);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "mandate", "mandate_id", d.mandateId, version, recordedAt);

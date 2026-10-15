@@ -1,4 +1,5 @@
 import { canonicalize, digestOf } from "mdrl/core";
+import { createHash } from "node:crypto";
 import type { Tx } from "../platform/db.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -77,4 +78,9 @@ function deepFreeze(v: unknown): void {
   if (typeof v !== "object" || v === null || Object.isFrozen(v)) return;
   for (const x of Object.values(v)) deepFreeze(x);
   Object.freeze(v);
+}
+
+/** 봉인하지 않는 값의 정규화 해시(JCS, hex). 판정 캐시 키처럼 같은 값이면 같은 키가 필요할 때 쓴다. 숫자는 문자열로 넘긴다. */
+export function canonicalSha256(value: unknown): string {
+  return createHash("sha256").update(canonicalize(value)).digest("hex");
 }

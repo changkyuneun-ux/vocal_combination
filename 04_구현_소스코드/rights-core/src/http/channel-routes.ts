@@ -9,6 +9,7 @@ import { fanRenderFile, queueRender, renderPreview } from "../audio/render.ts";
 import { confirmVerification, startVerification } from "../performer/identity.ts";
 import { listNotifications, markRead, subscribePush } from "../performer/notifications.ts";
 import { myClaims, myObjections, myVoices, openObjection } from "../performer/service.ts";
+import { checkCombination, defaultMembers } from "../fan/decision.ts";
 import { withActor, type Deps } from "./server.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
@@ -87,29 +88,68 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/usages", async (req) => withActor(deps, req, (tx, actor) => myUsages(tx, actor.partyId!)));
 }
 
+/** 팬에게 보이는 팩 투영: 슬롯·스템·실연자 표시 이름(상세면 스템별 사용 가능 여부). 팬은 팩 원본 행을 볼 수 없어 system 범위에서 만든다. */
+async function fanPack(tx: Tx, packId: string, detail = false) {
+  const p = (await tx.query("SELECT pack_id, pack_code, title, facts_scope_id FROM vocal_pack WHERE pack_id = $1", [packId])).rows[0];
+  const stems = (await tx.query(
+    `SELECT sl.slot_id, sl.start_ms, sl.end_ms, st.stem_id, st.rights_bearing, pt.display_name, au.status AS audio_status
+       FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
+       JOIN stem st ON st.slot_id = sl.slot_id LEFT JOIN party pt ON pt.party_id = st.performer_party_id
+       LEFT JOIN stem_audio au ON au.stem_id = st.stem_id
+      WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, st.stem_id`, [p.facts_scope_id],
+  )).rows;
+  type FanStem = { stemId: string; performer?: string; available?: boolean; audio?: string };
+  const slots = new Map<string, { slotId: string; startMs: number; endMs: number; stems: FanStem[] }>();
+  for (const s of stems) {
+    const slot = slots.get(s.slot_id) ?? { slotId: s.slot_id as string, startMs: s.start_ms as number, endMs: s.end_ms as number, stems: [] as FanStem[] };
+    slot.stems.push({
+      stemId: s.stem_id, ...(s.display_name !== null && { performer: s.display_name }),
+      ...(detail && { available: s.audio_status === null || s.audio_status === "READY", audio: (s.audio_status ?? "NONE") as string }),
+    });
+    slots.set(s.slot_id, slot);
+  }
+  return { packId: p.pack_id as string, packCode: p.pack_code as string, title: p.title as string, slots: [...slots.values()] };
+}
+
 /** 팬 앱: 활성 팩 카탈로그(공개용 투영)와 조합 발행. 팬은 팩 원본 행을 볼 수 없으므로 카탈로그는 system 범위의 고정 투영이다. */
 export function fanRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/me", async (req) => withActor(deps, req, async (_tx, actor) => me(actor)));
   app.get("/packs", async (req) => withActor(deps, req, (tx) => withSystemScope(tx, async () => {
-    const packs = (await tx.query("SELECT pack_id, pack_code, title, facts_scope_id FROM vocal_pack WHERE status = 'ACTIVE' ORDER BY pack_id")).rows;
+    const packs = (await tx.query("SELECT pack_id FROM vocal_pack WHERE status = 'ACTIVE' ORDER BY pack_id")).rows;
     const out = [];
-    for (const p of packs) {
-      const stems = (await tx.query(
-        `SELECT sl.slot_id, sl.start_ms, sl.end_ms, st.stem_id, st.rights_bearing, pt.display_name
-           FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
-           JOIN stem st ON st.slot_id = sl.slot_id LEFT JOIN party pt ON pt.party_id = st.performer_party_id
-          WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, st.stem_id`, [p.facts_scope_id],
-      )).rows;
-      const slots = new Map<string, { slotId: string; startMs: number; endMs: number; stems: { stemId: string; performer?: string }[] }>();
-      for (const s of stems) {
-        const slot = slots.get(s.slot_id) ?? { slotId: s.slot_id as string, startMs: s.start_ms as number, endMs: s.end_ms as number, stems: [] as { stemId: string; performer?: string }[] };
-        slot.stems.push({ stemId: s.stem_id, ...(s.display_name !== null && { performer: s.display_name }) });
-        slots.set(s.slot_id, slot);
-      }
-      out.push({ packId: p.pack_id as string, packCode: p.pack_code as string, title: p.title as string, slots: [...slots.values()] });
-    }
+    for (const p of packs) out.push(await fanPack(tx, p.pack_id as string));
     return out;
   })));
+  /** 팩 상세: 슬롯별 스템과 각 스템을 지금 쓸 수 있는지(오디오 READY 또는 오디오 없는 메타데이터 스템). */
+  app.get<{ Params: { packId: string } }>("/packs/:packId", async (req) => withActor(deps, req, (tx) => withSystemScope(tx, async () => {
+    const p = (await tx.query("SELECT 1 FROM vocal_pack WHERE pack_id = $1 AND status = 'ACTIVE'", [req.params.packId])).rows[0];
+    if (p === undefined) throw notFound("pack", req.params.packId);
+    return fanPack(tx, req.params.packId, true);
+  })));
+  /**
+   * 조합 판정(다음 작업 12): 고른 배치가 지금 발행될 수 있는지와 사유를 돌려준다. 실제 발행 경로를 되돌리는 방식이라 결과가 발행과 같고,
+   * 같은 배치의 판정은 캐시한다(cached). 거부도 200으로 돌려준다(issuable=false, code, diagnostics).
+   */
+  app.post("/combinations/check", async (req) => {
+    const b = req.body as { packId?: string; assignments?: { slotId: string; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
+    if (typeof b?.packId !== "string" || !Array.isArray(b.assignments) || !b.assignments.every((a) => typeof a?.slotId === "string" && typeof a?.stemId === "string")) {
+      throw new DomainError("BAD_REQUEST", 400, "packId and assignments of {slotId, stemId} are required");
+    }
+    return withActor(deps, req, (tx, actor) => checkCombination(deps.ctx, tx, deps.clock, actor, {
+      packId: b.packId!, assignments: b.assignments!, ...(b.members && { members: b.members }), ...(b.usage && { usage: b.usage }),
+    }));
+  });
+  /** 내가 발행한 조합과 렌더 상태. */
+  app.get("/combinations", async (req) => withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => (await tx.query(
+    `SELECT s.snapshot_id, s.vc_id, s.pack_id, s.created_at, r.status AS render_status, r.duration_ms,
+            (SELECT json_agg(json_build_object('slotId', a.slot_id, 'stemId', a.stem_id) ORDER BY a.slot_id) FROM snapshot_stem_assignment a WHERE a.snapshot_id = s.snapshot_id) AS assignments
+       FROM rights_snapshot s LEFT JOIN combination_render r ON r.snapshot_id = s.snapshot_id
+      WHERE s.issued_by = $1 ORDER BY s.created_at DESC, s.snapshot_id`, [actor.userId],
+  )).rows.map((r) => ({
+    vcId: r.vc_id as string, snapshotId: r.snapshot_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!,
+    assignments: r.assignments as { slotId: string; stemId: string }[], render: r.render_status === null ? "NONE" : (r.render_status as string),
+    ...(r.duration_ms !== null && { durationMs: r.duration_ms as number }),
+  })))));
   /**
    * 조합 발행: 팬이 고른 배치를 팬 대신 발행한다. 멤버 비율은 주지 않으면 부른 슬롯 수에 비례한다.
    * 팬은 ISSUER 역할이 없다. 이 채널이 발행 권한의 주체이며, 감사 기록의 행위자는 팬 본인이다.
@@ -119,13 +159,7 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
     if (typeof b?.packId !== "string" || typeof b.vcId !== "string" || !Array.isArray(b.assignments)) throw new DomainError("BAD_REQUEST", 400, "packId, vcId and assignments are required");
     const seal = await withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => {
       let members = b.members;
-      if (members === undefined) {
-        const performers = (await tx.query(
-          "SELECT stem_id, performer_party_id FROM stem WHERE stem_id = ANY($1) AND rights_bearing AND performer_party_id IS NOT NULL", [b.assignments!.map((a) => a.stemId)],
-        )).rows;
-        const byStem = new Map(performers.map((r) => [r.stem_id as string, r.performer_party_id as string]));
-        members = issuance.slotShareBps(b.assignments!.map((a) => byStem.get(a.stemId)).filter((p): p is string => p !== undefined));
-      }
+      members ??= await defaultMembers(tx, b.assignments!);
       const onBehalf: Actor = { ...actor, roles: new Set([...actor.roles, "ISSUER"]) };
       const s = await issuance.issue(deps.ctx, tx, deps.clock, onBehalf, { packId: b.packId!, vcId: b.vcId!, assignments: b.assignments!, members, ...(b.usage && { usage: b.usage }) });
       if (deps.audio?.renderer !== undefined) await queueRender(tx, deps.clock, deps.jobs, s.snapshotId);

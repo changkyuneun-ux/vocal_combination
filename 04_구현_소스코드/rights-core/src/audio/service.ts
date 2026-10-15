@@ -6,6 +6,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import type { Jobs } from "../platform/jobs.ts";
 import type { AudioDeps } from "./deps.ts";
 import { sourceCheck } from "./source.ts";
+import { invalidateStem } from "../decisions/cache.ts";
 
 export type AudioStatus = "PENDING" | "READY" | "QC_FAILED" | "REVIEW" | "BLOCKED";
 const MAX_BYTES = 200 * 1024 * 1024;
@@ -31,6 +32,7 @@ export async function uploadStemAudio(
        reviewed_by = NULL, reviewed_at = NULL, review_reason = NULL`,
     [input.stemId, sha256, input.bytes.byteLength, input.contentType, uri, actor.userId, now],
   );
+  await invalidateStem(tx, input.stemId);
   await audit(tx, clock, { actor: actor.userId, action: "STEM_AUDIO_UPLOAD", entityType: "stem", entityId: input.stemId, after: { fileSha256: sha256, byteSize: input.bytes.byteLength } });
   await jobs.send(tx, "audio-check", { stemId: input.stemId });
   return { stemId: input.stemId, status: "PENDING" as const, fileSha256: sha256 };
@@ -57,6 +59,7 @@ export async function checkStemAudio(d: { db: Db; clock: Clock; audio: AudioDeps
       [stemId, status, qcFail, JSON.stringify({ probe: a.probe, qc: a.qc }), src?.result ?? null, src === null ? null : JSON.stringify(src), a.fingerprint,
         a.probe?.durationMs ?? null, d.clock.now()],
     );
+    await invalidateStem(tx, stemId);
     await audit(tx, d.clock, { actor: "system:audio", action: "STEM_AUDIO_CHECKED", entityType: "stem", entityId: stemId, after: { status, qcFail, source: src?.result ?? null } });
   });
 }
@@ -71,6 +74,7 @@ export async function reviewStemAudio(tx: Tx, clock: Clock, actor: Actor, input:
   if (cur.status !== "REVIEW") throw conflict("NOT_IN_REVIEW", `stem ${input.stemId} audio is ${cur.status}`);
   const now = clock.now();
   await tx.query("UPDATE stem_audio SET status = $2, reviewed_by = $3, reviewed_at = $4, review_reason = $5 WHERE stem_id = $1", [input.stemId, input.decision, actor.userId, now, input.reason.trim()]);
+  await invalidateStem(tx, input.stemId);
   await audit(tx, clock, { actor: actor.userId, action: "STEM_AUDIO_REVIEWED", entityType: "stem", entityId: input.stemId, after: { decision: input.decision, reason: input.reason.trim() } });
   return getStemAudio(tx, input.stemId);
 }

@@ -1,3 +1,4 @@
+import { invalidateDecisions } from "../decisions/cache.ts";
 import { consentToRule, validateConsentRule, type ConsentRow } from "../engine-bridge/grant.ts";
 import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
@@ -79,6 +80,8 @@ export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: Consent
     [d.consentId, d.factsScopeId, d.partyId, d.rightType, d.assetId, draft.scope_actions, draft.territories, draft.media, draft.audience,
       d.validFrom, d.validTo, d.sourceContractUri ?? null, actor.userId, signedAt],
   );
+  // 판정 캐시: 실연 동의는 그 보이스를 쓴 판정만, 녹음·작품 동의는 곡 전체 판정을 지운다.
+  await invalidateDecisions(tx, d.factsScopeId, d.rightType === "PERFORMER" ? { voices: [d.assetId] } : { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "CONSENT_SIGN", entityType: "consent_agreement", entityId: d.consentId, after: { partyId: d.partyId, rightType: d.rightType, assetId: d.assetId } });
   return getConsent(tx, d.consentId);
 }
@@ -89,7 +92,7 @@ export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: Consent
  */
 export async function revokeConsent(tx: Tx, clock: Clock, actor: Actor, consentId: string, reason: string): Promise<Consent> {
   if (typeof reason !== "string" || reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
-  const cur = (await tx.query("SELECT party_id, right_type, facts_scope_id, revoked_at FROM consent_agreement WHERE consent_id = $1 FOR UPDATE", [consentId])).rows[0];
+  const cur = (await tx.query("SELECT party_id, right_type, asset_id, facts_scope_id, revoked_at FROM consent_agreement WHERE consent_id = $1 FOR UPDATE", [consentId])).rows[0];
   if (cur === undefined) throw notFound("consent", consentId);
   if (cur.right_type === "PERFORMER" && actor.scope !== "platform") {
     requireRole(actor, "PERFORMER");
@@ -100,6 +103,7 @@ export async function revokeConsent(tx: Tx, clock: Clock, actor: Actor, consentI
   if (cur.revoked_at !== null) throw conflict("CONSENT_ALREADY_REVOKED", `consent ${consentId} was revoked at ${iso(cur.revoked_at)}`);
   const at = clock.now();
   await tx.query("UPDATE consent_agreement SET revoked_by = $2, revoked_at = $3, revoke_reason = $4 WHERE consent_id = $1", [consentId, actor.userId, at, reason]);
+  await invalidateDecisions(tx, cur.facts_scope_id as string, cur.right_type === "PERFORMER" ? { voices: [cur.asset_id as string] } : { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "CONSENT_REVOKE", entityType: "consent_agreement", entityId: consentId, after: { reason } });
   await enqueue(tx, clock, "consent_revoked", { consentId, factsScopeId: cur.facts_scope_id as string, partyId: cur.party_id as string, revokedAt: at });
   await notifyParty(tx, clock, cur.party_id as string, { kind: "CONSENT", title: "동의를 철회했습니다", body: `동의 ${consentId}가 철회됐습니다. 이 보이스를 쓰는 새 조합은 발행되지 않습니다.`, ref: { consentId } });
