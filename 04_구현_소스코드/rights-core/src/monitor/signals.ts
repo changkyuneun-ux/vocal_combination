@@ -52,6 +52,8 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
   const flaggedPlays7 = await n(tx, "SELECT count(*) AS n FROM play_event WHERE integrity = 'FLAGGED' AND played_at > $1", [ago7]);
   const openPools = await n(tx, "SELECT count(*) AS n FROM traffic_pool WHERE status = 'OPEN' AND period_end <= $1", [now]);
   const noPlayPools = await n(tx, "SELECT count(*) AS n FROM traffic_pool WHERE status = 'NO_PLAYS'");
+  const hubRejected = await n(tx, "SELECT count(*) AS n FROM inbound_record WHERE status = 'REJECTED'");
+  const hubFilesRejected = await n(tx, "SELECT count(*) AS n FROM inbound_file WHERE status = 'REJECTED' AND received_at > $1", [ago30]);
   const runs = Object.fromEntries((await tx.query("SELECT status, count(*)::int AS n FROM settlement_run GROUP BY status")).rows.map((r) => [r.status, r.n as number]));
   const quarantined = await n(tx, "SELECT count(*) AS n FROM quarantine WHERE released_at IS NULL");
   const held = (await tx.query(
@@ -111,6 +113,8 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
         sig("plays-flagged-7d", "최근 7일 과다 반복 재생(배정 제외)", flaggedPlays7, warnIf(flaggedPlays7)),
         sig("pools-open", "기간이 끝났는데 배정 안 된 감상 수익 풀", openPools, warnIf(openPools), "/revenue"),
         sig("pools-no-plays", "유효 재생이 없어 배정 못 한 풀", noPlayPools, warnIf(noPlayPools), "/revenue"),
+        sig("hub-rejected", "연동 허브 거부 큐(줄)", hubRejected, warnIf(hubRejected), "/hub"),
+        sig("hub-files-rejected-30d", "통째로 거부된 연동 파일(30일)", hubFilesRejected, badIf(hubFilesRejected), "/hub"),
       ] },
       { stage: "settlement", label: "정산 실행·검증", decidedBy: "플랫폼(실행자 ≠ 확정자)", signals: [
         sig("failed", "재계산 불일치·실패 run", runs.FAILED ?? 0, badIf(runs.FAILED ?? 0), "/settlement/batches"),

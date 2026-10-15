@@ -10,8 +10,8 @@ import { allocatePool, createPool, getPool, listPools, type PoolInput } from "./
 /** 환불·대체 후속 처리(onRefund·onRevision)는 조립하는 쪽(http/server.ts)이 넘긴다 — revenue는 settlement를 import하지 않는다. */
 export function revenueRoutes(app: FastifyInstance, deps: Deps, onRefund: RefundHook, onRevision: RevisionHook): void {
   app.post<{ Body: RevenueInput }>("/revenue-events", async (req, reply) => {
-    // 감상 매출은 기간 수익 풀의 배정으로만 생긴다(조합의 정책이 TRAFFIC을 받는지 배정이 확인한다).
-    if ((req.body as { eventType?: unknown } | undefined)?.eventType === "TRAFFIC") throw new DomainError("TRAFFIC_VIA_POOL", 422, "TRAFFIC revenue is created by allocating a traffic pool");
+    // 감상 매출은 기간 수익 풀의 배정이나 연동 허브(파트너 리포트)로만 생긴다. 둘 다 조합의 정책이 TRAFFIC을 받는지 확인한다.
+    if ((req.body as { eventType?: unknown } | undefined)?.eventType === "TRAFFIC") throw new DomainError("TRAFFIC_VIA_POOL", 422, "TRAFFIC revenue comes from traffic pool allocation or partner reports via the integration hub");
     const r = await withActor(deps, req, (tx, actor) => ingestRevenue(tx, deps.clock, actor, req.body, onRefund, onRevision));
     return reply.status(r.created ? 201 : 200).send(r);
   });

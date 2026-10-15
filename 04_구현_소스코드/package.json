@@ -4,6 +4,7 @@
   "workspaces": [
     "mdrl",
     "audio-service",
+    "integration-hub",
     "rights-core",
     "backoffice",
     "performer-app"

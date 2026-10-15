@@ -12,6 +12,7 @@ import { policyRoutes } from "../policy/routes.ts";
 import { issuanceRoutes } from "../issuance/routes.ts";
 import { sealRoutes } from "./seal-routes.ts";
 import { revenueRoutes } from "../revenue/routes.ts";
+import { opsHubRoutes, partnerHubRoutes } from "../hub/routes.ts";
 import { settlementRoutes } from "../settlement/routes.ts";
 import { refundHook, revisionHook } from "../settlement/service.ts";
 import type { Jobs } from "../platform/jobs.ts";
@@ -97,13 +98,14 @@ export function buildServer(deps: Deps): FastifyInstance {
       sub.addHook("onRequest", async (req) => { req.channel = ch; });
       register(sub);
     }, { prefix: `/${ch}` });
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); });
+  const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); });
   channel("portal", (sub) => {
     platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps);
   });
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
-  channel("partner", (sub) => partnerRoutes(sub, deps));
+  channel("partner", (sub) => { partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
   // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).
   pspWebhookRoutes(app, deps);
   if (deps.dev !== undefined) devRoutes(app, { ...deps, dev: deps.dev });

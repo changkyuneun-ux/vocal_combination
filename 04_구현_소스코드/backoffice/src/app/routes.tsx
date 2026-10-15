@@ -12,6 +12,8 @@ import { PackDetail } from "../pages/issuance/PackDetail.tsx";
 import { Issues } from "../pages/issuance/Issues.tsx";
 import { IssueDetail } from "../pages/issuance/IssueDetail.tsx";
 import { Revenue } from "../pages/revenue/Revenue.tsx";
+import { TrafficPools } from "../pages/revenue/Traffic.tsx";
+import { HubPage } from "../pages/hub/Hub.tsx";
 import { Profiles } from "../pages/payout/Profiles.tsx";
 import { PayoutRuns } from "../pages/payout/PayoutRuns.tsx";
 import { PayoutRunDetail } from "../pages/payout/PayoutRunDetail.tsx";
@@ -62,6 +64,8 @@ const opsRoutes: RouteDef[] = [
   { path: "/", title: "⑧ 권리 파이프라인 관제", element: <Pipeline /> },
   { path: "/dashboard", title: "검증 체크리스트", element: <Dashboard /> },
   { path: "/revenue", title: "매출", element: <Revenue /> },
+  { path: "/revenue/traffic", title: "감상 수익 풀", element: <TrafficPools /> },
+  { path: "/hub", title: "연동 허브", element: <HubPage /> },
   { path: "/settlement/batches", title: "정산 배치", element: <Batches /> },
   { path: "/settlement/batches/:batchId", title: "정산 배치 상세", element: <BatchDetail /> },
   { path: "/settlement/runs/:runId", title: "정산 run 상세", element: <RunDetail /> },
@@ -121,7 +125,7 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
     { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
     { title: "4 발행", items: [{ to: "/issues", label: "발행" }] },
-    { title: "5 매출", items: [{ to: "/revenue", label: "매출" }] },
+    { title: "5 매출", items: [{ to: "/revenue", label: "매출" }, { to: "/revenue/traffic", label: "감상 수익 풀" }, { to: "/hub", label: "연동 허브" }] },
     { title: "6 정산", items: [
       { to: "/settlement/batches", label: "정산 배치" }, { to: "/settlement/quarantine", label: "격리" }, { to: "/settlement/holds", label: "보류" },
     ] },

@@ -191,7 +191,7 @@ export function fanRenderRoutes(app: FastifyInstance, deps: Deps): void {
   });
 }
 
-/** 파트너 연동: 지금은 신원 확인만. 정산 수익 수집·DDEX 등은 연동 허브(다음 작업 14)가 이 채널에 붙는다. */
+/** 파트너 연동: 신원 확인. 리포트 파일 전송(유통사 CSV·DDEX DSR)은 연동 허브(hub/routes.ts)가 이 채널에 붙인다. */
 export function partnerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/me", async (req) => withActor(deps, req, async (_tx, actor) => me(actor)));
 }
