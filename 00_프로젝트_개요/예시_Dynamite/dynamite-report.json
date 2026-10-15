@@ -134,6 +134,50 @@
       ]
     }
   ],
+  "checks": [
+    {
+      "vcId": "vc_bts_orig",
+      "fan": "팬 F1",
+      "issuable": true,
+      "code": null,
+      "cached": false
+    },
+    {
+      "vcId": "vc_bts_swap",
+      "fan": "팬 F2",
+      "issuable": true,
+      "code": null,
+      "cached": false
+    },
+    {
+      "vcId": "vc_bts_vocal",
+      "fan": "팬 F3",
+      "issuable": true,
+      "code": null,
+      "cached": false
+    },
+    {
+      "vcId": "vc_bts_jin",
+      "fan": "팬 F4",
+      "issuable": true,
+      "code": null,
+      "cached": false
+    },
+    {
+      "vcId": "vc_bts_solo(1회째)",
+      "fan": "팬 F1",
+      "issuable": false,
+      "code": "ISSUE_NOT_SETTLEABLE",
+      "cached": false
+    },
+    {
+      "vcId": "vc_bts_solo(2회째)",
+      "fan": "팬 F1",
+      "issuable": false,
+      "code": "ISSUE_NOT_SETTLEABLE",
+      "cached": true
+    }
+  ],
   "issued": [
     {
       "vcId": "vc_bts_orig",
@@ -184,7 +228,7 @@
         "pty_suga": 1428
       },
       "snapshotId": "snp_vc_bts_swap",
-      "projectionDigest": "mdrl:sha256:2f3b49d200c9b9c64318824ecfd91806ee5de830e3bb9727cbbc7d3ed3ddd6e5",
+      "projectionDigest": "mdrl:sha256:e1e3bc9cb105257d8b2daf0f78c583f330d024af49ec051540676f8284f7d608",
       "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
     },
     {
@@ -207,7 +251,7 @@
         "pty_jin": 2857
       },
       "snapshotId": "snp_vc_bts_vocal",
-      "projectionDigest": "mdrl:sha256:9f18b56ee7538cfc812152092a419e09265a6d71a2e41309aabe29dfbf57c55b",
+      "projectionDigest": "mdrl:sha256:52f585f7f0832e8c6d5bc91ad849c8f3291184d32d818058efff50ebebc578cf",
       "membersDigest": "mdrl:sha256:475db79842ec531d431f49d12aa9a294318b82cdcb10650ea35b248edafa95f8"
     },
     {
@@ -231,7 +275,7 @@
         "pty_suga": 1428
       },
       "snapshotId": "snp_vc_bts_jin",
-      "projectionDigest": "mdrl:sha256:14a874f3fe75eeb9d4db57d51b96cb0967147284d69b1bf9e61d53f2ab01a738",
+      "projectionDigest": "mdrl:sha256:a773b1ed14d60fbb207f301c3ac92c60c5593b7373121f30f10d71ae788af361",
       "membersDigest": "mdrl:sha256:d2b281080c579201906e8108c8047a373b8ba29a5443022b36b7d67aad07d8eb"
     }
   ],
@@ -291,7 +335,7 @@
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_jin",
       "vc_id": "vc_bts_jin",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:f18771f89789d45e783eafdf0d75ac951bc17171f680e47ff9cbebbcaebd5888"
+      "result_digest": "mdrl:sha256:c24bdd599241937b4aa9a855433ed7207e764789990f5cda6c0e827ac4b99e64"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
@@ -303,13 +347,13 @@
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_swap",
       "vc_id": "vc_bts_swap",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:fa17a1490ebc85083de4ffc8856c364b2f4ff40528c7f22ffe7845ad7b5f2f25"
+      "result_digest": "mdrl:sha256:1b00b8446716e8143b5c2f0c4945b6ff32485764d5b725c8e01781164bc112a1"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_vocal",
       "vc_id": "vc_bts_vocal",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:8d277a8843eae0ea74a769febda596b76265fed3c0d28afe5e42f3b3b31d01f8"
+      "result_digest": "mdrl:sha256:ec6c1f76c3d7ecd2be88c072e8341cb2025c4dc8616711bddbbd9171dbf487af"
     }
   ],
   "firstEvent": {
@@ -698,5 +742,198 @@
     ],
     "holdings": [],
     "resultDigest": "mdrl:sha256:ad79bd5a85d874246a14e58ffcb96d8e6092d50922f24d76f3c56d5603585d21"
+  },
+  "notifications": [
+    {
+      "user_id": "usr_member_jhope",
+      "kind": "USAGE",
+      "n": 3
+    },
+    {
+      "user_id": "usr_member_jimin",
+      "kind": "USAGE",
+      "n": 3
+    },
+    {
+      "user_id": "usr_member_jin",
+      "kind": "USAGE",
+      "n": 4
+    },
+    {
+      "user_id": "usr_member_jungkook",
+      "kind": "USAGE",
+      "n": 3
+    },
+    {
+      "user_id": "usr_member_rm",
+      "kind": "USAGE",
+      "n": 3
+    },
+    {
+      "user_id": "usr_member_suga",
+      "kind": "USAGE",
+      "n": 3
+    },
+    {
+      "user_id": "usr_member_v",
+      "kind": "USAGE",
+      "n": 4
+    }
+  ],
+  "april": {
+    "plays": [
+      {
+        "vc_id": "vc_bts_jin",
+        "valid": 60,
+        "flagged": 5,
+        "short": 0
+      },
+      {
+        "vc_id": "vc_bts_orig",
+        "valid": 600,
+        "flagged": 0,
+        "short": 0
+      },
+      {
+        "vc_id": "vc_bts_swap",
+        "valid": 250,
+        "flagged": 0,
+        "short": 30
+      },
+      {
+        "vc_id": "vc_bts_vocal",
+        "valid": 100,
+        "flagged": 0,
+        "short": 0
+      }
+    ],
+    "pool": {
+      "poolId": "pool_sub_2026_04",
+      "source": "SUBSCRIPTION",
+      "periodStart": "2026-04-01T00:00:00.000Z",
+      "periodEnd": "2026-05-01T00:00:00.000Z",
+      "amountKrw": "1000000",
+      "status": "ALLOCATED",
+      "excluded": {
+        "FLAGGED": 5,
+        "POLICY_NO_TRAFFIC": 0
+      },
+      "createdBy": "usr_settle",
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "allocatedBy": "usr_settle",
+      "allocatedAt": "2026-05-02T00:00:00.002Z",
+      "allocations": [
+        {
+          "vcId": "vc_bts_jin",
+          "plays": 60,
+          "amountKrw": "59406",
+          "eventId": "ev_tr_pool_sub_2026_04_vc_bts_jin"
+        },
+        {
+          "vcId": "vc_bts_orig",
+          "plays": 600,
+          "amountKrw": "594059",
+          "eventId": "ev_tr_pool_sub_2026_04_vc_bts_orig"
+        },
+        {
+          "vcId": "vc_bts_swap",
+          "plays": 250,
+          "amountKrw": "247525",
+          "eventId": "ev_tr_pool_sub_2026_04_vc_bts_swap"
+        },
+        {
+          "vcId": "vc_bts_vocal",
+          "plays": 100,
+          "amountKrw": "99010",
+          "eventId": "ev_tr_pool_sub_2026_04_vc_bts_vocal"
+        }
+      ]
+    },
+    "runStatus": [
+      {
+        "status": "VERIFIED",
+        "n": 4
+      }
+    ],
+    "runs": [
+      {
+        "run_id": "run_bat_bts_2026_04_snp_vc_bts_jin",
+        "vc_id": "vc_bts_jin",
+        "status": "CONFIRMED",
+        "result_digest": "mdrl:sha256:8cb6cf1cd42860aa7d62215b4d63b6be64556c4c4cf5b4bc124ed36a47bcc0ee"
+      },
+      {
+        "run_id": "run_bat_bts_2026_04_snp_vc_bts_orig",
+        "vc_id": "vc_bts_orig",
+        "status": "CONFIRMED",
+        "result_digest": "mdrl:sha256:907a589e1606e85baaf1e166593109806089aa7c736cac2424340c318150c2f3"
+      },
+      {
+        "run_id": "run_bat_bts_2026_04_snp_vc_bts_swap",
+        "vc_id": "vc_bts_swap",
+        "status": "CONFIRMED",
+        "result_digest": "mdrl:sha256:d023e343835c69a2dec659af0c965d03821790ec5d893826a7e1612ac75e9c9c"
+      },
+      {
+        "run_id": "run_bat_bts_2026_04_snp_vc_bts_vocal",
+        "vc_id": "vc_bts_vocal",
+        "status": "CONFIRMED",
+        "result_digest": "mdrl:sha256:50e2bef40c6b0206b615edcc3a5f88d0938de7c203ff49eb959dbbef589f6a17"
+      }
+    ],
+    "pools": [
+      {
+        "bucket": "rights",
+        "krw": "700000"
+      },
+      {
+        "bucket": "platform",
+        "krw": "250000"
+      },
+      {
+        "bucket": "ops",
+        "krw": "50000"
+      }
+    ],
+    "byParty": [
+      {
+        "party_id": "pty_bighit_agency",
+        "role": "AGENCY",
+        "settled_krw": "315001"
+      },
+      {
+        "party_id": "pty_bighit_label",
+        "role": "MASTER_OWNER",
+        "settled_krw": "280000"
+      },
+      {
+        "party_id": "pty_david_stewart",
+        "role": "WORK_AUTHOR",
+        "settled_krw": "52500"
+      },
+      {
+        "party_id": "pty_jessica_agombar",
+        "role": "WORK_AUTHOR",
+        "settled_krw": "52499"
+      }
+    ],
+    "journal": [
+      {
+        "kind": "PAYOUT",
+        "n": 4
+      },
+      {
+        "kind": "PAYOUT_SETTLED",
+        "n": 4
+      },
+      {
+        "kind": "REVERSAL",
+        "n": 1
+      },
+      {
+        "kind": "SETTLEMENT",
+        "n": 8
+      }
+    ]
   }
 }

@@ -25,6 +25,8 @@ import { fakeProvider } from "../payout/fake-provider.ts";
 import { payoutJobHandlers, recordWebhook } from "../payout/handlers.ts";
 import { createPayoutRun, setPayoutProfile } from "../payout/service.ts";
 import { partyStatement } from "../ledger/statements.ts";
+import { checkCombination } from "../fan/decision.ts";
+import { allocatePool, createPool, getPool, recordPlay } from "../revenue/traffic.ts";
 
 /**
  * 가상 시나리오: BTS "Dynamite"(2020)의 보컬 재배치 2차 이용(팬앱 전용)을 권리 등록부터 지급·명세까지 실제 코어로 돌린다.
@@ -205,6 +207,24 @@ async function waitQueue(db: Db, name: JobName, timeoutMs: number): Promise<void
 }
 
 const rows = async (db: Db, sql: string, params: unknown[] = []) => (await db.pool.query(sql, params)).rows;
+
+/** 팬 앱 계정: 조합을 만든 팬 F1~F4, 4월 감상자 50명, 같은 조합을 짧은 시간에 반복 재생하는 계정 1명. 모두 소속 없는 개인(팬 파티)이다. */
+const FANS = ["f1", "f2", "f3", "f4"] as const;
+const LISTENERS = 50;
+const listenerId = (i: number) => `usr_listener_${String(i + 1).padStart(2, "0")}`;
+async function seedFans(tx: Tx, clock: Clock): Promise<void> {
+  const ids = [...FANS.map((f) => `fan_${f}`), ...Array.from({ length: LISTENERS }, (_, i) => listenerId(i).slice(4)), "listener_repeat"];
+  for (const id of ids) {
+    await reg.registerParty(tx, clock, { partyId: `pty_${id}`, partyType: "FAN", displayName: id, tenantId: "tnt_platform_default" });
+    await createUser(tx, clock, { userId: `usr_${id}`, displayName: id, roles: [], tenantId: "tnt_platform_default", partyId: `pty_${id}` });
+  }
+}
+
+/** 4월 재생(가정): 조합별 유효 재생 수. 정국·지민 맞바꾸기에는 30초 미만 재생 30회를 섞는다(세지 않는다). */
+const APRIL_PLAYS: { vcId: string; plays: number; short?: number }[] = [
+  { vcId: "vc_bts_orig", plays: 600 }, { vcId: "vc_bts_swap", plays: 250, short: 30 }, { vcId: "vc_bts_vocal", plays: 100 }, { vcId: "vc_bts_jin", plays: 50 },
+];
+const APRIL_POOL_KRW = "1000000";
 const evId = (vcId: string, n: number) => `ev_${vcId.replace("vc_bts_", "")}_${String(n).padStart(4, "0")}`;
 
 export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
@@ -237,6 +257,23 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   await db.tx((tx) => signConsents(tx, fixedClock("2026-01-20T00:00:00.000Z", 1), u.rights!));
   const grants = grantDemo(await db.tx((tx) => loadGrantRules(tx, SCOPE, "2026-03-10T00:00:00.000Z")));
 
+  // 4a. 팬 조합 판정(다음 작업 12): 팬 앱이 저장하기 전에 배치를 시험한다. 실제 발행을 되돌리는 판정이라 발행 결과와 같고,
+  // 같은 배치를 다시 물으면 캐시에서 답한다. 발행 봉인 digest가 바뀌지 않도록 발행과 다른 시계를 쓴다.
+  await db.tx((tx) => seedFans(tx, c0));
+  const cCheck = fixedClock("2026-02-14T00:00:00.000Z", 1);
+  const soloAssignments = [...SLOTS.map((s) => ({ slotId: s.id, stemId: `stm_jungkook_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }];
+  const checks: { vcId: string; fan: string; issuable: boolean; code: string | null; cached: boolean }[] = [];
+  for (const [k, cb] of COMBINATIONS.entries()) {
+    const singers = SLOTS.map((s) => singerOf(cb, s.owner));
+    const assignments = [...SLOTS.map((s, i) => ({ slotId: s.id, stemId: `stm_${singers[i]}_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }];
+    const r = await db.tx(async (tx) => checkCombination(ctx, tx, cCheck, await loadActor(tx, `usr_fan_${FANS[k]}`), { packId: PACK, assignments, members: memberBps(singers) }));
+    checks.push({ vcId: cb.vcId, fan: cb.fan, issuable: r.issuable, code: r.code ?? null, cached: r.cached });
+  }
+  for (const attempt of [1, 2]) {
+    const r = await db.tx(async (tx) => checkCombination(ctx, tx, cCheck, await loadActor(tx, "usr_fan_f1"), { packId: PACK, assignments: soloAssignments, members: { pty_jungkook: 10000 } }));
+    checks.push({ vcId: `vc_bts_solo(${attempt}회째)`, fan: "팬 F1", issuable: r.issuable, code: r.code ?? null, cached: r.cached });
+  }
+
   // 4. 팬 조합 발행: 게이트 통과 → 스냅샷 동결·발행 봉인.
   const c2 = fixedClock("2026-02-15T00:00:00.000Z", 1);
   const seals: { vcId: string; fan: string; title: string; singers: Record<string, string>; members: Record<string, number>; snapshotId: string; projectionDigest: string; membersDigest: string }[] = [];
@@ -254,7 +291,7 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   }
   const rejected = await db.tx((tx) => issuance.issue(ctx, tx, c2, u.issuer!, {
     packId: PACK, vcId: "vc_bts_solo", members: { pty_jungkook: 10000 },
-    assignments: [...SLOTS.map((s) => ({ slotId: s.id, stemId: `stm_jungkook_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }],
+    assignments: soloAssignments,
   })).then(() => "ISSUED", (e: unknown) => (e as { code?: string }).code ?? String(e));
 
   // 5. 매출(3월): 조합 소장 구매(PRIMARY). vc_bts_jin의 1건은 이상거래 의심(FLAGGED).
@@ -334,10 +371,10 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
         events: [{ id: "ev_traffic_2026_03_orig", type: "TRAFFIC", amount: "50000", currency: "KRW", integrity: "CLEAR" }] }));
 
       // 10. 보고서.
-      return {
+      const report = {
         assumptions: { price: PRICE.toString(), slots: SLOTS, names: NAMES, policyText: POLICY_TEXT, combinations: COMBINATIONS },
         policy: { policyId: active.policyId, version: active.version, factsDigest: active.factsDigest, policyDigest: active.policyDigest },
-        grants,
+        grants, checks,
         issued: seals, rejectedSolo: rejected,
         revenue: await rows(db, "SELECT vc_id, event_type, integrity_status, count(*)::int AS n, sum(net_amount_krw)::text AS krw FROM revenue_event GROUP BY 1,2,3 ORDER BY 1,2,3"),
         runStatus,
@@ -360,6 +397,53 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
         traffic: traffic.ok
           ? { ok: true, pool: traffic.value.pool_lines, lines: traffic.value.lines, holdings: traffic.value.holdings, resultDigest: traffic.value.result_digest }
           : { ok: false, errors: traffic.errors },
+        // 실연자 앱 알림(다음 작업 11): 멤버별로 받은 "내 보이스가 새 조합에 쓰였습니다" 알림 수.
+        notifications: await rows(db, "SELECT user_id, kind, count(*)::int AS n FROM notification GROUP BY 1, 2 ORDER BY 1, 2"),
+      };
+
+      // 11. 4월 감상 매출(다음 작업 13): 팬 앱 재생 보고 → 구독 수익 풀을 조합별 유효 재생 비중으로 배정 → TRAFFIC 매출 → 4월 정산.
+      // 위 보고서(3월 정산·5월 지급)를 바꾸지 않도록 지급 뒤에 따로 돌린다. 4월분은 다음 지급 대상이다.
+      const playClock = fixedClock("2026-04-01T00:00:00.000Z", 40 * 60_000);
+      await db.tx(async (tx) => {
+        const listeners = new Map<string, Actor>();
+        let seq = 0;
+        for (const p of APRIL_PLAYS) {
+          for (let i = 0; i < p.plays + (p.short ?? 0); i++) {
+            const id = listenerId(seq % LISTENERS);
+            if (!listeners.has(id)) listeners.set(id, await loadActor(tx, id));
+            await recordPlay(tx, playClock, listeners.get(id)!, { playId: `ply_${String(++seq).padStart(5, "0")}`, vcId: p.vcId, durationMs: i < p.plays ? 120_000 : 12_000 });
+          }
+        }
+        // 한 사람이 진 확장 조합을 3분 간격으로 15번: 24시간 안의 11번째부터는 FLAGGED(배정에서 뺀다).
+        const repeat = await loadActor(tx, "usr_listener_repeat");
+        const repeatClock = fixedClock("2026-04-15T12:00:00.000Z", 3 * 60_000);
+        for (let i = 1; i <= 15; i++) await recordPlay(tx, repeatClock, repeat, { playId: `ply_repeat_${String(i).padStart(2, "0")}`, vcId: "vc_bts_jin", durationMs: 120_000 });
+      });
+      const aprClock = fixedClock("2026-05-02T00:00:00.000Z", 1);
+      const d2 = { db, ctx, clock: aprClock, jobs: jobs2 };
+      const pool = await db.tx(async (tx) => {
+        await createPool(tx, aprClock, u.settle!, { poolId: "pool_sub_2026_04", source: "SUBSCRIPTION", periodStart: "2026-04-01T00:00:00.000Z", periodEnd: "2026-05-01T00:00:00.000Z", amountKrw: APRIL_POOL_KRW });
+        return allocatePool(ctx, tx, aprClock, u.settle!, "pool_sub_2026_04", refundHook(jobs2), revisionHook(jobs2));
+      });
+      const APRIL = "bat_bts_2026_04";
+      await createBatch(d2, u.ops!, { batchId: APRIL, periodStart: "2026-04-01T00:00:00.000Z", periodEnd: "2026-05-01T00:00:00.000Z" });
+      await jobs2.drainIdle(600_000);
+      const aprilRuns = await rows(db, "SELECT status, count(*)::int AS n FROM settlement_run WHERE batch_id = $1 GROUP BY status", [APRIL]);
+      await confirmBatch(d2, u.settle!, APRIL);
+      await jobs2.drainIdle(600_000);
+      return {
+        ...report,
+        april: {
+          plays: await rows(db, `SELECT vc_id, count(*) FILTER (WHERE counted AND integrity = 'CLEAR')::int AS valid, count(*) FILTER (WHERE integrity = 'FLAGGED')::int AS flagged,
+                                        count(*) FILTER (WHERE NOT counted)::int AS short FROM play_event GROUP BY vc_id ORDER BY vc_id`),
+          pool: await db.tx((tx) => getPool(tx, pool.poolId)),
+          runStatus: aprilRuns,
+          runs: await rows(db, "SELECT r.run_id, rs.vc_id, r.status, r.result_digest FROM settlement_run r JOIN rights_snapshot rs ON rs.snapshot_id = r.snapshot_id WHERE r.batch_id = $1 ORDER BY rs.vc_id", [APRIL]),
+          pools: await rows(db, `SELECT p.bucket, sum(p.amount_krw)::text AS krw FROM pool_line p JOIN settlement_run r USING (run_id) WHERE r.batch_id = $1 GROUP BY 1 ORDER BY sum(p.amount_krw) DESC, p.bucket`, [APRIL]),
+          byParty: await rows(db, `SELECT l.party_id, l.role, sum(l.amount_krw)::text AS settled_krw FROM allocation_line l JOIN settlement_run r USING (run_id)
+                                    WHERE r.batch_id = $1 GROUP BY 1, 2 ORDER BY sum(l.amount_krw) DESC, l.party_id`, [APRIL]),
+          journal: await rows(db, "SELECT kind, count(*)::int AS n FROM journal_entry GROUP BY kind ORDER BY kind"),
+        },
       };
     } finally {
       await jobs2.stop();
