@@ -1,8 +1,8 @@
 import { requireRole, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
-import { iso, type Tx } from "../platform/db.ts";
-import { conflict, invalid, notFound } from "../platform/errors.ts";
+import { iso, type Db, type Tx } from "../platform/db.ts";
+import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { checkPackActivation, type Declared } from "../engine-bridge/activation.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { decideIssueLicense, licenseDiagnostics, type Usage } from "../engine-bridge/grant.ts";
@@ -175,6 +175,24 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   if (diags.length > 0) throw invalid("ISSUE_NOT_SETTLEABLE", `combination ${input.vcId} cannot be settled under ${active.policyId}@${active.version}`, diags);
   await audit(tx, clock, { actor: actor.userId, action: "ISSUED", entityType: "rights_snapshot", entityId: snapshotId, after: { projection: seal.projectionDigest, license: license.decision.digest } });
   return seal;
+}
+
+const GATE_CODES = new Set(["ISSUE_NOT_LICENSED", "ISSUE_NOT_SETTLEABLE", "INVALID_ISSUE", "PACK_NOT_ACTIVE", "FACTS_DISPUTE_OPEN", "REBIND_REQUIRED", "NO_ACTIVE_POLICY"]);
+
+/**
+ * 발행 게이트 거부를 관제용으로 남긴다(⑧ 게이트 거부율). 발행 트랜잭션은 롤백되므로 별도 트랜잭션(system 범위)으로 쓴다.
+ * 게이트 거부가 아닌 오류(권한·형식·충돌)와 모르는 사용자는 남기지 않는다. 기록 실패는 원래 오류를 가리지 않는다.
+ */
+export async function recordIssueRejection(
+  db: Db, clock: Clock, e: unknown, ctx: { channel: string; actorUserId: unknown; packId?: unknown; vcId?: unknown },
+): Promise<void> {
+  if (!(e instanceof DomainError) || !GATE_CODES.has(e.code) || typeof ctx.actorUserId !== "string") return;
+  await db.tx((tx) => tx.query(
+    `INSERT INTO issue_rejection (occurred_at, channel, actor_user_id, pack_id, vc_id, code, diagnostics)
+     SELECT $1,$2,$3::text,$4,$5,$6,$7 WHERE EXISTS (SELECT 1 FROM user_account WHERE user_id = $3::text)`,
+    [clock.now(), ctx.channel, ctx.actorUserId, typeof ctx.packId === "string" ? ctx.packId : null, typeof ctx.vcId === "string" ? ctx.vcId : null,
+      e.code, JSON.stringify(e.diagnostics ?? [])],
+  )).catch((err: Error) => console.error("issue rejection log failed:", err.message));
 }
 
 /** Outbox 핸들러: 분쟁이 열리면 그 facts 범위의 ACTIVE 팩을 일시정지한다(통합 설계 5.6-1). 재활성화는 수동이다. */

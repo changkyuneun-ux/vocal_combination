@@ -356,7 +356,7 @@ test("정상 경로 11단계 — 모든 조작을 화면으로", async ({ page, 
 
     await expect(page.getByTestId("invariants-badge")).toHaveText("점검 정상");
 
-    await page.goto("/");
+    await page.goto("/dashboard");
     const steps = page.getByRole("list", { name: "체크리스트 단계" }).locator("li > .badge");
     await expect(steps).toHaveCount(11);
     await expect(steps).toHaveText(Array.from({ length: 11 }, () => "완료"), { timeout: 30_000 });

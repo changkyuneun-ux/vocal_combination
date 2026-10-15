@@ -41,8 +41,14 @@ export function issuanceRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Params: { id: string } }>("/packs/:id/activate", async (req) =>
     withActor(deps, req, async (tx, actor) => { await issuance.activatePack(deps.ctx, tx, deps.clock, actor, req.params.id); return {}; }));
   app.post("/issues", async (req, reply) => {
-    const seal = await withActor(deps, req, (tx, actor) => issuance.issue(deps.ctx, tx, deps.clock, actor, parseIssueBody(req.body)));
-    return reply.status(201).send(seal);
+    try {
+      const seal = await withActor(deps, req, (tx, actor) => issuance.issue(deps.ctx, tx, deps.clock, actor, parseIssueBody(req.body)));
+      return reply.status(201).send(seal);
+    } catch (e) {
+      const b = req.body as Record<string, unknown> | undefined;
+      await issuance.recordIssueRejection(deps.db, deps.clock, e, { channel: req.channel ?? "?", actorUserId: req.headers["x-actor"], packId: b?.packId, vcId: b?.vcId });
+      throw e;
+    }
   });
   // 조회(로그인한 누구나)
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;

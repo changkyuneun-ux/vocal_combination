@@ -98,7 +98,10 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
       }
       const onBehalf: Actor = { ...actor, roles: new Set([...actor.roles, "ISSUER"]) };
       return issuance.issue(deps.ctx, tx, deps.clock, onBehalf, { packId: b.packId!, vcId: b.vcId!, assignments: b.assignments!, members, ...(b.usage && { usage: b.usage }) });
-    }));
+    })).catch(async (e: unknown) => {
+      await issuance.recordIssueRejection(deps.db, deps.clock, e, { channel: "fan", actorUserId: req.headers["x-actor"], packId: b.packId, vcId: b.vcId });
+      throw e;
+    });
     return reply.status(201).send(seal);
   });
 }

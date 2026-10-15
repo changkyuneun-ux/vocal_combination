@@ -14,6 +14,10 @@ const { createDevPsp } = await import("./psp.ts");
 const { startServer } = await import("../http/assemble.ts");
 
 if (!devModeFromEnv(process.env)) throw new Error("DEV_ONLY: RC_DEV must be 1 for npm run dev");
+// 개발 DB가 없으면 만들고, 새로 추가된 마이그레이션을 적용한다(두 번 실행해도 안전 — npm run dev:db와 같다).
+const { setupDevDb, DEFAULT_ADMIN_URL } = await import("./setup-db.ts");
+const setup = await setupDevDb(process.env.RC_SERVER_ADMIN_URL ?? DEFAULT_ADMIN_URL);
+if (setup.applied.length + setup.appliedDev.length > 0) console.log(`dev db: applied ${[...setup.applied, ...setup.appliedDev].join(", ")}`);
 const url = process.env.DATABASE_URL!;
 // 가상 시계를 읽고 개발 사용자를 심는 데는 잠깐 쓰는 연결을 따로 쓴다(서버 풀은 startServer가 만든다).
 const boot = createDb(url, { max: 2 });

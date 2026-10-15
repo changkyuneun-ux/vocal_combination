@@ -20,7 +20,7 @@ describe("two web apps from one codebase", () => {
   });
   it("the ops back office has everything; dev tools only on the dev server", () => {
     const paths = routesFor("ops").map((r) => r.path);
-    for (const p of ["/", "/revenue", "/settlement/batches", "/ledger", "/payout/runs", "/registry/parties"]) expect(paths).toContain(p);
+    for (const p of ["/", "/dashboard", "/control", "/revenue", "/settlement/batches", "/ledger", "/payout/runs", "/registry/parties"]) expect(paths).toContain(p);
     expect(paths.includes("/dev/psp")).toBe(import.meta.env.DEV);
   });
 });

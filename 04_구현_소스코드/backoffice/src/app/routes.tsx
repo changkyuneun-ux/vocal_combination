@@ -26,6 +26,7 @@ import { Ledger } from "../pages/ledger/Ledger.tsx";
 import { EntryDetail } from "../pages/ledger/EntryDetail.tsx";
 import { Section } from "../components/Section.tsx";
 import { PortalHome } from "../pages/portal/Home.tsx";
+import { Pipeline } from "../pages/monitor/Pipeline.tsx";
 import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
 import type { AppKind } from "./apps.ts";
 
@@ -56,7 +57,8 @@ const rightsRoutes: RouteDef[] = [
 
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
 const opsRoutes: RouteDef[] = [
-  { path: "/", title: "대시보드", element: <Dashboard /> },
+  { path: "/", title: "⑧ 권리 파이프라인 관제", element: <Pipeline /> },
+  { path: "/dashboard", title: "검증 체크리스트", element: <Dashboard /> },
   { path: "/revenue", title: "매출", element: <Revenue /> },
   { path: "/settlement/batches", title: "정산 배치", element: <Batches /> },
   { path: "/settlement/batches/:batchId", title: "정산 배치 상세", element: <BatchDetail /> },
@@ -112,7 +114,7 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     ];
   }
   return [
-    { title: "0 대시보드", items: [{ to: "/", label: "대시보드" }] },
+    { title: "0 관제", items: [{ to: "/", label: "⑧ 파이프라인 관제" }, { to: "/dashboard", label: "검증 체크리스트" }] },
     registryMenu,
     { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
     { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },

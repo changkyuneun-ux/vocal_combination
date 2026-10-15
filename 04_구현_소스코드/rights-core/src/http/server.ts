@@ -20,6 +20,7 @@ import { ledgerRoutes } from "../ledger/routes.ts";
 import { payoutRoutes, pspWebhookRoutes } from "../payout/routes.ts";
 import { devRoutes, type DevDeps } from "../dev/routes.ts";
 import { fanRoutes, partnerRoutes, performerRoutes, portalRoutes } from "./channel-routes.ts";
+import { monitorRoutes } from "../monitor/routes.ts";
 
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
 export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps };
@@ -84,7 +85,7 @@ export function buildServer(deps: Deps): FastifyInstance {
       sub.addHook("onRequest", async (req) => { req.channel = ch; });
       register(sub);
     }, { prefix: `/${ch}` });
-  channel("ops", all);
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); });
   channel("portal", (sub) => {
     platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps);
   });
