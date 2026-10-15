@@ -9,18 +9,21 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import { enqueue } from "../platform/outbox.ts";
 import { notifyParty } from "../performer/notifications.ts";
 import { isIdentityVerified } from "../performer/identity.ts";
+import { evidenceDigest, linkEvidence, parseRefs, type DocumentRef } from "../documents/service.ts";
 
 export type RightType = "PERFORMER" | "MASTER" | "WORK";
 export type ConsentDraft = {
   consentId: string; factsScopeId: string; partyId: string; rightType: RightType; assetId: string;
   scope: { actions: string[]; territories: string[]; media: string[]; audience: string[] };
   validFrom: string; validTo: string; sourceContractUri?: string;
+  /** 동의의 근거 원천 문서(원천 문서 설계 S1). 주면 sourceContractUri를 주지 않아도 "doc:<id>@<버전>"으로 채운다. */
+  sourceDocument?: DocumentRef;
 };
 export type Consent = {
   consentId: string; factsScopeId: string; partyId: string; rightType: string; assetId: string;
   scope: { actions: string[]; territories: string[]; media: string[]; audience: string[] };
   validFrom: string; validTo: string; status: "SIGNED" | "REVOKED"; signedBy: string; signedAt: string;
-  revokedBy?: string; revokedAt?: string; revokeReason?: string; sourceContractUri?: string;
+  revokedBy?: string; revokedAt?: string; revokeReason?: string; sourceContractUri?: string; sourceDocument?: DocumentRef;
 };
 
 /**
@@ -58,7 +61,12 @@ async function checkAsset(tx: Tx, d: ConsentDraft): Promise<void> {
   if (!ok) throw invalid("CONSENT_ASSET_MISMATCH", `${d.rightType} consent of ${d.partyId} cannot target ${d.assetId} in ${d.factsScopeId}`);
 }
 
-export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: ConsentDraft): Promise<Consent> {
+export async function signConsent(tx: Tx, clock: Clock, actor: Actor, raw: ConsentDraft): Promise<Consent> {
+  const d0: ConsentDraft = raw.sourceDocument === undefined ? raw : { ...raw, sourceDocument: parseRefs([raw.sourceDocument], "sourceDocument")[0]! };
+  // 근거 문서가 있으면 계약서 주소 대신 문서 참조를 쓴다(문서는 요청자에게 보이고 거부·폐기되지 않아야 한다).
+  if (d0.sourceDocument !== undefined) await evidenceDigest(tx, [d0.sourceDocument]);
+  const d: ConsentDraft = d0.sourceDocument !== undefined && d0.sourceContractUri === undefined
+    ? { ...d0, sourceContractUri: `doc:${d0.sourceDocument.documentId}@${d0.sourceDocument.version}` } : d0;
   authorize(actor, d.partyId, d.rightType, d.sourceContractUri);
   // 실연자 본인 서명은 본인 인증을 마친 계정만(플랫폼의 계약서 옮겨 적기는 계약 원문이 근거다).
   if (d.rightType === "PERFORMER" && actor.scope !== "platform" && !(await isIdentityVerified(tx, actor.userId))) {
@@ -76,11 +84,12 @@ export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: Consent
   if (diags.length > 0) throw invalid("CONSENT_INVALID", `consent ${d.consentId} is not a valid grant rule`, diags);
   await tx.query(
     `INSERT INTO consent_agreement (consent_id, facts_scope_id, party_id, right_type, asset_id, scope_actions, territories, media, audience,
-                                    valid_from, valid_to, source_contract_uri, signed_by, signed_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+                                    valid_from, valid_to, source_contract_uri, signed_by, signed_at, source_document_id, source_document_version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [d.consentId, d.factsScopeId, d.partyId, d.rightType, d.assetId, draft.scope_actions, draft.territories, draft.media, draft.audience,
-      d.validFrom, d.validTo, d.sourceContractUri ?? null, actor.userId, signedAt],
+      d.validFrom, d.validTo, d.sourceContractUri ?? null, actor.userId, signedAt, d.sourceDocument?.documentId ?? null, d.sourceDocument?.version ?? null],
   );
+  if (d.sourceDocument !== undefined) await linkEvidence(tx, clock, actor.userId, "CONSENT", d.consentId, 0, [d.sourceDocument]);
   // 판정 캐시: 실연 동의는 그 보이스를 쓴 판정만, 녹음·작품 동의는 곡 전체 판정을 지운다.
   await invalidateDecisions(tx, d.factsScopeId, d.rightType === "PERFORMER" ? { voices: [d.assetId] } : { all: true });
   // 재동의는 이전 철회를 대체하므로, 같은 파티가 이 자산에 건 노출 보류도 푼다(다음 작업 17).
@@ -121,6 +130,7 @@ function toConsent(r: any): Consent {
     signedBy: r.signed_by, signedAt: iso(r.signed_at)!,
     ...(r.revoked_at !== null && { revokedBy: r.revoked_by, revokedAt: iso(r.revoked_at)!, revokeReason: r.revoke_reason }),
     ...(r.source_contract_uri !== null && { sourceContractUri: r.source_contract_uri }),
+    ...(r.source_document_id !== null && { sourceDocument: { documentId: r.source_document_id, version: r.source_document_version } }),
   };
 }
 

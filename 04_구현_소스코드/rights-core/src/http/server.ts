@@ -24,6 +24,8 @@ import { fanRenderRoutes, fanRoutes, partnerRoutes, performerRoutes, portalRoute
 import { monitorRoutes } from "../monitor/routes.ts";
 import { audioOpsRoutes, stemAudioRoutes } from "../audio/routes.ts";
 import type { AudioDeps } from "../audio/deps.ts";
+import type { DocumentStore } from "../documents/store.ts";
+import { documentRoutes } from "../documents/routes.ts";
 import type { IdentityProvider } from "../performer/identity.ts";
 import type { PushSender } from "../performer/notifications.ts";
 
@@ -32,7 +34,7 @@ import type { PushSender } from "../performer/notifications.ts";
  * audio는 오디오 처리 서비스 연동(스템 업로드·검사·렌더). identity는 본인 인증 공급자, push는 웹 푸시 전송자(실연자 앱).
  * 없으면 해당 경로가 503이다.
  */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender };
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender; documents?: DocumentStore };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
@@ -66,7 +68,8 @@ export function buildServer(deps: Deps): FastifyInstance {
     try { done(null, JSON.parse(text)); } catch (e) { const err: any = e; err.statusCode = 400; done(err, undefined); }
   });
   // 스템 오디오·참조 음원은 원시 바이트로 받는다.
-  for (const ct of ["application/octet-stream", /^audio\//] as const) {
+  // 원천 문서 원문(PDF·스캔 이미지)도 원시 바이트로 받는다.
+  for (const ct of ["application/octet-stream", /^audio\//, "application/pdf", /^image\//] as const) {
     app.addContentTypeParser(ct, { parseAs: "buffer", bodyLimit: 200 * 1024 * 1024 }, (_req, body, done) => done(null, body));
   }
   app.addHook("preValidation", async (req) => { if (req.body == null) req.body = {}; });
@@ -99,9 +102,9 @@ export function buildServer(deps: Deps): FastifyInstance {
       register(sub);
     }, { prefix: `/${ch}` });
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); });
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); });
   channel("portal", (sub) => {
-    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps);
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps);
   });
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });

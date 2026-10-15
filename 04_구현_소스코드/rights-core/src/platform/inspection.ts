@@ -10,7 +10,7 @@ import { conflict, DomainError, notFound } from "./errors.ts";
  * 1 열람 기록 · 2 개인정보 마스킹 해제(사유 필수) · 3 break-glass(테넌트 소유 데이터 쓰기, 대상 테넌트·사유·최대 60분).
  */
 
-export type Panel = "PARTY" | "RIGHTS_IMAGE" | "PACK" | "SETTLEMENT_TRACE";
+export type Panel = "PARTY" | "RIGHTS_IMAGE" | "PACK" | "SETTLEMENT_TRACE" | "SOURCE_DOCUMENT";
 export type BreakGlass = { breakGlassId: number; userId: string; targetTenantId: string; reason: string; startedAt: string; expiresAt: string; endedAt?: string };
 
 const BG_MAX_MINUTES = 60;
@@ -92,11 +92,14 @@ export async function recordInspection(
  */
 const INSPECTED: Record<string, { nodeType: string; panel: Panel; param: string; owner: string }> = {
   "/scopes/:id": { nodeType: "facts_scope", panel: "RIGHTS_IMAGE", param: "id", owner: "SELECT owner_tenant_id FROM facts_scope WHERE facts_scope_id = $1" },
+  "/scopes/:id/summary": { nodeType: "facts_scope", panel: "RIGHTS_IMAGE", param: "id", owner: "SELECT owner_tenant_id FROM facts_scope WHERE facts_scope_id = $1" },
   "/scopes/:id/facts": { nodeType: "facts_scope", panel: "RIGHTS_IMAGE", param: "id", owner: "SELECT owner_tenant_id FROM facts_scope WHERE facts_scope_id = $1" },
   "/policies/:policyId/versions": { nodeType: "policy", panel: "RIGHTS_IMAGE", param: "policyId", owner: "SELECT owner_tenant_id FROM policy_version WHERE policy_id = $1 LIMIT 1" },
   "/policies/:policyId/versions/:version": { nodeType: "policy", panel: "RIGHTS_IMAGE", param: "policyId", owner: "SELECT owner_tenant_id FROM policy_version WHERE policy_id = $1 LIMIT 1" },
   "/packs/:id": { nodeType: "vocal_pack", panel: "PACK", param: "id", owner: "SELECT owner_tenant_id FROM vocal_pack WHERE pack_id = $1" },
   "/issues/:snapshotId/audit": { nodeType: "rights_snapshot", panel: "PACK", param: "snapshotId", owner: "SELECT p.owner_tenant_id FROM rights_snapshot s JOIN vocal_pack p ON p.pack_id = s.pack_id WHERE s.snapshot_id = $1" },
+  "/documents/:id": { nodeType: "source_document", panel: "SOURCE_DOCUMENT", param: "id", owner: "SELECT owner_tenant_id FROM source_document WHERE document_id = $1 LIMIT 1" },
+  "/documents/:id/versions/:v/file": { nodeType: "source_document", panel: "SOURCE_DOCUMENT", param: "id", owner: "SELECT owner_tenant_id FROM source_document WHERE document_id = $1 LIMIT 1" },
   "/consents/:id": { nodeType: "consent_agreement", panel: "RIGHTS_IMAGE", param: "id", owner: "SELECT owner_tenant_id FROM consent_agreement WHERE consent_id = $1" },
   "/parties/:id/statements": { nodeType: "party", panel: "SETTLEMENT_TRACE", param: "id", owner: "SELECT tenant_id FROM party WHERE party_id = $1" },
   "/parties/:id/payout-profile": { nodeType: "party", panel: "PARTY", param: "id", owner: "SELECT tenant_id FROM party WHERE party_id = $1" },

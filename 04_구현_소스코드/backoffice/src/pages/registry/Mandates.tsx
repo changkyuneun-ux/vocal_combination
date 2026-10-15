@@ -8,8 +8,10 @@ import { ScopeSelect, useScopeParam } from "../../components/ScopeSelect.tsx";
 import { useGet } from "../../api/hooks.ts";
 import { RECORD_STATUSES, RIGHT_KINDS, VISIBILITIES, compact, opts, toIso } from "../../api/registry.ts";
 import type { ScopeFacts } from "../../api/types.ts";
+import { toEvidence, useDocumentOptions } from "../../api/documents.ts";
 
 export function Mandates() {
+  const docs = useDocumentOptions();
   const [scope, setScope] = useScopeParam();
   const facts = useGet<ScopeFacts>(["facts", scope], `/scopes/${encodeURIComponent(scope)}/facts`, { enabled: scope !== "" });
   return (
@@ -43,9 +45,10 @@ export function Mandates() {
                 { name: "validFrom", label: "유효 시작(UTC)", type: "datetime", required: true },
                 { name: "validTo", label: "유효 끝(UTC)", type: "datetime" },
                 { name: "visibility", label: "공개 범위", type: "select", options: opts(VISIBILITIES) },
+                { name: "evidenceDocument", label: "근거 문서", type: "select", options: docs },
                 { name: "sourceRef", label: "출처 참조", type: "text" },
               ]}
-              toBody={(v) => compact({ ...v, shareBps: Number(v.shareBps), validFrom: toIso(v.validFrom), validTo: toIso(v.validTo) })} />
+              toBody={({ evidenceDocument, ...v }) => compact({ ...v, shareBps: Number(v.shareBps), validFrom: toIso(v.validFrom), validTo: toIso(v.validTo), evidenceDocuments: toEvidence(evidenceDocument) })} />
           </Section>
         </>
       )}

@@ -3,6 +3,7 @@ import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { fenceRecording, fenceScope, fenceWork, lookup, scopeExists, type EntityKind } from "./repo.ts";
+import { carryEvidence, evidenceDigest, linkEvidence, type DocumentRef } from "../documents/service.ts";
 
 export type PartyType = "LABEL" | "AGENCY" | "PUBLISHER" | "CMO" | "AUTHOR" | "ARTIST" | "MEMBER" | "SESSION" | "AI_PROVIDER" | "FAN" | "PLATFORM";
 export type ClaimEdge = "PERFORMED_BY" | "OWNED_BY" | "CONTROLLED_BY" | "WRITTEN_BY" | "CONTRIBUTED_BY";
@@ -13,10 +14,14 @@ export type ClaimDraft = {
   claimId: string; factsScopeId: string; sourceId: string; edge: ClaimEdge; targetId: string; shareBps: number;
   performerRole?: "FEATURED" | "NON_FEATURED"; roleDetail?: string; status: RecordStatus; validFrom: string; validTo?: string;
   evidenceDigest?: string; visibility?: Visibility; sourceRef?: string;
+  /** 근거 원천 문서(원천 문서 설계 S1). 주면 evidenceDigest를 시스템이 문서 해시로 채운다(직접 주면 거부). linkedBy는 연결한 사용자. */
+  evidenceDocuments?: DocumentRef[]; linkedBy?: string;
 };
 export type MandateDraft = {
   mandateId: string; factsScopeId: string; fromPartyId: string; toPartyId: string; rightKind: "MASTER" | "WORK" | "PERFORMER";
   shareBps: number; status: RecordStatus; validFrom: string; validTo?: string; visibility?: Visibility; sourceRef?: string;
+  /** 위임 증빙(결정 D4): 주장과 같이 facts에 봉인된다. evidenceDocuments를 주면 시스템이 채운다. */
+  evidenceDigest?: string; evidenceDocuments?: DocumentRef[]; linkedBy?: string;
 };
 export type Recorded = { id: string; version: number; recordedAt: string };
 
@@ -114,6 +119,7 @@ export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft, opts: Rec
   await fenceScope(tx, d.factsScopeId, recordedAt);
   await invalidateDecisions(tx, d.factsScopeId, { all: true }); // 주장·위임이 바뀌면 곡의 판정 캐시 전부
   const version = await nextVersion(tx, "right_claim", "claim_id", d.claimId, d.factsScopeId, recordedAt, opts.expectedVersion);
+  const evidence = await resolveEvidence(tx, "right_claim", "claim_id", d.claimId, version, d);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "right_claim", "claim_id", d.claimId, version, recordedAt);
   await tx.query(
@@ -121,8 +127,9 @@ export async function recordClaim(tx: Tx, clock: Clock, d: ClaimDraft, opts: Rec
        status, valid_from, valid_to, recorded_at, evidence_digest, visibility, source_ref)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [d.claimId, version, d.factsScopeId, d.sourceId, d.edge, d.targetId, d.shareBps, d.performerRole ?? null, d.roleDetail ?? null,
-      d.status, d.validFrom, d.validTo ?? null, recordedAt, d.evidenceDigest ?? null, d.visibility ?? null, d.sourceRef ?? null],
+      d.status, d.validFrom, d.validTo ?? null, recordedAt, evidence.digest, d.visibility ?? null, d.sourceRef ?? null],
   );
+  await evidence.link(tx, clock, "CLAIM", d.claimId, version);
   return { id: d.claimId, version, recordedAt };
 }
 
@@ -135,15 +142,17 @@ export async function recordMandate(tx: Tx, clock: Clock, d: MandateDraft, opts:
   await fenceScope(tx, d.factsScopeId, recordedAt);
   await invalidateDecisions(tx, d.factsScopeId, { all: true }); // 주장·위임이 바뀌면 곡의 판정 캐시 전부
   const version = await nextVersion(tx, "mandate", "mandate_id", d.mandateId, d.factsScopeId, recordedAt, opts.expectedVersion);
+  const evidence = await resolveEvidence(tx, "mandate", "mandate_id", d.mandateId, version, d);
   // 부분 유니크 인덱스(현재 버전 1개)를 지키려면 INSERT 전에 직전 버전을 대체해야 한다.
   await supersede(tx, "mandate", "mandate_id", d.mandateId, version, recordedAt);
   await tx.query(
     `INSERT INTO mandate (mandate_id, version, facts_scope_id, from_party_id, to_party_id, right_kind, share_bps, status,
-       valid_from, valid_to, recorded_at, visibility, source_ref)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       valid_from, valid_to, recorded_at, visibility, source_ref, evidence_digest)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     [d.mandateId, version, d.factsScopeId, d.fromPartyId, d.toPartyId, d.rightKind, d.shareBps, d.status,
-      d.validFrom, d.validTo ?? null, recordedAt, d.visibility ?? null, d.sourceRef ?? null],
+      d.validFrom, d.validTo ?? null, recordedAt, d.visibility ?? null, d.sourceRef ?? null, evidence.digest],
   );
+  await evidence.link(tx, clock, "MANDATE", d.mandateId, version);
   return { id: d.mandateId, version, recordedAt };
 }
 
@@ -171,5 +180,25 @@ export async function currentMandate(tx: Tx, mandateId: string): Promise<Mandate
     ...(r.valid_to !== null && { validTo: iso(r.valid_to) }),
     ...(r.visibility !== null && { visibility: r.visibility }),
     ...(r.source_ref !== null && { sourceRef: r.source_ref }),
+    ...(r.evidence_digest !== null && { evidenceDigest: r.evidence_digest }),
   };
+}
+
+/**
+ * 증빙 결정: 근거 문서를 주면 문서 해시로 digest를 만들고(직접 준 digest와 같이 오면 거부) 버전에 연결한다.
+ * 문서를 주지 않으면 준 digest(이전 방식)를 쓰고, 그 digest가 직전 버전과 같으면 직전 버전의 근거 연결을 이어받는다(분쟁 개시·종결이 만드는 새 버전).
+ */
+async function resolveEvidence(
+  tx: Tx, table: "right_claim" | "mandate", key: string, id: string, version: number, d: { evidenceDigest?: string; evidenceDocuments?: DocumentRef[]; linkedBy?: string },
+): Promise<{ digest: string | null; link: (tx: Tx, clock: Clock, type: "CLAIM" | "MANDATE", id: string, version: number) => Promise<void> }> {
+  if (d.evidenceDocuments !== undefined && d.evidenceDocuments.length > 0) {
+    if (d.evidenceDigest !== undefined) throw invalid("INVALID_EVIDENCE", "give evidenceDocuments or evidenceDigest, not both");
+    if (d.linkedBy === undefined) throw invalid("INVALID_EVIDENCE", "linkedBy is required with evidenceDocuments");
+    const digest = await evidenceDigest(tx, d.evidenceDocuments);
+    const refs = d.evidenceDocuments;
+    return { digest, link: (tx, clock, type, rid, v) => linkEvidence(tx, clock, d.linkedBy!, type, rid, v, refs) };
+  }
+  const prior = version > 1 ? (await tx.query(`SELECT evidence_digest FROM ${table} WHERE ${key} = $1 AND version = $2`, [id, version - 1])).rows[0]?.evidence_digest ?? null : null;
+  const digest = d.evidenceDigest ?? null;
+  return { digest, link: async (tx, clock, type, rid, v) => { if (digest !== null && digest === prior) await carryEvidence(tx, clock, type, rid, v); } };
 }

@@ -29,7 +29,7 @@ const ALLOWED_KEYS = {
   ],
   mandate: [
     "id", "from", "to", "right", "share", "status", "valid",
-    "recorded_at", "superseded_at", "visibility",
+    "recorded_at", "superseded_at", "evidence", "visibility",
   ],
   interval: ["from", "to"],
 } as const satisfies Record<string, readonly string[]>;
@@ -50,7 +50,7 @@ export function validateFactsStructure(doc: unknown): Diagnostic[] {
 }
 
 /**
- * 공개본(publicFacts 결과) 검증: 구조 규칙은 같고, claim.share·claim.evidence·mandate.share·party.ids는
+ * 공개본(publicFacts 결과) 검증: 구조 규칙은 같고, claim.share·claim.evidence·mandate.share·mandate.evidence·party.ids는
  * 원문 또는 커밋먼트를 허용한다. share 합·위임 불변식은 커밋된 값으로 검사할 수 없으므로 돌리지 않는다.
  */
 export function validatePublicFacts(doc: unknown): Diagnostic[] {
@@ -198,6 +198,7 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     enumField("mandate_right", m.right, `${p}.right`);
     bps(m.share, `${p}.share`, m.visibility);
     record(m, p);
+    if (!committed(m.evidence, m.visibility)) text(m.evidence, `${p}.evidence`, true);
   });
 
   out.push(...unknownKeys(body, "body", "$.body"));

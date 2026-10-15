@@ -97,6 +97,7 @@
         "valid": { "$ref": "#/$defs/interval" },
         "recorded_at": { "$ref": "#/$defs/instant" },
         "superseded_at": { "$ref": "#/$defs/instant" },
+        "evidence": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/commitment" }] },
         "visibility": { "$ref": "#/$defs/visibility" }
       }
     }

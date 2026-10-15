@@ -13,6 +13,7 @@ import type { DevDeps } from "../dev/routes.ts";
 import { createDevJobs } from "../dev/jobs.ts";
 import { buildServer } from "./server.ts";
 import { createFsAudioStore, httpAnalyzer, localAnalyzer, localRenderer } from "../audio/deps.ts";
+import { createFsDocumentStore, documentMasterKey } from "../documents/store.ts";
 import { audioJobHandlers } from "../audio/handlers.ts";
 import { devIdentityProvider } from "../performer/identity.ts";
 import { pushOutboxHandlers, webPushSender } from "../performer/notifications.ts";
@@ -47,6 +48,8 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
     // 렌더링은 원본 스템을 다루므로 같은 신뢰 경계 안(같은 프로세스 라이브러리)에서 한다.
     renderer: localRenderer,
   };
+  // 원천 문서 저장소: 테넌트별 키로 암호화(마스터 키 RC_DOC_KEY, 없으면 개발용 키). 운영은 국내 리전 오브젝트 저장소 + KMS로 바꾼다.
+  const documents = createFsDocumentStore(process.env.DOC_DIR ?? fileURLToPath(new URL("../../.documents/", import.meta.url)), documentMasterKey());
   if (opts.prepare !== undefined) await opts.prepare(db);
   const jobs = await startBossJobs(opts.url, workOptionsFromEnv(process.env));
   // 웹 푸시(VAPID): 키가 환경에 없으면 실행마다 새 키를 만든다(개발용). 구독은 키가 바뀌면 다시 해야 하므로 운영은 키를 고정한다.
@@ -55,7 +58,7 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
   await jobs.work(handlers as Record<JobName, JobHandler>);
   const app = buildServer({
-    db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio, push,
+    db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio, push, documents,
     // 본인 인증 공급자: 개발 서버는 코드를 응답으로 돌려주는 개발용 공급자, 운영은 실제 공급자(휴대폰·PASS)를 붙인다(미설정이면 503).
     ...(opts.dev !== undefined && { identity: devIdentityProvider }),
     ...(opts.pspSecret === undefined ? {} : { pspSecret: opts.pspSecret }),

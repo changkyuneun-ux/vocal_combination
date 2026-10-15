@@ -10,7 +10,7 @@ export type ClaimRow = Recorded & {
   claimId: string; sourceId: string; edge: string; targetId: string; shareBps: number;
   performerRole?: string; roleDetail?: string; evidenceDigest?: string;
 };
-export type MandateRow = Recorded & { mandateId: string; fromPartyId: string; toPartyId: string; rightKind: string; shareBps: number };
+export type MandateRow = Recorded & { mandateId: string; fromPartyId: string; toPartyId: string; rightKind: string; shareBps: number; evidenceDigest?: string };
 export type FactsRows = {
   scopeId: string; work: WorkRow; recordings: RecordingRow[]; stems: StemRow[]; voices: VoiceRow[];
   parties: PartyRow[]; claims: ClaimRow[]; mandates: MandateRow[];
@@ -82,6 +82,7 @@ export function buildFactsDocument(rows: FactsRows, knownAt: string): FactsDocum
       mandates: rows.mandates.map((m) => ({
         id: recordId(m.mandateId, m.version), from: m.fromPartyId, to: m.toPartyId, right: m.rightKind as never, share: String(m.shareBps),
         status: m.status as never, valid: valid(m), recorded_at: m.recordedAt, ...supersededAt(m, knownAt),
+        ...(m.evidenceDigest !== undefined && { evidence: m.evidenceDigest }),
         ...(m.visibility !== undefined && { visibility: m.visibility as never }),
       })).sort(byId((m) => m.id)),
     },

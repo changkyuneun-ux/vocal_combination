@@ -16,7 +16,7 @@ stem_stmt      = "stem" id "{" "of" ":" id ";" "slot" ":" id ";" "rights_bearing
 
 claim_stmt     = "claim" id ":" id ident id "share" ratio [ "role" ident ] [ "detail" string ] "status" ident "valid" interval "recorded" string [ "superseded" string ] [ "evidence" string ] [ "visibility" ident ] ";" ;
 
-mandate_stmt   = "mandate" id ":" id "->" id "right" ident "share" ratio "status" ident "valid" interval "recorded" string [ "superseded" string ] [ "visibility" ident ] ";" ;
+mandate_stmt   = "mandate" id ":" id "->" id "right" ident "share" ratio "status" ident "valid" interval "recorded" string [ "superseded" string ] [ "evidence" string ] [ "visibility" ident ] ";" ;
 
 ids_block      = "ids" ":" "{" [ ident ":" string { "," ident ":" string } ] "}" ";" ;
 interval       = "[" string "," [ string ] ")" ;

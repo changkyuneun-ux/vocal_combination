@@ -2,3 +2,4 @@ node_modules/
 .blobs/
 .blobs-dev/
 .audio/
+.documents/

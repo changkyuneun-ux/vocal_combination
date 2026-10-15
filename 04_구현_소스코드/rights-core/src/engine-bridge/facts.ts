@@ -59,6 +59,7 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
     })),
     mandates: mandates.map((m) => ({
       ...recorded(m), mandateId: m.mandate_id, fromPartyId: m.from_party_id, toPartyId: m.to_party_id, rightKind: m.right_kind, shareBps: m.share_bps,
+      evidenceDigest: opt(m.evidence_digest),
     })),
   };
 }

@@ -7,6 +7,8 @@ import { closeDispute, openDispute } from "./disputes.ts";
 import { getConsent, listConsents, recordContractConsents, revokeConsent, signConsent, type ConsentDraft } from "./consents.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
+import { parseRefs } from "../documents/service.ts";
+import { rightsSummary } from "./summary.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
@@ -34,8 +36,13 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   created<any>("/slots", (tx, b) => reg.registerSlot(tx, b));
   created<any>("/stems", (tx, b) => reg.registerStem(tx, deps.clock, b));
   created<any>("/voices", (tx, b) => reg.registerVoice(tx, deps.clock, b));
-  created<reg.ClaimDraft>("/claims", (tx, b) => reg.recordClaim(tx, deps.clock, b), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
-  created<reg.MandateDraft>("/mandates", (tx, b) => reg.recordMandate(tx, deps.clock, b), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);
+  // 근거 문서(원천 문서 설계 S1): evidenceDocuments를 주면 증빙 digest를 시스템이 채우고, 연결한 사람은 요청자다.
+  const withEvidence = <T extends { evidenceDocuments?: unknown; linkedBy?: string }>(b: T, actor: Actor): T => {
+    const { linkedBy: _ignored, ...rest } = b;
+    return (b.evidenceDocuments === undefined ? rest : { ...rest, evidenceDocuments: parseRefs(b.evidenceDocuments), linkedBy: actor.userId }) as T;
+  };
+  created<reg.ClaimDraft>("/claims", (tx, b, actor) => reg.recordClaim(tx, deps.clock, withEvidence(b, actor)), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
+  created<reg.MandateDraft>("/mandates", (tx, b, actor) => reg.recordMandate(tx, deps.clock, withEvidence(b, actor)), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);
   created<any>("/disputes", (tx, b) => openDispute(tx, deps.clock, b));
   app.post<{ Params: { id: string }; Body: { resolution?: { shareBps?: number; targetId?: string } } }>("/disputes/:id/close", async (req) =>
     withActor(deps, req, async (tx, actor) => {
@@ -65,6 +72,8 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
   app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
+  // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
+  app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
   app.get("/disputes", async (req) =>
     withActor(deps, req, (tx) => q.listDisputes(tx, { status: optFilter(q0(req), "status"), scope: optFilter(q0(req), "scope") }, parsePage(q0(req)))));
 }

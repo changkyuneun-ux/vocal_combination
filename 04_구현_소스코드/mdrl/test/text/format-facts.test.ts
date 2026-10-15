@@ -56,3 +56,14 @@ test("displayText escapes line/paragraph separators and bidi marks", () => {
   const raw = ["a", "\u2028", "b", "\u2029", "c", "\u200E", "\u200F", "\u061C"].join("");
   assert.equal(displayText(raw), String.raw`"a\u2028b\u2029c\u200E\u200F\u061C"`);
 });
+
+test("mandate evidence renders and parses back", async () => {
+  const { parseFacts } = await import("../../src/text/parse-facts.ts");
+  const i = loadBasic();
+  i.facts.body.mandates[0]!.evidence = "sha256:" + "b".repeat(64);
+  const text = formatFacts(i.facts);
+  assert.ok(text.includes(`recorded ${T0} evidence "sha256:${"b".repeat(64)}";`));
+  const back = parseFacts(text);
+  assert.ok(back.ok, JSON.stringify(!back.ok && back.errors));
+  assert.equal(back.value.body.mandates[0]!.evidence, "sha256:" + "b".repeat(64));
+});

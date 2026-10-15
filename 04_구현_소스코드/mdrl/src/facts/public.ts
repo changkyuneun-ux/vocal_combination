@@ -24,8 +24,15 @@ export function publicFacts(doc: FactsDocument, saltFor: SaltFor): { doc: unknow
       ...(c.evidence === undefined ? {} : { evidence: commitValue(c.evidence, saltFor(`${base}.evidence`)) }),
     };
   });
-  const mandates = b.mandates.map((m) =>
-    (m.visibility ?? "PARTIES") === "PUBLIC" ? m : { ...m, share: commitValue(m.share, saltFor(`$.body.mandates.${m.id}.share`)) });
+  const mandates = b.mandates.map((m) => {
+    if ((m.visibility ?? "PARTIES") === "PUBLIC") return m;
+    const base = `$.body.mandates.${m.id}`;
+    return {
+      ...m,
+      share: commitValue(m.share, saltFor(`${base}.share`)),
+      ...(m.evidence === undefined ? {} : { evidence: commitValue(m.evidence, saltFor(`${base}.evidence`)) }),
+    };
+  });
   const pub = { ...doc, body: { ...b, parties, claims, mandates } };
   return { doc: pub, digest: digestOf(pub) };
 }

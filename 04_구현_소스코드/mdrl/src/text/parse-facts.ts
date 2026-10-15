@@ -306,6 +306,11 @@ function parseFactsProgram(toks: readonly Token[]): FactsDocument {
           next();
           supersededAt = id("superseded_at timestamp");
         }
+        let mandateEvidence: string | undefined;
+        if (isW(peek(), "evidence")) {
+          next();
+          mandateEvidence = str("evidence text");
+        }
         let visibility: EnumValue<"visibility"> | undefined;
         if (isW(peek(), "visibility")) {
           next();
@@ -324,6 +329,7 @@ function parseFactsProgram(toks: readonly Token[]): FactsDocument {
           recorded_at: recordedAt,
         };
         if (supersededAt !== undefined) (mandate as any).superseded_at = supersededAt;
+        if (mandateEvidence !== undefined) (mandate as any).evidence = mandateEvidence;
         if (visibility !== undefined) (mandate as any).visibility = visibility;
         mandates.push(mandate);
         break;

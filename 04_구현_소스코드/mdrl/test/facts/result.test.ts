@@ -147,3 +147,20 @@ test("projection IR carries its format tag inside the digest (spec 12.48)", () =
   assert.equal(a.digest, digestOf({ ...a, digest: undefined }));
   assert.notEqual(a.digest, digestOf({ ...a, format: undefined, digest: undefined }));
 });
+
+test("mandate evidence (optional) is committed in the public copy like claim evidence; absent evidence leaves the IR unchanged", () => {
+  const plain = loadBasic();
+  const before = digestOf(plain.facts);
+  assert.equal(plain.facts.body.mandates[0]!.evidence, undefined);
+  const i = loadBasic();
+  i.facts.body.mandates[0]!.evidence = "sha256:" + "a".repeat(64);
+  assert.deepEqual(validateFactsStructure(i.facts), []);
+  assert.notEqual(digestOf(i.facts), before, "evidence is part of the sealed facts");
+  const salt = new Uint8Array(32).fill(3);
+  const { doc } = publicFacts(i.facts, () => salt);
+  const m = (doc as typeof i.facts).body.mandates[0]!;
+  assert.equal(openCommitment(m.evidence as unknown as Commitment, "sha256:" + "a".repeat(64), salt), true);
+  assert.deepEqual(validatePublicFacts(doc), []);
+  (i.facts.body.mandates[0] as unknown as Record<string, unknown>).evidence = true;
+  assert.deepEqual(validateFactsStructure(i.facts).map((d) => [d.code, d.path]), [["CORE_TYPE_ERROR", "$.body.mandates[0].evidence"]]);
+});

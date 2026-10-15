@@ -14,6 +14,8 @@ import { IssueDetail } from "../pages/issuance/IssueDetail.tsx";
 import { Revenue } from "../pages/revenue/Revenue.tsx";
 import { TrafficPools } from "../pages/revenue/Traffic.tsx";
 import { HubPage } from "../pages/hub/Hub.tsx";
+import { DocumentsPage } from "../pages/documents/Documents.tsx";
+import { RightsSummaryPage } from "../pages/registry/Summary.tsx";
 import { Profiles } from "../pages/payout/Profiles.tsx";
 import { PayoutRuns } from "../pages/payout/PayoutRuns.tsx";
 import { PayoutRunDetail } from "../pages/payout/PayoutRunDetail.tsx";
@@ -44,6 +46,8 @@ export type MenuGroup = { title: string; items: MenuItem[] };
 
 /** 두 앱이 함께 쓰는 권리 화면(등록·정책·팩·발행 조회·명세). 포털에서는 RLS로 자기 테넌트 데이터만 보인다. */
 const rightsRoutes: RouteDef[] = [
+  { path: "/registry/summary", title: "권리 요약", element: <RightsSummaryPage /> },
+  { path: "/documents", title: "원천 문서", element: <DocumentsPage /> },
   { path: "/registry/parties", title: "당사자", element: <Parties /> },
   { path: "/registry/assets", title: "곡·녹음·슬롯·스템·보이스", element: <Assets /> },
   { path: "/registry/claims", title: "권리 주장", element: <Claims /> },
@@ -103,7 +107,7 @@ export function routesFor(kind: AppKind): RouteDef[] {
 }
 
 const registryMenu: MenuGroup = { title: "1 등록부", items: [
-  { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
+  { to: "/registry/summary", label: "권리 요약" }, { to: "/documents", label: "원천 문서" }, { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
   { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/registry/disputes", label: "분쟁" },
 ] };
 

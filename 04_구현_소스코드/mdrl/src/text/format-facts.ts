@@ -53,7 +53,7 @@ export function formatFacts(doc: FactsDocument): string {
     lines.push(
       `  mandate ${idText(m.id)}: ${idText(m.from)} -> ${idText(m.to)} right ${m.right} share ${formatPercent(m.share)}` +
         ` status ${m.status} valid ${interval(m.valid)} recorded ${m.recorded_at}` +
-        `${opt("superseded", m.superseded_at)}${opt("visibility", m.visibility)};`,
+        `${opt("superseded", m.superseded_at)}${opt("evidence", m.evidence, displayText)}${opt("visibility", m.visibility)};`,
     );
   }
 

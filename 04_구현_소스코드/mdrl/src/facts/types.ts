@@ -44,6 +44,7 @@ export type Mandate = Recorded & {
   to: string;
   right: EnumValue<"mandate_right">;
   share: string;
+  evidence?: string;
   visibility?: Visibility;
 };
 
