@@ -1,6 +1,6 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
-import { loadActor, type Actor } from "../platform/actor.ts";
+import { applyActorScope, loadActor, type Actor } from "../platform/actor.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
@@ -21,11 +21,15 @@ import { devRoutes, type DevDeps } from "../dev/routes.ts";
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
 export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps };
 
-/** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). */
+/** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
   const userId = req.headers["x-actor"];
   if (typeof userId !== "string" || userId === "") throw new DomainError("UNKNOWN_ACTOR", 401, "x-actor header is required");
-  return deps.db.tx(async (tx) => fn(tx, await loadActor(tx, userId)));
+  return deps.db.tx(async (tx) => {
+    const actor = await loadActor(tx, userId);
+    await applyActorScope(tx, actor);
+    return fn(tx, actor);
+  });
 }
 
 export function buildServer(deps: Deps): FastifyInstance {
@@ -44,6 +48,8 @@ export function buildServer(deps: Deps): FastifyInstance {
     if (err?.code === "23505") return reply.status(409).send({ code: "CONFLICT", message: err.detail ?? err.message, diagnostics: [] });
     // 교착(40P01)·직렬화 실패(40001)는 트랜잭션 전체를 다시 시도하면 된다.
     if (err?.code === "40P01" || err?.code === "40001") return reply.status(409).send({ code: "RETRY", message: "transaction conflict; retry the request", diagnostics: [] });
+    // RLS 쓰기 거부(42501): 다른 테넌트 소유 행 밑에 쓰려 했다.
+    if (err?.code === "42501") return reply.status(403).send({ code: "TENANT_FORBIDDEN", message: err.message, diagnostics: [] });
     if (err?.code === "RC001") return reply.status(409).send({ code: "APPEND_ONLY", message: err.message, diagnostics: [] });
     if (err?.code === "23503" || err?.code === "23514") return reply.status(422).send({ code: "INVALID_REFERENCE", message: err.detail ?? err.message, diagnostics: [] });
     if (err?.validation || (typeof err?.statusCode === "number" && err.statusCode >= 400 && err.statusCode < 500)) return reply.status(400).send({ code: "BAD_REQUEST", message: err.message, diagnostics: [] });

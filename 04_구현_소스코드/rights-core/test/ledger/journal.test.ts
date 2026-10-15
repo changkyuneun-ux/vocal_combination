@@ -46,6 +46,8 @@ test("unbalanced entries are rejected by the service and by the deferred trigger
   const c = new pg.Client({ connectionString: (db.pool as any).options.connectionString });
   await c.connect();
   try {
+    // 풀 밖의 연결은 범위가 없어 RLS가 모두 막는다. 이 검사는 트리거를 보려는 것이므로 system 범위로 연다.
+    await c.query("SELECT set_config('rc.scope', 'system', false)");
     await c.query("BEGIN");
     const id = (await c.query("INSERT INTO journal_entry (kind, source_ref, occurred_at, created_by) VALUES ('ADJUSTMENT','adj:raw',now()::timestamptz(3),'x') RETURNING entry_id")).rows[0].entry_id;
     await c.query("INSERT INTO ledger_account (account_id, kind) VALUES ('CASH','CASH') ON CONFLICT DO NOTHING");

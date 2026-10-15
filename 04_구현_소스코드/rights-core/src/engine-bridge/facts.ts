@@ -1,4 +1,5 @@
 import { validateFacts, type FactsDocument } from "mdrl/facts";
+import { withSystemScope } from "../platform/actor.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
@@ -74,8 +75,10 @@ export async function sealFacts(ctx: BridgeCtx, tx: Tx, scopeId: string, knownAt
   if ((await tx.query("SELECT $1::timestamptz > clock_timestamp() AS future", [knownAt])).rows[0].future) {
     throw invalid("INVALID_INSTANT", `knownAt is in the future: ${knownAt}`);
   }
-  await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1 FOR UPDATE", [scopeId]);
-  const doc = buildFactsDocument(await loadFactsRows(tx, scopeId, knownAt), knownAt);
+  // 범위 행은 요청자 범위에서 잠근다(보이지 않으면 404). facts는 곡 전체의 주장을 담아야 하므로 행 조회는 system 범위로 한다.
+  const lock = await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1 FOR UPDATE", [scopeId]);
+  if (lock.rowCount === 0) throw notFound("facts scope", scopeId);
+  const doc = buildFactsDocument(await withSystemScope(tx, () => loadFactsRows(tx, scopeId, knownAt)), knownAt);
   const errors = validateFacts(doc);
   if (errors.length > 0) throw invalid("FACTS_INVALID", `facts ${scopeId} failed MDRL validation`, errors);
   const sealed = await sealDocument(ctx, tx, { kind: "facts", value: doc, docId: doc.id, docVersion: doc.version });

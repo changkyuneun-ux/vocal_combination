@@ -39,7 +39,7 @@ test("401 without x-actor on every read; 404 NOT_FOUND on unknown ids", async ()
 
 test("/me and /users", async () => {
   const seededName = (await w.db.pool.query("SELECT display_name FROM user_account WHERE user_id = 'usr_issuer'")).rows[0].display_name as string;
-  assert.deepEqual(await ok("/me", "usr_issuer"), { userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"] });
+  assert.deepEqual(await ok("/me", "usr_issuer"), { userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"], tenantId: "tnt_platform", scope: "platform" });
   const users = await ok("/users");
   const byId = new Map<string, any>(users.items.map((u: any) => [u.userId, u]));
   assert.deepEqual(byId.get("usr_ops").roles, ["SPACE_OPS"]);

@@ -16,6 +16,11 @@ export function onCommit(tx: Tx, fn: () => void): void {
 export function createDb(url: string, opts: { max?: number } = {}): Db {
   const pool = new pg.Pool({ connectionString: url, max: opts.max ?? 10 });
   pool.on("error", (e) => console.error("pg pool idle client error:", e.message));
+  // 이 풀의 연결은 system 범위(워커·내부 호출, 전체 조회)로 시작한다. HTTP 요청은 withActor가 트랜잭션 안에서 행위자 범위로 좁힌다
+  // (applyActorScope, SET LOCAL이라 트랜잭션이 끝나면 system으로 돌아온다). 범위 설정이 없는 다른 연결은 RLS가 아무것도 보여 주지 않는다.
+  pool.on("connect", (client) => {
+    client.query("SELECT set_config('rc.scope', 'system', false), set_config('rc.tenant_id', 'tnt_platform', false)").catch((e: Error) => console.error("scope init failed:", e.message));
+  });
   return {
     pool,
     async tx<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {

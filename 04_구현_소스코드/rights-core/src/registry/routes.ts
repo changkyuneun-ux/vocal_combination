@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
-import { requireRole } from "../platform/actor.ts";
+import { requireRole, type Actor } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
@@ -8,18 +8,24 @@ import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
-  const created = <B>(path: string, fn: (tx: any, body: B) => Promise<unknown>, required: readonly string[] = []) =>
+  const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
     app.post(path, async (req, reply) => {
       const out = await withActor(deps, req, async (tx, actor) => {
         requireRole(actor, "RIGHTS_EDITOR");
         const body = req.body as Record<string, unknown>;
         const missing = required.filter((k) => body?.[k] === undefined);
         if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
-        return fn(tx, body as B);
+        return fn(tx, body as B, actor);
       });
       return reply.status(201).send(out ?? {});
     });
-  created<any>("/parties", (tx, b) => reg.registerParty(tx, deps.clock, b));
+  created<any>("/parties", (tx, b, actor) => {
+    // 다른 테넌트 소속으로 파티를 만드는 것은 플랫폼 운영만 할 수 있다(권리자 온보딩 대행).
+    if (b.tenantId !== undefined && b.tenantId !== actor.tenantId && actor.scope !== "platform") {
+      throw new DomainError("TENANT_FORBIDDEN", 403, `${actor.userId} cannot register a party in tenant ${b.tenantId}`);
+    }
+    return reg.registerParty(tx, deps.clock, b);
+  });
   created<any>("/works", (tx, b) => reg.registerWork(tx, deps.clock, b));
   created<any>("/scopes", (tx, b) => reg.createScope(tx, deps.clock, b));
   created<any>("/recordings", (tx, b) => reg.registerRecording(tx, deps.clock, b));

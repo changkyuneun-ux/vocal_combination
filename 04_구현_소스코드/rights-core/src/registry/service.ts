@@ -29,9 +29,10 @@ const EDGE_ENDPOINTS: Record<ClaimEdge, readonly [EntityKind, EntityKind]> = {
 };
 const NON_FACTS_PARTY = new Set(["FAN", "PLATFORM"]);
 
-export async function registerParty(tx: Tx, clock: Clock, p: { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string }): Promise<void> {
-  await tx.query("INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now()]);
+/** tenantId를 생략하면 요청 범위의 테넌트(rc.tenant_id)에 소속된다. */
+export async function registerParty(tx: Tx, clock: Clock, p: { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string; tenantId?: string }): Promise<void> {
+  await tx.query("INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, rc_tenant(), 'tnt_platform'))",
+    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now(), p.tenantId ?? null]);
 }
 
 export async function registerWork(tx: Tx, clock: Clock, w: { workId: string; title: string; iswc?: string }): Promise<void> {

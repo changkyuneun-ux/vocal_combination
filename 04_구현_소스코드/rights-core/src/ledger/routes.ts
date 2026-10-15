@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireRole } from "../platform/actor.ts";
-import { DomainError } from "../platform/errors.ts";
+import { DomainError, notFound } from "../platform/errors.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import type { Tx } from "../platform/db.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
@@ -15,6 +15,8 @@ export function ledgerRoutes(app: FastifyInstance, deps: Deps): void {
       requireRole(actor, "SPACE_SETTLE");
       const { from, to } = req.query;
       if (typeof from !== "string" || typeof to !== "string") throw new DomainError("BAD_REQUEST", 400, "from and to query parameters are required");
+      // 참여 데이터: 다른 테넌트 파티의 명세는 없는 것으로 다룬다(RLS가 전기를 걸러도 빈 명세 대신 404).
+      if (!(await tx.query("SELECT rc_party_visible($1) AS v", [req.params.id])).rows[0].v) throw notFound("party", req.params.id);
       return partyStatement(tx, req.params.id, from, to);
     }));
   app.get("/ledger/trial-balance", async (req) =>

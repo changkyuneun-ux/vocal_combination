@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
-import { requireAnyRole } from "./actor.ts";
+import { requireAnyRole, requireRole } from "./actor.ts";
+import { audit } from "./audit.ts";
+import { DomainError } from "./errors.ts";
 import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
 
 /** 조회(로그인한 누구나): 내 신원, 사용자 목록, 감사 로그(역할 필요). */
@@ -8,8 +10,31 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/me", async (req) =>
     withActor(deps, req, async (tx, actor) => {
       const u = (await tx.query("SELECT display_name FROM user_account WHERE user_id = $1", [actor.userId])).rows[0];
-      return { userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort() };
+      return { userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort(), tenantId: actor.tenantId, scope: actor.scope };
     }));
+
+  /** 테넌트 목록: 플랫폼 범위는 전부, 테넌트 범위는 자기 테넌트만. */
+  app.get("/tenants", async (req) =>
+    withActor(deps, req, async (tx, actor) => {
+      const rows = (await tx.query(
+        "SELECT tenant_id, tenant_type, name, status FROM tenant WHERE $1 OR tenant_id = $2 ORDER BY tenant_id", [actor.scope === "platform", actor.tenantId],
+      )).rows;
+      return rows.map((r) => ({ tenantId: r.tenant_id as string, tenantType: r.tenant_type as string, name: r.name as string, status: r.status as string }));
+    }));
+
+  /** 테넌트 등록(권리자 온보딩): 플랫폼 운영(SPACE_OPS, 플랫폼 범위)만. */
+  app.post("/tenants", async (req, reply) => {
+    const out = await withActor(deps, req, async (tx, actor) => {
+      requireRole(actor, "SPACE_OPS");
+      if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform operators can register tenants");
+      const b = req.body as { tenantId?: string; tenantType?: string; name?: string };
+      if (!b.tenantId || !b.tenantType || !b.name) throw new DomainError("BAD_REQUEST", 400, "missing required fields: tenantId, tenantType, name");
+      await tx.query("INSERT INTO tenant (tenant_id, tenant_type, name, created_at) VALUES ($1,$2,$3,$4)", [b.tenantId, b.tenantType, b.name, deps.clock.now()]);
+      await audit(tx, deps.clock, { actor: actor.userId, action: "TENANT_REGISTER", entityType: "tenant", entityId: b.tenantId, after: { tenantType: b.tenantType, name: b.name } });
+      return { tenantId: b.tenantId };
+    });
+    return reply.status(201).send(out);
+  });
 
   app.get("/users", async (req) =>
     withActor(deps, req, async (tx) => {
