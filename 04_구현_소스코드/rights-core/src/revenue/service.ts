@@ -5,7 +5,7 @@ import { iso, type Tx } from "../platform/db.ts";
 import { lockBatching } from "../platform/locks.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 
-export type RevenueType = "PURCHASE" | "RESALE" | "REFUND";
+export type RevenueType = "PURCHASE" | "RESALE" | "TRAFFIC" | "REFUND";
 export type RevenueInput = {
   eventId: string; sourceSystem: string; sourceEventId: string; sourceRevision?: number; eventType: RevenueType;
   vcId?: string; relatedEventId?: string; amountKrw: string; currency: "KRW"; integrity?: "CLEAR" | "FLAGGED"; occurredAt: string;
@@ -31,7 +31,7 @@ function validate(i: RevenueInput): void {
   for (const k of ["sourceSystem", "sourceEventId"] as const) if (typeof i[k] !== "string" || i[k].length < 1 || i[k].length > 200) throw bad(`${k} must be a non-empty string of at most 200 characters`);
   for (const k of ["vcId", "relatedEventId"] as const) if (i[k] !== undefined && !isId(i[k])) throw bad(`${k} must match ${ID}`);
   if (i.sourceRevision !== undefined && !(Number.isSafeInteger(i.sourceRevision) && i.sourceRevision >= 1)) throw bad("sourceRevision must be a positive safe integer");
-  if (!["PURCHASE", "RESALE", "REFUND"].includes(i.eventType)) throw bad(`eventType ${String(i.eventType)}`);
+  if (!["PURCHASE", "RESALE", "TRAFFIC", "REFUND"].includes(i.eventType)) throw bad(`eventType ${String(i.eventType)}`);
   if (typeof i.amountKrw !== "string" || !AMOUNT.test(i.amountKrw)) throw bad("amountKrw must be a positive integer string");
   if (i.currency !== "KRW") throw bad("only KRW is supported");
   if (typeof i.occurredAt !== "string" || !INSTANT.test(i.occurredAt) || new Date(i.occurredAt).toISOString() !== i.occurredAt) throw bad("occurredAt must be ms UTC ISO");
@@ -118,7 +118,7 @@ export async function ingestRevenue(
     await lockBatching(tx, "SHARED");
     await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('refund:' || $1, 0))", [input.relatedEventId]);
     const original = await revenueRow(tx, input.relatedEventId!);
-    if (original.eventType === "REFUND") throw bad("a refund must reference a PURCHASE or RESALE");
+    if (original.eventType === "REFUND" || original.eventType === "TRAFFIC") throw bad("a refund must reference a PURCHASE or RESALE");
     const successor = (await tx.query("SELECT new_event_id FROM revenue_supersede WHERE old_event_id = $1", [original.eventId])).rows[0];
     if (successor !== undefined) {
       throw new DomainError("EVENT_SUPERSEDED", 422, `${original.eventId} was superseded by ${successor.new_event_id}; refund the live revision instead`);

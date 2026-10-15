@@ -7,7 +7,7 @@ import { loadFacts } from "./facts.ts";
 import { loadSealed, sealDocument } from "./seal-store.ts";
 import { iso } from "../platform/db.ts";
 
-export type RunEvent = { eventId: string; type: "PRIMARY" | "RESALE"; amount: bigint; integrity: "CLEAR" | "FLAGGED" };
+export type RunEvent = { eventId: string; type: "PRIMARY" | "RESALE" | "TRAFFIC"; amount: bigint; integrity: "CLEAR" | "FLAGGED" };
 export type RunRows = {
   pool: { eventId: string; bucket: string; amount: bigint }[];
   lines: { eventId: string; party: string; role: string; bucket: string; lineSeq: number; amount: bigint }[];
@@ -40,6 +40,11 @@ function rowsOf(r: AllocationResult): RunRows {
     lines: r.lines.map((l) => ({ eventId: l.event_id, party: l.party, role: l.role, bucket: l.bucket, lineSeq: Number(l.line_seq), amount: BigInt(l.amount) })),
     holdings: r.holdings.map((h) => ({ eventId: h.event_id, bucket: h.bucket, reason: h.reason, amount: BigInt(h.amount) })),
   };
+}
+
+/** 봉인된 정책이 받는 매출 이벤트 유형(scope.events). 감상 매출 배정이 TRAFFIC을 받지 않는 조합을 거를 때 쓴다. */
+export async function policyEventTypes(ctx: BridgeCtx, tx: Tx, policyDigest: string): Promise<string[]> {
+  return [...((await loadSealed(ctx, tx, policyDigest)) as AllocationDocument).body.scope.events];
 }
 
 /** 발행 봉인의 입력과 고정된 순액 이벤트로 mdrl evaluate를 돌리고 events·결과를 봉인한다(통합 설계 10.2-5). */

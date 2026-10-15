@@ -26,7 +26,7 @@ export async function settleRun(d: SettleDeps, data: { runId: string }): Promise
       [data.runId],
     )).rows;
     const events: RunEvent[] = rows.map((r) => ({
-      eventId: r.event_id, type: r.event_type === "RESALE" ? "RESALE" : "PRIMARY", amount: BigInt(r.net), integrity: r.integrity_status,
+      eventId: r.event_id, type: r.event_type === "RESALE" ? "RESALE" : r.event_type === "TRAFFIC" ? "TRAFFIC" : "PRIMARY", amount: BigInt(r.net), integrity: r.integrity_status,
     }));
     const r = await evaluateRun(d.ctx, tx, { runId: data.runId, snapshotId: run.snapshot_id, events });
     if (!r.ok) {

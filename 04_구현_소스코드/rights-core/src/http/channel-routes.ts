@@ -10,6 +10,7 @@ import { confirmVerification, startVerification } from "../performer/identity.ts
 import { listNotifications, markRead, subscribePush } from "../performer/notifications.ts";
 import { myClaims, myObjections, myVoices, openObjection } from "../performer/service.ts";
 import { checkCombination, defaultMembers } from "../fan/decision.ts";
+import { recordPlay } from "../revenue/traffic.ts";
 import { withActor, type Deps } from "./server.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
@@ -138,6 +139,12 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
     return withActor(deps, req, (tx, actor) => checkCombination(deps.ctx, tx, deps.clock, actor, {
       packId: b.packId!, assignments: b.assignments!, ...(b.members && { members: b.members }), ...(b.usage && { usage: b.usage }),
     }));
+  });
+  /** 재생 보고(다음 작업 13): 감상 매출 배정의 근거. 유효 재생(30초 이상)만 세고, 과다 반복 재생은 FLAGGED로 뺀다. */
+  app.post("/plays", async (req, reply) => {
+    const b = req.body as Record<string, unknown> | undefined;
+    const out = await withActor(deps, req, (tx, actor) => recordPlay(tx, deps.clock, actor, { playId: b?.playId, vcId: b?.vcId, durationMs: b?.durationMs }));
+    return reply.status(201).send(out);
   });
   /** 내가 발행한 조합과 렌더 상태. */
   app.get("/combinations", async (req) => withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => (await tx.query(

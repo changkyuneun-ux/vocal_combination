@@ -48,6 +48,10 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
       WHERE e.event_type <> 'REFUND' AND NOT EXISTS (
         SELECT 1 FROM settlement_run_event re JOIN settlement_run r ON r.run_id = re.run_id WHERE re.event_id = e.event_id AND re.active AND r.status = 'CONFIRMED')`)).rows[0];
 
+  const plays7 = await n(tx, "SELECT count(*) AS n FROM play_event WHERE counted AND played_at > $1", [ago7]);
+  const flaggedPlays7 = await n(tx, "SELECT count(*) AS n FROM play_event WHERE integrity = 'FLAGGED' AND played_at > $1", [ago7]);
+  const openPools = await n(tx, "SELECT count(*) AS n FROM traffic_pool WHERE status = 'OPEN' AND period_end <= $1", [now]);
+  const noPlayPools = await n(tx, "SELECT count(*) AS n FROM traffic_pool WHERE status = 'NO_PLAYS'");
   const runs = Object.fromEntries((await tx.query("SELECT status, count(*)::int AS n FROM settlement_run GROUP BY status")).rows.map((r) => [r.status, r.n as number]));
   const quarantined = await n(tx, "SELECT count(*) AS n FROM quarantine WHERE released_at IS NULL");
   const held = (await tx.query(
@@ -103,6 +107,10 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
         sig("flagged", "이상거래 의심 이벤트", flagged, warnIf(flagged), "/revenue"),
         sig("unsettled", "미확정 매출(건)", unsettled.n as number, "ok", "/revenue"),
         sig("unsettled-krw", "미확정 매출(원)", unsettled.amt as string, "ok", "/revenue"),
+        sig("plays-7d", "최근 7일 유효 재생", plays7, "ok"),
+        sig("plays-flagged-7d", "최근 7일 과다 반복 재생(배정 제외)", flaggedPlays7, warnIf(flaggedPlays7)),
+        sig("pools-open", "기간이 끝났는데 배정 안 된 감상 수익 풀", openPools, warnIf(openPools), "/revenue"),
+        sig("pools-no-plays", "유효 재생이 없어 배정 못 한 풀", noPlayPools, warnIf(noPlayPools), "/revenue"),
       ] },
       { stage: "settlement", label: "정산 실행·검증", decidedBy: "플랫폼(실행자 ≠ 확정자)", signals: [
         sig("failed", "재계산 불일치·실패 run", runs.FAILED ?? 0, badIf(runs.FAILED ?? 0), "/settlement/batches"),

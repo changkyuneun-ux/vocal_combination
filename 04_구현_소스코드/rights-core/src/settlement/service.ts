@@ -62,7 +62,7 @@ export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId:
          LEFT JOIN rights_snapshot rs ON rs.vc_id = e.vc_id
          LEFT JOIN issue_seal s ON s.snapshot_id = rs.snapshot_id
          LEFT JOIN vocal_pack p ON p.pack_id = rs.pack_id
-        WHERE e.event_type IN ('PURCHASE','RESALE') AND e.occurred_at >= $1 AND e.occurred_at < $2
+        WHERE e.event_type IN ('PURCHASE','RESALE','TRAFFIC') AND e.occurred_at >= $1 AND e.occurred_at < $2
           AND NOT EXISTS (SELECT 1 FROM settlement_run_event x WHERE x.event_id = e.event_id AND x.active)
           AND NOT EXISTS (SELECT 1 FROM revenue_supersede sx WHERE sx.old_event_id = e.event_id)
         ORDER BY e.event_id`,
