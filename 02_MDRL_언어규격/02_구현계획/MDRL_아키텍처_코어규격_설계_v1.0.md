@@ -192,7 +192,7 @@ facts "nova-debut-01" version 3 {
 - 기획설계 v1.0의 `right_claim`을 정본으로 채택한다.
 - 상태: `ASSERTED → VERIFIED | DISPUTED`, `* → SUPERSEDED`. **조합 지분에는 `VERIFIED`와 `DISPUTED`만 포함하며, `DISPUTED`가 있는 그룹은 보류(`@hold`)로 조합 지분에 반영한다.** `ASSERTED`는 검증 전이라 제외한다.
 - 이중 시간축: 효력 구간 `valid [from, to)` + 기록 구간 `recorded_at / superseded_at`. 질의는 `(as_of, known_at)` 두 시점을 받으며, 두 값이 같으면 결과가 영구히 재현된다.
-- `evidence`: 증빙 문서의 해시 참조. 기본 공개 등급 `PARTIES`.
+- `evidence`: 증빙 문서의 해시 참조. 기본 공개 등급 `PARTIES`. claim과 mandate 모두 선택 필드로 가진다(mandate는 12.59).
 - **`work.cmo_managed` Boolean을 폐지하고 `mandate`로 일원화한다(D05).**
 - `mandate` 위임은 최대 2홉. 3홉 이상은 `FACTS_MANDATE_DEPTH`로 거부한다. 3홉 이상의 실제 위임은 등록 단계에서 단일 홉으로 평탄화한다.
 
@@ -548,3 +548,4 @@ manifest/
 56. **섀도 리포트 `mdrl-shadow-report/1`**: `shadowReport(pairs)`는 쌍마다 `baseline`·`candidate` 평가 입력을 `evaluate`해 당사자(party·role)·버킷(`tier1` 풀, `tier2` 라인 버킷)·보류 사유별 `{baseline, candidate, delta = candidate − baseline}`를 집계한다. 두 쪽 이벤트가 다르면 `SHADOW_EVENTS_MISMATCH`, 같은 이벤트가 여러 쌍에 나오면 `SHADOW_DUPLICATE_EVENT`, 평가 오류는 `$.pairs[i].baseline`/`.candidate` 접두로 돌려준다. 리포트 최상위 `currency`는 모든 쌍 정책의 공통 `policy.body.scope.currency`이고, 어느 쌍의 baseline·candidate 정책 통화가 평가에 성공한 첫 쌍의 통화와 다르면 `SHADOW_CURRENCY_MISMATCH`(`$.pairs[i]`)다(통화를 섞어 합산하지 않는다). 필드는 `format, currency, pairs, parties, buckets, holdings, totals, report_digest`. 정렬은 키 성분별 코드 유닛 순, `report_digest = digestOf(report_digest를 뺀 전체)`. `verifyShadowReport(pairs, given)`은 재계산 대조.
 57. **스키마·적합성 (1-E)**: `spec/schema/reversal.result.schema.json`, `spec/schema/shadow.report.schema.json`. 적합성 `conformance/reversal/`(부분 환불 두 번 뒤 한도 초과 거부, 잔액 전액으로 순합 0; 부정 보류 전액 역분개). CLI 명령은 추가하지 않았다.
 58. **서명 역할 `PLATFORM` (I-2a)**: Enum `attestation_role`에 `PLATFORM`(플랫폼 검증자)을 더했다. 권리 코어(`rights-core`)의 `verify-run`이 정산 결과를 재계산 대조한 뒤 검증 신원(`sys_verifier`)이 `result_digest`에 이 역할로 서명한다(통합 설계 10.2-6). 서명 메시지(`mdrl-attest/1`)는 역할 문자열을 그대로 묶으므로 서명·검증 규칙은 다른 역할과 같고, `checkAttestations`는 이제 `PLATFORM`을 `CORE_ENUM_UNKNOWN` 없이 받는다. 내장 SoD(`BUILTIN_SOD`)는 바꾸지 않았다(검증자 ≠ 실행자는 권리 코어가 DB `CHECK`로 강제한다). 값 추가만이므로 기존 IR·digest(스모크 digest 포함)는 변하지 않는다. Enum 레지스트리 버전을 `1.1`로 올렸다(값 추가, 3.x 규칙).
+59. **mandate `evidence` (원천 문서 설계 결정 D4, 2026-10-15)**: mandate에 선택 필드 `evidence`(문자열)를 더했다. 위임은 돈의 수령자를 바꾸므로 claim과 같은 수준의 근거를 봉인한다. 검증 규칙·공개본 커밋먼트(salt 경로 `$.body.mandates.<id>.evidence`)·`validatePublicFacts`의 원문 또는 커밋먼트 허용·텍스트 문법(`[ "evidence" string ]`, `superseded` 뒤)은 claim과 같다. 필드가 없으면 IR에 나타나지 않으므로 기존 facts·적합성 기대값·digest는 변하지 않는다. 권리 코어는 근거 원천 문서를 연결하면 이 값을 원문 해시로 채운다(문서 하나 = 원문 SHA-256, 여러 개 = 정렬한 원문 해시 JSON 배열의 SHA-256, 모두 `mdrl:sha256:` 형식).
