@@ -21,9 +21,12 @@ import { payoutRoutes, pspWebhookRoutes } from "../payout/routes.ts";
 import { devRoutes, type DevDeps } from "../dev/routes.ts";
 import { fanRoutes, partnerRoutes, performerRoutes, portalRoutes } from "./channel-routes.ts";
 import { monitorRoutes } from "../monitor/routes.ts";
+import { audioOpsRoutes, stemAudioRoutes } from "../audio/routes.ts";
+import type { AudioDeps } from "../audio/deps.ts";
 
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps };
+/** audio는 오디오 처리 서비스 연동(스템 업로드·검사). 없으면 업로드 경로가 503이다. */
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps };
 
 /** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
@@ -56,6 +59,10 @@ export function buildServer(deps: Deps): FastifyInstance {
     if (text === "") return done(null, {});
     try { done(null, JSON.parse(text)); } catch (e) { const err: any = e; err.statusCode = 400; done(err, undefined); }
   });
+  // 스템 오디오·참조 음원은 원시 바이트로 받는다.
+  for (const ct of ["application/octet-stream", /^audio\//] as const) {
+    app.addContentTypeParser(ct, { parseAs: "buffer", bodyLimit: 200 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+  }
   app.addHook("preValidation", async (req) => { if (req.body == null) req.body = {}; });
   app.setErrorHandler((err: any, _req, reply) => {
     if (err instanceof DomainError) {
@@ -85,9 +92,9 @@ export function buildServer(deps: Deps): FastifyInstance {
       sub.addHook("onRequest", async (req) => { req.channel = ch; });
       register(sub);
     }, { prefix: `/${ch}` });
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); });
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); });
   channel("portal", (sub) => {
-    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps);
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps);
   });
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => fanRoutes(sub, deps));

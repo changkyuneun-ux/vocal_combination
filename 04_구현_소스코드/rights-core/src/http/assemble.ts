@@ -12,6 +12,8 @@ import type { PayoutProvider } from "../payout/provider.ts";
 import type { DevDeps } from "../dev/routes.ts";
 import { createDevJobs } from "../dev/jobs.ts";
 import { buildServer } from "./server.ts";
+import { createFsAudioStore, httpAnalyzer, localAnalyzer } from "../audio/deps.ts";
+import { audioJobHandlers } from "../audio/handlers.ts";
 
 /** 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다. */
 export const DEFAULT_BLOB_DIR = fileURLToPath(new URL("../../.blobs/", import.meta.url));
@@ -36,13 +38,18 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   const db = createDb(opts.url, { max: poolMaxFromEnv(process.env) });
   const blobDir = opts.dev?.blobDir ?? process.env.BLOB_DIR ?? DEFAULT_BLOB_DIR;
   const ctx = createBridgeCtx(createFsBlobStore(blobDir));
+  // 오디오 처리 서비스: AUDIO_SERVICE_URL이 있으면 별도 프로세스(audio-service)를, 없으면 같은 프로세스의 라이브러리를 부른다.
+  const audio = {
+    store: createFsAudioStore(process.env.AUDIO_DIR ?? fileURLToPath(new URL("../../.audio/", import.meta.url))),
+    analyzer: process.env.AUDIO_SERVICE_URL ? httpAnalyzer(process.env.AUDIO_SERVICE_URL) : localAnalyzer,
+  };
   if (opts.prepare !== undefined) await opts.prepare(db);
   const jobs = await startBossJobs(opts.url, workOptionsFromEnv(process.env));
-  const handlers = { ...jobHandlers({ db, ctx, clock: opts.clock, jobs }), ...payoutJobHandlers({ db, clock: opts.clock, jobs, provider: opts.provider }) };
+  const handlers = { ...jobHandlers({ db, ctx, clock: opts.clock, jobs }), ...payoutJobHandlers({ db, clock: opts.clock, jobs, provider: opts.provider }), ...audioJobHandlers({ db, clock: opts.clock, audio }) };
   for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
   await jobs.work(handlers as Record<JobName, JobHandler>);
   const app = buildServer({
-    db, ctx, clock: opts.clock, jobs, provider: opts.provider,
+    db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio,
     ...(opts.pspSecret === undefined ? {} : { pspSecret: opts.pspSecret }),
     ...(opts.dev === undefined ? {} : { dev: { ...opts.dev, jobs: createDevJobs(jobs) } }),
   });

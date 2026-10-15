@@ -7,6 +7,7 @@ import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { ingestRevenue, type RevenueInput } from "../revenue/service.ts";
 import { confirmBatch, createBatch, refundHook, revisionHook } from "../settlement/service.ts";
 import { jobHandlers } from "../settlement/handlers.ts";
+import { audioJobHandlers } from "../audio/handlers.ts";
 import { payoutJobHandlers } from "../payout/handlers.ts";
 import { fakeProvider } from "../payout/fake-provider.ts";
 import { mulberry32 } from "./prng.ts";
@@ -83,7 +84,7 @@ export async function runSettlementScenario(deps: { db: Db; ctx: BridgeCtx; appU
   const jobs = await startBossJobs(deps.appUrl, { batchSize: 20, localConcurrency: 4 });
   try {
     const d = { db, ctx, clock, jobs };
-    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock, jobs, provider: fakeProvider() }) };
+    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock, jobs, provider: fakeProvider() }), ...audioJobHandlers({ db, clock }) };
     for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
     await jobs.work(handlers as Record<JobName, JobHandler>);
     const onRefund = refundHook(jobs);

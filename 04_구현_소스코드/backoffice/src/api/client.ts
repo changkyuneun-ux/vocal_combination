@@ -49,3 +49,17 @@ export function api<T>(method: Method, path: string, body?: unknown, opts: ApiOp
 export function devApi<T>(method: Method, path: string, body?: unknown, opts: Pick<ApiOptions, "fetchImpl"> = {}): Promise<T> {
   return request<T>(method, `/api/dev${path}`, body, null, opts.fetchImpl);
 }
+
+/** 원시 바이트 업로드(스템 오디오·참조 음원). JSON이 아니라 파일 그대로 보낸다. */
+export async function apiUpload<T>(method: "PUT" | "POST", path: string, file: Blob, opts: ApiOptions = {}): Promise<T> {
+  const channel = opts.channel ?? APPS[currentApp()].channel;
+  const actor = opts.actorOverride ?? currentActor();
+  const res = await (opts.fetchImpl ?? fetch)(`/api/${channel}${path}`, {
+    method, body: file, headers: { "content-type": file.type || "application/octet-stream", ...(actor ? { "x-actor": actor } : {}) },
+  });
+  const text = await res.text();
+  const json = (() => { try { return text ? JSON.parse(text) : undefined; } catch { return undefined; } })() as { code?: string; message?: string; diagnostics?: unknown[] } | undefined;
+  if (!res.ok) throw new ApiError(res.status, json?.code ?? `HTTP_${res.status}`, json?.message ?? text, json?.diagnostics ?? []);
+  return json as T;
+}
+

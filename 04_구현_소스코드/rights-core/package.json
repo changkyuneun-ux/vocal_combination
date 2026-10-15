@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "pretest": "npm run build --prefix ../mdrl",
     "test": "node --test --test-concurrency=4 \"test/**/*.test.ts\"",
@@ -20,7 +22,8 @@
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
     "pg-boss": "^12.35.0",
-    "mdrl": "0.1.0"
+    "mdrl": "0.1.0",
+    "audio-service": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

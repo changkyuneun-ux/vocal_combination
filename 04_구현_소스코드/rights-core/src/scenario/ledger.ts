@@ -9,6 +9,7 @@ import { suggestFraudRelease } from "../engine-bridge/fraud-release.ts";
 import { balance } from "../ledger/journal.ts";
 import { partyStatement, type Statement } from "../ledger/statements.ts";
 import { jobHandlers } from "../settlement/handlers.ts";
+import { audioJobHandlers } from "../audio/handlers.ts";
 import { releaseHold } from "../settlement/holds.ts";
 import { invariants } from "../settlement/invariants.ts";
 import { fakeProvider } from "../payout/fake-provider.ts";
@@ -113,7 +114,7 @@ export async function runLedgerScenario(deps: { db: Db; ctx: BridgeCtx; appUrl: 
   const jobs: BossJobs = await startBossJobs(deps.appUrl, { batchSize: 20, localConcurrency: 4 });
   try {
     const d = { db, ctx, clock, jobs };
-    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock, jobs, provider, pollDelaySeconds: POLL_DELAY_SECONDS }) };
+    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock, jobs, provider, pollDelaySeconds: POLL_DELAY_SECONDS }), ...audioJobHandlers({ db, clock }) };
     for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
     await jobs.work(handlers as Record<JobName, JobHandler>);
 

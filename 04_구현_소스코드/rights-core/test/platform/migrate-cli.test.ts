@@ -32,9 +32,9 @@ test("runMigrations is idempotent and leaves the queues usable by rc_app", async
   await db.close();
 });
 
-test("RC_DB_POOL_MAX: default 40 (9 queues x 4 workers + 3 extra post-batch connections), positive integers only", () => {
-  assert.equal(poolMaxFromEnv({}), 40);
-  assert.equal(poolMaxFromEnv({ RC_DB_POOL_MAX: "" }), 40);
+test("RC_DB_POOL_MAX: default 48 (10 queues x 4 workers + 3 extra post-batch connections + HTTP), positive integers only", () => {
+  assert.equal(poolMaxFromEnv({}), 48);
+  assert.equal(poolMaxFromEnv({ RC_DB_POOL_MAX: "" }), 48);
   assert.ok(poolMaxFromEnv({}) >= JOB_NAMES.length * 4 + 3, "the default covers the default worker concurrency");
   assert.equal(poolMaxFromEnv({ RC_DB_POOL_MAX: "7" }), 7);
   for (const bad of ["0", "-1", "1.5", "abc", "1e3"]) assert.throws(() => poolMaxFromEnv({ RC_DB_POOL_MAX: bad }), /RC_DB_POOL_MAX/);

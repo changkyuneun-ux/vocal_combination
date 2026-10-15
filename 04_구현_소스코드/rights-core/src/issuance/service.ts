@@ -135,6 +135,12 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
     const s = byStem.get(a.stemId);
     if (s === undefined || s.slot_id !== a.slotId || s.facts_scope_id !== pack.factsScopeId) throw bad(`stem ${a.stemId} is not in slot ${a.slotId} of this song`);
   }
+  // 오디오를 올린 스템은 검수·출처 검사를 통과(READY)해야 쓸 수 있다(다음 작업 9). 오디오 없이 등록된 메타데이터 스템은 검사 대상이 아니다.
+  const notReady = (await tx.query("SELECT stem_id, status FROM stem_audio WHERE stem_id = ANY($1) AND status <> 'READY' ORDER BY stem_id", [input.assignments.map((a) => a.stemId)])).rows;
+  if (notReady.length > 0) {
+    throw invalid("STEM_NOT_READY", `stems are not ready: ${notReady.map((r) => `${r.stem_id}:${r.status}`).join(", ")}`,
+      notReady.map((r) => ({ code: "STEM_NOT_READY", path: `$.assignments.${r.stem_id}`, message: `stem audio is ${r.status}` })));
+  }
   const memberEntries = Object.entries(input.members);
   if (memberEntries.some(([, v]) => !Number.isInteger(v) || v < 0 || v > 10000)) throw bad("member bps must be integers 0..10000");
   if (memberEntries.reduce((acc, [, v]) => acc + v, 0) !== 10000) throw bad("member bps must sum to 10000");
@@ -177,7 +183,7 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   return seal;
 }
 
-const GATE_CODES = new Set(["ISSUE_NOT_LICENSED", "ISSUE_NOT_SETTLEABLE", "INVALID_ISSUE", "PACK_NOT_ACTIVE", "FACTS_DISPUTE_OPEN", "REBIND_REQUIRED", "NO_ACTIVE_POLICY"]);
+const GATE_CODES = new Set(["ISSUE_NOT_LICENSED", "ISSUE_NOT_SETTLEABLE", "STEM_NOT_READY", "INVALID_ISSUE", "PACK_NOT_ACTIVE", "FACTS_DISPUTE_OPEN", "REBIND_REQUIRED", "NO_ACTIVE_POLICY"]);
 
 /**
  * 발행 게이트 거부를 관제용으로 남긴다(⑧ 게이트 거부율). 발행 트랜잭션은 롤백되므로 별도 트랜잭션(system 범위)으로 쓴다.

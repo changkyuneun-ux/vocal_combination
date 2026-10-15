@@ -1,9 +1,16 @@
 {
   "name": "dobedupop-platform",
   "private": true,
-  "workspaces": ["mdrl", "rights-core", "backoffice"],
+  "workspaces": [
+    "mdrl",
+    "audio-service",
+    "rights-core",
+    "backoffice"
+  ],
   "scripts": {
     "dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"
   },
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  }
 }

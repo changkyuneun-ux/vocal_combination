@@ -27,6 +27,7 @@ import { EntryDetail } from "../pages/ledger/EntryDetail.tsx";
 import { Section } from "../components/Section.tsx";
 import { PortalHome } from "../pages/portal/Home.tsx";
 import { Pipeline } from "../pages/monitor/Pipeline.tsx";
+import { StemAudioPage } from "../pages/audio/Audio.tsx";
 import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
 import type { AppKind } from "./apps.ts";
 
@@ -46,6 +47,7 @@ const rightsRoutes: RouteDef[] = [
   { path: "/registry/claims", title: "권리 주장", element: <Claims /> },
   { path: "/registry/mandates", title: "위임", element: <Mandates /> },
   { path: "/registry/disputes", title: "분쟁", element: <Disputes /> },
+  { path: "/audio", title: "스템 오디오", element: <StemAudioPage /> },
   { path: "/policy", title: "정책", element: <Policies /> },
   { path: "/policy/:policyId", title: "정책 상세", element: <PolicyDetail /> },
   { path: "/packs", title: "팩", element: <Packs /> },
@@ -97,7 +99,7 @@ export function routesFor(kind: AppKind): RouteDef[] {
 }
 
 const registryMenu: MenuGroup = { title: "1 등록부", items: [
-  { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" },
+  { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
   { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/registry/disputes", label: "분쟁" },
 ] };
 

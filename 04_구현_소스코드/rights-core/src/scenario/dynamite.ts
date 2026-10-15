@@ -19,6 +19,7 @@ import * as issuance from "../issuance/service.ts";
 import { ingestRevenue, type RevenueInput } from "../revenue/service.ts";
 import { confirmBatch, createBatch, refundHook, revisionHook } from "../settlement/service.ts";
 import { jobHandlers } from "../settlement/handlers.ts";
+import { audioJobHandlers } from "../audio/handlers.ts";
 import { fakeProvider } from "../payout/fake-provider.ts";
 import { payoutJobHandlers, recordWebhook } from "../payout/handlers.ts";
 import { createPayoutRun, setPayoutProfile } from "../payout/service.ts";
@@ -260,7 +261,7 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   const provider = fakeProvider({ outcome: () => "PAID" });
   try {
     const d = { db, ctx, clock: settleClock, jobs };
-    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock: settleClock, jobs, provider, pollDelaySeconds: 1 }) };
+    const handlers = { ...jobHandlers(d), ...payoutJobHandlers({ db, clock: settleClock, jobs, provider, pollDelaySeconds: 1 }), ...audioJobHandlers({ db, clock: settleClock }) };
     for (const n of JOB_NAMES) if (handlers[n] === undefined) throw new Error(`missing job handler: ${n}`);
     await jobs.work(handlers as Record<JobName, JobHandler>);
     const onRefund = refundHook(jobs), onRevision = revisionHook(jobs);

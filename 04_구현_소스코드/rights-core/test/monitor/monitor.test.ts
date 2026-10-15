@@ -32,9 +32,9 @@ test("a gate rejection is kept for monitoring even though the issue transaction 
   assert.deepEqual(rows, [{ channel: "ops", actor_user_id: "usr_issuer", vc_id: "vc_rejected", code: "ISSUE_NOT_SETTLEABLE" }]);
 });
 
-test("signals: eight pipeline stages with values from every module", async () => {
+test("signals: nine pipeline stages with values from every module", async () => {
   const s = await ok("/ops/pipeline/signals");
-  assert.deepEqual(s.stages.map((x: any) => x.stage), ["registry", "policy", "pack", "issuance", "revenue", "settlement", "payout", "dispute"]);
+  assert.deepEqual(s.stages.map((x: any) => x.stage), ["registry", "audio", "policy", "pack", "issuance", "revenue", "settlement", "payout", "dispute"]);
   const v = (stage: string, key: string) => s.stages.find((x: any) => x.stage === stage).signals.find((y: any) => y.key === key);
   assert.equal(v("revenue", "flagged").value, 2);
   assert.equal(v("revenue", "unsettled").value, 1);

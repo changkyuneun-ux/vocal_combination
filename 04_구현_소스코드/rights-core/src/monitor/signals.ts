@@ -26,6 +26,7 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
   const openDisputes = await n(tx, "SELECT count(*) AS n FROM dispute WHERE status = 'OPEN'");
   const expiring = await n(tx, `SELECT count(*) AS n FROM mandate WHERE ${cur} AND valid_to IS NOT NULL AND valid_to > $1 AND valid_to <= $2`, [now, in30]);
 
+  const audio = Object.fromEntries((await tx.query("SELECT status, count(*)::int AS n FROM stem_audio GROUP BY status")).rows.map((r) => [r.status, r.n as number]));
   const waiting = await n(tx, "SELECT count(*) AS n FROM policy_version WHERE status IN ('COMPILED','APPROVED')");
   const stale = await n(tx,
     `SELECT count(*) AS n FROM vocal_pack p JOIN policy_version v ON v.pack_id = p.pack_id AND v.status = 'ACTIVE'
@@ -67,6 +68,13 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
         sig("disputed", "분쟁 중 주장·위임", disputed, badIf(disputed), "/registry/claims"),
         sig("open-disputes", "열린 분쟁", openDisputes, badIf(openDisputes), "/registry/disputes"),
         sig("mandates-expiring", "30일 안에 만료되는 위임", expiring, warnIf(expiring), "/registry/mandates"),
+      ] },
+      { stage: "audio", label: "스템 검수·출처", decidedBy: "플랫폼(기술 신호), 권리자(소명)", signals: [
+        sig("audio-pending", "검사 대기 스템", audio.PENDING ?? 0, "ok", "/audio"),
+        sig("audio-qc-failed", "QC 실패 스템", audio.QC_FAILED ?? 0, warnIf(audio.QC_FAILED ?? 0), "/audio"),
+        sig("audio-review", "출처 검토 대기 스템", audio.REVIEW ?? 0, warnIf(audio.REVIEW ?? 0), "/audio"),
+        sig("audio-blocked", "출처 차단 스템", audio.BLOCKED ?? 0, badIf(audio.BLOCKED ?? 0), "/audio"),
+        sig("audio-ready", "사용 가능 스템", audio.READY ?? 0, "ok", "/audio"),
       ] },
       { stage: "policy", label: "정책", decidedBy: "권리자", signals: [
         sig("waiting", "승인·활성화 대기 정책 버전", waiting, warnIf(waiting), "/policy"),
