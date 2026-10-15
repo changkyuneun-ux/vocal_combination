@@ -9,14 +9,33 @@ export type Sealed = { digest: string; kind: SealKind; docId?: string; docVersio
 const INLINE_LIMIT = 64 * 1024;
 
 /**
+ * 자기 digest를 품는 엔진 출력. 봉인 본문은 그 필드와 설명 자료 trace를 뺀 값이고, 본문의 digest가 곧 봉인 digest다
+ * (데이터모델 v2.8 3.11, 코어 규격 12.48·12.50). 그래서 run이 가리키는 digest와 IR 안의 result_digest가 같다.
+ */
+const SELF_DIGEST: Partial<Record<SealKind, string>> = { projection: "digest", allocation_result: "result_digest", reversal_result: "result_digest" };
+
+/** 봉인 본문: 자기 digest 필드와 trace를 뺀다. trace는 재계산으로만 확인하는 자료라 봉인하지 않는다. */
+export function sealBody(kind: SealKind, value: unknown): unknown {
+  const field = SELF_DIGEST[kind];
+  if (field === undefined) return value;
+  const { [field]: _self, trace: _trace, ...body } = value as Record<string, unknown>;
+  return body;
+}
+
+/**
  * 값을 JCS로 정규화해 blob에 쓰고 sealed_document에 기록한다. 같은 digest는 한 번만 저장된다(멱등).
  * 캐시는 채우지 않는다: 트랜잭션이 롤백되면 봉인되지 않은 값이 캐시에 남기 때문이다(캐시는 loadSealed만 채운다).
  */
 export async function sealDocument(
   ctx: BridgeCtx, tx: Tx, input: { kind: SealKind; value: unknown; docId?: string; docVersion?: string; format?: string },
 ): Promise<Sealed> {
-  const text = canonicalize(input.value);
-  const digest = digestOf(input.value);
+  const body = sealBody(input.kind, input.value);
+  const text = canonicalize(body);
+  const digest = digestOf(body);
+  const field = SELF_DIGEST[input.kind];
+  if (field !== undefined && (input.value as Record<string, unknown>)[field] !== digest) {
+    throw new DomainError("SEAL_SELF_DIGEST_MISMATCH", 500, `${input.kind} ${field} does not match its sealed body ${digest}`);
+  }
   const bytes = new TextEncoder().encode(text);
   const uri = await ctx.blobs.put(digest, bytes);
   await tx.query(
@@ -28,7 +47,7 @@ export async function sealDocument(
   return { digest, kind: input.kind, ...(input.docId && { docId: input.docId }), ...(input.docVersion && { docVersion: input.docVersion }), ...(input.format && { format: input.format }) };
 }
 
-/** 봉인 문서를 읽는다. 캐시에 없으면 JSONB 사본 또는 blob에서 읽고 digest를 다시 계산해 대조한다. */
+/** 봉인 문서를 읽는다. 캐시에 없으면 JSONB 사본 또는 blob에서 읽고 digest를 다시 계산해 대조한다. 자기 digest 필드는 봉인 digest로 다시 붙인다(trace는 없다). */
 export async function loadSealed(ctx: BridgeCtx, tx: Tx, digest: string): Promise<unknown> {
   if (ctx.cache.has(digest)) return ctx.cache.get(digest);
   const value = await readSealedUncached(ctx, tx, digest);
@@ -43,11 +62,14 @@ export async function loadSealed(ctx: BridgeCtx, tx: Tx, digest: string): Promis
  */
 export async function readSealedUncached(ctx: BridgeCtx, tx: Tx, digest: string): Promise<unknown> {
   if (ctx.cache.has(digest)) return ctx.cache.get(digest);
-  const row = (await tx.query("SELECT content, storage_uri FROM sealed_document WHERE digest = $1", [digest])).rows[0];
+  const row = (await tx.query("SELECT kind, content, storage_uri FROM sealed_document WHERE digest = $1", [digest])).rows[0];
   if (row === undefined) throw notFound("sealed document", digest);
   const value: unknown = row.content ?? JSON.parse(new TextDecoder().decode(await ctx.blobs.get(row.storage_uri)));
   if (digestOf(value) !== digest) throw new DomainError("SEAL_CORRUPT", 500, `sealed document ${digest} does not match its digest`);
-  return value;
+  const field = SELF_DIGEST[row.kind as SealKind];
+  // 필드가 이미 있으면 이 규칙 이전에 통째로 봉인된 문서다. 그대로 돌려준다.
+  if (field === undefined || Object.hasOwn(value as object, field)) return value;
+  return { ...(value as Record<string, unknown>), [field]: digest };
 }
 
 /** 캐시 값은 프로세스 전체가 공유하므로 깊게 동결한다. */

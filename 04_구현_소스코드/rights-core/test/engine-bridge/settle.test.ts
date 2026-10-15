@@ -2,6 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateRun, verifyRun } from "../../src/engine-bridge/settle.ts";
 import { createBridgeCtx } from "../../src/engine-bridge/context.ts";
+import { loadSealed } from "../../src/engine-bridge/seal-store.ts";
 import { issueCombo, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
@@ -28,6 +29,19 @@ test("evaluateRun seals events (sorted) and the result; rows conserve every even
   const again = await w.db.tx((tx) => evaluateRun(w.ctx, tx, { runId: "run_t1", snapshotId: seal.snapshotId, events: [...events].reverse() }));
   assert.ok(again.ok);
   assert.equal(again.resultDigest, r.resultDigest, "deterministic regardless of input order");
+});
+
+test("the sealed result body leaves out trace and result_digest, so the run digest equals the IR's result_digest", async () => {
+  const r = await w.db.tx((tx) => evaluateRun(w.ctx, tx, { runId: "run_t5", snapshotId: seal.snapshotId, events }));
+  assert.ok(r.ok);
+  const row = (await w.db.pool.query("SELECT content FROM sealed_document WHERE digest = $1", [r.resultDigest])).rows[0];
+  assert.equal(Object.hasOwn(row.content, "trace"), false);
+  assert.equal(Object.hasOwn(row.content, "result_digest"), false);
+  const loaded = (await w.db.tx((tx) => loadSealed(createBridgeCtx(w.ctx.blobs), tx, r.resultDigest))) as { result_digest: string; trace?: unknown };
+  assert.equal(loaded.result_digest, r.resultDigest);
+  assert.equal(loaded.trace, undefined);
+  const projection = (await w.db.tx((tx) => loadSealed(createBridgeCtx(w.ctx.blobs), tx, seal.projectionDigest))) as { digest: string };
+  assert.equal(projection.digest, seal.projectionDigest);
 });
 
 test("verifyRun recomputes from sealed inputs with a cold cache and detects a mismatch", async () => {

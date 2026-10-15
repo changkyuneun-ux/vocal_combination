@@ -2,7 +2,7 @@ import { canonicalize, digestOf } from "mdrl/core";
 import type { Tx } from "../platform/db.ts";
 import { notFound, DomainError } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
-import { loadSealed, sealDocument, type Sealed } from "./seal-store.ts";
+import { loadSealed, sealBody, sealDocument, type Sealed, type SealKind } from "./seal-store.ts";
 
 export type AuditArtifact<T = unknown> = {
   digest: string;
@@ -172,7 +172,7 @@ export function verifyAuditManifestIntegrity(manifest: RunAuditManifest): {
   const mismatches: string[] = [];
 
   const check = (name: string, artifact: AuditArtifact) => {
-    const computed = digestOf(artifact.content);
+    const computed = digestOf(sealBody(artifact.kind as SealKind, artifact.content));
     if (computed !== artifact.digest) {
       mismatches.push(`${name}: expected ${artifact.digest}, got ${computed}`);
     }

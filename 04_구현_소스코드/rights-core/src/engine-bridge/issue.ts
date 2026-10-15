@@ -66,7 +66,7 @@ export async function rederiveIssue(ctx: BridgeCtx, tx: Tx, snapshotId: string) 
   for (const r of (await tx.query("SELECT party_id, pct_bps FROM snapshot_member_pct WHERE snapshot_id = $1", [snapshotId])).rows) members[r.party_id] = r.pct_bps;
   const facts = await loadFacts(ctx, tx, expected.factsDigest);
   const recomputed = {
-    projectionDigest: digestOf(buildProjection(facts, usageMs, expected.asOf)),
+    projectionDigest: buildProjection(facts, usageMs, expected.asOf).digest,
     membersDigest: digestOf(membersIr(members)),
   };
   const ok = policyMatch && recomputed.projectionDigest === expected.projectionDigest && recomputed.membersDigest === expected.membersDigest;
