@@ -26,6 +26,7 @@ import { audioOpsRoutes, stemAudioRoutes } from "../audio/routes.ts";
 import type { AudioDeps } from "../audio/deps.ts";
 import type { DocumentStore } from "../documents/store.ts";
 import { documentRoutes } from "../documents/routes.ts";
+import { validationRoutes } from "../validation/routes.ts";
 import type { IdentityProvider } from "../performer/identity.ts";
 import type { PushSender } from "../performer/notifications.ts";
 
@@ -102,9 +103,9 @@ export function buildServer(deps: Deps): FastifyInstance {
       register(sub);
     }, { prefix: `/${ch}` });
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); });
+  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); });
   channel("portal", (sub) => {
-    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps);
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps);
   });
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });

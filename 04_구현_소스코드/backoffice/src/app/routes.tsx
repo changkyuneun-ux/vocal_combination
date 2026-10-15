@@ -17,6 +17,7 @@ import { HubPage } from "../pages/hub/Hub.tsx";
 import { DocumentsPage } from "../pages/documents/Documents.tsx";
 import { RightsSummaryPage } from "../pages/registry/Summary.tsx";
 import { ConfirmationsPage } from "../pages/confirmations/Confirmations.tsx";
+import { ValidationPage } from "../pages/validation/Validation.tsx";
 import { Profiles } from "../pages/payout/Profiles.tsx";
 import { PayoutRuns } from "../pages/payout/PayoutRuns.tsx";
 import { PayoutRunDetail } from "../pages/payout/PayoutRunDetail.tsx";
@@ -50,6 +51,7 @@ const rightsRoutes: RouteDef[] = [
   { path: "/registry/summary", title: "권리 요약", element: <RightsSummaryPage /> },
   { path: "/documents", title: "원천 문서", element: <DocumentsPage /> },
   { path: "/confirmations", title: "확인 요청", element: <ConfirmationsPage /> },
+  { path: "/validation", title: "정합성 점검", element: <ValidationPage /> },
   { path: "/registry/parties", title: "당사자", element: <Parties /> },
   { path: "/registry/assets", title: "곡·녹음·슬롯·스템·보이스", element: <Assets /> },
   { path: "/registry/claims", title: "권리 주장", element: <Claims /> },
@@ -109,7 +111,7 @@ export function routesFor(kind: AppKind): RouteDef[] {
 }
 
 const registryMenu: MenuGroup = { title: "1 등록부", items: [
-  { to: "/registry/summary", label: "권리 요약" }, { to: "/documents", label: "원천 문서" }, { to: "/confirmations", label: "확인 요청" }, { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
+  { to: "/registry/summary", label: "권리 요약" }, { to: "/documents", label: "원천 문서" }, { to: "/confirmations", label: "확인 요청" }, { to: "/validation", label: "정합성 점검" }, { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
   { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/registry/disputes", label: "분쟁" },
 ] };
 

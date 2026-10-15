@@ -10,9 +10,16 @@ import * as q from "./queries.ts";
 import { parseRefs } from "../documents/service.ts";
 import { rightsSummary } from "./summary.ts";
 import { linkClause } from "./evidence-links.ts";
+import { revalidate } from "../validation/service.ts";
 import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
+  /** 기록이 속한 곡을 다시 검사한다(조항 연결 뒤). */
+  const revalidateRecord = async (tx: any, type: string, id: string) => {
+    const table = type === "CLAIM" ? "right_claim WHERE claim_id" : type === "MANDATE" ? "mandate WHERE mandate_id" : "consent_agreement WHERE consent_id";
+    const s = (await tx.query(`SELECT facts_scope_id FROM ${table} = $1 LIMIT 1`, [id])).rows[0];
+    if (s !== undefined) await revalidate(tx, deps.clock, s.facts_scope_id);
+  };
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
     app.post(path, async (req, reply) => {
@@ -52,6 +59,7 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
       const cp = await counterpartyOf(tx, type, b);
       if (!(actor.partyId === cp)) await requestConfirmation(tx, deps.clock, actor, type, rec.id);
     }
+    await revalidate(tx, deps.clock, b.factsScopeId); // 정합성 검증(원천 문서 설계 S3a): 기록이 바뀌면 곡을 다시 검사한다
     return rec;
   };
   created<reg.ClaimDraft>("/claims", (tx, b, actor) => recordWithConfirmation(tx, actor, "CLAIM", b, () => reg.recordClaim(tx, deps.clock, withEvidence(b, actor))), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
@@ -68,10 +76,18 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     const b = req.body as ConsentDraft;
     const missing = ["consentId", "factsScopeId", "partyId", "rightType", "assetId", "scope", "validFrom", "validTo"].filter((k) => (b as any)?.[k] === undefined);
     if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
-    return reply.status(201).send(await withActor(deps, req, (tx, actor) => signConsent(tx, deps.clock, actor, b)));
+    return reply.status(201).send(await withActor(deps, req, async (tx, actor) => {
+      const c = await signConsent(tx, deps.clock, actor, b);
+      await revalidate(tx, deps.clock, c.factsScopeId);
+      return c;
+    }));
   });
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/consents/:id/revoke", async (req) =>
-    withActor(deps, req, (tx, actor) => revokeConsent(tx, deps.clock, actor, req.params.id, req.body?.reason ?? "")));
+    withActor(deps, req, async (tx, actor) => {
+      const c = await revokeConsent(tx, deps.clock, actor, req.params.id, req.body?.reason ?? "");
+      await revalidate(tx, deps.clock, c.factsScopeId);
+      return c;
+    }));
   app.post<{ Params: { id: string }; Body: { scope: ConsentDraft["scope"]; validFrom: string; validTo: string; contractUri: string } }>("/scopes/:id/contract-consents", async (req, reply) => {
     const b = req.body;
     if (!b?.scope || !b.validFrom || !b.validTo || !b.contractUri) throw new DomainError("BAD_REQUEST", 400, "missing required fields: scope, validFrom, validTo, contractUri");
@@ -86,9 +102,11 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
   // 조항 → 기록 근거 연결, 확인 요청(원천 문서 설계 S3).
-  app.post<{ Params: { cid: string } }>("/clauses/:cid/links", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => {
+  app.post<{ Params: { cid: string } }>("/clauses/:cid/links", async (req, reply) => reply.status(201).send(await withActor(deps, req, async (tx, actor) => {
     if (actor.scope !== "platform") requireRole(actor, "RIGHTS_EDITOR");
-    return linkClause(tx, deps.clock, actor, req.params.cid, (req.body ?? {}) as Record<string, unknown>);
+    const out = await linkClause(tx, deps.clock, actor, req.params.cid, (req.body ?? {}) as Record<string, unknown>);
+    await revalidateRecord(tx, out.recordType, out.recordId);
+    return out;
   })));
   app.get("/confirmations", async (req) => withActor(deps, req, (tx) => listConfirmations(tx, {
     ...(optFilter(q0(req), "status") !== undefined && { status: optFilter(q0(req), "status") }), ...(optFilter(q0(req), "party") !== undefined && { party: optFilter(q0(req), "party") }),
@@ -98,11 +116,12 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     if ((b.recordType !== "CLAIM" && b.recordType !== "MANDATE") || typeof b.recordId !== "string") throw new DomainError("BAD_REQUEST", 400, "recordType (CLAIM | MANDATE) and recordId are required");
     return requestConfirmation(tx, deps.clock, actor, b.recordType, b.recordId);
   })));
-  app.post<{ Params: { id: string } }>("/confirmations/:id/confirm", async (req) => withActor(deps, req, (tx, actor) => confirmRequest(tx, deps.clock, actor, Number(req.params.id))));
+  const decided = async (tx: any, r: { factsScopeId: string }) => { await revalidate(tx, deps.clock, r.factsScopeId); return r; };
+  app.post<{ Params: { id: string } }>("/confirmations/:id/confirm", async (req) => withActor(deps, req, async (tx, actor) => decided(tx, await confirmRequest(tx, deps.clock, actor, Number(req.params.id)))));
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/decline", async (req) =>
-    withActor(deps, req, (tx, actor) => declineRequest(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
+    withActor(deps, req, async (tx, actor) => decided(tx, await declineRequest(tx, deps.clock, actor, Number(req.params.id), req.body?.reason))));
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/platform-verify", async (req) =>
-    withActor(deps, req, (tx, actor) => platformVerify(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
+    withActor(deps, req, async (tx, actor) => decided(tx, await platformVerify(tx, deps.clock, actor, Number(req.params.id), req.body?.reason))));
   // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
   app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
   app.get("/disputes", async (req) =>

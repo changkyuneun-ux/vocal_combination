@@ -9,6 +9,7 @@ import { compilePolicyText, repinPolicy } from "../engine-bridge/policy.ts";
 import { attest, signersOf } from "../engine-bridge/attest.ts";
 import { checkPackActivation, claimantSet } from "../engine-bridge/activation.ts";
 import { declaredClaimants, openDisputeInScope, packRow } from "../issuance/service.ts";
+import { assertActivationAllowed } from "../validation/service.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
 type Row = { policyId: string; version: number; status: string; policyDigest: string; factsDigest: string; factsKnownAt: string; packId: string };
@@ -78,6 +79,7 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const diags = await checkPackActivation(ctx, tx, { factsDigest: row.factsDigest, declared: await declaredClaimants(tx, row.packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `${ref.policyId}@${ref.version} cannot be activated`, diags);
+  await assertActivationAllowed(tx, clock, pack.factsScopeId); // 정합성 검증(원천 문서 설계 S3a)
   await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: row.policyDigest });
   await supersedeAndActivate(tx, clock, row);
   await audit(tx, clock, { actor: actor.userId, action: "POLICY_ACTIVATED", entityType: "policy_version", entityId: `${ref.policyId}@${ref.version}` });

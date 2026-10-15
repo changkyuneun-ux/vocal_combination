@@ -24,6 +24,8 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
   const asserted = await n(tx, `SELECT count(*) AS n FROM right_claim WHERE ${cur} AND status = 'ASSERTED'`);
   const disputed = await n(tx, `SELECT (SELECT count(*) FROM right_claim WHERE ${cur} AND status = 'DISPUTED') + (SELECT count(*) FROM mandate WHERE ${cur} AND status = 'DISPUTED') AS n`);
   const openDisputes = await n(tx, "SELECT count(*) AS n FROM dispute WHERE status = 'OPEN'");
+  const validationBlock = await n(tx, "SELECT count(*) AS n FROM validation_issue WHERE status = 'OPEN' AND severity = 'BLOCK'");
+  const validationOverdue = await n(tx, "SELECT count(*) AS n FROM validation_issue WHERE status = 'OPEN' AND severity = 'WARN' AND due_at <= $1", [now]);
   const expiring = await n(tx, `SELECT count(*) AS n FROM mandate WHERE ${cur} AND valid_to IS NOT NULL AND valid_to > $1 AND valid_to <= $2`, [now, in30]);
 
   const audio = Object.fromEntries((await tx.query("SELECT status, count(*)::int AS n FROM stem_audio GROUP BY status")).rows.map((r) => [r.status, r.n as number]));
@@ -78,6 +80,8 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
         sig("disputed", "분쟁 중 주장·위임", disputed, badIf(disputed), "/registry/claims"),
         sig("open-disputes", "열린 분쟁", openDisputes, badIf(openDisputes), "/registry/disputes"),
         sig("mandates-expiring", "30일 안에 만료되는 위임", expiring, warnIf(expiring), "/registry/mandates"),
+        sig("validation-block", "정합성 차단 이슈(활성화 막음)", validationBlock, badIf(validationBlock), "/validation"),
+        sig("validation-overdue", "기한 지난 정합성 경고", validationOverdue, warnIf(validationOverdue), "/validation"),
       ] },
       { stage: "audio", label: "스템 검수·출처", decidedBy: "플랫폼(기술 신호), 권리자(소명)", signals: [
         sig("audio-pending", "검사 대기 스템", audio.PENDING ?? 0, "ok", "/audio"),

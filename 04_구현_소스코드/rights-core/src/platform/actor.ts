@@ -3,7 +3,7 @@ import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { DomainError } from "./errors.ts";
 
-export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER";
+export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER" | "COMPLIANCE";
 /**
  * scope: platform = 플랫폼 운영 테넌트 사용자(전체 조회), tenant = 그 외 테넌트 사용자(자기 테넌트 소유·참여 데이터만),
  * party = 소속 없는 개인(개인 기본 테넌트) 사용자(자기 파티의 참여 데이터만). partyId는 본인 파티(실연자·팬 계정)다.

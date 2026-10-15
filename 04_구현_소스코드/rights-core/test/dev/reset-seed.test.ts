@@ -70,7 +70,7 @@ test("seed -> 409 reseed -> reset -> empty + seed rows + users + clock -> seed a
   assert.ok(clock.now() >= DEV_CLOCK_START && clock.now() < "2026-01-01T00:01:00.000Z");
   assert.equal(await count("SELECT count(*)::int AS n FROM party"), 0);
   assert.deepEqual(await policyRows(), seedPolicy);
-  assert.equal(await count("SELECT count(*)::int AS n FROM user_account"), 12); // 개발 사용자 9 + 시스템 신원 3
+  assert.equal(await count("SELECT count(*)::int AS n FROM user_account"), 13); // 개발 사용자 10 + 시스템 신원 3
   assert.equal(await count("SELECT count(*)::int AS n FROM dev_clock"), 1);
   assert.deepEqual(psp.outcomes(), { byInstruction: {}, byParty: {} });
   assert.deepEqual(jobs.paused(), []);

@@ -15,6 +15,7 @@ import { notifyParty } from "../performer/notifications.ts";
 import type { OutboxHandlers } from "../platform/outbox.ts";
 import { invalidateDecisions } from "../decisions/cache.ts";
 import { holdExposureForConsent } from "../exposure/service.ts";
+import { assertActivationAllowed } from "../validation/service.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
   requireRole(actor, "RIGHTS_EDITOR");
@@ -81,6 +82,8 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   if (stale !== undefined) throw rebindRequired(packId, active, stale);
   const diags = await checkPackActivation(ctx, tx, { factsDigest: active.factsDigest, declared: await declaredClaimants(tx, packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `pack ${packId} cannot be activated`, diags);
+  // 정합성 검증(원천 문서 설계 S3a): 적용 테넌트의 곡에 열린 BLOCK 이슈가 있으면 활성화하지 않는다.
+  await assertActivationAllowed(tx, clock, pack.factsScopeId);
   await tx.query("UPDATE vocal_pack SET status = 'ACTIVE' WHERE pack_id = $1", [packId]);
   await invalidateDecisions(tx, pack.factsScopeId, { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "PACK_ACTIVATED", entityType: "vocal_pack", entityId: packId, after: { policy: `${active.policyId}@${active.version}` } });
