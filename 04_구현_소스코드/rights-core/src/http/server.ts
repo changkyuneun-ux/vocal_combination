@@ -4,6 +4,7 @@ import { applyActorScope, loadActor, type Actor } from "../platform/actor.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
+import { assertChannel, type Channel } from "./channels.ts";
 import { platformRoutes } from "../platform/routes.ts";
 import { registryRoutes } from "../registry/routes.ts";
 import { policyRoutes } from "../policy/routes.ts";
@@ -17,6 +18,7 @@ import type { PayoutProvider } from "../payout/provider.ts";
 import { ledgerRoutes } from "../ledger/routes.ts";
 import { payoutRoutes } from "../payout/routes.ts";
 import { devRoutes, type DevDeps } from "../dev/routes.ts";
+import { fanRoutes, partnerRoutes, performerRoutes, portalRoutes } from "./channel-routes.ts";
 
 /** provider·pspSecret은 지급 운영 라우트용: provider가 없으면 재전송 503, pspSecret이 없으면 webhook 503. */
 export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps };
@@ -27,6 +29,7 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
   if (typeof userId !== "string" || userId === "") throw new DomainError("UNKNOWN_ACTOR", 401, "x-actor header is required");
   return deps.db.tx(async (tx) => {
     const actor = await loadActor(tx, userId);
+    assertChannel(req.channel ?? "legacy", actor);
     await applyActorScope(tx, actor);
     return fn(tx, actor);
   });
@@ -57,15 +60,27 @@ export function buildServer(deps: Deps): FastifyInstance {
     console.error("unhandled", err);
     return reply.status(500).send({ code: "INTERNAL", message: "internal error", diagnostics: [] });
   });
-  platformRoutes(app, deps);
-  registryRoutes(app, deps);
-  policyRoutes(app, deps);
-  issuanceRoutes(app, deps);
-  sealRoutes(app, deps);
-  revenueRoutes(app, deps, refundHook(deps.jobs), revisionHook(deps.jobs));
-  settlementRoutes(app, deps);
-  ledgerRoutes(app, deps);
-  payoutRoutes(app, deps);
+  app.decorateRequest("channel", undefined);
+  const revenue = (sub: FastifyInstance) => revenueRoutes(sub, deps, refundHook(deps.jobs), revisionHook(deps.jobs));
+  const all = (sub: FastifyInstance) => {
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps);
+    revenue(sub); settlementRoutes(sub, deps); ledgerRoutes(sub, deps); payoutRoutes(sub, deps);
+  };
+  // 채널별 표면(다음 작업 5). 같은 처리기를 여러 채널에 올려도 들어올 수 있는 신원은 채널 정책(assertChannel)이 정한다.
+  const channel = (ch: Channel, register: (sub: FastifyInstance) => void) =>
+    app.register(async (sub) => {
+      sub.addHook("onRequest", async (req) => { req.channel = ch; });
+      register(sub);
+    }, { prefix: `/${ch}` });
+  channel("ops", all);
+  channel("portal", (sub) => {
+    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps);
+  });
+  channel("performer", (sub) => performerRoutes(sub, deps));
+  channel("fan", (sub) => fanRoutes(sub, deps));
+  channel("partner", (sub) => partnerRoutes(sub, deps));
+  // legacy: 채널 이전의 루트 경로(신원만 확인). 백오피스를 ops·portal 채널로 옮기면(다음 작업 6) 제거한다.
+  all(app);
   if (deps.dev !== undefined) devRoutes(app, { ...deps, dev: deps.dev });
   return app;
 }

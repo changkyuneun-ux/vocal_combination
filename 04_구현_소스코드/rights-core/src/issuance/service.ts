@@ -82,6 +82,23 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   await audit(tx, clock, { actor: actor.userId, action: "PACK_ACTIVATED", entityType: "vocal_pack", entityId: packId, after: { policy: `${active.policyId}@${active.version}` } });
 }
 
+/**
+ * 멤버 비율 기본값: 정산 대상 슬롯을 부른 횟수에 비례(bps, 합 10000). 나머지는 최대잉여(소수부가 큰 순, 같으면 파티 id 순)로 1씩 준다.
+ * 팬 앱처럼 비율을 직접 주지 않는 발행 요청이 쓴다.
+ */
+export function slotShareBps(performers: readonly string[]): Record<string, number> {
+  const counts = new Map<string, number>();
+  for (const p of performers) counts.set(p, (counts.get(p) ?? 0) + 1);
+  const parts = [...counts].map(([k, n]) => ({ k, exact: (n * 10000) / performers.length }));
+  const out: Record<string, number> = Object.fromEntries(parts.map((p) => [p.k, Math.floor(p.exact)]));
+  let rest = 10000 - Object.values(out).reduce((a, b) => a + b, 0);
+  for (const p of [...parts].sort((a, b) => (b.exact % 1) - (a.exact % 1) || (a.k < b.k ? -1 : 1))) {
+    if (rest-- <= 0) break;
+    out[p.k]! += 1;
+  }
+  return out;
+}
+
 /** 팬앱 조합의 기본 이용 범위. 발행 요청이 usage를 주지 않으면 이 범위로 이용허락을 판정한다. */
 export const FAN_APP_USAGE: Usage = { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
 
