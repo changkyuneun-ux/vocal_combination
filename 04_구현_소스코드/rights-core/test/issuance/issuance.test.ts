@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { freshDb } from "../helpers.ts";
-import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge } from "../fixtures.ts";
+import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedConsents, seedSong, seedUsers, tempBridge } from "../fixtures.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import * as policy from "../../src/policy/service.ts";
 import * as issuance from "../../src/issuance/service.ts";
@@ -16,6 +16,7 @@ const clock = fixedClock("2026-02-01T00:00:00.000Z", 1000);
 const users = await db.tx(async (tx) => {
   await seedSong(tx, fixedClock(T0, 0));
   const u = await seedUsers(tx, fixedClock(T0, 0));
+  await seedConsents(tx, fixedClock(T0, 0));
   await issuance.createPack(tx, clock, u.rights, { packId: PACK, packCode: "NOVA", title: "Nova", factsScopeId: SCOPE });
   await issuance.setPackClaimants(tx, clock, u.rights, PACK, DECLARED);
   return u;

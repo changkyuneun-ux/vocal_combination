@@ -5,6 +5,7 @@ import type { Clock } from "../src/platform/clock.ts";
 import type { Tx } from "../src/platform/db.ts";
 import { createUser, loadActor, type Actor } from "../src/platform/actor.ts";
 import * as reg from "../src/registry/service.ts";
+import { recordContractConsents } from "../src/registry/consents.ts";
 import { createBridgeCtx, type BridgeCtx } from "../src/engine-bridge/context.ts";
 import { createFsBlobStore } from "../src/engine-bridge/blob-fs.ts";
 
@@ -61,6 +62,16 @@ export async function seedSong(tx: Tx, clock: Clock): Promise<void> {
   await reg.recordClaim(tx, clock, { ...base, claimId: "c_music", sourceId: "wrk_nova", edge: "WRITTEN_BY", targetId: "pty_author_c", shareBps: 4000, roleDetail: "COMPOSITION" });
   await reg.recordMandate(tx, clock, { ...base, mandateId: "m_cmo", fromPartyId: "pty_author_b", toPartyId: "pty_cmo", rightKind: "WORK", shareBps: 10000 });
   await reg.recordMandate(tx, clock, { ...base, mandateId: "m_agency", fromPartyId: "pty_member_a", toPartyId: "pty_agency", rightKind: "PERFORMER", shareBps: 10000 });
+}
+
+/** 계약서로 옮겨 적는 팬앱 전용 허락 범위(발행 기본 이용 범위 COMBINE/KR/FAN_APP/FAN_COMMUNITY를 포함한다). */
+export const CONTRACT_SCOPE = { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
+
+/** 발행 게이트(다음 작업 3)를 통과하도록 범위의 모든 허락 주체(녹음·작품·보이스)의 동의를 계약서 근거로 기록한다. seedUsers 뒤에 부른다. */
+export async function seedConsents(tx: Tx, clock: Clock, factsScopeId = SCOPE): Promise<string[]> {
+  return recordContractConsents(tx, clock, await loadActor(tx, "usr_rights"), {
+    factsScopeId, scope: CONTRACT_SCOPE, validFrom: T0, validTo: "2030-01-01T00:00:00.000Z", contractUri: "contract://test",
+  });
 }
 
 /** seedSong의 청구권자 선언(적합성 001-basic과 같은 구조). */

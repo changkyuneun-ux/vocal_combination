@@ -352,7 +352,8 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
         reversals: await rows(db, "SELECT reversal_id, original_run_id, event_id, refund_event_id, result_digest FROM reversal_run ORDER BY reversal_id"),
         journal: await rows(db, "SELECT kind, count(*)::int AS n FROM journal_entry GROUP BY kind ORDER BY kind"),
         payout: { counts: run.counts, instructions: await rows(db, "SELECT party_id, status, gross_krw::text, withholding_krw::text, net_krw::text, hold_reason FROM payout_instruction ORDER BY gross_krw::bigint DESC, party_id") },
-        statements: await db.tx(async (tx) => Promise.all(payees.map((p) => partyStatement(tx, p, T0, payClock.now())))),
+        // 한 트랜잭션의 쿼리는 차례로 보낸다(한 연결에서 동시 쿼리는 pg 9에서 제거된다).
+        statements: await db.tx(async (tx) => { const out = []; for (const p of payees) out.push(await partyStatement(tx, p, T0, payClock.now())); return out; }),
         traffic: traffic.ok
           ? { ok: true, pool: traffic.value.pool_lines, lines: traffic.value.lines, holdings: traffic.value.holdings, resultDigest: traffic.value.result_digest }
           : { ok: false, errors: traffic.errors },

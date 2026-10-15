@@ -124,3 +124,33 @@ export async function listConsents(tx: Tx, f: { scope?: string; party?: string }
   if (f.party !== undefined) { p.push(f.party); w.push(`party_id = $${p.length}`); }
   return (await tx.query(`SELECT * FROM consent_agreement ${w.length ? "WHERE " + w.join(" AND ") : ""} ORDER BY consent_id`, p)).rows.map(toConsent);
 }
+
+/**
+ * 계약서 일괄 반영(플랫폼 온보딩): 한 곡(범위)의 현재 권리 주장에서 허락 주체를 찾아, 계약서를 근거로 동의를 한꺼번에 기록한다.
+ * 녹음 = CONTROLLED_BY 파티, 작품 = WRITTEN_BY 파티 각각, 보이스 = OWNED_BY 파티. 이미 같은 id의 동의가 있으면 건너뛴다.
+ * 실연자 본인 서명을 대신하는 것이 아니라 종이 계약을 옮겨 적는 것이므로 플랫폼 범위와 계약 URI가 필요하다.
+ */
+export async function recordContractConsents(
+  tx: Tx, clock: Clock, actor: Actor,
+  input: { factsScopeId: string; scope: ConsentDraft["scope"]; validFrom: string; validTo: string; contractUri: string },
+): Promise<string[]> {
+  if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform operators can record contract consents");
+  const grantors = await withSystemScope(tx, async () => (await tx.query(
+    `SELECT DISTINCT CASE c.edge WHEN 'CONTROLLED_BY' THEN 'MASTER' WHEN 'WRITTEN_BY' THEN 'WORK' ELSE 'PERFORMER' END AS right_type,
+            c.source_id AS asset_id, c.target_id AS party_id
+       FROM right_claim c
+      WHERE c.facts_scope_id = $1 AND c.edge IN ('CONTROLLED_BY','WRITTEN_BY','OWNED_BY') AND c.superseded_at IS NULL AND c.status IN ('VERIFIED','ASSERTED')
+      ORDER BY 1, 2, 3`, [input.factsScopeId],
+  )).rows);
+  const recorded: string[] = [];
+  for (const g of grantors) {
+    const consentId = `cst_${input.factsScopeId}_${g.right_type.toLowerCase()}_${g.asset_id}_${g.party_id}`;
+    if ((await tx.query("SELECT 1 FROM consent_agreement WHERE consent_id = $1", [consentId])).rowCount !== 0) continue;
+    await signConsent(tx, clock, actor, {
+      consentId, factsScopeId: input.factsScopeId, partyId: g.party_id, rightType: g.right_type, assetId: g.asset_id,
+      scope: input.scope, validFrom: input.validFrom, validTo: input.validTo, sourceContractUri: input.contractUri,
+    });
+    recorded.push(consentId);
+  }
+  return recorded;
+}

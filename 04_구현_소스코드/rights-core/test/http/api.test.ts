@@ -60,6 +60,12 @@ test("end-to-end: register a song, compile/approve/activate a policy, activate t
   await ok(post("/mandates", R, { ...base, mandateId: "m_agency", fromPartyId: "pty_member_a", toPartyId: "pty_agency", rightKind: "PERFORMER", shareBps: 10000 }));
   await ok(post("/packs", R, { packId: "pak_nova", packCode: "NOVA", title: "Nova", factsScopeId: "fsc_nova" }));
   await ok(call("PUT", "/packs/pak_nova/claimants", R, DECLARED), 200);
+  // 발행 게이트: 계약서 근거 동의를 일괄 기록한다(플랫폼만). 테넌트·서명 권한은 tenancy·consents 테스트가 본다.
+  const consents = await ok(post("/scopes/fsc_nova/contract-consents", R, {
+    scope: { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] },
+    validFrom: "2026-01-01T00:00:00.000Z", validTo: "2030-01-01T00:00:00.000Z", contractUri: "contract://api",
+  }));
+  assert.equal(consents.recorded.length, 5, JSON.stringify(consents)); // 녹음(레이블) 1 + 작품(작가 b·c) 2 + 보이스(멤버 a·b) 2
 
   const bad = await post("/policies/pol_nova/compile", "usr_editor", { packId: "pak_nova", sourceText: "allocation {" });
   assert.equal(bad.statusCode, 422);

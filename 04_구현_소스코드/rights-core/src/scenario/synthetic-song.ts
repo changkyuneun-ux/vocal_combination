@@ -3,6 +3,7 @@ import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
 import * as reg from "../registry/service.ts";
 import * as issuance from "../issuance/service.ts";
+import { recordContractConsents } from "../registry/consents.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -76,6 +77,11 @@ export async function seedSyntheticSong(tx: Tx, clock: Clock, rights: Actor): Pr
   await reg.recordClaim(tx, clock, { ...base, claimId: "c_music", sourceId: "wrk_nova_summer", edge: "WRITTEN_BY", targetId: "pty_author_c", shareBps: 4000, roleDetail: "COMPOSITION" });
   await reg.recordMandate(tx, clock, { ...base, mandateId: "m_cmo", fromPartyId: "pty_author_b", toPartyId: "pty_cmo", rightKind: "WORK", shareBps: 10000 });
   await reg.recordMandate(tx, clock, { ...base, mandateId: "m_agency", fromPartyId: "pty_member_a", toPartyId: "pty_agency", rightKind: "PERFORMER", shareBps: 10000 });
+  // 발행 게이트(다음 작업 3): 녹음·작품·보이스의 팬앱 전용 허락을 계약서 근거로 기록한다.
+  await recordContractConsents(tx, clock, rights, {
+    factsScopeId: SONG.scope, validFrom: T0, validTo: "2030-01-01T00:00:00.000Z", contractUri: "contract://nova-summer",
+    scope: { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] },
+  });
   await issuance.createPack(tx, clock, rights, { packId: SONG.pack, packCode: "NOVA-SUMMER", title: "Nova Summer", factsScopeId: SONG.scope });
   await issuance.setPackClaimants(tx, clock, rights, SONG.pack, SONG.declared);
 }

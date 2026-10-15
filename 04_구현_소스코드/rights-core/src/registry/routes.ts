@@ -4,7 +4,7 @@ import { requireRole, type Actor } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
-import { getConsent, listConsents, revokeConsent, signConsent, type ConsentDraft } from "./consents.ts";
+import { getConsent, listConsents, recordContractConsents, revokeConsent, signConsent, type ConsentDraft } from "./consents.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 
@@ -52,6 +52,11 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   });
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/consents/:id/revoke", async (req) =>
     withActor(deps, req, (tx, actor) => revokeConsent(tx, deps.clock, actor, req.params.id, req.body?.reason ?? "")));
+  app.post<{ Params: { id: string }; Body: { scope: ConsentDraft["scope"]; validFrom: string; validTo: string; contractUri: string } }>("/scopes/:id/contract-consents", async (req, reply) => {
+    const b = req.body;
+    if (!b?.scope || !b.validFrom || !b.validTo || !b.contractUri) throw new DomainError("BAD_REQUEST", 400, "missing required fields: scope, validFrom, validTo, contractUri");
+    return reply.status(201).send({ recorded: await withActor(deps, req, (tx, actor) => recordContractConsents(tx, deps.clock, actor, { factsScopeId: req.params.id, ...b })) });
+  });
   app.get<{ Params: { id: string } }>("/consents/:id", async (req) => withActor(deps, req, (tx) => getConsent(tx, req.params.id)));
   app.get("/consents", async (req) =>
     withActor(deps, req, (tx) => listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) })));
