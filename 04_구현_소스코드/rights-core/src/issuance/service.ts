@@ -157,4 +157,16 @@ export const OUTBOX_HANDLERS: OutboxHandlers = {
       await audit(tx, clock, { actor: "system:outbox", action: "PACK_PAUSED", entityType: "vocal_pack", entityId: p.pack_id, after: { disputeId: payload.disputeId } });
     }
   },
+  /**
+   * 동의 철회의 영향 기록: 그 범위에서 철회한 파티의 스템을 쓴 발행 조합을 감사 로그에 남긴다.
+   * 새 발행은 발행 게이트가 막는다(다음 작업 3). 기존 조합의 노출 중지·미정산 보류는 관제(다음 작업 8)가 이 기록을 쓴다.
+   */
+  async consent_revoked(tx, payload: { consentId: string; factsScopeId: string; partyId: string }, clock) {
+    const affected = (await tx.query(
+      `SELECT DISTINCT s.snapshot_id FROM rights_snapshot s JOIN vocal_pack p ON p.pack_id = s.pack_id
+         JOIN snapshot_stem_assignment a ON a.snapshot_id = s.snapshot_id
+        WHERE p.facts_scope_id = $1 AND a.party_id = $2 ORDER BY s.snapshot_id`, [payload.factsScopeId, payload.partyId],
+    )).rows.map((r) => r.snapshot_id as string);
+    await audit(tx, clock, { actor: "system:outbox", action: "CONSENT_IMPACT", entityType: "consent_agreement", entityId: payload.consentId, after: { partyId: payload.partyId, snapshots: affected } });
+  },
 };

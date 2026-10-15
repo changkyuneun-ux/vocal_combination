@@ -3,14 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { createUser, ensureSystemIdentities, loadActor, type Actor } from "../platform/actor.ts";
+import { applyActorScope, createUser, ensureSystemIdentities, loadActor, type Actor } from "../platform/actor.ts";
 import { fixedClock, type Clock } from "../platform/clock.ts";
 import { createDb, type Db, type Tx } from "../platform/db.ts";
 import { ADMIN_URL, createFreshDatabase } from "../platform/dbadmin.ts";
 import { startBossJobs, JOB_NAMES, type JobHandler, type JobName } from "../platform/jobs.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
-import { decideGrant, simulateEvents, type GrantRule, type Requirement } from "../engine-bridge/simulate.ts";
+import { simulateEvents } from "../engine-bridge/simulate.ts";
+import { decideGrant, loadGrantRules, type GrantRule, type Requirement } from "../engine-bridge/grant.ts";
+import { signConsent } from "../registry/consents.ts";
 import * as reg from "../registry/service.ts";
 import * as policy from "../policy/service.ts";
 import * as issuance from "../issuance/service.ts";
@@ -145,18 +147,32 @@ async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   ]);
 }
 
-/** 팬앱 전용 이용허락(가정): 권리자·멤버가 허락한 범위와 세 가지 이용 요청의 판정. */
-function grantDemo() {
+const FAN_ONLY = { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
+
+/**
+ * 팬앱 전용 이용허락 동의(가정)를 코어에 저장한다(다음 작업 2). 멤버 7명은 실연자 앱 계정(본인 파티)으로 자기 보이스에 서명하고,
+ * 레이블(녹음)·작가(작품) 허락은 플랫폼이 계약서를 근거로 옮겨 적는다.
+ */
+async function signConsents(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
+  const base = { factsScopeId: SCOPE, scope: FAN_ONLY, validFrom: T0, validTo: "2027-01-01T00:00:00.000Z" };
+  const contract = (id: string) => ({ sourceContractUri: `contract://dynamite-fan/${id}` });
+  await signConsent(tx, clock, rights, { ...base, consentId: "cst_master", partyId: "pty_bighit_label", rightType: "MASTER", assetId: RECORDING, ...contract("master") });
+  for (const w of ["pty_david_stewart", "pty_jessica_agombar"]) {
+    await signConsent(tx, clock, rights, { ...base, consentId: `cst_work_${w.slice(4)}`, partyId: w, rightType: "WORK", assetId: "wrk_dynamite", ...contract(w.slice(4)) });
+  }
+  for (const m of MEMBERS) {
+    await createUser(tx, clock, { userId: `usr_member_${m.key}`, displayName: m.name, roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: `pty_${m.key}` });
+    const self = await loadActor(tx, `usr_member_${m.key}`);
+    await applyActorScope(tx, self);
+    await signConsent(tx, clock, self, { ...base, consentId: `cst_vocal_${m.key}`, partyId: `pty_${m.key}`, rightType: "PERFORMER", assetId: `voc_${m.key}` });
+    await tx.query("SELECT set_config('rc.scope', 'system', true)");
+  }
+}
+
+/** 세 가지 이용 요청의 판정. 허락은 코어에 저장된 동의를 판정 시점(known_at)으로 읽은 것이다. */
+function grantDemo(grants: GrantRule[]) {
   const scope = (actions: string[], media: string[], audience: string[]) =>
     ({ actions, territories: ["KR"], media, audience, period: { from: T0, to: "2027-01-01T00:00:00.000Z" } });
-  const fanOnly = scope(["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], ["FAN_APP"], ["FAN_COMMUNITY"]);
-  const rule = (id: string, grantor: string, asset: string, right: string, status: GrantRule["status"] = "VERIFIED"): GrantRule =>
-    ({ id, grantor, asset, right_type: right, scope: fanOnly, status, valid: { from: T0 }, recorded_at: T0 });
-  const grants: GrantRule[] = [
-    rule("g_master", "pty_bighit_label", RECORDING, "MASTER"),
-    rule("g_work", "pty_david_stewart", "wrk_dynamite", "WORK"),
-    ...MEMBERS.map((m) => rule(`g_consent_${m.key}`, `pty_${m.key}`, `voc_${m.key}`, "PERFORMER")),
-  ];
   const reqs = (c: (typeof COMBINATIONS)[number], s: ReturnType<typeof scope>): Requirement[] => [
     { id: "r_master", asset: RECORDING, right_type: "MASTER", scope: s },
     { id: "r_work", asset: "wrk_dynamite", right_type: "WORK", scope: s },
@@ -171,7 +187,7 @@ function grantDemo() {
     show("팬앱에서 원곡 배치 조합 감상", decideGrant({ requirements: reqs(orig, listen), grants, ...at })),
     show("같은 조합을 내려받아 외부 SNS에 게시", decideGrant({ requirements: reqs(orig, download), grants, ...at })),
     show("멤버 한 명의 동의가 철회된 뒤(가정) 같은 조합 감상",
-      decideGrant({ requirements: reqs(orig, listen), grants: grants.map((g) => (g.id === "g_consent_v" ? { ...g, status: "REVOKED" as const } : g)), ...at })),
+      decideGrant({ requirements: reqs(orig, listen), grants: grants.map((g) => (g.id === "cst_vocal_v" ? { ...g, status: "REVOKED" as const } : g)), ...at })),
   ];
 }
 
@@ -214,8 +230,9 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   await db.tx((tx) => issuance.activatePack(ctx, tx, c1, u.activator!, PACK));
   const active = (await db.tx((tx) => policy.activePolicyForPack(tx, PACK)))!;
 
-  // 3. 이용허락 판정(팬앱 전용 범위).
-  const grants = grantDemo();
+  // 3. 이용허락: 동의 저장(멤버 본인 서명, 레이블·작가 계약) → 판정 시점 기준으로 읽어 세 요청을 판정.
+  await db.tx((tx) => signConsents(tx, fixedClock("2026-01-20T00:00:00.000Z", 1), u.rights!));
+  const grants = grantDemo(await db.tx((tx) => loadGrantRules(tx, SCOPE, "2026-03-10T00:00:00.000Z")));
 
   // 4. 팬 조합 발행: 게이트 통과 → 스냅샷 동결·발행 봉인.
   const c2 = fixedClock("2026-02-15T00:00:00.000Z", 1);

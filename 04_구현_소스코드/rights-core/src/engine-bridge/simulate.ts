@@ -1,11 +1,10 @@
 import { evaluate, type AllocationDocument, type AllocationResult, type RevenueEvent } from "mdrl/allocation";
 import type { Result } from "mdrl/core";
-import { evaluateGrant, type GrantDecisionOutput, type GrantEvaluationInput } from "mdrl/grant";
 import type { Tx } from "../platform/db.ts";
 import type { BridgeCtx } from "./context.ts";
 import { sealInputs } from "./settle.ts";
 
-export type { GrantRule, Requirement } from "mdrl/grant";
+export { decideGrant, type GrantRule, type Requirement } from "./grant.ts";
 
 /**
  * 발행 봉인의 입력으로 mdrl evaluate를 돌리되 아무것도 봉인하지 않는다. 코어가 아직 수집하지 않는 이벤트 유형
@@ -19,9 +18,4 @@ export async function simulateEvents(
   const s = await sealInputs(ctx, tx, input.snapshotId);
   const policy = input.variant === undefined ? s.policy : input.variant(structuredClone(s.policy));
   return evaluate({ policy, facts: s.facts, projection: s.projection, snapshot: s.snapshot, events: input.events, runId: input.runId });
-}
-
-/** mdrl 이용허락 판정(불확실하면 거부). 코어의 발행 게이트에는 아직 연결되지 않았다. */
-export function decideGrant(input: GrantEvaluationInput): GrantDecisionOutput {
-  return evaluateGrant(input);
 }

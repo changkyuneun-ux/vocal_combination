@@ -4,10 +4,12 @@ import { requireRole, type Actor } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
+import { getConsent, listConsents, revokeConsent, signConsent, type ConsentDraft } from "./consents.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
+  const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
     app.post(path, async (req, reply) => {
       const out = await withActor(deps, req, async (tx, actor) => {
@@ -41,8 +43,19 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
       await closeDispute(tx, deps.clock, { disputeId: req.params.id, ...(req.body?.resolution && { resolution: req.body.resolution }) });
       return {};
     }));
+  // 이용허락 동의(다음 작업 2): 서명 권한은 signConsent가 정한다(실연 = 본인, 녹음·작품 = 파티 테넌트의 RIGHTS_EDITOR).
+  app.post("/consents", async (req, reply) => {
+    const b = req.body as ConsentDraft;
+    const missing = ["consentId", "factsScopeId", "partyId", "rightType", "assetId", "scope", "validFrom", "validTo"].filter((k) => (b as any)?.[k] === undefined);
+    if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
+    return reply.status(201).send(await withActor(deps, req, (tx, actor) => signConsent(tx, deps.clock, actor, b)));
+  });
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/consents/:id/revoke", async (req) =>
+    withActor(deps, req, (tx, actor) => revokeConsent(tx, deps.clock, actor, req.params.id, req.body?.reason ?? "")));
+  app.get<{ Params: { id: string } }>("/consents/:id", async (req) => withActor(deps, req, (tx) => getConsent(tx, req.params.id)));
+  app.get("/consents", async (req) =>
+    withActor(deps, req, (tx) => listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) })));
   // 조회(로그인한 누구나)
-  const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   app.get("/parties", async (req) => withActor(deps, req, (tx) => q.listParties(tx, { type: optFilter(q0(req), "type") }, parsePage(q0(req)))));
   app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
   app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
