@@ -26,3 +26,5 @@ textarea { min-height: 80px; }
 .tabs button { border: none; border-radius: 0; font-size: 13px; position: relative; color: var(--muted); }
 .tabs button.on { color: var(--ink); font-weight: 700; }
 .dot { position: absolute; top: 6px; right: calc(50% - 22px); background: var(--bad); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 5px; }
+
+.big { font-size: 1.4rem; font-weight: 700; margin: 0.25rem 0 0.5rem; }

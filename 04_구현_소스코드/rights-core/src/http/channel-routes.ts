@@ -9,6 +9,7 @@ import { fanRenderFile, queueRender, renderPreview } from "../audio/render.ts";
 import { confirmVerification, startVerification } from "../performer/identity.ts";
 import { listNotifications, markRead, subscribePush } from "../performer/notifications.ts";
 import { myClaims, myObjections, myVoices, openObjection } from "../performer/service.ts";
+import { myContributions } from "../performer/contributions.ts";
 import { checkCombination, defaultMembers } from "../fan/decision.ts";
 import { recordPlay } from "../revenue/traffic.ts";
 import { withActor, type Deps } from "./server.ts";
@@ -87,6 +88,11 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
     return partyStatement(tx, actor.partyId!, from, to);
   }));
   app.get("/usages", async (req) => withActor(deps, req, (tx, actor) => myUsages(tx, actor.partyId!)));
+  /** 멤버별 기여분(다음 작업 16): 위임 전 내 몫의 참고값(엔진 시뮬레이션, 봉인·원장에 쓰지 않음). */
+  app.get("/contributions", async (req) => withActor(deps, req, (tx, actor) => {
+    const { from, to } = period(req.query as Record<string, unknown>);
+    return myContributions(deps.ctx, tx, actor.partyId!, from, to);
+  }));
 }
 
 /** 팬에게 보이는 팩 공개 목록: 슬롯·스템·실연자 표시 이름(상세면 스템별 사용 가능 여부). 팬은 팩 원본 행을 볼 수 없어 system 범위에서 만든다. */
@@ -146,15 +152,17 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
     const out = await withActor(deps, req, (tx, actor) => recordPlay(tx, deps.clock, actor, { playId: b?.playId, vcId: b?.vcId, durationMs: b?.durationMs }));
     return reply.status(201).send(out);
   });
-  /** 내가 발행한 조합과 렌더 상태. */
+  /** 내가 발행한 조합과 렌더 상태, 노출 상태(동의 철회로 멈췄으면 STOPPED). */
   app.get("/combinations", async (req) => withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => (await tx.query(
     `SELECT s.snapshot_id, s.vc_id, s.pack_id, s.created_at, r.status AS render_status, r.duration_ms,
+            EXISTS (SELECT 1 FROM exposure_hold h WHERE h.snapshot_id = s.snapshot_id AND h.released_at IS NULL) AS stopped,
             (SELECT json_agg(json_build_object('slotId', a.slot_id, 'stemId', a.stem_id) ORDER BY a.slot_id) FROM snapshot_stem_assignment a WHERE a.snapshot_id = s.snapshot_id) AS assignments
        FROM rights_snapshot s LEFT JOIN combination_render r ON r.snapshot_id = s.snapshot_id
       WHERE s.issued_by = $1 ORDER BY s.created_at DESC, s.snapshot_id`, [actor.userId],
   )).rows.map((r) => ({
     vcId: r.vc_id as string, snapshotId: r.snapshot_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!,
     assignments: r.assignments as { slotId: string; stemId: string }[], render: r.render_status === null ? "NONE" : (r.render_status as string),
+    exposure: r.stopped ? "STOPPED" : "OPEN",
     ...(r.duration_ms !== null && { durationMs: r.duration_ms as number }),
   })))));
   /**

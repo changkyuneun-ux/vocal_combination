@@ -39,11 +39,14 @@ export async function impactOf(tx: Tx, q: { consent?: string; dispute?: string; 
   const settledIds = events.filter((e) => e.settled).map((e) => e.event_id as string);
   const byParty = (await tx.query(
     "SELECT party_id, sum(amount_krw)::text AS amount, count(*)::int AS n FROM allocation_line WHERE event_id = ANY($1) GROUP BY party_id ORDER BY party_id", [settledIds])).rows;
+  const stopped = q.consent === undefined ? [] : (await tx.query(
+    "SELECT DISTINCT s.vc_id FROM exposure_hold h JOIN rights_snapshot s ON s.snapshot_id = h.snapshot_id WHERE h.consent_id = $1 AND h.released_at IS NULL ORDER BY s.vc_id", [q.consent])).rows.map((r) => r.vc_id as string);
   const sum = (rows: { amount: string }[]) => rows.reduce((a, r) => a + BigInt(r.amount), 0n).toString();
   return {
     subject,
     combinations: combos.map((c) => ({ vcId: c.vc_id as string, snapshotId: c.snapshot_id as string, issuedAt: iso(c.created_at)! })),
-    hold: { reason: "미확정 매출: 다음 정산에서 보류(또는 노출 중지)", count: unsettled.length, amountKrw: sum(unsettled), events: unsettled.map((e) => e.event_id as string) },
+    exposure: { reason: "이 동의 철회로 노출이 멈춘 조합(다시 동의하면 풀린다)", stopped },
+    hold: { reason: "미확정 매출: 다음 정산에서 보류", count: unsettled.length, amountKrw: sum(unsettled), events: unsettled.map((e) => e.event_id as string) },
     reverseReview: {
       reason: "확정된 정산 라인: 권리자 판정에 따라 역분개 검토", count: settledIds.length, amountKrw: sum(events.filter((e) => e.settled)),
       byParty: byParty.map((r) => ({ partyId: r.party_id as string, lines: r.n as number, amountKrw: r.amount as string })),

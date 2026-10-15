@@ -7,6 +7,7 @@ import { iso, type Db, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import type { AudioDeps, Renderer } from "./deps.ts";
+import { assertExposed } from "../exposure/service.ts";
 
 /**
  * 조합 렌더링(다음 작업 10). 렌더 입력은 발행 봉인과 같은 트랜잭션에 동결된 스템 배정(snapshot_stem_assignment)이다.
@@ -125,6 +126,7 @@ export async function fanRenderFile(tx: Tx, audio: AudioDeps | undefined, userId
   const r = await withSystemScope(tx, async () => (await tx.query(
     `SELECT c.status, c.storage_uri FROM rights_snapshot s JOIN combination_render c ON c.snapshot_id = s.snapshot_id WHERE s.vc_id = $1 AND s.issued_by = $2`, [vcId, userId])).rows[0]);
   if (r === undefined) throw notFound("combination", vcId);
+  await assertExposed(tx, vcId); // 동의 철회로 노출이 멈춘 조합은 받을 수 없다(410)
   if (r.status !== "RENDERED") throw conflict("NOT_RENDERED", `render of ${vcId} is ${r.status}`);
   return audio.store.get(r.storage_uri as string);
 }

@@ -1,4 +1,5 @@
 import { invalidateDecisions } from "../decisions/cache.ts";
+import { releaseExposureOnConsent } from "../exposure/service.ts";
 import { consentToRule, validateConsentRule, type ConsentRow } from "../engine-bridge/grant.ts";
 import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
@@ -82,6 +83,8 @@ export async function signConsent(tx: Tx, clock: Clock, actor: Actor, d: Consent
   );
   // 판정 캐시: 실연 동의는 그 보이스를 쓴 판정만, 녹음·작품 동의는 곡 전체 판정을 지운다.
   await invalidateDecisions(tx, d.factsScopeId, d.rightType === "PERFORMER" ? { voices: [d.assetId] } : { all: true });
+  // 재동의는 이전 철회를 대체하므로, 같은 파티가 이 자산에 건 노출 보류도 푼다(다음 작업 17).
+  await releaseExposureOnConsent(tx, clock, actor.userId, d.partyId, d.assetId);
   await audit(tx, clock, { actor: actor.userId, action: "CONSENT_SIGN", entityType: "consent_agreement", entityId: d.consentId, after: { partyId: d.partyId, rightType: d.rightType, assetId: d.assetId } });
   return getConsent(tx, d.consentId);
 }
@@ -106,7 +109,7 @@ export async function revokeConsent(tx: Tx, clock: Clock, actor: Actor, consentI
   await invalidateDecisions(tx, cur.facts_scope_id as string, cur.right_type === "PERFORMER" ? { voices: [cur.asset_id as string] } : { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "CONSENT_REVOKE", entityType: "consent_agreement", entityId: consentId, after: { reason } });
   await enqueue(tx, clock, "consent_revoked", { consentId, factsScopeId: cur.facts_scope_id as string, partyId: cur.party_id as string, revokedAt: at });
-  await notifyParty(tx, clock, cur.party_id as string, { kind: "CONSENT", title: "동의를 철회했습니다", body: `동의 ${consentId}가 철회됐습니다. 이 보이스를 쓰는 새 조합은 발행되지 않습니다.`, ref: { consentId } });
+  await notifyParty(tx, clock, cur.party_id as string, { kind: "CONSENT", title: "동의를 철회했습니다", body: `동의 ${consentId}가 철회됐습니다. 이 보이스를 쓰는 새 조합은 발행되지 않고, 이미 발행된 조합도 노출이 멈춥니다. 다시 동의하면 풀립니다.`, ref: { consentId } });
   return getConsent(tx, consentId);
 }
 

@@ -19,3 +19,9 @@ export async function simulateEvents(
   const policy = input.variant === undefined ? s.policy : input.variant(structuredClone(s.policy));
   return evaluate({ policy, facts: s.facts, projection: s.projection, snapshot: s.snapshot, events: input.events, runId: input.runId });
 }
+
+/** 정책 변형: 위임 라우팅(via mandate)을 뺀다. 소속사로 보내기 전의 실연자별 기여분을 볼 때 쓴다(다음 작업 16). */
+export function withoutMandateRouting(policy: AllocationDocument): AllocationDocument {
+  for (const b of policy.body.tier2.split) delete b.via_mandate;
+  return policy;
+}

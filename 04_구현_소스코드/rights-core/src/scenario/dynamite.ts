@@ -10,7 +10,7 @@ import { ADMIN_URL, createFreshDatabase } from "../platform/dbadmin.ts";
 import { startBossJobs, JOB_NAMES, type JobHandler, type JobName } from "../platform/jobs.ts";
 import { createBridgeCtx } from "../engine-bridge/context.ts";
 import { createFsBlobStore } from "../engine-bridge/blob-fs.ts";
-import { simulateEvents } from "../engine-bridge/simulate.ts";
+import { simulateEvents, withoutMandateRouting } from "../engine-bridge/simulate.ts";
 import { decideGrant, loadGrantRules, type GrantRule, type Requirement } from "../engine-bridge/grant.ts";
 import { signConsent } from "../registry/consents.ts";
 import { markIdentityVerified } from "../performer/identity.ts";
@@ -353,14 +353,10 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
       await jobs2.drainIdle(600_000);
 
       // 9. 시뮬레이션(봉인·원장 없음): (a) 조합별 구매 1건의 멤버별 실연 기여분 — 소속사 라우팅 전, (b) 감상 매출(TRAFFIC).
-      const noRouting = (p: Parameters<NonNullable<Parameters<typeof simulateEvents>[2]["variant"]>>[0]) => {
-        for (const b of p.body.tier2.split) delete b.via_mandate;
-        return p;
-      };
       const contributions = await db.tx(async (tx) => {
         const out: Record<string, { party: string; amount: string }[]> = {};
         for (const s of seals) {
-          const r = await simulateEvents(ctx, tx, { snapshotId: s.snapshotId, runId: `sim_contrib_${s.vcId}`, variant: noRouting,
+          const r = await simulateEvents(ctx, tx, { snapshotId: s.snapshotId, runId: `sim_contrib_${s.vcId}`, variant: withoutMandateRouting,
             events: [{ id: "ev_sim_one", type: "PRIMARY", amount: PRICE.toString(), currency: "KRW", integrity: "CLEAR" }] });
           if (!r.ok) throw new Error(JSON.stringify(r.errors));
           out[s.vcId] = r.value.lines.filter((l) => l.bucket === "performer").map((l) => ({ party: l.party, amount: l.amount }));

@@ -30,6 +30,8 @@ test("실연자 앱: 본인 인증부터 동의 철회까지", async ({ page, re
     await page.getByRole("button", { name: "수익", exact: true }).click();
     await expect(page.getByRole("heading", { name: /년 명세/ })).toBeVisible();
     await expect(page.getByTestId("closing")).toContainText("원");
+    await expect(page.getByTestId("contribution-total")).toContainText("원");
+    await expect(page.locator("[data-contribution]")).not.toHaveCount(0);
   });
 
   await test.step("알림: 발행 알림이 와 있고, 누르면 읽음", async () => {

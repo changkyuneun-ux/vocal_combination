@@ -14,6 +14,7 @@ import { activePolicyForPack } from "../policy/service.ts";
 import { notifyParty } from "../performer/notifications.ts";
 import type { OutboxHandlers } from "../platform/outbox.ts";
 import { invalidateDecisions } from "../decisions/cache.ts";
+import { holdExposureForConsent } from "../exposure/service.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
   requireRole(actor, "RIGHTS_EDITOR");
@@ -230,7 +231,8 @@ export const OUTBOX_HANDLERS: OutboxHandlers = {
   },
   /**
    * 동의 철회의 영향 기록: 그 범위에서 철회한 파티의 스템을 쓴 발행 조합을 감사 로그에 남긴다.
-   * 새 발행은 발행 게이트가 막는다(다음 작업 3). 기존 조합의 노출 중지·미정산 보류는 관제(다음 작업 8)가 이 기록을 쓴다.
+   * 새 발행은 발행 게이트가 막는다(다음 작업 3). 기존 조합은 노출 보류를 건다(다음 작업 17): 철회된 자산을 쓴 조합의 마스터 다운로드·재생 기록을 멈춘다.
+   * 미정산 매출의 보류·역분개 검토는 관제 영향 분석(다음 작업 8)이 보여 주고 정산 담당이 정한다.
    */
   async consent_revoked(tx, payload: { consentId: string; factsScopeId: string; partyId: string }, clock) {
     const affected = (await tx.query(
@@ -239,5 +241,9 @@ export const OUTBOX_HANDLERS: OutboxHandlers = {
         WHERE p.facts_scope_id = $1 AND a.party_id = $2 ORDER BY s.snapshot_id`, [payload.factsScopeId, payload.partyId],
     )).rows.map((r) => r.snapshot_id as string);
     await audit(tx, clock, { actor: "system:outbox", action: "CONSENT_IMPACT", entityType: "consent_agreement", entityId: payload.consentId, after: { partyId: payload.partyId, snapshots: affected } });
+    const stopped = await holdExposureForConsent(tx, clock, payload.consentId);
+    if (stopped.length > 0) {
+      await audit(tx, clock, { actor: "system:outbox", action: "EXPOSURE_STOPPED", entityType: "consent_agreement", entityId: payload.consentId, after: { snapshots: stopped } });
+    }
   },
 };

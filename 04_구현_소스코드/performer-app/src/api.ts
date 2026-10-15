@@ -25,6 +25,10 @@ export type Voice = { voiceId: string; factsScopeId: string; workId: string; tit
 export type Consent = { consentId: string; factsScopeId: string; assetId: string; status: "SIGNED" | "REVOKED"; signedAt: string; revokedAt?: string; validTo: string; sourceContractUri?: string };
 export type Usage = { snapshotId: string; vcId: string; packId: string; issuedAt: string; slotId: string; stemId: string; durationMs: number };
 export type Statement = { partyId: string; from: string; to: string; opening: string; settled: string; reversed: string; holdReleased: string; payoutNet: string; closing: string };
+export type Contributions = {
+  total: string;
+  items: { vcId: string; snapshotId: string; batchId: string; periodStart: string; periodEnd: string; events: number; contributionKrw: string; heldEvents: number }[];
+};
 export type Claim = { claimId: string; edge: string; sourceId: string; targetId: string; shareBps: number; status: string; title: string };
 export type Objection = { disputeId: string; claimId: string; reason: string; status: string; openedAt: string; closedAt?: string };
 export type Notice = { notificationId: number; kind: string; title: string; body: string; createdAt: string; read: boolean; pushed: boolean };

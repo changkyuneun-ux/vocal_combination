@@ -6,6 +6,7 @@ import * as issuance from "./service.ts";
 import { queueRender } from "../audio/render.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
+import { listExposureHolds } from "../exposure/service.ts";
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -59,6 +60,8 @@ export function issuanceRoutes(app: FastifyInstance, deps: Deps): void {
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   app.get("/packs", async (req) => withActor(deps, req, (tx) => q.listPacks(tx, {}, parsePage(q0(req)))));
   app.get<{ Params: { id: string } }>("/packs/:id", async (req) => withActor(deps, req, (tx) => q.getPack(tx, req.params.id)));
+  // 노출 보류(다음 작업 17): 기본은 풀리지 않은 것만, ?all=1이면 풀린 것까지. 팩 소유 테넌트는 RLS로 자기 조합만 본다.
+  app.get("/exposure-holds", async (req) => withActor(deps, req, (tx) => listExposureHolds(tx, q0(req).all === "1")));
   app.get("/issues", async (req) =>
     withActor(deps, req, (tx) => q.listIssues(tx, { pack: optFilter(q0(req), "pack"), vc: optFilter(q0(req), "vc") }, parsePage(q0(req)))));
 }

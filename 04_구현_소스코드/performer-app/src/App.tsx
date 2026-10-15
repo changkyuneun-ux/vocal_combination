@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, currentUser, setUser, type Claim, type Consent, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
+import { api, ApiError, currentUser, setUser, type Claim, type Consent, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
 import { EDGE_LABEL, KIND_LABEL, newConsentId, revocable, won, yearPeriod } from "./logic.ts";
 
 type Tab = "consents" | "usage" | "money" | "objections" | "notifications";
@@ -130,6 +130,7 @@ function UsageTab() {
 function Money() {
   const p = yearPeriod(new Date().toISOString());
   const q = useLoad(() => api<Statement>("GET", `/statements?from=${p.from}&to=${p.to}`), []);
+  const c = useLoad(() => api<Contributions>("GET", `/contributions?from=${p.from}&to=${p.to}`), []);
   const s = q.data;
   return (
     <section>
@@ -145,6 +146,21 @@ function Money() {
             <dt>미지급 잔액</dt><dd data-testid="closing">{won(s.closing)}</dd>
           </dl>
           <p className="muted small">소속사에 실연 권리를 위임했다면 실연 몫은 소속사가 받고, 여기에는 본인이 직접 받는 금액만 나옵니다.</p>
+        </article>
+      )}
+      <Err e={c.error} />
+      {c.data && (
+        <article className="card" data-testid="contributions">
+          <h2>내 기여분(위임 전)</h2>
+          <p className="big" data-testid="contribution-total">{won(c.data.total)}</p>
+          {c.data.items.length === 0 && <p className="muted small">아직 확정된 정산이 없습니다.</p>}
+          {c.data.items.map((i) => (
+            <div key={`${i.batchId}-${i.vcId}`} className="row small" data-contribution={i.vcId}>
+              <span>{i.vcId} · {i.periodStart.slice(0, 7)}</span>
+              <span>{won(i.contributionKrw)}{i.heldEvents > 0 ? ` (보류 ${i.heldEvents}건 제외)` : ""}</span>
+            </div>
+          ))}
+          <p className="muted small">확정된 정산을 같은 정책으로 다시 계산하되 소속사로 보내는 단계만 뺀 참고값입니다. 실제 지급은 위임받은 쪽이 받습니다.</p>
         </article>
       )}
     </section>

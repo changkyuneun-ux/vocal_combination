@@ -6,6 +6,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { policyEventTypes } from "../engine-bridge/settle.ts";
 import { ingestRevenue, type RefundHook, type RevisionHook } from "./service.ts";
+import { assertExposed } from "../exposure/service.ts";
 
 /** 유효 재생 기준: 30초 이상 들었으면 한 번으로 센다. */
 export const COUNTED_MS = 30_000;
@@ -30,6 +31,7 @@ export async function recordPlay(tx: Tx, clock: Clock, actor: Actor, input: { pl
       return toPlay(prev);
     }
     if ((await tx.query("SELECT 1 FROM rights_snapshot WHERE vc_id = $1", [vcId])).rowCount === 0) throw notFound("combination", vcId);
+    await assertExposed(tx, vcId); // 노출이 멈춘 조합의 재생은 기록하지 않는다(감상 매출이 생기지 않는다)
     const now = clock.now();
     const counted = (durationMs as number) >= COUNTED_MS;
     // 같은 사용자·조합의 재생 판정을 직렬화한다(한도 경계에서 둘 다 CLEAR가 되지 않게).

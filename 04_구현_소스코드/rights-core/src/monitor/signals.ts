@@ -67,6 +67,7 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
   const revoked30 = await n(tx, "SELECT count(*) AS n FROM consent_agreement WHERE revoked_at > $1", [ago30]);
   const impacted = (await tx.query(
     "SELECT COALESCE(sum(jsonb_array_length(after_json->'snapshots')), 0)::int AS n FROM audit_log WHERE action_name = 'CONSENT_IMPACT' AND occurred_at > $1", [ago30])).rows[0].n as number;
+  const exposureStopped = await n(tx, "SELECT count(DISTINCT snapshot_id) AS n FROM exposure_hold WHERE released_at IS NULL");
   const pausedByDispute = await n(tx, "SELECT count(DISTINCT entity_id) AS n FROM audit_log WHERE action_name = 'PACK_PAUSED'");
 
   return {
@@ -131,6 +132,7 @@ export async function pipelineSignals(tx: Tx, now: string): Promise<{ asOf: stri
       { stage: "dispute", label: "분쟁·철회", decidedBy: "권리자 판정, 플랫폼 집행", signals: [
         sig("revoked-30d", "최근 30일 동의 철회", revoked30, warnIf(revoked30)),
         sig("impacted-30d", "철회 영향 발행 조합(30일)", impacted, warnIf(impacted)),
+        sig("exposure-stopped", "동의 철회로 노출이 멈춘 조합", exposureStopped, warnIf(exposureStopped), "/issues"),
         sig("paused-by-dispute", "분쟁으로 멈춘 적 있는 팩", pausedByDispute, warnIf(pausedByDispute), "/packs"),
       ] },
     ],
