@@ -7,6 +7,7 @@ import { useAction, useGet } from "../api/hooks.ts";
 import type { UserRow } from "../api/types.ts";
 import { violations, type InvariantReport } from "../api/invariants.ts";
 import { ErrorPanel } from "../components/ErrorPanel.tsx";
+import { APPS, currentApp } from "./apps.ts";
 
 const HOUR = 3_600_000;
 const STEPS: { label: string; ms: number }[] = [
@@ -95,8 +96,10 @@ export function Header() {
   const known = rows.some((u) => u.userId === actor);
   return (
     <header className="header">
-      <div className="app-name">dobedupop · MDRL 검증 백오피스</div>
-      <VirtualClock onError={setToast} />
+      <div className="app-name">{APPS[currentApp()].name}</div>
+      {/* 가상 시계·앱 전환은 개발 서버에서만(운영 빌드에는 /dev 경로가 없다). */}
+      {import.meta.env.DEV && <VirtualClock onError={setToast} />}
+      {import.meta.env.DEV && (currentApp() === "ops" ? <a className="btn tiny" href="/portal/">권리자 포털로</a> : <a className="btn tiny" href="/">운영 백오피스로</a>)}
       <div className="right">
         <label>사용자{" "}
           <select value={actor} onChange={(e) => setActor(e.target.value)} aria-label="사용자 전환">
@@ -104,7 +107,7 @@ export function Header() {
             {rows.map((u) => <option key={u.userId} value={u.userId}>{u.displayName} ({u.roles.join(", ")})</option>)}
           </select>
         </label>
-        <InvariantBadge />
+        {currentApp() === "ops" && <InvariantBadge />}
       </div>
       {toast && (
         <div className="toast" role="alert">

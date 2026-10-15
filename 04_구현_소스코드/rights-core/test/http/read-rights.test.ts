@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { fixedClock, type Clock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "./channel-app.ts";
 import { issueCombo, settlementWorld } from "../settlement-fixtures.ts";
 import { PACK, POLICY_TEXT, SCOPE } from "../fixtures.ts";
 
 const w = await settlementWorld();
 const clock: Clock = fixedClock("2026-03-10T00:00:00.000Z", 1);
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() });
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() }));
 after(async () => { await app.close(); await w.drop(); });
 
 const get = (url: string, actor: string | null = "usr_rights") =>

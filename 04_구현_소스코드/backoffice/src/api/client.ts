@@ -1,4 +1,5 @@
 import { currentActor } from "../app/actor.ts";
+import { APPS, currentApp } from "../app/apps.ts";
 
 export class ApiError extends Error {
   status: number;
@@ -15,7 +16,7 @@ export class ApiError extends Error {
 
 export type Paged<T> = { items: T[]; next: string | null };
 export type Method = "GET" | "POST" | "PUT";
-export type ApiOptions = { actorOverride?: string; fetchImpl?: typeof fetch };
+export type ApiOptions = { actorOverride?: string; fetchImpl?: typeof fetch; channel?: string };
 
 async function request<T>(method: Method, url: string, body: unknown, actor: string | null, fetchImpl?: typeof fetch): Promise<T> {
   const headers: Record<string, string> = {};
@@ -38,9 +39,10 @@ async function request<T>(method: Method, url: string, body: unknown, actor: str
   return json as T;
 }
 
-/** /api 접두, x-actor = currentActor()(actorOverride로 덮어쓴다). 비2xx는 ApiError. */
+/** /api/<채널> 접두(현재 앱의 채널: 운영 = ops, 포털 = portal), x-actor = currentActor()(actorOverride로 덮어쓴다). 비2xx는 ApiError. */
 export function api<T>(method: Method, path: string, body?: unknown, opts: ApiOptions = {}): Promise<T> {
-  return request<T>(method, `/api${path}`, body, opts.actorOverride ?? currentActor(), opts.fetchImpl);
+  const channel = opts.channel ?? APPS[currentApp()].channel;
+  return request<T>(method, `/api/${channel}${path}`, body, opts.actorOverride ?? currentActor(), opts.fetchImpl);
 }
 
 /** /api/dev/… , x-actor 없음. */

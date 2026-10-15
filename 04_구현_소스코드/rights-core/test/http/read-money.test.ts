@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fixedClock, type Clock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "./channel-app.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { payoutJobHandlers } from "../../src/payout/handlers.ts";
 import { fakeProvider } from "../../src/payout/fake-provider.ts";
@@ -14,7 +15,7 @@ let cur: Clock = fixedClock("2026-03-10T00:00:00.000Z", 1);
 const clock: Clock = { now: () => cur.now() };
 const provider = fakeProvider();
 const SECRET = "s3cret";
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider, pspSecret: SECRET });
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider, pspSecret: SECRET }));
 after(async () => { await app.close(); await w.drop(); });
 
 const get = (url: string, actor: string | null = "usr_settle") =>

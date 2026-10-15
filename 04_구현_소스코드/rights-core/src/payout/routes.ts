@@ -54,18 +54,6 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     if (deps.provider === undefined) throw new DomainError("PSP_NOT_CONFIGURED", 503, "no payout provider is configured");
     return resubmitPayout({ ...d(), provider: deps.provider }, actor, req.params.id);
   });
-  app.post("/psp/webhook", async (req, reply) => {
-    if (deps.pspSecret === undefined || deps.pspSecret === "") throw new DomainError("PSP_NOT_CONFIGURED", 503, "RC_PSP_SECRET is not configured");
-    if (!secretMatches(req.headers["x-psp-secret"], deps.pspSecret)) throw new DomainError("BAD_SECRET", 401, "x-psp-secret is missing or wrong");
-    const b: any = req.body;
-    const providerEventId = id200(b, "providerEventId");
-    const providerRef = id200(b, "providerRef");
-    const status = b?.status;
-    if (status !== "PAID" && status !== "FAILED") throw new DomainError("BAD_REQUEST", 400, "status must be PAID or FAILED");
-    const w = { providerEventId, providerRef, status, payload: b.payload ?? b } as const;
-    const r = await deps.db.tx((tx) => recordWebhook(tx, deps.clock, deps.jobs, w));
-    return reply.status(r.created ? 201 : 200).send(r);
-  });
   // 조회(SPACE_SETTLE). 역할 검사가 필터·커서 검증보다 먼저다.
   const read = <T>(path: string, fn: (tx: Tx, req: any) => Promise<T>) =>
     app.get(path, async (req) => withActor(deps, req, async (tx, actor) => {
@@ -78,4 +66,23 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
   read("/payout-runs", (tx, req) => q.listPayoutRuns(tx, parsePage(qs(req))));
   read("/payout-runs/:id/instructions", (tx, req) => q.listInstructions(tx, req.params.id, { status: optFilter(qs(req), "status") }, parsePage(qs(req))));
   read("/payouts/:id", (tx, req) => q.getPayout(tx, req.params.id));
+}
+
+/**
+ * PSP 결과 통지(외부 시스템 → 코어). 사용자 채널이 아니라 연동 경로라 채널 접두 없이 루트에 둔다(연동 허브는 다음 작업 14).
+ * 신원 대신 공유 비밀 헤더 x-psp-secret를 검사한다.
+ */
+export function pspWebhookRoutes(app: FastifyInstance, deps: Deps): void {
+  app.post("/psp/webhook", async (req, reply) => {
+    if (deps.pspSecret === undefined || deps.pspSecret === "") throw new DomainError("PSP_NOT_CONFIGURED", 503, "RC_PSP_SECRET is not configured");
+    if (!secretMatches(req.headers["x-psp-secret"], deps.pspSecret)) throw new DomainError("BAD_SECRET", 401, "x-psp-secret is missing or wrong");
+    const b: any = req.body;
+    const providerEventId = id200(b, "providerEventId");
+    const providerRef = id200(b, "providerRef");
+    const status = b?.status;
+    if (status !== "PAID" && status !== "FAILED") throw new DomainError("BAD_REQUEST", 400, "status must be PAID or FAILED");
+    const w = { providerEventId, providerRef, status, payload: b.payload ?? b } as const;
+    const r = await deps.db.tx((tx) => recordWebhook(tx, deps.clock, deps.jobs, w));
+    return reply.status(r.created ? 201 : 200).send(r);
+  });
 }

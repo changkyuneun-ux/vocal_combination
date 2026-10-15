@@ -30,7 +30,9 @@ export async function api<T = unknown>(
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
   if (actor) headers["x-actor"] = actor;
-  const res = await request.fetch(`${BACKEND}${path}`, { method, headers, data: body });
+  // 사용자 API는 채널 아래에 있다(다음 작업 5·6). 검증 보조 호출은 운영 채널(/ops)로 보낸다. /dev·/psp/webhook은 채널 밖이다.
+  const routed = path.startsWith("/dev/") || path === "/psp/webhook" || /^\/(ops|portal|performer|fan|partner)\//.test(path) ? path : `/ops${path}`;
+  const res = await request.fetch(`${BACKEND}${routed}`, { method, headers, data: body });
   const text = await res.text();
   let parsed: unknown = text;
   try { parsed = text ? JSON.parse(text) : undefined; } catch { /* JSON 아님 */ }

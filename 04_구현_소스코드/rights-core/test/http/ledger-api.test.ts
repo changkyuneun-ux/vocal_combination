@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fixedClock, type Clock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "./channel-app.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { payoutJobHandlers, submitPayout } from "../../src/payout/handlers.ts";
 import { fakeProvider } from "../../src/payout/fake-provider.ts";
@@ -31,8 +32,8 @@ const provider: PayoutProvider = {
   status: (ref, key) => base.status(ref, key),
 };
 const SECRET = "s3cret";
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider, pspSecret: SECRET });
-const noSecretApp = buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider });
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider, pspSecret: SECRET }));
+const noSecretApp = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider }));
 after(async () => { await app.close(); await noSecretApp.close(); await w.drop(); });
 
 const req = (method: "GET" | "POST" | "PUT", url: string, actor: string | undefined, payload?: unknown, headers: Record<string, string> = {}) =>
@@ -222,7 +223,7 @@ test("resubmit of a never-sent instruction is 409", async () => {
 });
 
 test("role is checked before body validation and before 503", async () => {
-  const noProv = buildServer({ db: w.db, ctx: w.ctx, clock, jobs });
+  const noProv = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs }));
   try {
     const call = (method: "POST", url: string, payload: unknown, a = app) => a.inject({ method, url, headers: { "x-actor": "usr_ops" }, payload: payload as object });
     assert.equal((await call("POST", "/payout-runs", {})).statusCode, 403);

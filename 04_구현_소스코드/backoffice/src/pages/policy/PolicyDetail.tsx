@@ -102,7 +102,7 @@ function PolicyEditor({ policyId }: { policyId: string }) {
         {latest && <p className="muted">최신 v{latest.version}</p>}
       </Section>
       <div className="split">
-        <Section title="MDRL 편집기" actions={<button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button>}>
+        <Section title="MDRL 편집기" actions={import.meta.env.DEV ? <button type="button" className="btn" onClick={() => void load()}>합성 곡 정책 불러오기</button> : undefined}>
           <div className="stack">
             {hint && <p className="muted" role="status">{hint}</p>}
             <label className="field"><span>팩 id</span><input value={packId} onChange={(e) => setPackId(e.target.value)} placeholder="pak_nova_summer" /></label>

@@ -8,9 +8,8 @@ import { DomainError } from "../platform/errors.ts";
  * - performer: 실연자 앱. PERFORMER 역할의 본인 계정(파티 연결)만.
  * - fan: 팬 앱. 팬 파티에 연결된 개인 계정만.
  * - partner: 파트너 연동. B2B 파트너 테넌트 사용자만.
- * - legacy: 채널 이전의 루트 경로. 백오피스가 채널로 옮겨지면(다음 작업 6) 제거한다.
  */
-export type Channel = "ops" | "portal" | "performer" | "fan" | "partner" | "legacy";
+export type Channel = "ops" | "portal" | "performer" | "fan" | "partner";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -27,7 +26,6 @@ function allowed(channel: Channel, a: Actor): boolean {
     case "performer": return a.roles.has("PERFORMER") && a.partyId !== undefined;
     case "fan": return a.scope === "party" && a.partyType === "FAN";
     case "partner": return a.scope === "tenant" && a.tenantType === "B2B_PARTNER";
-    case "legacy": return true;
   }
 }
 

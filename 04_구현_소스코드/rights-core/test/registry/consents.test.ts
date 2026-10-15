@@ -5,6 +5,7 @@ import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { processOutbox } from "../../src/platform/outbox.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "../http/channel-app.ts";
 import { OUTBOX_HANDLERS } from "../../src/issuance/service.ts";
 import { decideGrant, loadGrantRules } from "../../src/engine-bridge/grant.ts";
 import { settlementWorld } from "../settlement-fixtures.ts";
@@ -14,7 +15,8 @@ import { SCOPE } from "../fixtures.ts";
 // 동의 없이 시작해 필요한 동의를 이 테스트가 직접 기록한다(계약서 일괄 기록 없음).
 const w = await settlementWorld({ consents: false });
 const clock = fixedClock("2026-02-10T00:00:00.000Z", 1000);
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() });
+// 실연자는 실연자 앱(/performer), 플랫폼 사용자는 운영 백오피스(/ops)로 들어온다.
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() }), (actor) => (actor?.startsWith("usr_perf_") ? "performer" : "ops"));
 after(async () => { await app.close(); await w.drop(); });
 
 await w.db.tx(async (tx) => {
@@ -58,7 +60,10 @@ test("a performer signs a consent for its own voice; the row is the engine's gra
 });
 
 test("signing is self-only for performer consents, and the asset must be the party's voice in the scope", async () => {
-  assert.equal((await json("POST", "/consents", "usr_perf_a", 403, consent("cst_x", "pty_member_b", "vo_b"))).code, "NOT_SELF");
+  // 실연자 앱은 본문의 파티를 무시하고 언제나 본인 파티로 서명한다. 남의 보이스를 고르면 자산이 맞지 않는다.
+  const other = await json("POST", "/consents", "usr_perf_a", 422, consent("cst_x", "pty_member_b", "vo_b"));
+  assert.equal(other.code, "CONSENT_ASSET_MISMATCH");
+  assert.match(other.message, /consent of pty_member_a/);
   assert.equal((await json("POST", "/consents", "usr_perf_a", 422, consent("cst_x", "pty_member_a", "vo_b"))).code, "CONSENT_ASSET_MISMATCH");
   assert.equal((await json("POST", "/consents", "usr_rights", 422, consent("cst_x", "pty_member_b", "vo_b"))).code, "CONTRACT_REQUIRED");
   await json("POST", "/consents", "usr_rights", 201, consent("cst_b_paper", "pty_member_b", "vo_b", { sourceContractUri: "contract://paper/b" }));

@@ -2,12 +2,13 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "./channel-app.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { issueCombo, settlementWorld } from "../settlement-fixtures.ts";
 
 const w = await settlementWorld();
 const jobs = recordingJobs();
-const app = buildServer({ db: w.db, ctx: w.ctx, clock: w.clock, jobs });
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock: w.clock, jobs }));
 after(async () => { await app.close(); await w.drop(); });
 await issueCombo(w, "vc_1");
 const post = (url: string, actor: string | undefined, payload: unknown) => app.inject({ method: "POST", url, ...(actor !== undefined && { headers: { "x-actor": actor } }), payload: payload as object });

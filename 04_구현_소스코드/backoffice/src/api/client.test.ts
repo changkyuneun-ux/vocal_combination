@@ -26,11 +26,13 @@ describe("client", () => {
     expect(err.status).toBe(502);
     expect(err.diagnostics).toEqual([]);
   });
-  it("sends /api prefix, x-actor and json body; actorOverride wins", async () => {
+  it("sends /api/<channel> prefix (ops by default), x-actor and json body; actorOverride wins", async () => {
     const calls: Call[] = [];
     const out = await api<{ ok: boolean }>("POST", "/things", { n: 1 }, { fetchImpl: fake(200, { ok: true }, calls), actorOverride: "usr_settle" });
     expect(out).toEqual({ ok: true });
-    expect(calls[0]!.url).toBe("/api/things");
+    expect(calls[0]!.url).toBe("/api/ops/things");
+    await api("GET", "/works", undefined, { fetchImpl: fake(200, {}, calls), channel: "portal" });
+    expect(calls[1]!.url).toBe("/api/portal/works");
     const h = calls[0]!.init.headers as Record<string, string>;
     expect(h["x-actor"]).toBe("usr_settle");
     expect(h["content-type"]).toBe("application/json");

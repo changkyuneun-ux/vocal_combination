@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { loadDevClock } from "../../src/dev/clock.ts";
 import { createDevPsp } from "../../src/dev/psp.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "../http/channel-app.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { confirmBatch, createBatch } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
@@ -29,7 +30,7 @@ const psp = createDevPsp(clock);
 const jobs = recordingJobs();
 const SECRET = "dev-secret";
 const dev = { clock, psp, jobs: { pause: async () => {}, resume: async () => {}, paused: () => [] }, adminUrl: w.adminUrl, blobDir: "/tmp/rc-dev-psp-test-blobs" };
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider: psp.provider, pspSecret: SECRET, dev });
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs, provider: psp.provider, pspSecret: SECRET, dev }));
 after(async () => { await app.close(); await w.drop(); });
 
 const payDeps = () => ({ db: w.db, clock, jobs, provider: psp.provider });

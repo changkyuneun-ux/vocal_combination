@@ -16,7 +16,7 @@ import { refundHook, revisionHook } from "../settlement/service.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import type { PayoutProvider } from "../payout/provider.ts";
 import { ledgerRoutes } from "../ledger/routes.ts";
-import { payoutRoutes } from "../payout/routes.ts";
+import { payoutRoutes, pspWebhookRoutes } from "../payout/routes.ts";
 import { devRoutes, type DevDeps } from "../dev/routes.ts";
 import { fanRoutes, partnerRoutes, performerRoutes, portalRoutes } from "./channel-routes.ts";
 
@@ -29,7 +29,9 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
   if (typeof userId !== "string" || userId === "") throw new DomainError("UNKNOWN_ACTOR", 401, "x-actor header is required");
   return deps.db.tx(async (tx) => {
     const actor = await loadActor(tx, userId);
-    assertChannel(req.channel ?? "legacy", actor);
+    // 사용자 API는 모두 채널 아래에 있다. 채널 없이 신원을 쓰는 경로는 만들지 않는다.
+    if (req.channel === undefined) throw new DomainError("CHANNEL_REQUIRED", 404, "user APIs live under a channel: /ops, /portal, /performer, /fan, /partner");
+    assertChannel(req.channel, actor);
     await applyActorScope(tx, actor);
     return fn(tx, actor);
   });
@@ -79,8 +81,8 @@ export function buildServer(deps: Deps): FastifyInstance {
   channel("performer", (sub) => performerRoutes(sub, deps));
   channel("fan", (sub) => fanRoutes(sub, deps));
   channel("partner", (sub) => partnerRoutes(sub, deps));
-  // legacy: 채널 이전의 루트 경로(신원만 확인). 백오피스를 ops·portal 채널로 옮기면(다음 작업 6) 제거한다.
-  all(app);
+  // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).
+  pspWebhookRoutes(app, deps);
   if (deps.dev !== undefined) devRoutes(app, { ...deps, dev: deps.dev });
   return app;
 }

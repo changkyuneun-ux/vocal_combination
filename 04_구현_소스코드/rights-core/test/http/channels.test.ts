@@ -91,6 +91,6 @@ test("rights-holder portal: statements only for parties of the caller's tenant",
   await json("GET", `/portal/parties/pty_label/statements?${q}`, "usr_ops", 200);
 });
 
-test("legacy root routes still answer until the back office moves to channels", async () => {
-  await json("GET", "/me", "usr_ops", 200);
+test("user APIs exist only under a channel: the old root paths are gone", async () => {
+  for (const u of ["/me", "/works", "/batches/x", "/consents"]) assert.equal((await call("GET", u, "usr_ops")).statusCode, 404, u);
 });

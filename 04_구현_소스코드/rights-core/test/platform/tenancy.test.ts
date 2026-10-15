@@ -5,6 +5,7 @@ import { createUser } from "../../src/platform/actor.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
+import { viaChannel } from "../http/channel-app.ts";
 import { createBatch, confirmBatch } from "../../src/settlement/service.ts";
 import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
@@ -12,7 +13,9 @@ import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts
 // 멀티테넌시(0017_tenancy.sql): 소유 데이터는 등록한 테넌트만, 참여 데이터는 파티가 소속된 테넌트만, 플랫폼 범위는 전부.
 const w = await settlementWorld();
 const clock = fixedClock("2026-03-10T00:00:00.000Z", 1);
-const app = buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() });
+// 플랫폼 사용자는 운영 백오피스(/ops), 권리자 테넌트 사용자는 권리자 포털(/portal)로 들어온다.
+const PORTAL_USERS = new Set(["usr_a", "usr_b", "usr_agency"]);
+const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() }), (actor) => (PORTAL_USERS.has(actor ?? "") ? "portal" : "ops"));
 after(async () => { await app.close(); await w.drop(); });
 
 const call = (method: "GET" | "POST", url: string, actor: string, payload?: object) =>

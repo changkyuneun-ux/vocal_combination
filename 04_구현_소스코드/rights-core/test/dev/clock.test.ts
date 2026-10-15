@@ -86,12 +86,12 @@ test("POST /dev/clock/advance and /set", async () => {
   assert.equal(back.json().code, "CLOCK_REGRESSED");
 });
 
-test("ensureDevUsers is idempotent: 7 dev users + 3 system identities", async () => {
+test("ensureDevUsers is idempotent: 8 dev users (7 platform + 1 portal label) + 3 system identities", async () => {
   await db.tx((tx) => ensureDevUsers(tx, clock));
   await db.tx((tx) => ensureDevUsers(tx, clock));
   const r = await db.tx((tx) => tx.query("SELECT user_id FROM user_account ORDER BY user_id"));
   assert.equal(r.rowCount, DEV_USERS.length + 3);
-  assert.equal(DEV_USERS.length, 7);
+  assert.equal(DEV_USERS.length, 8);
   assert.equal(new Set(r.rows.map((x) => x.user_id)).size, r.rowCount);
 });
 test("ensureDevUsers creates the system identities and the editor roles", async () => {
