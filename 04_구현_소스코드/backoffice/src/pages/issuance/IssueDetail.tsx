@@ -1,3 +1,6 @@
+import { api } from "../../api/client.ts";
+import { useAction } from "../../api/hooks.ts";
+import { currentApp } from "../../app/apps.ts";
 import { useParams } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -27,6 +30,30 @@ const SealLink = ({ digest, label }: { digest: string; label: string }) => (
 );
 const Match = ({ ok }: { ok: boolean }) => <span className={`badge ${ok ? "ok" : "bad"}`}>{ok ? "일치" : "불일치"}</span>;
 
+type RenderInfo = { snapshotId: string; status: string; watermarkId: string; renderSha256: string | null; durationMs: number | null; error: string | null; renderedAt: string | null; verifyResult: string | null };
+
+/** 마스터 렌더(운영 백오피스에서만): 상태·렌더 해시·워터마크 ID, 렌더 무결성 검증(봉인된 배정으로 다시 렌더해 비교). */
+function RenderPanel({ snapshotId }: { snapshotId: string }) {
+  const q = useGet<RenderInfo>(["render", snapshotId], `/renders/${encodeURIComponent(snapshotId)}`, { refetchInterval: (d) => (d?.status === "PENDING" ? 2000 : false) });
+  const verify = useAction(() => api("POST", `/renders/${encodeURIComponent(snapshotId)}/verify`, {}), ["render"]);
+  if (q.error?.status === 404) return <Section title="마스터 렌더"><p className="muted">렌더 기록 없음(렌더 연동 전에 발행된 조합)</p></Section>;
+  const r = q.data;
+  return (
+    <Section title="마스터 렌더" actions={<button type="button" className="btn" disabled={r?.status !== "RENDERED" || verify.isPending} onClick={() => verify.mutate(undefined)}>렌더 무결성 검증</button>}>
+      <ErrorPanel error={q.error && q.error.status !== 404 ? q.error : verify.error} />
+      {r && (
+        <dl className="kv">
+          <dt>상태</dt><dd><span className={`badge ${r.status === "RENDERED" ? "ok" : r.status === "FAILED" ? "bad" : "muted"}`}>{r.status}</span>{r.error && <span className="muted"> {r.error}</span>}</dd>
+          <dt>워터마크 ID</dt><dd><code>{r.watermarkId}</code></dd>
+          <dt>렌더 해시</dt><dd>{r.renderSha256 ? <code>{r.renderSha256.slice(0, 16)}…</code> : "—"}</dd>
+          <dt>길이</dt><dd>{r.durationMs !== null ? `${(r.durationMs / 1000).toFixed(1)}초` : "—"}</dd>
+          <dt>검증</dt><dd>{r.verifyResult ? <span className={`badge ${r.verifyResult === "MATCH" ? "ok" : "bad"}`}>{r.verifyResult}</span> : "미검증"}</dd>
+        </dl>
+      )}
+    </Section>
+  );
+}
+
 export function IssueDetail() {
   const { snapshotId = "" } = useParams();
   const audit = useGet<IssueAudit>(["audit", snapshotId], `/issues/${encodeURIComponent(snapshotId)}/audit`);
@@ -35,6 +62,7 @@ export function IssueDetail() {
   const members = useGet<unknown>(["seal", a?.expected.membersDigest], `/seals/${encodeURIComponent(a?.expected.membersDigest ?? "")}`, { enabled: !!a });
   return (
     <>
+      {currentApp() === "ops" && <RenderPanel snapshotId={snapshotId} />}
       <Section title={`발행 ${snapshotId}`}>
         <ErrorPanel error={audit.error} />
         {a && (

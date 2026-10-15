@@ -2,8 +2,8 @@ import { PgBoss, type Db as BossDb, type JobResult } from "pg-boss";
 import pg from "pg";
 import type { Tx } from "./db.ts";
 
-export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "revision-recorded" | "reverse-event" | "post-batch" | "submit-payout" | "poll-payout" | "apply-psp-result" | "audio-check";
-export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "revision-recorded", "reverse-event", "post-batch", "submit-payout", "poll-payout", "apply-psp-result", "audio-check"];
+export type JobName = "settle-run" | "verify-run" | "refund-recorded" | "revision-recorded" | "reverse-event" | "post-batch" | "submit-payout" | "poll-payout" | "apply-psp-result" | "audio-check" | "render-master";
+export const JOB_NAMES: readonly JobName[] = ["settle-run", "verify-run", "refund-recorded", "revision-recorded", "reverse-event", "post-batch", "submit-payout", "poll-payout", "apply-psp-result", "audio-check", "render-master"];
 /** startAfterSeconds: 이 초만큼 뒤에 처리한다(pg-boss startAfter). 기록용 큐는 지연 없이 바로 처리 대상으로 둔다. */
 export type SendOptions = { startAfterSeconds?: number };
 export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>, opts?: SendOptions): Promise<void> };

@@ -161,8 +161,8 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
     throw invalid("ISSUE_NOT_LICENSED", `combination ${input.vcId} is not licensed: ${license.decision.result}`, licenseDiagnostics(license.decision));
   }
   const snapshotId = `snp_${input.vcId}`;
-  await tx.query("INSERT INTO rights_snapshot (snapshot_id, vc_id, pack_id, policy_id, policy_version, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [snapshotId, input.vcId, input.packId, active.policyId, active.version, issuedAt]);
+  await tx.query("INSERT INTO rights_snapshot (snapshot_id, vc_id, pack_id, policy_id, policy_version, created_at, issued_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [snapshotId, input.vcId, input.packId, active.policyId, active.version, issuedAt, actor.userId]);
   const usageMs: Record<string, number> = {};
   for (const a of input.assignments) {
     const s = byStem.get(a.stemId)!;

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { DomainError } from "../platform/errors.ts";
 import { getStemAudio, listAudioQueue, registerReference, reviewStemAudio, uploadStemAudio } from "./service.ts";
+import { getRender, verifyRender } from "./render.ts";
 
 function audioOf(deps: Deps) {
   if (deps.audio === undefined) throw new DomainError("AUDIO_NOT_CONFIGURED", 503, "audio processing is not configured");
@@ -29,6 +30,9 @@ export function audioOpsRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/audio/queue", async (req) => withActor(deps, req, (tx) => listAudioQueue(tx, (req.query as Record<string, string | undefined>).status)));
   app.post<{ Params: { id: string }; Body: { decision?: string; reason?: string } }>("/stems/:id/audio/review", async (req) =>
     withActor(deps, req, (tx, actor) => reviewStemAudio(tx, deps.clock, actor, { stemId: req.params.id, ...req.body })));
+  app.get<{ Params: { snapshotId: string } }>("/renders/:snapshotId", async (req) => withActor(deps, req, (tx) => getRender(tx, req.params.snapshotId)));
+  app.post<{ Params: { snapshotId: string } }>("/renders/:snapshotId/verify", async (req) =>
+    withActor(deps, req, (tx, actor) => verifyRender(tx, deps.clock, deps.audio, actor, req.params.snapshotId)));
   app.post("/reference-audio", async (req, reply) => {
     const audio = audioOf(deps);
     const q = req.query as Record<string, string | undefined>;

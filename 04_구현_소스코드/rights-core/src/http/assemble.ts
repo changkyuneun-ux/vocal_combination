@@ -12,7 +12,7 @@ import type { PayoutProvider } from "../payout/provider.ts";
 import type { DevDeps } from "../dev/routes.ts";
 import { createDevJobs } from "../dev/jobs.ts";
 import { buildServer } from "./server.ts";
-import { createFsAudioStore, httpAnalyzer, localAnalyzer } from "../audio/deps.ts";
+import { createFsAudioStore, httpAnalyzer, localAnalyzer, localRenderer } from "../audio/deps.ts";
 import { audioJobHandlers } from "../audio/handlers.ts";
 
 /** 기본 blob 위치는 실행 디렉터리가 아니라 패키지 기준(rights-core/.blobs)이다. */
@@ -42,6 +42,8 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   const audio = {
     store: createFsAudioStore(process.env.AUDIO_DIR ?? fileURLToPath(new URL("../../.audio/", import.meta.url))),
     analyzer: process.env.AUDIO_SERVICE_URL ? httpAnalyzer(process.env.AUDIO_SERVICE_URL) : localAnalyzer,
+    // 렌더링은 원본 스템을 다루므로 같은 신뢰 경계 안(같은 프로세스 라이브러리)에서 한다.
+    renderer: localRenderer,
   };
   if (opts.prepare !== undefined) await opts.prepare(db);
   const jobs = await startBossJobs(opts.url, workOptionsFromEnv(process.env));

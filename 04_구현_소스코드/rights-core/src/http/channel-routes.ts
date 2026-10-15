@@ -5,6 +5,7 @@ import { DomainError, notFound } from "../platform/errors.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import * as issuance from "../issuance/service.ts";
 import { listConsents, revokeConsent, signConsent, type ConsentDraft } from "../registry/consents.ts";
+import { fanRenderFile, queueRender, renderPreview } from "../audio/render.ts";
 import { withActor, type Deps } from "./server.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
@@ -97,12 +98,26 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
         members = issuance.slotShareBps(b.assignments!.map((a) => byStem.get(a.stemId)).filter((p): p is string => p !== undefined));
       }
       const onBehalf: Actor = { ...actor, roles: new Set([...actor.roles, "ISSUER"]) };
-      return issuance.issue(deps.ctx, tx, deps.clock, onBehalf, { packId: b.packId!, vcId: b.vcId!, assignments: b.assignments!, members, ...(b.usage && { usage: b.usage }) });
+      const s = await issuance.issue(deps.ctx, tx, deps.clock, onBehalf, { packId: b.packId!, vcId: b.vcId!, assignments: b.assignments!, members, ...(b.usage && { usage: b.usage }) });
+      if (deps.audio?.renderer !== undefined) await queueRender(tx, deps.clock, deps.jobs, s.snapshotId);
+      return s;
     })).catch(async (e: unknown) => {
       await issuance.recordIssueRejection(deps.db, deps.clock, e, { channel: "fan", actorUserId: req.headers["x-actor"], packId: b.packId, vcId: b.vcId });
       throw e;
     });
     return reply.status(201).send(seal);
+  });
+}
+
+/** 팬 앱 렌더: 발행 전 5초 미리듣기(MP3), 발행한 자기 조합의 마스터(WAV, 워터마크). 원본 스템은 나가지 않는다. */
+export function fanRenderRoutes(app: FastifyInstance, deps: Deps): void {
+  app.post("/previews", async (req, reply) => {
+    const out = await withActor(deps, req, (tx) => renderPreview(tx, deps.audio, req.body as Record<string, unknown>));
+    return reply.type(out.contentType).header("x-render-sha256", out.sha256).send(out.bytes);
+  });
+  app.get<{ Params: { vcId: string } }>("/combinations/:vcId/render", async (req, reply) => {
+    const bytes = await withActor(deps, req, (tx, actor) => fanRenderFile(tx, deps.audio, actor.userId, req.params.vcId));
+    return reply.type("audio/wav").send(Buffer.from(bytes));
   });
 }
 

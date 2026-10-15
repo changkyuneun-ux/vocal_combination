@@ -3,6 +3,7 @@ import { withActor, type Deps } from "../http/server.ts";
 import type { Declared } from "../engine-bridge/activation.ts";
 import { DomainError } from "../platform/errors.ts";
 import * as issuance from "./service.ts";
+import { queueRender } from "../audio/render.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 
@@ -42,7 +43,11 @@ export function issuanceRoutes(app: FastifyInstance, deps: Deps): void {
     withActor(deps, req, async (tx, actor) => { await issuance.activatePack(deps.ctx, tx, deps.clock, actor, req.params.id); return {}; }));
   app.post("/issues", async (req, reply) => {
     try {
-      const seal = await withActor(deps, req, (tx, actor) => issuance.issue(deps.ctx, tx, deps.clock, actor, parseIssueBody(req.body)));
+      const seal = await withActor(deps, req, async (tx, actor) => {
+        const s = await issuance.issue(deps.ctx, tx, deps.clock, actor, parseIssueBody(req.body));
+        if (deps.audio?.renderer !== undefined) await queueRender(tx, deps.clock, deps.jobs, s.snapshotId);
+        return s;
+      });
       return reply.status(201).send(seal);
     } catch (e) {
       const b = req.body as Record<string, unknown> | undefined;
