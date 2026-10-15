@@ -17,7 +17,7 @@ import { SONG, seedSyntheticSong } from "./synthetic-song.ts";
 export type ScenarioReport = {
   /** 발행된 조합 수(요청한 n). rejected = 사전 검사(11.2-1)로 거부된 시도 수(한 멤버가 모든 슬롯을 부른 조합 등). */
   issued: number; rejected: number; p50Ms: number; p95Ms: number; maxMs: number; totalMs: number;
-  /** 서로 다른 투영 digest 수(as_of가 발행마다 달라 issued와 같아야 한다). */
+  /** 서로 다른 조합 지분 digest 수(as_of가 발행마다 달라 issued와 같아야 한다). */
   distinctProjections: number;
   /** 서로 다른 (vectors, paths) 조합 수 = 실질적으로 다른 조합 수(멤버 3명·슬롯 4개면 최대 81). */
   distinctVectorSets: number;

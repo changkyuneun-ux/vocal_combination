@@ -117,7 +117,7 @@ test("setPackClaimants writes an audit row", async () => {
 });
 
 test("an open dispute in the scope refuses policy activation and rebind even off every projection path", async () => {
-  // 투영 경로 밖의 위임(작곡가 c는 실연자가 아니다)에 분쟁을 연다: checkActivation은 이 분쟁을 보지 않는다.
+  // 조합 지분 경로 밖의 위임(작곡가 c는 실연자가 아니다)에 분쟁을 연다: checkActivation은 이 분쟁을 보지 않는다.
   await db.tx((tx) => reg.recordMandate(tx, clock, {
     mandateId: "m_offpath", factsScopeId: SCOPE, fromPartyId: "pty_author_c", toPartyId: "pty_cmo", rightKind: "PERFORMER", shareBps: 10000, status: "VERIFIED", validFrom: T0,
   }));

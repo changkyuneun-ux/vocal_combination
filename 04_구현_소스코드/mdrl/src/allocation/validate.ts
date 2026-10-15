@@ -92,7 +92,7 @@ function roleMismatch(role: ClaimantRole, leaves: readonly Leaf[]): string | und
   return bad === undefined ? undefined : name(bad);
 }
 
-/** 안분 정책 IR의 정적 검증(스펙 5.4). 투영·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
+/** 안분 정책 IR의 정적 검증(스펙 5.4). 조합 지분·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
 export function validateAllocation(doc: unknown): Diagnostic[] {
   const deep = tooDeepVectors(doc);
   if (deep.length > 0) return deep;

@@ -23,7 +23,7 @@ export function IssueTable({ pack, vc }: { pack?: string; vc?: string }) {
           { key: "policy", label: "정책 버전", render: (r) => `${r.policyId}@${r.policyVersion}` },
           { key: "factsDigest", label: "facts", render: (r) => dg(r.factsDigest, `${r.vcId} facts`) },
           { key: "policyDigest", label: "정책", render: (r) => dg(r.policyDigest, `${r.vcId} 정책`) },
-          { key: "projectionDigest", label: "투영", render: (r) => dg(r.projectionDigest, `${r.vcId} 투영`) },
+          { key: "projectionDigest", label: "조합 지분", render: (r) => dg(r.projectionDigest, `${r.vcId} 조합 지분`) },
           { key: "membersDigest", label: "멤버", render: (r) => dg(r.membersDigest, `${r.vcId} 멤버`) },
           { key: "quarantined", label: "격리", render: (r) => (r.quarantined ? <span className="badge warn">QUARANTINED</span> : <span className="muted">—</span>) },
           { key: "createdAt", label: "발행(UTC)", render: (r) => <Instant iso={r.createdAt} /> },

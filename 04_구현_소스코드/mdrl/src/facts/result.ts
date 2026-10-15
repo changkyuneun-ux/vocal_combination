@@ -6,7 +6,7 @@ import type { Instant } from "../core/time.ts";
 import { projectVectors, type Projection, type Usage } from "./project.ts";
 import type { FactsDocument } from "./types.ts";
 
-/** 투영 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
+/** 조합 지분 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
 export const PROJECTION_FORMAT = "mdrl-projection/1" as const;
 
 export type ProjectionIr = {
@@ -29,7 +29,7 @@ function normalizedUsage(usage: Usage): Record<string, string> {
   return Object.fromEntries(ms.map(([stem, v]) => [stem, formatRatio(ratio(v, total))]));
 }
 
-/** 투영 IR의 유일한 생성 경로: 같은 입력으로 투영하고 IR을 만든다(입력과 결과의 불일치 방지). */
+/** 조합 지분 IR의 유일한 생성 경로: 같은 입력으로 조합 지분을 계산하고 IR을 만든다(입력과 결과의 불일치 방지). */
 export function projectToIr(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant): Result<ProjectionIr> {
   const r = projectVectors(doc, usage, asOf, knownAt);
   return r.ok ? ok(toProjectionIr(r.value, doc, usage, asOf, knownAt)) : err(r.errors);
@@ -49,7 +49,7 @@ function toProjectionIr(p: Projection, facts: FactsDocument, usage: Usage, asOf:
   return { ...body, digest: digestOf(body) };
 }
 
-/** 제공된 투영을 신뢰하지 않고 입력으로 다시 계산해 digest를 대조한다. */
+/** 제공된 조합 지분을 신뢰하지 않고 입력으로 다시 계산해 digest를 대조한다. */
 export function verifyProjection(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant, projection: unknown): Diagnostic[] {
   const recomputed = projectToIr(doc, usage, asOf, knownAt);
   if (!recomputed.ok) return recomputed.errors;

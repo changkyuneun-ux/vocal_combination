@@ -17,7 +17,7 @@ const codes = (i: EvaluationInput) => {
   const r = evaluate(i);
   return r.ok ? [] : r.errors.map((e) => e.code).sort();
 };
-/** 기본 케이스의 facts를 바꿔 평가 입력을 다시 만든다(정규형 정렬, depends_on digest·투영 재계산). */
+/** 기본 케이스의 facts를 바꿔 평가 입력을 다시 만든다(정규형 정렬, depends_on digest·조합 지분 재계산). */
 function withFacts(change: (f: BasicInput) => BasicInput): EvaluationInput {
   const c = loadAllocationCase();
   const f = sortBody(change(loadFactsCase(c.facts_case)));

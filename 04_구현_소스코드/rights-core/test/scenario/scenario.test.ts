@@ -24,7 +24,7 @@ test("reduced scenario (200 combinations): all seals re-derive, dispute flow pas
   assert.equal(r.auditMismatches, 0);
   assert.equal(r.factsRederiveOk, true);
   assert.equal(r.disputeFlowOk, true);
-  // 투영 IR에는 as_of(발행 시각)가 들어가므로 발행마다 digest가 다르다. 같은 조합은 벡터·경로만 같다.
+  // 조합 지분 IR에는 as_of(발행 시각)가 들어가므로 발행마다 digest가 다르다. 같은 조합은 벡터·경로만 같다.
   assert.equal(r.distinctProjections, r.issued);
   assert.ok(r.distinctVectorSets >= 2 && r.distinctVectorSets <= 81, String(r.distinctVectorSets));
   assert.ok(r.p95Ms > 0);

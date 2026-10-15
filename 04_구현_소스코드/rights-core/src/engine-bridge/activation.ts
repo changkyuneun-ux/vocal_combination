@@ -19,7 +19,7 @@ export async function checkPackActivation(ctx: BridgeCtx, tx: Tx, input: { facts
   });
 }
 
-/** 투영에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
+/** 조합 지분에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
 export async function claimantSet(ctx: BridgeCtx, tx: Tx, factsDigest: string, at: string): Promise<string[]> {
   const facts = await loadFacts(ctx, tx, factsDigest);
   const projection = projectVectors(facts, fullUsage(facts.body.stems), at, at);

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** MDRL 코어(정확한 유리수·bps, JCS 정규형·digest·커밋먼트, Enum·오류 레지스트리, IR 봉투·의존 검증, Ed25519 증명·SoD)와 `facts` 모듈(구조·불변식 검증, 이중 시간축 선택, 역할별 기여 벡터 투영, 위임 라우팅, 청구권자 도출, 결과 IR·공개본)을 레퍼런스 구현한다.
+**Goal:** MDRL 코어(정확한 유리수·bps, JCS 정규형·digest·커밋먼트, Enum·오류 레지스트리, IR 봉투·의존 검증, Ed25519 증명·SoD)와 `facts` 모듈(구조·불변식 검증, 이중 시간축 선택, 역할별 기여 벡터 계산, 위임 라우팅, 청구권자 도출, 결과 IR·공개본)을 레퍼런스 구현한다.
 
 **Architecture:** 단일 npm 패키지 `mdrl`(경로 `04_구현_소스코드/mdrl/`)에 `src/core`, `src/facts`를 두고 subpath export(`mdrl/core`, `mdrl/facts`)로 노출한다. 모든 함수는 순수 함수이며 IR(JSON, 숫자는 문자열)을 입력받아 `Diagnostic[]` 또는 `Result<T>`를 반환한다. 공개 적합성 스위트(`conformance/`)가 입력 IR → 기대 결과·digest를 고정한다.
 
@@ -1932,7 +1932,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 ---
 
-### Task 8: 그래프 투영 — 역할별 기여 벡터
+### Task 8: 조합 지분 계산 — 역할별 기여 벡터
 
 **Files:**
 - Create: `src/facts/project.ts`
@@ -2702,6 +2702,6 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 ## Self-Review 결과
 
-- **스펙 커버리지 (1-A 범위)**: 3.1 타입(T2) · 3.2 레지스트리(T1) · 3.3 정규형/digest(T3) · 3.4 공개 등급/커밋먼트(T3, T10 `publicFacts`) · 3.5 모듈/참조/의존(T4) · 3.6 서명/SoD(T5) · 3.7 오류 모델(T1) · 4.2 claim·이중 시간축·mandate(T6, T7) · 4.3 불변식 1~4(T7, T8) · 4.4 투영·벡터·경로·커버리지(T8, T9, T10) · 10.3 적합성·오류 테스트(T10, 각 태스크). 1-A 범위 밖: 4.5 DB 파생 생성(운영 스키마 매핑, 별도 계획), 5장 allocation(1-B), 텍스트 문법·EBNF·legacy-v1(1-C), 속성 기반 테스트(1-B에서 안분과 함께 도입).
+- **스펙 커버리지 (1-A 범위)**: 3.1 타입(T2) · 3.2 레지스트리(T1) · 3.3 정규형/digest(T3) · 3.4 공개 등급/커밋먼트(T3, T10 `publicFacts`) · 3.5 모듈/참조/의존(T4) · 3.6 서명/SoD(T5) · 3.7 오류 모델(T1) · 4.2 claim·이중 시간축·mandate(T6, T7) · 4.3 불변식 1~4(T7, T8) · 4.4 조합 지분·벡터·경로·커버리지(T8, T9, T10) · 10.3 적합성·오류 테스트(T10, 각 태스크). 1-A 범위 밖: 4.5 DB 파생 생성(운영 스키마 매핑, 별도 계획), 5장 allocation(1-B), 텍스트 문법·EBNF·legacy-v1(1-C), 속성 기반 테스트(1-B에서 안분과 함께 도입).
 - **타입 일관성**: `groupKey`/`claimGroupKey`/`groupClaims`(T7) ↔ `project.ts` 사용 일치, `HOLD`/`PartyVector`(T8) ↔ `mandate.ts`·`result.ts` 일치, `MAX_MANDATE_HOPS`는 `types.ts` 한 곳.
 - **자리표시자**: `REPLACE_WITH_PRINTED_DIGEST`는 Task 10 Step 5에서 명시적 명령으로 채우고 Step 6에서 잔존 여부를 검사한다.

@@ -24,7 +24,7 @@ function buildProjection(facts: FactsDocument, usageMs: Record<string, number>, 
   return r.value;
 }
 
-/** S3: 정책이 고정한 facts와 스냅샷 사용량·멤버 비율로 투영을 만들고 봉인한다. as_of = known_at = 발행 시각(9.3-6). */
+/** S3: 정책이 고정한 facts와 스냅샷 사용량·멤버 비율로 조합 지분을 만들고 봉인한다. as_of = known_at = 발행 시각(9.3-6). */
 export async function sealIssue(
   ctx: BridgeCtx, tx: Tx,
   input: { snapshotId: string; factsDigest: string; policyDigest: string; usageMs: Record<string, number>; members: Record<string, number>; issuedAt: string },
@@ -41,7 +41,7 @@ export async function sealIssue(
 }
 
 /**
- * 감사: 스냅샷 행과 봉인된 facts로 투영·멤버 IR을 다시 만들어 발행 봉인과 대조한다. 봉인을 새로 쓰지 않는다.
+ * 감사: 스냅샷 행과 봉인된 facts로 조합 지분·멤버 IR을 다시 만들어 발행 봉인과 대조한다. 봉인을 새로 쓰지 않는다.
  * 발행 봉인의 facts·정책 digest가 스냅샷이 가리키는 정책 버전(rights_snapshot → policy_version)의 digest와 같은지도 본다(policyMatch).
  */
 export async function rederiveIssue(ctx: BridgeCtx, tx: Tx, snapshotId: string) {

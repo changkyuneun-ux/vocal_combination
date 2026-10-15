@@ -4,7 +4,7 @@
 
 > **정정 (최종 리뷰 반영, 2026-09-29):** 안분 결과 형식 태그는 `mdrl-allocation-result/1`로 바뀌었고 `trace`는 봉인(`result_digest`) 밖으로 옮겨졌다. 이 계획서의 `mdrl-alloc-result/1`과 봉인 범위 기술은 설계문서 12.48~12.52가 대체한다.
 
-**Goal:** 투영 IR과 안분 결과에 digest로 봉인된 형식 태그를 붙이고, 두 결과 IR의 JSON Schema와 라이브러리 결과 검증 함수 `verifyAllocationResult`를 추가한 뒤, 다른 Node 서비스가 설치해 쓸 수 있도록 `dist/`로 빌드하고 tarball 스모크 테스트로 확인한다.
+**Goal:** 조합 지분 IR과 안분 결과에 digest로 봉인된 형식 태그를 붙이고, 두 결과 IR의 JSON Schema와 라이브러리 결과 검증 함수 `verifyAllocationResult`를 추가한 뒤, 다른 Node 서비스가 설치해 쓸 수 있도록 `dist/`로 빌드하고 tarball 스모크 테스트로 확인한다.
 
 **Architecture:** 형식 상수는 생성하는 모듈에 둔다(`PROJECTION_FORMAT`은 `src/facts/result.ts`, `ALLOCATION_RESULT_FORMAT`은 `src/allocation/types.ts`). 결과 검증은 새 파일 `src/allocation/verify.ts`에 두고 CLI `verify`가 이를 호출한다. 빌드는 기존 `tsc`로 `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)을 실행해 `dist/`에 JS·`.d.ts`를 내며, 개발·테스트는 계속 `src/*.ts`를 직접 실행한다.
 
@@ -32,7 +32,7 @@
   tsconfig.build.json                         (Create: 배포 빌드 설정)
   src/facts/result.ts                         (Modify: PROJECTION_FORMAT, format 필드)
   src/allocation/types.ts                     (Modify: ALLOCATION_RESULT_FORMAT, format 필드)
-  src/allocation/evaluate.ts                  (Modify: 결과에 format, 투영 format 검사)
+  src/allocation/evaluate.ts                  (Modify: 결과에 format, 조합 지분 format 검사)
   src/allocation/verify.ts                    (Create: verifyAllocationResult)
   src/allocation/index.ts                     (Modify: verify.ts 재수출)
   src/cli/main.ts                             (Modify: verify가 verifyAllocationResult 사용)
@@ -115,7 +115,7 @@ Expected: 새 테스트 3개와 적합성 6건이 FAIL(`format`이 `undefined`).
 - `export type ProjectionIr = {` 바로 위에 추가:
 
 ```ts
-/** 투영 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
+/** 조합 지분 IR 형식 태그(스펙 12.48). digest 계산에 포함된다. */
 export const PROJECTION_FORMAT = "mdrl-projection/1";
 ```
 
@@ -477,7 +477,7 @@ export type VerificationInput = Omit<EvaluationInput, "projection"> & { usage: U
 export function verifyAllocationResult(input: VerificationInput, given: unknown): Diagnostic[];
 ```
 
-검사 순서(스펙 12.50): `given`이 객체가 아니면 `[CORE_TYPE_ERROR $.result]`만, `format`이 다르면 `[CORE_TYPE_ERROR $.result.format]`만 돌려준다. 그다음 투영과 평가를 입력으로 다시 계산하고 오류가 있으면 그 오류를 돌려준다. 끝으로 `projection_digest`(`$.result.projection_digest`), `result_digest`(`$.result.result_digest`), 내용 digest(`$.result`) 불일치를 모두 `CORE_DIGEST_MISMATCH`로 모은다. 내용 digest 계산이 실패하면(예: JSON number) 그 진단을 `$.result` 접두로 돌려준다. 예외를 던지지 않는다.
+검사 순서(스펙 12.50): `given`이 객체가 아니면 `[CORE_TYPE_ERROR $.result]`만, `format`이 다르면 `[CORE_TYPE_ERROR $.result.format]`만 돌려준다. 그다음 조합 지분과 평가를 입력으로 다시 계산하고 오류가 있으면 그 오류를 돌려준다. 끝으로 `projection_digest`(`$.result.projection_digest`), `result_digest`(`$.result.result_digest`), 내용 digest(`$.result`) 불일치를 모두 `CORE_DIGEST_MISMATCH`로 모은다. 내용 digest 계산이 실패하면(예: JSON number) 그 진단을 `$.result` 접두로 돌려준다. 예외를 던지지 않는다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -586,11 +586,11 @@ import { projectToIr } from "../facts/result.ts";
 import { evaluate, type EvaluationInput } from "./evaluate.ts";
 import { ALLOCATION_RESULT_FORMAT } from "./types.ts";
 
-/** 결과 검증 입력: 투영은 받지 않고 facts·usage·시점으로 다시 계산한다. */
+/** 결과 검증 입력: 조합 지분은 받지 않고 facts·usage·시점으로 다시 계산한다. */
 export type VerificationInput = Omit<EvaluationInput, "projection"> & { usage: Usage; asOf: Instant; knownAt: Instant };
 
 /**
- * 제공된 안분 결과를 신뢰하지 않고 입력으로 투영과 평가를 다시 계산해 대조한다(스펙 12.50).
+ * 제공된 안분 결과를 신뢰하지 않고 입력으로 조합 지분과 평가를 다시 계산해 대조한다(스펙 12.50).
  * 일치하면 빈 배열을 돌려주고, 예외를 던지지 않는다.
  */
 export function verifyAllocationResult(input: VerificationInput, given: unknown): Diagnostic[] {
@@ -636,7 +636,7 @@ export function verifyAllocationResult(input: VerificationInput, given: unknown)
 - 기존 `evaluateFromFiles` 함수 전체를 다음 두 함수로 바꾼다:
 
 ```ts
-/** evaluate·verify 공통 입력. 투영은 파일로 받지 않고 facts·usage·시점으로 계산한다. */
+/** evaluate·verify 공통 입력. 조합 지분은 파일로 받지 않고 facts·usage·시점으로 계산한다. */
 function verificationInput(io: Io, o: Opts): VerificationInput {
   return {
     policy: loadPolicy(io, need(o, "policy")),
@@ -852,7 +852,7 @@ try {
   put("snapshot.json", alloc.snapshot);
   put("events.json", alloc.events);
 
-  // 1) 라이브러리: 네 진입점을 import해 컴파일 → 투영 → 평가 → 검증.
+  // 1) 라이브러리: 네 진입점을 import해 컴파일 → 조합 지분 → 평가 → 검증.
   const args = { asOf: facts.as_of, knownAt: facts.known_at, runId: alloc.run_id };
   put("check.mjs", `
 import { readFileSync } from "node:fs";
@@ -924,7 +924,7 @@ Expected: 마지막 줄 `smoke OK mdrl:sha256:<conformance/allocation/001-basic/
 
 `/Users/changkyuneun/Vocal Combination/02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md`에서:
 - 11절 머리의 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C를 \`master\`에 머지한 시점).` 을 `> 상태 기준일: 2026-09-29 (계획 1-A·1-B·1-C·1-D 반영).` 로 바꾼다.
-- 11.1.1 표의 "IR JSON 스키마" 행을 `| IR JSON 스키마 | \`spec/schema/\` envelope·facts IR·allocation IR, 투영 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |` 로 바꾼다.
+- 11.1.1 표의 "IR JSON 스키마" 행을 `| IR JSON 스키마 | \`spec/schema/\` envelope·facts IR·allocation IR, 조합 지분 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |` 로 바꾼다.
 - 11.2 표의 첫 행(설치형 배포 빌드)을 `| ~~설치형 배포를 위한 빌드 단계~~ **완료(1-D, 12.51~12.52)** | 12.44 | 배포 채널(사설 레지스트리·git·tarball)은 시스템 통합에서 결정 |` 로 바꾼다.
 - 11.2 표의 둘째 행(결과 IR 스키마)을 `| ~~평가 결과 IR의 JSON Schema·버전 태그~~ **완료(1-D, 12.48~12.49)** | 12.44 | |` 로 바꾼다.
 

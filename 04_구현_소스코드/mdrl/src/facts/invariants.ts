@@ -4,7 +4,7 @@ import { contains } from "../core/time.ts";
 import { boundaries, groupClaims, isCurrent } from "./temporal.ts";
 import { MAX_MANDATE_HOPS, type FactsBody } from "./types.ts";
 
-/** 분쟁 claim이 있는 그룹은 몫 전체가 `@hold`로 가므로 합 검사에서 제외한다(투영과 같은 규칙). */
+/** 분쟁 claim이 있는 그룹은 몫 전체가 `@hold`로 가므로 합 검사에서 제외한다(조합 지분 계산과 같은 규칙). */
 export function checkClaimSums(body: FactsBody): Diagnostic[] {
   const current = body.claims.filter(isCurrent);
   const reported = new Set<string>();

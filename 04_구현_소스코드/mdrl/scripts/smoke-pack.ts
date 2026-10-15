@@ -44,7 +44,7 @@ try {
   put("snapshot.json", alloc.snapshot);
   put("events.json", alloc.events);
 
-  // 1) 라이브러리: 여섯 진입점을 import해 컴파일 → 투영 → 평가 → 검증.
+  // 1) 라이브러리: 여섯 진입점을 import해 컴파일 → 조합 지분 → 평가 → 검증.
   const args = { asOf: facts.as_of, knownAt: facts.known_at, runId: alloc.run_id };
   put("check.mjs", `
 import { readFileSync } from "node:fs";

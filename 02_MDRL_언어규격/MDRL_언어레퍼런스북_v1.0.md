@@ -450,7 +450,7 @@ allocation "ALLOC-DEFAULT-01" version 1 {
 
 ### 8.2 실행 가능한 예제
 
-[공개 API 예제](../04_구현_소스코드/mdrl/samples/public-api.mjs)는 저장소의 적합성 데이터를 사용해 컴파일 → 투영 → 정산 → 재검증을 실행한다. 별도의 Grant 예제는 허락 누락 시 DENY를 확인한다. 이는 독립 API 예제이며 Grant를 통과한 서비스 발행 흐름이 아니다.
+[공개 API 예제](../04_구현_소스코드/mdrl/samples/public-api.mjs)는 저장소의 적합성 데이터를 사용해 컴파일 → 조합 지분 → 정산 → 재검증을 실행한다. 별도의 Grant 예제는 허락 누락 시 DENY를 확인한다. 이는 독립 API 예제이며 Grant를 통과한 서비스 발행 흐름이 아니다.
 
 ```bash
 cd 04_구현_소스코드

@@ -102,7 +102,7 @@ test("re-derivation fails when the issue seal's digests differ from the snapshot
     await tx.query("INSERT INTO rights_snapshot SELECT 'snp_forged', 'vc_forged', pack_id, policy_id, policy_version, created_at FROM rights_snapshot WHERE snapshot_id = 'snp_vc_1'");
     await tx.query("INSERT INTO snapshot_stem_assignment SELECT 'snp_forged', slot_id, stem_id, party_id, start_ms, end_ms, duration_ms, rights_bearing FROM snapshot_stem_assignment WHERE snapshot_id = 'snp_vc_1'");
     await tx.query("INSERT INTO snapshot_member_pct SELECT 'snp_forged', party_id, pct_bps FROM snapshot_member_pct WHERE snapshot_id = 'snp_vc_1'");
-    // 정책 digest 자리에 다른 봉인(facts)을 넣은 위조 봉인: 투영·멤버는 그대로라 재계산만으로는 드러나지 않는다.
+    // 정책 digest 자리에 다른 봉인(facts)을 넣은 위조 봉인: 조합 지분·멤버는 그대로라 재계산만으로는 드러나지 않는다.
     await tx.query("INSERT INTO issue_seal SELECT 'snp_forged', facts_digest, facts_digest, projection_digest, members_digest, as_of, known_at FROM issue_seal WHERE snapshot_id = 'snp_vc_1'");
   });
   const r = await db.tx((tx) => rederiveIssue(createBridgeCtx(ctx.blobs), tx, "snp_forged"));

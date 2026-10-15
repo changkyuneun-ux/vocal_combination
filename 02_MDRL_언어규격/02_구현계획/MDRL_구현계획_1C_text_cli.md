@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 사람이 작성하는 안분 정책 텍스트(MDRL allocation 문법)를 IR로 컴파일하는 렉서·파서, IR을 정규 텍스트로 되돌리는 포매터(allocation 왕복, facts는 읽기 전용 표시), `mdrl` CLI(`compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`)를 만들고, 투영 재검증·공개본 검증 보강·오류 코드 목록 테스트로 엔진을 마무리한다.
+**Goal:** 사람이 작성하는 안분 정책 텍스트(MDRL allocation 문법)를 IR로 컴파일하는 렉서·파서, IR을 정규 텍스트로 되돌리는 포매터(allocation 왕복, facts는 읽기 전용 표시), `mdrl` CLI(`compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`)를 만들고, 조합 지분 재검증·공개본 검증 보강·오류 코드 목록 테스트로 엔진을 마무리한다.
 
 **Architecture:** `src/text/`에 렉서(`lexer.ts`), 역할 추론(`roles.ts`), 파서(`parse-allocation.ts`), 포매터(`format-allocation.ts`, `format-facts.ts`)를 두고 `mdrl/text`로 노출한다. 파서는 문법 오류를 `PARSE_*` 진단(경로 `@줄:열`)으로 돌려주고, 파싱 결과는 항상 `validateAllocation`을 거친다. CLI는 입출력을 주입받는 순수 함수 `run(argv, io)`(`src/cli/main.ts`)와 얇은 실행 파일(`bin/mdrl.ts`)로 나눈다.
 
@@ -1223,7 +1223,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 
 ---
 
-### Task 5: 투영 재검증 · 공개본 검증 보강
+### Task 5: 조합 지분 재검증 · 공개본 검증 보강
 
 **Files:**
 - Modify: `src/facts/result.ts`, `src/facts/validate.ts`
@@ -1234,7 +1234,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 - Produces: `verifyProjection(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant, projection: unknown): Diagnostic[]`
 
 **규칙:**
-- `verifyProjection`은 입력으로 투영을 다시 계산해 digest가 같으면 `[]`, 다르면 `CORE_DIGEST_MISMATCH`(path `$.projection.digest`), 투영 계산이 실패하면 그 진단을 반환한다. 제공된 투영을 신뢰하지 않는 검증 경로다.
+- `verifyProjection`은 입력으로 조합 지분을 다시 계산해 digest가 같으면 `[]`, 다르면 `CORE_DIGEST_MISMATCH`(path `$.projection.digest`), 조합 지분 계산이 실패하면 그 진단을 반환한다. 제공된 조합 지분을 신뢰하지 않는 검증 경로다.
 - 공개본 검증(`validatePublicFacts`): claim·mandate의 share, claim의 evidence는 그 항목의 `visibility`가 `PUBLIC`이면 커밋먼트를 허용하지 않는다(원문이어야 함). party.ids는 party가 `PRIVATE`일 때만 커밋먼트를 허용한다.
 - party.ids(원문·공개본 모두)의 키 `commit`은 커밋먼트 표지로 예약되어 쓸 수 없다(`CORE_TYPE_ERROR`, path `<ids path>.commit`).
 
@@ -1291,7 +1291,7 @@ Expected: FAIL — `verifyProjection` 미정의, 그리고 새 공개본·예약
 
 `src/facts/result.ts` 끝에 추가(import에 `diag`, `type Diagnostic`, `isPlainObject` 추가: `import { diag, err, ok, type Diagnostic, type Result } from "../core/errors.ts";`, `import { isPlainObject } from "../core/jcs.ts";`):
 ```ts
-/** 제공된 투영을 신뢰하지 않고 입력으로 다시 계산해 digest를 대조한다. */
+/** 제공된 조합 지분을 신뢰하지 않고 입력으로 다시 계산해 digest를 대조한다. */
 export function verifyProjection(doc: FactsDocument, usage: Usage, asOf: Instant, knownAt: Instant, projection: unknown): Diagnostic[] {
   const recomputed = projectToIr(doc, usage, asOf, knownAt);
   if (!recomputed.ok) return recomputed.errors;
@@ -1355,8 +1355,8 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 | `compile <policy.mdrl>` | | IR JSON |
 | `fmt <doc.json>` | | facts는 읽기 전용 텍스트, allocation은 정규 텍스트 |
 | `check <doc.json\|policy.mdrl>` | | `OK <digest>` (facts는 `validateFacts`, allocation은 `validateAllocation`) |
-| `project` | `--facts --usage --as-of --known-at` | 투영 IR JSON |
-| `evaluate` | `--policy --facts --usage --as-of --known-at --snapshot --events --run-id` | 결과 IR JSON(투영은 입력으로 계산) |
+| `project` | `--facts --usage --as-of --known-at` | 조합 지분 IR JSON |
+| `evaluate` | `--policy --facts --usage --as-of --known-at --snapshot --events --run-id` | 결과 IR JSON(조합 지분은 입력으로 계산) |
 | `verify` | `--result` + evaluate 옵션 | `OK <result_digest>` 또는 `CORE_DIGEST_MISMATCH` |
 | `activate` | `--facts --usage --as-of --known-at --declared` | `OK` 또는 진단 |
 | `help` | | 사용법(종료 0) |
@@ -1658,7 +1658,7 @@ function project(io: Io, o: Opts): ProjectionIr {
   return r.value;
 }
 
-/** 투영은 입력으로 계산하고(제공된 투영을 받지 않는다) 평가한다. */
+/** 조합 지분은 입력으로 계산하고(제공된 조합 지분을 받지 않는다) 평가한다. */
 function evaluateFromFiles(io: Io, o: Opts): { result: AllocationResult; projection: ProjectionIr } {
   const projection = project(io, o);
   const r = evaluate({
@@ -1815,7 +1815,7 @@ Expected: PASS. 실패하면 `missing`에 나온 코드마다 그 코드를 단�
 38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`은 r, 실연 풀·멤버 비율은 `PERFORMER_FEATURED`, 실연 graph만 있으면 그 역할이다. `contract`는 역할을 정하지 않는다. 추론할 수 없거나 서로 다른 역할의 graph가 섞이면 `PARSE_ROLE_REQUIRED`.
 39. **guard·exceptions 블록**: 엔진의 고정 의미를 문서로 드러내는 선택 블록이며 IR에 남지 않는다. `require covered(all_claimants)`, `require sum(split) == 100%`, `on DISPUTED -> hold(DISPUTED_SHARE)`, `on FRAUD_FLAG -> hold(RIGHTS_POOL)`만 허용하고, 그 밖은 `PARSE_UNSUPPORTED`.
 40. **포매터**: `formatAllocation`은 IR을 정규 텍스트로 쓰며 `parseAllocation(formatAllocation(ir)) = ir`이다. guard·exceptions는 출력하지 않고, `as ROLE`은 추론 결과와 다를 때만 쓴다. `formatFacts`는 원문 facts를 4.1 스타일로 표시하며 파싱 대상이 아니다.
-41. **CLI**: `compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`·`help`. 결과 JSON은 stdout, 진단은 stderr에 `<CODE> <path> <message>` 한 줄씩, 종료 코드는 0(성공)·1(진단 실패)·2(사용법 오류). `evaluate`·`verify`는 투영을 입력으로 다시 계산하며 제공된 투영을 받지 않는다. 라이브러리에서는 `verifyProjection`이 같은 역할을 한다.
+41. **CLI**: `compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`·`help`. 결과 JSON은 stdout, 진단은 stderr에 `<CODE> <path> <message>` 한 줄씩, 종료 코드는 0(성공)·1(진단 실패)·2(사용법 오류). `evaluate`·`verify`는 조합 지분을 입력으로 다시 계산하며 제공된 조합 지분을 받지 않는다. 라이브러리에서는 `verifyProjection`이 같은 역할을 한다.
 42. **공개본 검증 보강**: `visibility: PUBLIC` 항목의 share·evidence는 공개본에서도 원문이어야 하고, party.ids의 커밋먼트는 PRIVATE party에만 허용한다. party.ids의 키 `commit`은 커밋먼트 표지로 예약된다.
 43. **오류 코드 커버리지**: 모든 오류 코드는 테스트나 적합성 기대값에서 단언되어야 한다(`test/error-catalog.test.ts`). 도달 불가 방어 코드(`ALLOC_ROUNDING_INVARIANT`)만 이유와 함께 예외로 둔다.
 44. **1-C 범위 밖**: legacy-v1 변환기(사용자 결정으로 연기), facts 텍스트 입력, `diff` 명령, 결과 IR의 JSON Schema·버전 태그, 설치형 배포(Node는 `node_modules` 안의 `.ts`를 실행하지 않으므로 배포 전 빌드 단계가 필요하다).

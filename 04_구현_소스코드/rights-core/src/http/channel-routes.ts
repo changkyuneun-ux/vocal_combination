@@ -89,7 +89,7 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/usages", async (req) => withActor(deps, req, (tx, actor) => myUsages(tx, actor.partyId!)));
 }
 
-/** 팬에게 보이는 팩 투영: 슬롯·스템·실연자 표시 이름(상세면 스템별 사용 가능 여부). 팬은 팩 원본 행을 볼 수 없어 system 범위에서 만든다. */
+/** 팬에게 보이는 팩 공개 목록: 슬롯·스템·실연자 표시 이름(상세면 스템별 사용 가능 여부). 팬은 팩 원본 행을 볼 수 없어 system 범위에서 만든다. */
 async function fanPack(tx: Tx, packId: string, detail = false) {
   const p = (await tx.query("SELECT pack_id, pack_code, title, facts_scope_id FROM vocal_pack WHERE pack_id = $1", [packId])).rows[0];
   const stems = (await tx.query(
@@ -112,7 +112,7 @@ async function fanPack(tx: Tx, packId: string, detail = false) {
   return { packId: p.pack_id as string, packCode: p.pack_code as string, title: p.title as string, slots: [...slots.values()] };
 }
 
-/** 팬 앱: 활성 팩 카탈로그(공개용 투영)와 조합 발행. 팬은 팩 원본 행을 볼 수 없으므로 카탈로그는 system 범위의 고정 투영이다. */
+/** 팬 앱: 활성 팩 카탈로그(공개용 목록)와 조합 발행. 팬은 팩 원본 행을 볼 수 없으므로 카탈로그는 system 범위에서 만든 고정 목록이다. */
 export function fanRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/me", async (req) => withActor(deps, req, async (_tx, actor) => me(actor)));
   app.get("/packs", async (req) => withActor(deps, req, (tx) => withSystemScope(tx, async () => {

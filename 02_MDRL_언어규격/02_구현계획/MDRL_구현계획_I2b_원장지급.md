@@ -541,7 +541,7 @@ export async function invariants(tx: Tx, clock: Clock, opts?: { stuckAfterMinute
 **Files:** Create `rights-core/src/engine-bridge/preflight.ts`, `rights-core/src/settlement/quarantine.ts`, `rights-core/migrations/0015_quarantine_revision.sql`(이 태스크: `quarantine`, skip 사유 `ENGINE_FAILED` 추가), `rights-core/test/settlement/quarantine.test.ts`, `rights-core/test/issuance/preflight.test.ts`; Modify `src/issuance/service.ts`(`issue`), `src/settlement/handlers.ts`(`settleRun` FAILED 경로), `src/settlement/service.ts`(`createBatch` 건너뜀), `src/scenario/run.ts`·`src/scenario/main.ts`·`test/scenario/*.test.ts`(거부된 발행 반영).
 
 **Requirements (11.2-1):**
-- `preflightIssue(ctx, tx, seal: IssueSeal): Promise<Diagnostic[]>`: 발행 봉인의 정책·facts·투영·멤버로 이벤트 `{ id: "preflight", type: policy.body.scope.events[0], amount: "1000000", currency: policy.body.scope.currency, integrity: "CLEAR" }`, `runId: "preflight"`를 `evaluate`해 진단을 돌려준다(봉인은 쓰지 않는다).
+- `preflightIssue(ctx, tx, seal: IssueSeal): Promise<Diagnostic[]>`: 발행 봉인의 정책·facts·조합 지분·멤버로 이벤트 `{ id: "preflight", type: policy.body.scope.events[0], amount: "1000000", currency: policy.body.scope.currency, integrity: "CLEAR" }`, `runId: "preflight"`를 `evaluate`해 진단을 돌려준다(봉인은 쓰지 않는다).
 - `issue`: `sealIssue` 직후 `preflightIssue`가 진단을 내면 422 `ISSUE_NOT_SETTLEABLE`(진단 포함)을 던진다(트랜잭션 롤백으로 스냅샷·봉인 행이 남지 않는다).
 - `quarantine(snapshot_id PK REFERENCES issue_seal, reason TEXT, diagnostics JSONB, created_at, released_by NULL, released_at NULL)` — `released_by`·`released_at`만 write-once UPDATE. `settleRun`의 FAILED 경로에서 같은 트랜잭션에 `INSERT … ON CONFLICT DO NOTHING`.
 - `createBatch`: 후보 이벤트의 스냅샷이 해제되지 않은 격리에 있으면 `ENGINE_FAILED`로 건너뛴다(`settlement_batch_skip.reason` CHECK 확장).

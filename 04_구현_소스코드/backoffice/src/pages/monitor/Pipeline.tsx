@@ -72,7 +72,7 @@ function ComboView({ t }: { t: ComboTrace }) {
   return (
     <div className="stack">
       <p>곡 <strong>{t.song.title}</strong> (<code>{t.song.workId}</code>) → 조합 <code>{t.vcId}</code> · 팩 <code>{t.issue.packId}</code> · 정책 <code>{t.issue.policy}</code> · 발행 <Instant iso={t.issue.issuedAt} /></p>
-      <p>발행 봉인: facts <Digest value={t.issue.seal.facts} label="facts" /> 정책 <Digest value={t.issue.seal.policy} label="policy" /> 투영 <Digest value={t.issue.seal.projection} label="projection" /> 멤버 <Digest value={t.issue.seal.members} label="members" /></p>
+      <p>발행 봉인: facts <Digest value={t.issue.seal.facts} label="facts" /> 정책 <Digest value={t.issue.seal.policy} label="policy" /> 조합 지분 <Digest value={t.issue.seal.projection} label="projection" /> 멤버 <Digest value={t.issue.seal.members} label="members" /></p>
       <DataTable rows={t.assignments} columns={[
         { key: "slotId", label: "슬롯" }, { key: "stemId", label: "스템" }, { key: "performer", label: "실연", render: (r) => r.performer ?? "—" },
         { key: "durationMs", label: "ms" }, { key: "rightsBearing", label: "정산 대상", render: (r) => (r.rightsBearing ? "예" : "아니오") },

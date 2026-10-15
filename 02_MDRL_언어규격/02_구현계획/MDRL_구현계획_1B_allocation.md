@@ -141,7 +141,7 @@ export function rejectUnknownKeys(obj: object, allowed: readonly string[], path:
   ALLOC_WEIGHT_MISMATCH: "가중치 합이 10000bps(또는 1)가 아니다",
   ALLOC_MODE_REQUIRED: "performance_pool의 mode와 모드별 필수 가중치를 명시해야 한다",
   ALLOC_DUPLICATE_NAME: "버킷 이름 또는 배분 키가 중복된다",
-  ALLOC_UNCOVERED_CLAIMANT: "투영에서 도출된 청구권자 역할을 어느 버킷도 다루지 않는다",
+  ALLOC_UNCOVERED_CLAIMANT: "조합 지분에서 도출된 청구권자 역할을 어느 버킷도 다루지 않는다",
   ALLOC_INFEASIBLE: "cap·floor_guarantee 조건을 만족하는 분배가 없다",
   ALLOC_SCOPE_MISMATCH: "매출 이벤트가 정책 범위(이벤트 유형·통화)를 벗어난다",
   ALLOC_EMPTY_VECTOR: "배분할 벡터가 비어 있다",
@@ -180,7 +180,7 @@ export function attempt<T>(fn: () => T): Result<T> {
 | `ALLOC_WEIGHT_MISMATCH` | mix·HYBRID 가중치 합 ≠ 10000bps, 벡터 합 ≠ 1 | `validateAllocation`, `parseVector`, `splitLrm` |
 | `ALLOC_MODE_REQUIRED` | performance_pool의 mode·필수 가중치 누락 | `validateAllocation` |
 | `ALLOC_DUPLICATE_NAME` | 버킷 이름·배분 키 중복 | `validateAllocation`, `splitLrm` |
-| `ALLOC_UNCOVERED_CLAIMANT` | 투영 역할을 다루는 버킷 없음 | `evaluate` |
+| `ALLOC_UNCOVERED_CLAIMANT` | 조합 지분 역할을 다루는 버킷 없음 | `evaluate` |
 | `ALLOC_INFEASIBLE` | cap·floor_guarantee 불가능 | `validateAllocation`, `capVector`, `floorGuarantee` |
 | `ALLOC_SCOPE_MISMATCH` | 이벤트 유형·통화가 정책 범위 밖 | `evaluate` |
 | `ALLOC_EMPTY_VECTOR` | 배분할 벡터가 비어 있음 | `parseVector`, `fixedVector`, `usageVector`, `evalVector`, `splitLrm` |
@@ -904,7 +904,7 @@ const VECTOR_KEYS: Readonly<Record<EnumValue<"vector_fn">, readonly string[]>> =
 
 type Obj = Record<string, unknown>;
 
-/** 안분 정책 IR의 정적 검증(스펙 5.4). 투영·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
+/** 안분 정책 IR의 정적 검증(스펙 5.4). 조합 지분·스냅샷이 필요한 검사(커버리지 등)는 evaluate가 한다. */
 export function validateAllocation(doc: unknown): Diagnostic[] {
   const env = validateEnvelope(doc);
   if (env.length > 0) return env;
@@ -1231,7 +1231,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 - Consumes: `parseBps`; `MdrlError`, `fail`; `ONE`, `fromBps`; `Instant`; `ROLE_RIGHT`, `routeVector` (facts/mandate.ts); `PartyVector`; `ClaimantRole`, `FactsDocument`; `VectorExpr`; Task 3의 `capVector`, `fixedVector`, `floorGuarantee`, `mixVectors`, `usageVector`
 - Produces: `type ExprContext = { facts: FactsDocument; parties: ReadonlySet<string>; vectors: Partial<Record<ClaimantRole, PartyVector>>; members: PartyVector; asOf: Instant; knownAt: Instant }`, `evalVector(e: VectorExpr, ctx: ExprContext, path: string): PartyVector` (실패 시 `MdrlError`를 던진다)
 
-**의미:** `graph(role)` = 투영 벡터(없으면 `ALLOC_EMPTY_VECTOR`). `via_mandate: true`면 `routeVector`로 위임 라우팅(`ROLE_RIGHT`에 없는 역할이면 `CORE_TYPE_ERROR`). `contract(party)` = 그 party 100%(facts에 없으면 `FACTS_UNKNOWN_PARTY`). `member_pct` = 스냅샷 멤버 비율. `performance_pool`: MEMBER_PCT = 멤버 비율, FIXED = 멤버 균등, USAGE_WEIGHTED = `usageVector(F, N, featured_weight)`, HYBRID = `fixed·FIXED + usage·USAGE`. `mix`, `cap`, `floor_guarantee`(영역에 스냅샷 멤버 포함)는 Task 3 함수 그대로.
+**의미:** `graph(role)` = 조합 지분 벡터(없으면 `ALLOC_EMPTY_VECTOR`). `via_mandate: true`면 `routeVector`로 위임 라우팅(`ROLE_RIGHT`에 없는 역할이면 `CORE_TYPE_ERROR`). `contract(party)` = 그 party 100%(facts에 없으면 `FACTS_UNKNOWN_PARTY`). `member_pct` = 스냅샷 멤버 비율. `performance_pool`: MEMBER_PCT = 멤버 비율, FIXED = 멤버 균등, USAGE_WEIGHTED = `usageVector(F, N, featured_weight)`, HYBRID = `fixed·FIXED + usage·USAGE`. `mix`, `cap`, `floor_guarantee`(영역에 스냅샷 멤버 포함)는 Task 3 함수 그대로.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1422,8 +1422,8 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 2. 결합 검사: `run_id`는 id 형식. `policy.depends_on`에 `{ ref: "vc:facts/<facts.id>@<facts.version>", digest: digestOf(facts) }`가 있어야 하고, `projection.facts_digest === digestOf(facts)`, `projection.digest === digestOf({ ...projection, digest: undefined })`(아니면 `CORE_DIGEST_MISMATCH`).
 3. 이벤트: 비어 있지 않은 배열, 알 수 없는 키 거부, id 엄격 오름차순(아니면 `CORE_TYPE_ERROR` "not sorted by id"), type은 event_type이며 `scope.events` 안(아니면 `ALLOC_SCOPE_MISMATCH`), amount `^[1-9]\d*$`, currency = `scope.currency`(아니면 `ALLOC_SCOPE_MISMATCH`), integrity는 integrity_status.
 4. 스냅샷 `members`는 `parseVector`(합 1). 키는 facts의 party여야 한다(`FACTS_UNKNOWN_PARTY`).
-5. 투영 벡터(문자열)를 `parseVector`로 파싱한다. 역할 키는 claimant_role이어야 한다.
-6. 커버리지: `@hold`·0이 아닌 party가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다. `graph(role)`은 그 역할을, `performance_pool`·`member_pct`는 PERFORMER_FEATURED·PERFORMER_NON_FEATURED를 다룬다. `mix`·`cap`·`floor_guarantee`는 하위 식을 따른다. 없으면 `ALLOC_UNCOVERED_CLAIMANT`(detail = 역할).
+5. 조합 지분 벡터(문자열)를 `parseVector`로 파싱한다. 역할 키는 claimant_role이어야 한다.
+6. 커버리지: `@hold`·0이 아닌 party가 있는 조합 지분 역할마다 그 역할을 다루는 버킷이 있어야 한다. `graph(role)`은 그 역할을, `performance_pool`·`member_pct`는 PERFORMER_FEATURED·PERFORMER_NON_FEATURED를 다룬다. `mix`·`cap`·`floor_guarantee`는 하위 식을 따른다. 없으면 `ALLOC_UNCOVERED_CLAIMANT`(detail = 역할).
 7. 버킷 벡터는 이벤트와 무관하므로 한 번만 평가한다.
 8. 이벤트마다: tier1을 `splitLrm`(키 = 버킷 이름)으로 나눠 모든 tier1 버킷의 pool_line을 기록(0 포함). integrity가 FLAGGED면 권리자 풀 전액을 `holding(bucket = tier1.rights, reason = FRAUD_REVIEW)`로 보내고 끝. 아니면 권리자 풀을 tier2로 나누고(키 = 버킷 이름), 각 버킷 금액을 버킷 벡터로 나눈다(키 = party id, `@hold` 포함). `@hold` 몫은 `holding(reason = RIGHTS_DISPUTE)`, 나머지는 line. 금액 0인 line·holding은 만들지 않는다(trace에는 남는다).
 9. line의 role: party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role. `line_seq`는 `"1"`.
@@ -1439,7 +1439,7 @@ import { projectToIr } from "../src/facts/result.ts";
 ```
 파일 끝에 추가:
 ```ts
-/** 할당 케이스의 facts 케이스로 투영 IR을 만들어 평가기 입력을 구성한다. */
+/** 할당 케이스의 facts 케이스로 조합 지분 IR을 만들어 평가기 입력을 구성한다. */
 export function evaluationInput(c: AllocationCase): EvaluationInput {
   const f = loadFactsCase(c.facts_case);
   const p = projectToIr(f.facts, f.usage, f.as_of, f.known_at);
@@ -1725,7 +1725,7 @@ function parseProjectionVectors(projection: ProjectionIr): Vectors {
   return out;
 }
 
-/** 실제 권리자(`@hold`·가중치 0 제외)가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다. */
+/** 실제 권리자(`@hold`·가중치 0 제외)가 있는 조합 지분 역할마다 그 역할을 다루는 버킷이 있어야 한다. */
 function checkCoverage(split: readonly SplitBucket[], vectors: Vectors): Diagnostic[] {
   const covered = new Set<ClaimantRole>();
   const visit = (e: VectorExpr): void => {
@@ -1827,7 +1827,7 @@ cd "/Users/changkyuneun/Vocal Combination" && git add 04_구현_소스코드/mdr
 - Consumes: `projectVectors`, `HOLD`, `Usage` (project.ts), `deriveClaimants`, `checkClaimantCoverage`, `ClaimantEntry` (mandate.ts), `isEffective` (temporal.ts), `diag`, `Diagnostic`, `Instant`, `FactsDocument`
 - Produces: `type ActivationInput = { facts: FactsDocument; usage: Usage; asOf: Instant; knownAt: Instant; declared: readonly ClaimantEntry[] }`, `checkActivation(input: ActivationInput): Diagnostic[]`
 
-**규칙 (스펙 12.20):** 투영이 실패하면 그 오류를 반환한다. 그렇지 않으면 (a) `@hold` 경로 행에 걸린 claim 중 status가 DISPUTED인 것, (b) 유효한 DISPUTED mandate 중 `from`이 투영 벡터(또는 도출 청구권자)의 party인 것을 모아, 하나라도 있으면 `FACTS_DISPUTE_OPEN` 하나(path `$.activation`, detail = 정렬된 id를 `,`로 연결)를 보고한다. 이어서 청구권자 도출과 커버리지 결과를 덧붙인다. 빈 배열이면 활성화할 수 있다.
+**규칙 (스펙 12.20):** 조합 지분 계산이 실패하면 그 오류를 반환한다. 그렇지 않으면 (a) `@hold` 경로 행에 걸린 claim 중 status가 DISPUTED인 것, (b) 유효한 DISPUTED mandate 중 `from`이 조합 지분 벡터(또는 도출 청구권자)의 party인 것을 모아, 하나라도 있으면 `FACTS_DISPUTE_OPEN` 하나(path `$.activation`, detail = 정렬된 id를 `,`로 연결)를 보고한다. 이어서 청구권자 도출과 커버리지 결과를 덧붙인다. 빈 배열이면 활성화할 수 있다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -2174,13 +2174,13 @@ test("property: projection digest ignores usage scale and key order", () => {
 `02_MDRL_언어규격/02_구현계획/MDRL_아키텍처_코어규격_설계_v1.0.md` 맨 끝(12.20 다음)에 추가:
 ```markdown
 21. **allocation IR 형태(계획 1-B)**: `body = { scope{pack, events[], currency}, bind{time}, tier1{buckets[{name,bps}], rights}, tier2{split[{name,bps,role,vector}]}, rounding{method,tie} }`. 벡터 식은 `fn` 7종(`graph{role, via_mandate?}`, `contract{party}`, `member_pct`, `performance_pool{mode, fixed?, usage?, featured_weight?}`, `mix{parts[{weight, of}]}`, `cap{max, of}`, `floor_guarantee{min, of}`)이며 비율 인자는 bps 문자열이다. 스키마는 `spec/schema/allocation.ir.schema.json`. 텍스트 문법(5.2의 예시)은 1-C 파서가 이 IR로 변환한다.
-22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 투영의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
+22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 조합 지분의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
 23. **cap·floor_guarantee**: 반복 수위 채우기로 정확히 계산한다. `@hold`는 제한·보장·재분배 대상이 아니다. floor의 영역은 스냅샷 멤버와 벡터의 party 합집합이다. 조건을 만족하는 분배가 없으면 `ALLOC_INFEASIBLE`.
 24. **라인 역할과 순번**: line의 role은 party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role이다(12.16과 같은 규칙). `line_seq`는 `"1"`이며 역분개(REVERSAL)는 후속 계획에서 다룬다.
 25. **보류 규칙**: 벡터의 `@hold` 몫은 `holding(RIGHTS_DISPUTE)`. `integrity = FLAGGED` 이벤트는 tier1은 그대로 기록하고 권리자 풀 전액을 `holding(bucket = tier1.rights, FRAUD_REVIEW)`로 보낸다. pool_line은 0원도 기록하고, 0원 line·holding은 만들지 않는다(trace에는 남는다).
 26. **이벤트 정규형**: 이벤트 배열은 id 엄격 오름차순, amount는 양의 정수 문자열(최소 통화 단위), type과 currency는 정책 scope 안이어야 한다(`ALLOC_SCOPE_MISMATCH`).
-27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 투영 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 투영할지는 호출자가 그 규칙대로 `as_of`를 정한다.
-28. **안분 커버리지**: 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
+27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 조합 지분 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 조합 지분을 계산할지는 호출자가 그 규칙대로 `as_of`를 정한다.
+28. **안분 커버리지**: 실제 권리자가 있는 조합 지분 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
 29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다.
 30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`), 역분개(`REVERSAL`), 다통화 정산, 섀도 시뮬레이션 리포트는 후속 계획에서 다룬다.
 ```

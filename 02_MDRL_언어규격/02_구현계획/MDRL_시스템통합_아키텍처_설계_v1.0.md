@@ -35,13 +35,13 @@
 | **IR** (Intermediate Representation, 중간 표현) | 텍스트 문법·화면·DB 행을 엔진이 읽는 하나의 표준 JSON 형식으로 바꾼 것. 숫자는 모두 문자열이며 JSON number를 쓰지 않는다. |
 | **facts IR** | 권리 사실 문서. party·work·recording·voice·stem 엔티티와 권리 주장(claim)·위임(mandate). 곡 1개 = facts 문서 1개(이 문서의 결정). |
 | **allocation IR** (정책 IR) | 안분 정책 문서. tier1 버킷, tier2 split과 벡터 식, 반올림 규칙, `depends_on`(facts digest 고정). |
-| **투영 IR** (`mdrl-projection/1`) | facts를 기준 시점(`as_of`·`known_at`)과 사용량(u)으로 투영한 역할별 기여 벡터와 경로. |
+| **조합 지분 IR** (`mdrl-projection/1`) | facts를 기준 시점(`as_of`·`known_at`)과 사용량(u)으로 조합 지분을 계산한 역할별 기여 벡터와 경로. |
 | **결과 IR** (`mdrl-allocation-result/1`) | 안분 평가 결과. `pool_lines`·`lines`·`holdings`·입력 digest·`result_digest`, 봉인 밖의 설명용 `trace`. |
 | **digest** | IR을 RFC 8785(JCS)로 정규화한 바이트의 SHA-256. 표기 `mdrl:sha256:<64 hex>`. |
 | **봉인(seal)** | 행→IR 변환 결과의 JCS 바이트와 digest를 불변 저장하는 것. 한 번 저장한 봉인은 바꾸지 않는다. |
 | **서명(attestation)** | 역할을 가진 서명자가 digest에 대해 남기는 Ed25519 서명(`mdrl-attest/1` 문맥). |
 | **기준 시점** | `as_of`(어느 시점의 권리 관계인가)와 `known_at`(그 시점까지 기록된 사실만 쓴다). 이중 시간축의 두 축. |
-| **발행 봉인** (`issue_seal`) | 조합 발행 시 동결하는 facts·정책·투영·멤버 비율 digest 묶음. 정산의 유일한 입력. |
+| **발행 봉인** (`issue_seal`) | 조합 발행 시 동결하는 facts·정책·조합 지분·멤버 비율 digest 묶음. 정산의 유일한 입력. |
 | **재고정(rebind)** | 정책 본문은 그대로 두고 `depends_on`의 facts digest만 새 봉인으로 바꾼 정책 버전을 만드는 절차(3.3). |
 
 ---
@@ -79,7 +79,7 @@
 |---|---|---|---|
 | `registry` 권리 등록소 | party·work·recording·voice·stem 편집, 권리 주장·위임의 이중 시간축 버전 추가, 분쟁 개시·종결 | `party`, `work`, `recording`, `voice`, `stem`, `right_claim`, `mandate`, `facts_scope`, `dispute` | facts의 원본 행 |
 | `policy` 정책 레지스트리 | 안분 정책 작성(폼 또는 MDRL 텍스트), 컴파일, 시뮬레이션, 승인(직무 분리), 활성화, 재고정 | `policy_version`, (폼용) `settlement_policy`·`allocation_policy`·`alloc_layer`·`share_bucket*` | 정책 IR 봉인(S2) |
-| `issuance` 발행 | 팩 활성화 검사, 발행 트랜잭션의 스냅샷 동결 | `vocal_pack`, `rights_snapshot`, `snapshot_*`, `issue_seal` | `checkActivation`, 투영 봉인(S3) |
+| `issuance` 발행 | 팩 활성화 검사, 발행 트랜잭션의 스냅샷 동결 | `vocal_pack`, `rights_snapshot`, `snapshot_*`, `issue_seal` | `checkActivation`, 조합 지분 봉인(S3) |
 | `revenue` 수익 수집·대사 | 이벤트 멱등 수집, 순매출 확정, 무결성 플래그, 발행 봉인 연결 | `revenue_event` | events 입력 |
 | `settlement` 정산 실행 | 배치 선정·그룹화, 평가, 결과 봉인, 재계산 검증, 검토·확정 | `settlement_batch`, `settlement_run`, `settlement_run_event`, `pool_line`, `allocation_line`, `unallocated_holding` | `evaluate`, `verifyAllocationResult` |
 | `ledger` 원장·지급 | 확정 라인의 복식 원장 반영, 보류 해제, 지급 지시·PSP 연동, 명세 | `payout_instruction`, 원장 테이블(v2.7·기획) | MDRL 밖 |
@@ -122,7 +122,7 @@ reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" |
 |---|---|---|---|---|
 | S1 | 정책 컴파일·재고정, 팩 활성화 검사 | **facts** (곡 1개 범위: 작품, 녹음, 스템, 보이스, 관련 party, claim, mandate) | `known_at` = 봉인 시각. `recorded_at ≤ known_at`인 행 버전만 포함하고, 그 뒤에 기록된 `superseded_at`은 비운다 | 없음 |
 | S2 | 정책 컴파일 | **allocation 정책** (`depends_on`에 S1 digest 고정) | — | EDITOR·WORK_APPROVER(승인), ACTIVATOR(활성화) |
-| S3 | 조합 발행 트랜잭션 | **투영 IR**, **멤버 비율**(`{members: …}`), 이를 묶은 `issue_seal` 행 | `as_of` = `known_at` = 발행 시각(9.3-6). 투영은 정책이 고정한 facts 봉인으로 계산하므로 결과는 그 봉인 상태와 같다 | 없음 |
+| S3 | 조합 발행 트랜잭션 | **조합 지분 IR**, **멤버 비율**(`{members: …}`), 이를 묶은 `issue_seal` 행 | `as_of` = `known_at` = 발행 시각(9.3-6). 조합 지분은 정책이 고정한 facts 봉인으로 계산하므로 결과는 그 봉인 상태와 같다 | 없음 |
 | S4 | 정산 run | **events**(run에 포함된 이벤트 IR 배열), **결과 IR** | S3의 기준 시점 그대로 | 실행 워커(`SPACE_OPS`)가 `result_digest`에 서명, 검증 워커가 재계산 후 서명, 확정자(`SPACE_SETTLE`)가 서명 |
 | S5 | 공개 | **facts 공개본**(커밋먼트), Manifest | — | 플랫폼 키 |
 
@@ -130,14 +130,14 @@ reverse(runId: string, eventId: string, refund: { id: string; reason: "REFUND" |
 
 엔진은 정책의 `depends_on`에 적힌 facts digest와 평가에 쓰는 facts가 정확히 같아야 평가한다. 따라서 claim 하나가 검증돼도 facts digest가 바뀌고, 이후 발행에 쓰려면 정책을 새 facts 봉인에 다시 고정해야 한다.
 
-- **가벼운 재고정**: 정책 본문이 같고, 새 facts로 투영한 청구권자 집합이 직전 고정 facts와 같고(`FACTS_CLAIMANT_DRIFT` 없음), 커버리지 검사와 `checkActivation`이 통과하면, ACTIVATOR 1인 서명으로 새 정책 버전(`rebind_of_version` 기록)을 만들어 즉시 ACTIVE로 바꾼다.
+- **가벼운 재고정**: 정책 본문이 같고, 새 facts로 조합 지분을 계산한 청구권자 집합이 직전 고정 facts와 같고(`FACTS_CLAIMANT_DRIFT` 없음), 커버리지 검사와 `checkActivation`이 통과하면, ACTIVATOR 1인 서명으로 새 정책 버전(`rebind_of_version` 기록)을 만들어 즉시 ACTIVE로 바꾼다.
 - **전체 재승인**: 청구권자 집합이 바뀌었거나 열린 분쟁이 있으면 F1 전체 절차(승인 → 활성화)를 다시 밟는다.
 - 재고정은 발행되지 않은 미래 조합에만 영향을 준다. 이미 발행된 조합은 S3 봉인으로만 정산된다. 발행 후 facts 정정은 정정 흐름(5.7)에서 다룬다.
 - `registry`는 facts 범위의 행이 바뀔 때 Outbox로 `facts_changed(scopeId)`를 내보내고, `policy`가 재고정 후보를 계산해 백오피스 작업 목록에 올린다(자동 실행하지 않는다).
 
 ### 3.4 결합 시점
 
-MVP의 결합 시점은 `ISSUE_TIME` 하나다(v2.7 호환, 코어 규격 9절 13번). `USAGE_TIME`·`SALE_TIME`·`REPORT_PERIOD`는 정산 run에서 이벤트 시각으로 투영을 새로 만드는 방식이 되며, 확장 지점으로만 둔다(`evaluateRun`의 입력에 `bindTime`과 기준 시점 결정 함수를 추가).
+MVP의 결합 시점은 `ISSUE_TIME` 하나다(v2.7 호환, 코어 규격 9절 13번). `USAGE_TIME`·`SALE_TIME`·`REPORT_PERIOD`는 정산 run에서 이벤트 시각으로 조합 지분을 새로 만드는 방식이 되며, 확장 지점으로만 둔다(`evaluateRun`의 입력에 `bindTime`과 기준 시점 결정 함수를 추가).
 
 ---
 
@@ -305,7 +305,7 @@ CREATE TABLE manifest (
 | `allocation_line` | `run_id`, `role`, `bucket`, `line_seq INT` 추가. 유일키 `(run_id, event_id, party_id, role, bucket, line_seq)`. `share_ratio NUMERIC(16,12)` 삭제. `base_breakdown_json`은 결과의 `trace`에서 생성(설명용). `line_kind`·`reversal_of_line_id`는 역분개용으로 유지 | 결과 IR 라인 키와 일치, 비율 손실 방지 |
 | `unallocated_holding` | `run_id NULL`, `bucket NULL` 추가. `reason_code`에 `RIGHTS_DISPUTE` 추가 | 엔진 보류(`RIGHTS_DISPUTE`·`FRAUD_REVIEW`)를 그대로 기록 |
 | `revenue_event` | `source_system`, `source_event_id`, `source_revision`, `currency CHAR(3)` 추가, UNIQUE `(source_system, source_event_id, source_revision)` | 기획 11절 중복 판정 키, 다통화 확장 |
-| `rights_image_party`, `claimant` | 원본에서 **화면용 요약 캐시**로 격하. 발행 봉인의 투영에서 재생성. 드리프트는 `FACTS_CLAIMANT_DRIFT`로 감시 | 원본은 `right_claim`·`mandate` |
+| `rights_image_party`, `claimant` | 원본에서 **화면용 요약 캐시**로 격하. 발행 봉인의 조합 지분에서 재생성. 드리프트는 `FACTS_CLAIMANT_DRIFT`로 감시 | 원본은 `right_claim`·`mandate` |
 | `work.cmo_managed`, `share_bucket.member_source=CMO` | 화면용 요약으로만 유지. 실제 신탁 라우팅은 `mandate` | 코어 규격 9절 D05 |
 | `settlement_policy`·`allocation_policy`·`alloc_layer`·`share_bucket*`·`settlement_rule` | 폼 편집용으로 유지. 저장 시 MDRL 텍스트를 생성해 `policy_version.source_text`에 넣는다. tier1 3풀은 MDRL tier1 버킷 `platform`·`rights`·`fan`으로 대응 | 정본은 봉인된 정책 IR |
 
@@ -337,15 +337,15 @@ CREATE TABLE manifest (
 
 ### 5.2 F2 팩 활성화
 
-팩은 활성 정책이 있고 `checkPackActivation`(선언 청구권자 = `rights_image_party` 캐시 vs 투영, 위임 경로까지 분쟁 없음)이 통과해야 활성화된다. `FACTS_DISPUTE_OPEN`이면 거부(코어 규격 12.20).
+팩은 활성 정책이 있고 `checkPackActivation`(선언 청구권자 = `rights_image_party` 캐시 vs 조합 지분, 위임 경로까지 분쟁 없음)이 통과해야 활성화된다. `FACTS_DISPUTE_OPEN`이면 거부(코어 규격 12.20).
 
 ### 5.3 F3 조합 발행
 
 v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬프 → 조합 ISSUED → `revenue_event(ISSUE)`)에 한 단계를 더한다.
 
 - 발행은 **정책이 고정한 facts 봉인**을 쓴다(현재 행을 다시 읽지 않는다). 팬 발행은 실시간이라 승인을 기다릴 수 없기 때문이다.
-- `sealIssue`: 사용량(`snapshot_stem_assignment` ms)과 멤버 비율로 투영을 계산해 봉인하고 `issue_seal`을 INSERT(S3). `as_of` = `known_at` = 발행 시각(9.3-6). facts는 정책이 고정한 봉인이므로 발행 시각을 `known_at`으로 써도 봉인 이후의 행은 들어가지 않는다.
-- 투영은 곡 1개 규모에서 수 ms이며 게이트 p95(100/500ms, 기획 16절) 안이다. 투영 IR에는 `as_of`(발행 시각)가 들어가므로 투영 digest는 발행마다 다르고 봉인 자체는 재사용되지 않는다. 초과가 실측되면 봉인 전 단계의 계산 결과(벡터·경로)를 `(facts_digest, u_digest)` 키로 캐시하는 방안을 검토한다.
+- `sealIssue`: 사용량(`snapshot_stem_assignment` ms)과 멤버 비율로 조합 지분을 계산해 봉인하고 `issue_seal`을 INSERT(S3). `as_of` = `known_at` = 발행 시각(9.3-6). facts는 정책이 고정한 봉인이므로 발행 시각을 `known_at`으로 써도 봉인 이후의 행은 들어가지 않는다.
+- 조합 지분은 곡 1개 규모에서 수 ms이며 게이트 p95(100/500ms, 기획 16절) 안이다. 조합 지분 IR에는 `as_of`(발행 시각)가 들어가므로 조합 지분 digest는 발행마다 다르고 봉인 자체는 재사용되지 않는다. 초과가 실측되면 봉인 전 단계의 계산 결과(벡터·경로)를 `(facts_digest, u_digest)` 키로 캐시하는 방안을 검토한다.
 
 ### 5.4 F4 수익 유입
 
@@ -353,11 +353,11 @@ v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬
 
 ### 5.5 F5 정산 배치
 
-1. 배치 `RUNNING`: 기간 내 미배정 이벤트를 발행 봉인별로 그룹화(같은 정책·투영·멤버여야 한 번에 평가 가능). 그룹 1개 = `settlement_run` 1개(`PENDING`).
+1. 배치 `RUNNING`: 기간 내 미배정 이벤트를 발행 봉인별로 그룹화(같은 정책·조합 지분·멤버여야 한 번에 평가 가능). 그룹 1개 = `settlement_run` 1개(`PENDING`).
 2. 정산 워커(작업 큐, 병렬): events 봉인 → `evaluateRun` → 결과 봉인 → `pool_line`·`allocation_line`·`unallocated_holding` INSERT를 run 단위 트랜잭션으로 → `CALCULATED`. 엔진 진단이면 `FAILED` + 진단 저장, 해당 이벤트는 `active=false`로 풀려 다음 배치로.
 3. 검증 워커(실행 워커와 다른 서비스 신원): `verifyRun` = `verifyAllocationResult` 재계산 → 불일치 0이면 서명 후 `VERIFIED`, 불일치면 `VOIDED` + 경보.
 4. 검토·확정: 사람(`SPACE_SETTLE`, 실행자와 다름)이 배치 단위로 확정 → 모든 run `CONFIRMED`, `batch_manifest_digest` 기록 → `ledger`로 Outbox.
-5. **규모 위험**: 조합마다 투영이 달라 run 수가 이벤트가 있는 조합 수에 비례한다(기획 16절의 1.5억 라인 경고와 같은 문제). MVP는 워커 병렬화와 결과 오브젝트 저장으로 대응하고, 정산 그룹 단위 집계는 3단계 실측 후 결정한다(8절 미결).
+5. **규모 위험**: 조합마다 지분이 달라 run 수가 이벤트가 있는 조합 수에 비례한다(기획 16절의 1.5억 라인 경고와 같은 문제). MVP는 워커 병렬화와 결과 오브젝트 저장으로 대응하고, 정산 그룹 단위 집계는 3단계 실측 후 결정한다(8절 미결).
 
 ### 5.6 F6 분쟁
 
@@ -381,7 +381,7 @@ v2.7 발행 원자 트랜잭션(스냅샷 동결 → 유일키 ISSUED → 스탬
 
 ### 5.8 F8 공개
 
-확정된 run·배치에 대해 Manifest 번들을 만든다: facts 공개본(커밋먼트), 정책 IR, 투영 IR, 결과 IR(`result_digest`, 봉인 밖 `trace`), 서명. 당사자별 salt는 비밀 저장소에 둔다(전달 방식은 서브프로젝트 4). `/verify`는 같은 `mdrl` 코드로 재계산한다(코어 규격 7.2).
+확정된 run·배치에 대해 Manifest 번들을 만든다: facts 공개본(커밋먼트), 정책 IR, 조합 지분 IR, 결과 IR(`result_digest`, 봉인 밖 `trace`), 서명. 당사자별 salt는 비밀 저장소에 둔다(전달 방식은 서브프로젝트 4). `/verify`는 같은 `mdrl` 코드로 재계산한다(코어 규격 7.2).
 
 ---
 
@@ -500,7 +500,7 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 3. **`party_type` → `party_kind`**: `LABEL`·`AGENCY`·`PUBLISHER`·`CMO`·`AUTHOR`·`SESSION`·`AI_PROVIDER`는 같은 이름, `ARTIST`·`MEMBER` → `PERFORMER`, `FAN`·`PLATFORM`은 facts 불가. v2.8 `party_type`에 `AUTHOR`를 추가했다.
 4. **권리 주장 엣지**: `right_claim.edge`는 MDRL의 지분 엣지 5종만 허용한다. 구조 관계는 `stem.slot_id`·`stem.recording_id`·`recording_version.work_id` 컬럼에서 facts 엔티티 필드로 만든다(v2.8 정정).
 5. **facts 범위의 구성**: 범위의 작품 1개, 그 작품의 `recording_version` 전부, 그 녹음들의 스템 전부, 범위의 `voice`, 범위의 claim·mandate(기준 시점까지 기록된 버전), 그리고 claim 대상·mandate 양끝으로 참조되는 party. 외부 식별자는 `party.isni`→`ids.isni`, `party.ipi_no`→`ids.ipi`, `work.iswc`→`ids.iswc`, `recording_version.isrc`→`ids.isrc`(값이 있을 때만).
-6. **발행 투영의 기준 시점**: `as_of = known_at = 발행 시각`. 발행 시각은 항상 facts 봉인 시각보다 늦으므로 봉인된 facts 상태와 같은 결과이며, facts 봉인 시각을 따로 저장하지 않는다.
+6. **발행 조합 지분의 기준 시점**: `as_of = known_at = 발행 시각`. 발행 시각은 항상 facts 봉인 시각보다 늦으므로 봉인된 facts 상태와 같은 결과이며, facts 봉인 시각을 따로 저장하지 않는다.
 7. **분쟁 동기 가드**: 발행 트랜잭션은 팩 상태와 별도로 해당 facts 범위에 열린 분쟁이 있는지 직접 확인해 거부한다(Outbox 일시정지 처리 전의 틈을 막는다).
 8. **추가 전용 보호**: 트리거(UPDATE·DELETE 거부, `superseded_at`은 NULL에서 값으로 한 번, 그리고 후속 버전과 함께만 설정 — 같은 id에 `recorded_at = superseded_at`인 행이 있는지 커밋 시점에 검사하는 지연 제약 트리거, 마이그레이션 0008)와 앱 DB 역할 권한(INSERT·SELECT와 명시된 컬럼 UPDATE만) 두 겹.
 9. **오류 → HTTP**: MDRL 진단 422(진단 목록 그대로), 직무 분리 403, 상태 충돌·분쟁 409, 없음 404.
@@ -522,7 +522,7 @@ run별 소요 시간·결과 digest, 사유별 보류 금액, 재계산 불일�
 | 등록 순서 무관(시드 3개) | 통과 |
 | 1만 조합 발행 | 10000건, 총 35664ms |
 | 발행 지연 p50 / p95 / max | 3.49 / 4.4 / 19.93 ms (목표 p95 ≤ 100ms: 충족) |
-| 서로 다른 투영 digest / 서로 다른 벡터·경로 조합 | 10000개 / 81개 |
+| 서로 다른 조합 지분 digest / 서로 다른 벡터·경로 조합 | 10000개 / 81개 |
 | 발행 봉인 전수 재도출 불일치 | 0건 |
 | facts 재봉인 대조 | 통과 |
 | 분쟁 → 일시정지 → 종결 → 재고정 → 재발행 | 통과 |
@@ -559,7 +559,7 @@ I-1은 PoC라 다음을 의도적으로 남겼다. I-2 착수 전에 해소한�
 2. **수익 이벤트**: `PURCHASE`(엔진 `PRIMARY`)·`RESALE`·`REFUND`, 통화 KRW만, 금액은 양의 정수(환불도 양수, 방향은 유형이 나타낸다). 멱등 키 `(source_system, source_event_id, source_revision)` — 같은 키·같은 내용이면 기존 id를 돌려주고, 같은 키·다른 내용이면 409 `IDEMPOTENCY_MISMATCH`. 환불은 `related_event_id`로 원 구매·재판매를 가리키고, 원 이벤트별 누적 환불 ≤ 원 금액(아니면 422 `REFUND_EXCEEDS_ORIGINAL`). 같은 원 이벤트의 환불은 트랜잭션 advisory lock으로 직렬화한다. **`source_revision`**: 대체(supersede) 규칙은 I-2b에서 정한다. 그 전에는 같은 `(source_system, source_event_id)`의 다른 revision이 이미 있으면 422 `REVISION_UNSUPPORTED`로 거부한다(두 revision이 모두 매출로 잡히는 이중 계상 방지). 판단은 revision을 뺀 source 키 advisory lock 아래에서 하고, 같은 키·같은 revision 재전송은 그대로 `created: false`다. 수집 함수는 환불 후속 처리 훅(`onRefund`)을 **필수 인자**로 받는다(생략하면 `refund-recorded`가 조용히 빠지므로, 필요 없는 호출자는 `noRefundHook`을 명시한다). HTTP 조립(`http/server.ts`)이 `refundHook(jobs)`를 넘기고, `revenue`는 `settlement`를 import하지 않는다(아키텍처 테스트).
 3. **배치 생성**(`SPACE_OPS`): 기간 `[start, end)`의 구매·재판매 중 살아 있는 run에 속하지 않은 이벤트를 고른다. 순액 = 원 금액 − 그때까지 기록된 환불 합. 순액 0 → 건너뜀 `FULLY_REFUNDED`, `vc_id`의 발행 봉인 없음 → `NO_ISSUE_SEAL`, 그 facts 범위에 열린 분쟁 → `FACTS_DISPUTE_OPEN`. 건너뛴 이벤트는 `settlement_batch_skip`에 사유와 함께 남고 다음 배치의 후보로 남는다(보류 행은 만들지 않는다 — 시스템 보류의 원장 표현은 I-2b). 나머지를 **발행 봉인(스냅샷)별로 묶어** run 하나씩 만들고(`run_<batch>_<snapshot>`), 이벤트별 순액과 포함한 환불 합을 `settlement_run_event`에 고정한 뒤 `settle-run` 작업을 보낸다.
 4. **배치 상태**는 `OPEN`/`CONFIRMED` 둘이다. 진행 상황(계산 중·검증 대기·확정 가능)은 run 상태에서 계산한다.
-5. **`settle-run`**: run을 잠그고 `PENDING`이 아니면 끝낸다. 발행 봉인의 facts·정책·투영·멤버와 고정된 순액 이벤트(id 순)로 mdrl `evaluate` → events·결과 봉인 → 풀 라인·라인·보류 INSERT → `CALCULATED`, 실행 신원 `sys_settler`가 `result_digest`에 서명(`SPACE_OPS`) → `verify-run` 전송. 엔진 진단이면 `FAILED`와 진단 저장, 이벤트를 풀어 다음 배치로 보낸다.
+5. **`settle-run`**: run을 잠그고 `PENDING`이 아니면 끝낸다. 발행 봉인의 facts·정책·조합 지분·멤버와 고정된 순액 이벤트(id 순)로 mdrl `evaluate` → events·결과 봉인 → 풀 라인·라인·보류 INSERT → `CALCULATED`, 실행 신원 `sys_settler`가 `result_digest`에 서명(`SPACE_OPS`) → `verify-run` 전송. 엔진 진단이면 `FAILED`와 진단 저장, 이벤트를 풀어 다음 배치로 보낸다.
 6. **`verify-run`**: run을 잠그고 `CALCULATED`가 아니면 끝낸다. 봉인된 입력과 스냅샷 사용량·발행 봉인 기준 시점으로 mdrl `verifyAllocationResult` → 불일치 없으면 검증 신원 `sys_verifier`가 서명(`PLATFORM` — mdrl Enum `attestation_role` 값, 코어 규격 12.58)하고 `VERIFIED`, 있으면 `VOIDED`·진단·감사 경보, 이벤트를 푼다. `sys_verifier ≠ sys_settler`를 DB `CHECK`로 강제한다.
 7. **배치 확정**(`SPACE_SETTLE`, 배치 생성자와 다른 사람): 살아 있는 run(`FAILED`·`VOIDED` 제외)이 하나 이상이고 모두 `VERIFIED`여야 한다. 모든 run → `CONFIRMED`, 배치 매니페스트(`{format: "rc-batch-manifest/1", batch_id, results: 정렬된 result_digest}`)를 봉인하고 확정자가 서명, `batch_manifest_digest` 기록. 확정된 run의 이벤트는 계속 "살아 있음"으로 남아 다시 배치되지 않는다.
 8. **환불 처리**(`refund-recorded`): 원 이벤트가 살아 있는 run에 없으면 아무것도 하지 않는다(다음 배치가 순액으로 처리). 있으면 run을 잠그고, 그 run이 이미 이 환불까지 반영했으면 끝낸다. "이미 반영됨"은 합계 비교가 아니라 **환불 id**로 판단한다: 배치 생성이 순액에 포함한 환불 id를 `settlement_run_event_refund`에 기록하고, 이 환불 id가 거기 있으면 반영된 것이다(합계 비교는 지연된 작업이 뒤늦게 온 다른 환불과 섞여 이중 반영·누락을 낼 수 있다). run이 `CONFIRMED`가 아니면 `VOIDED`로 만들고 모든 이벤트를 풀어 다음 배치가 새 순액으로 다시 평가하게 한다. `CONFIRMED`면 `reverse-event`를 보낸다.

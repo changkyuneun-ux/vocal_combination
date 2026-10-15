@@ -381,7 +381,7 @@ export function sumKrw(xs: string[]): string;       // BigInt 합
 **Requirements (12.2-3 그룹 3·4):**
 - 팩 목록(`GET /packs`)·생성(`POST /packs`). 팩 상세: 권리자 선언 표 + 편집(`PUT /packs/:id/claimants` — 역할 select 값은 `issuance/service.ts`의 `Declared` 타입에서), 활성 정책, "팩 활성화"(`POST /packs/:id/activate`).
 - 발행 폼(`IssueForm`, 팩 상세 안): 팩의 범위에서 `GET /scopes/:id/facts`로 슬롯·스템을 읽어, **슬롯마다 스템 select**(그 슬롯의 스템, 권리 대상이 아닌 MR 슬롯도 포함). 멤버 비율 표: 선택된 스템의 `performer_party_id`별 슬롯 수에 비례한 bps(합 10000, 나머지는 party_id 오름차순 첫 멤버에) 자동 채움 + 수정 가능, 합이 10000이 아니면 발행 버튼 비활성. vcId 입력(기본 `vc_` + 선택 스템 id 요약). "발행"(`POST /issues`) — 422 `ISSUE_NOT_SETTLEABLE`이면 진단을 표로(거부 경로 1).
-- 발행 목록(`GET /issues?pack=`): vcId, 정책 버전, digest들, 격리 배지. 발행 상세(`/issues/:snapshotId`): `GET /issues/:id/audit`의 봉인 묶음(facts·정책·투영·멤버 digest, 각 `GET /seals/:digest` 링크), 분배 결과 표(투영의 권리자별 몫), **재도출 대조** 결과(감사 응답에 재도출 일치 여부가 있으면 표시 — 응답 형태는 `issuance/routes.ts`·`http/seal-routes.ts`에서 확인).
+- 발행 목록(`GET /issues?pack=`): vcId, 정책 버전, digest들, 격리 배지. 발행 상세(`/issues/:snapshotId`): `GET /issues/:id/audit`의 봉인 묶음(facts·정책·조합 지분·멤버 digest, 각 `GET /seals/:digest` 링크), 분배 결과 표(조합 지분의 권리자별 몫), **재도출 대조** 결과(감사 응답에 재도출 일치 여부가 있으면 표시 — 응답 형태는 `issuance/routes.ts`·`http/seal-routes.ts`에서 확인).
 - 매출(`/revenue`): 현재 사용자를 자동으로 `sys_ingest`로 바꾸지 **않는다**; 화면 상단에 "매출 입력은 수집 담당(sys_ingest)으로" 안내와 "sys_ingest로 전환" 버튼. 입력 폼 3종 탭:
   - 구매: eventId(기본 `ev_` + 시각), vcId(발행 목록에서 select), amountKrw, occurredAt(기본 가상 시계 현재), integrity(CLEAR·FLAGGED).
   - 환불: 원 이벤트 select(구매 목록), amountKrw(기본 원 순액 = 전액), occurredAt.

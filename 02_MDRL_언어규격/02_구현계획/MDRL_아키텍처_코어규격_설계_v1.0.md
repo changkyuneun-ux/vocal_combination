@@ -40,7 +40,7 @@
 | 순서 | 서브프로젝트 | 산출물 |
 |---|---|---|
 | 0 | **본 문서**: 전체 아키텍처 + 코어 규격 + 모듈 접점 + 정본 결정 | 설계 스펙 |
-| 1 | core + facts + 그래프 투영/기여 벡터 + allocation | 상세 스펙 → 레퍼런스 구현 |
+| 1 | core + facts + 조합 지분 계산/기여 벡터 + allocation | 상세 스펙 → 레퍼런스 구현 |
 | 2 | constraint + grant (게이트 판정기) | 상세 스펙 → 구현 |
 | 3 | approval (승인 체인·SoD·스탬프) | 상세 스펙 → 구현 |
 | 4 | 공개 번들 포털·외부 어댑터(DDEX·ODRL) | 상세 스펙 → 구현 |
@@ -60,7 +60,7 @@
 │ 레지스트리: 모듈별 불변 버전 · 서명 · 활성화(SoD)                │
 └──────┬──────────────────┬───────────────────┬─────────────────┘
        ▼                  ▼                   ▼
-  그래프 투영기        게이트 판정기         결정적 정산 평가기
+  조합 지분 계산기        게이트 판정기         결정적 정산 평가기
   facts → DAG →       constraint + grant    allocation + 스냅샷
   PartyVector<Role>   → Decision            → allocation_line
        └────────┬─────────┴───────────┬───────┘
@@ -78,7 +78,7 @@
 2. **사실과 정책의 분리.** `facts`는 계산식 없는 선언 데이터다. 나머지 모듈은 규칙이다.
 3. **결정성.** 평가 과정에서 `now()`, 난수, 외부 I/O를 사용하지 않는다. 시점은 `as_of`, `known_at` 입력으로만 주어진다. 동일 IR과 동일 입력은 원 단위까지 동일한 결과와 동일한 digest를 낸다.
 4. **공개 등급 분리.** 모든 IR 노드는 `visibility`를 가지며, 비공개 값은 해시 커밋먼트로 치환해 공개한다(3.4).
-5. **기존 저장 스택 유지.** PostgreSQL이 저장소이고 그래프는 읽기 모델 투영이다. 그래프 DB는 탐색 병목이 실측될 때만 도입한다.
+5. **기존 저장 스택 유지.** PostgreSQL이 저장소이고 그래프는 읽기 모델이다. 그래프 DB는 탐색 병목이 실측될 때만 도입한다.
 
 ---
 
@@ -160,7 +160,7 @@
 
 ---
 
-## 4. `facts` 모듈 · 그래프 투영 · 기여 벡터
+## 4. `facts` 모듈 · 조합 지분 계산 · 기여 벡터
 
 ### 4.1 문법 예시
 
@@ -190,7 +190,7 @@ facts "nova-debut-01" version 3 {
 ### 4.2 권리 주장(claim) 모델
 
 - 기획설계 v1.0의 `right_claim`을 정본으로 채택한다.
-- 상태: `ASSERTED → VERIFIED | DISPUTED`, `* → SUPERSEDED`. **투영에는 `VERIFIED`와 `DISPUTED`만 포함하며, `DISPUTED`가 있는 그룹은 보류(`@hold`)로 투영한다.** `ASSERTED`는 검증 전이라 제외한다.
+- 상태: `ASSERTED → VERIFIED | DISPUTED`, `* → SUPERSEDED`. **조합 지분에는 `VERIFIED`와 `DISPUTED`만 포함하며, `DISPUTED`가 있는 그룹은 보류(`@hold`)로 조합 지분에 반영한다.** `ASSERTED`는 검증 전이라 제외한다.
 - 이중 시간축: 효력 구간 `valid [from, to)` + 기록 구간 `recorded_at / superseded_at`. 질의는 `(as_of, known_at)` 두 시점을 받으며, 두 값이 같으면 결과가 영구히 재현된다.
 - `evidence`: 증빙 문서의 해시 참조. 기본 공개 등급 `PARTIES`.
 - **`work.cmo_managed` Boolean을 폐지하고 `mandate`로 일원화한다(D05).**
@@ -199,11 +199,11 @@ facts "nova-debut-01" version 3 {
 ### 4.3 정적 검증 불변식
 
 1. 동일 시점에 유효한 `(source, edge_type, role)` 그룹의 share 합은 정확히 10000bps다(D03). 위반 시 `FACTS_SUM_MISMATCH`. 구조적 엣지(`IN_SLOT`, `OF_RECORDING`, `PART_OF`, `OF_WORK`)는 share가 없으므로 대상이 아니다.
-2. 계산용 투영은 DAG다. 위반 시 `FACTS_CYCLE`.
+2. 조합 지분 계산 그래프는 DAG다. 위반 시 `FACTS_CYCLE`.
 3. 참조 party는 모두 레지스트리에 존재한다. 위반 시 `FACTS_UNKNOWN_PARTY`.
 4. 그룹 안에 `DISPUTED` claim이 하나라도 있으면 그 그룹 전체를 보류한다. **자동 재정규화를 금지한다.** 보류분은 정산 시 `unallocated_holding(reason_code = RIGHTS_DISPUTE)`로 이동한다.
 
-### 4.4 그래프 투영과 기여 벡터
+### 4.4 조합 지분 계산과 기여 벡터
 
 - 입력: `facts@digest`, `(as_of, known_at)`, 사용량 벡터 `u`.
 - `u[s]`: 스냅샷의 스템별 배정 시간 `ASSIGNED_LAYER_MS`를 전체 합으로 나눈 유리수(Σu = 1). `rights_bearing = true`인 잠금 스템은 분모·분자에 포함한다. 명칭은 `ASSIGNED_LAYER_MS`로 통일하고 `ASSIGNED_DURATION`은 폐기한다.
@@ -261,7 +261,7 @@ allocation "VC-ALLOC-NOVA-02" version 1 {
 
 | 함수 | 반환 | 설명 |
 |---|---|---|
-| `graph(role)` | `PartyVector` | 4.4 투영 결과 |
+| `graph(role)` | `PartyVector` | 4.4 조합 지분 결과 |
 | `graph(role) via mandate` | `PartyVector` | 수령 경로를 mandate 대상으로 라우팅 |
 | `member_pct()` | `PartyVector` | 스냅샷의 팬 빌더 멤버 비율 |
 | `usage_vector(ASSIGNED_LAYER_MS, featured_weight)` | `PartyVector` | 스템 배정 시간 기반 |
@@ -429,7 +429,7 @@ manifest/
 |---|---|
 | `@mdrl/core` | 타입(Bps, Ratio, Money), Enum 레지스트리, JCS, digest, 커밋먼트, Ed25519 검증, 오류 모델 |
 | `@mdrl/parser` | 재귀 하강 파서, 텍스트 → AST → IR, `legacy-v1` 변환기 |
-| `@mdrl/facts` | facts 정적 검증, 그래프 투영, 기여 벡터 계산 |
+| `@mdrl/facts` | facts 정적 검증, 조합 지분 계산, 기여 벡터 계산 |
 | `@mdrl/allocation` | allocation 정적 검증, 평가기, `HIERARCHICAL_LRM_V1` |
 | `mdrl` (CLI) | `compile`, `verify`, `evaluate`, `diff` |
 
@@ -461,7 +461,7 @@ manifest/
 | 산출물 | 완료 | 남은 것 |
 |---|---|---|
 | 텍스트 문법 EBNF | allocation 문법(`spec/grammar/allocation.ebnf`, 어휘 규칙 포함), 12.37~12.39 | facts 텍스트 입력 문법(현재 facts는 표시 전용), constraint·grant·approval 문법 |
-| IR JSON 스키마 | `spec/schema/` envelope·facts IR·allocation IR, 투영 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |
+| IR JSON 스키마 | `spec/schema/` envelope·facts IR·allocation IR, 조합 지분 IR·안분 결과(형식 태그 포함, 12.48~12.49) | constraint·grant·approval IR 스키마 |
 | 오류 코드 목록 | `spec/error-codes.md`(구현 모듈 전체, 모든 코드가 테스트로 검증됨) | 미구현 모듈의 오류 코드 |
 
 ### 11.2 레퍼런스 구현 중 넘긴 과제 (12절에서 모음)
@@ -502,43 +502,43 @@ manifest/
 10. **알 수 없는 키**: 봉투와 facts의 모든 객체에서 JSON Schema가 `additionalProperties: false`로 막는 키는 코드 검증기도 `CORE_TYPE_ERROR`("unknown key")로 거부한다.
 11. **facts 공개본의 기본 등급(3.4 명확화)**: claim·mandate에 `visibility`가 없으면 문서의 `visibility_default`와 무관하게 `share`·`evidence`는 `PARTIES`로 취급해 커밋먼트로 치환한다. 원문 공개는 항목별로 `visibility: PUBLIC`을 명시해야 한다. 문서 단위 설정 실수로 계약 지분이 노출되는 것을 막기 위한 결정이다.
 12. **증명 서명 대상**: 서명 메시지는 `JCS({ctx:"mdrl-attest/1", signer, role, over, alg})`의 UTF-8 바이트다. digest만 서명하면 역할·서명자 바꿔치기가 가능하므로 함께 묶는다. `alg`는 `Ed25519`, 공개키도 Ed25519여야 한다.
-13. **분쟁 그룹의 합 검사**: DISPUTED claim이 하나라도 있는 그룹은 10000bps 합 검사에서 제외한다(몫 전체가 `@hold`). 정적 검증과 투영이 같은 규칙을 쓴다.
+13. **분쟁 그룹의 합 검사**: DISPUTED claim이 하나라도 있는 그룹은 10000bps 합 검사에서 제외한다(몫 전체가 `@hold`). 정적 검증과 조합 지분 계산이 같은 규칙을 쓴다.
 14. **정규형**: facts의 7개 엔티티 배열은 id 오름차순(코드 유닛 비교)이어야 하며 검증기가 강제한다(`CORE_TYPE_ERROR` "not sorted by id"). id와 참조 필드는 `^[A-Za-z0-9._-]+$`다. `u_digest`는 정규화된 u(스템별 `"n/d"`, 0 제외)에 대한 digest다.
-15. **투영 IR 생성**: 투영 IR은 `projectToIr` 하나로 생성한다(입력과 결과의 불일치 방지). `as_of`·`known_at`은 Instant 형식을 검증한다.
+15. **조합 지분 IR 생성**: 조합 지분 IR은 `projectToIr` 하나로 생성한다(입력과 결과의 불일치 방지). `as_of`·`known_at`은 Instant 형식을 검증한다.
 16. **위임 수령인의 청구권자 역할**: CMO→`CMO`, AGENCY→`AGENCY`, 그 외 kind는 원래 역할(예: WORK_AUTHOR 몫을 받는 PUBLISHER는 `WORK_AUTHOR`). 가중치 0인 party와 `@hold`는 청구권자가 아니다. 위임인의 위임 합이 10000bps를 넘으면 라우팅은 `FACTS_SUM_MISMATCH`로 실패한다.
 17. **공개본 검증 `validatePublicFacts`**: 구조 규칙은 원문 검증과 같고, `claim.share`·`claim.evidence`·`mandate.share`·`party.ids`는 원문 또는 커밋먼트를 허용한다. 합 불변식은 검사하지 않는다. `PRIVATE` party는 id·kind만 공개하고 `ids`는 커밋먼트로 치환한다(salt 경로 `$.body.parties.<id>.ids`).
 18. **문자열 인코딩**: 모든 문자열(값과 키)은 올바른 UTF-16이어야 한다. 고립 서로게이트는 `CORE_TYPE_ERROR`로 거부한다.
-19. **투영의 빈 역할과 보수적 합 검사**: 경로가 없는 역할은 `vectors`에 키가 없다(빈 벡터로 취급). 사용량이 없는 스템이나 무관한 그룹의 합 불일치도 투영을 막는다(의도된 보수적 규칙).
+19. **조합 지분의 빈 역할과 보수적 합 검사**: 경로가 없는 역할은 `vectors`에 키가 없다(빈 벡터로 취급). 사용량이 없는 스템이나 무관한 그룹의 합 불일치도 조합 지분 계산을 막는다(의도된 보수적 규칙).
 20. **권리 분쟁 중 팩 활성화 금지(사용자 결정, 2026-09-28)**: 팩이 사용하는 스템의 권리 경로에 `DISPUTED` claim 또는 mandate가 하나라도 유효하면 팩을 활성화할 수 없다. 현재(1-A)는 분쟁 당사자가 청구권자로 도출되지 않아 커버리지 검사(`FACTS_UNCOVERED_CLAIMANT`)로 간접 차단된다. 1-B에서는 활성화 판정에 전용 사유 코드(예: `FACTS_DISPUTE_OPEN`, 분쟁 claim·mandate id 목록 포함)를 추가해 차단 이유를 명시한다. 이미 발행된 조합의 정산은 기존대로 분쟁 몫을 `@hold`(`unallocated_holding`, `RIGHTS_DISPUTE`)로 보류한다.
 21. **allocation IR 형태(계획 1-B)**: `body = { scope{pack, events[], currency}, bind{time}, tier1{buckets[{name,bps}], rights}, tier2{split[{name,bps,role,vector}]}, rounding{method,tie} }`. 벡터 식은 `fn` 7종(`graph{role, via_mandate?}`, `contract{party}`, `member_pct`, `performance_pool{mode, fixed?, usage?, featured_weight?}`, `mix{parts[{weight, of}]}`, `cap{max, of}`, `floor_guarantee{min, of}`)이며 비율 인자는 bps 문자열이다. 스키마는 `spec/schema/allocation.ir.schema.json`. 텍스트 문법(5.2의 예시)은 1-C 파서가 이 IR로 변환한다.
-22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 투영의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
+22. **실연 풀 의미**: 풀 멤버는 발행 스냅샷 `members`(멤버 비율, 합 1)의 키다. `MEMBER_PCT` = 멤버 비율, `FIXED` = 멤버 균등, `USAGE_WEIGHTED` = `featured_weight·F + (1−featured_weight)·N`(F·N은 조합 지분의 PERFORMER_FEATURED·NON_FEATURED 벡터, 한쪽만 있으면 그 벡터), `HYBRID` = `fixed·FIXED + usage·USAGE_WEIGHTED`.
 23. **cap·floor_guarantee**: 반복 수위 채우기로 정확히 계산한다. `@hold`는 제한·보장·재분배 대상이 아니다. floor의 영역은 스냅샷 멤버와 벡터의 party 합집합이다. 조건을 만족하는 분배가 없으면 `ALLOC_INFEASIBLE`.
 24. **라인 역할과 순번**: line의 role은 party kind가 CMO·AGENCY면 그 kind, 아니면 버킷 role이다(12.16과 같은 규칙). `line_seq`는 평가 결과에서 `"1"`이고, 역분개 결과에서 k번째 역분개는 `k+1`이다(12.55).
 25. **보류 규칙**: 벡터의 `@hold` 몫은 `holding(RIGHTS_DISPUTE)`. `integrity = FLAGGED` 이벤트는 tier1은 그대로 기록하고 권리자 풀 전액을 `holding(bucket = tier1.rights, FRAUD_REVIEW)`로 보낸다. pool_line은 0원도 기록하고, 0원 line·holding은 만들지 않는다(trace에는 남는다).
 26. **이벤트 정규형**: 이벤트 배열은 id 엄격 오름차순, amount는 양의 정수 문자열(최소 통화 단위), type과 currency는 정책 scope 안이어야 한다(`ALLOC_SCOPE_MISMATCH`).
-27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 투영 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 투영할지는 호출자가 그 규칙대로 `as_of`를 정한다.
-28. **안분 커버리지**: 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
-29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다. 분쟁 위임은 투영된 권리자에서 출발해 역할별 위임 체인을 최대 2홉까지 따라가며 찾으므로, 체인 중간의 분쟁도 활성화를 막는다.
+27. **입력 결합**: `policy.depends_on`에 `vc:facts/<id>@<version>`과 그 facts digest가 있어야 하고, `projection.facts_digest`와 조합 지분 자기 digest가 일치해야 한다(`CORE_DIGEST_MISMATCH`). `bind.time`은 결과에 기록되며, 어떤 시점으로 조합 지분을 계산할지는 호출자가 그 규칙대로 `as_of`를 정한다.
+28. **안분 커버리지**: 실제 권리자가 있는 조합 지분 역할마다 그 역할을 다루는 버킷이 있어야 한다(`graph(role)`; `performance_pool`·`member_pct`는 실연 두 역할). 없으면 `ALLOC_UNCOVERED_CLAIMANT`.
+29. **활성화 판정 `checkActivation`**: 12.20의 규칙을 구현한다. 분쟁 claim·mandate id 목록을 담은 `FACTS_DISPUTE_OPEN`과 청구권자 커버리지 결과를 함께 반환하며, 빈 결과일 때만 활성화할 수 있다. 분쟁 위임은 조합 지분에 나타난 권리자에서 출발해 역할별 위임 체인을 최대 2홉까지 따라가며 찾으므로, 체인 중간의 분쟁도 활성화를 막는다.
 30. **1-B 범위 밖**: 템플릿 계승(`ALLOC_WIDENING`)과 다통화 정산은 후속 계획에서 다룬다. 역분개와 섀도 리포트는 1-E(12.53~12.57)에서 구현했다.
 31. **출력 순서 규칙**: pool_lines는 이벤트 순서 → tier1 버킷 순서, lines·holdings는 이벤트 순서 → tier2 버킷 순서 → party id 코드 유닛 오름차순, trace는 이벤트 순서 → `tier1`, `tier2`, `bucket:<name>`(split 순서). JS 객체 키 순서에 의존하지 않는다.
 32. **버킷 역할 일치**: graph 잎의 역할은 버킷 역할과 같아야 하고, 실연 풀·멤버 비율·실연 graph가 있으면 버킷 역할은 실연 역할이어야 한다. 위임 권리가 없는 역할에 via_mandate는 쓸 수 없다(`CORE_TYPE_ERROR`).
-33. **실연 커버리지(권리자 단위, 사용자 결정)**: 투영에서 실연 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다. `graph(PERFORMER_X)`는 역할 X에만 도달하고, `USAGE_WEIGHTED`·`HYBRID` 풀은 두 실연 역할 모두에 도달한다. 아니면 `ALLOC_UNCOVERED_CLAIMANT`(detail `R:party`, 역할 → party id 코드 유닛 오름차순, (역할, party) 쌍마다 한 번). 도달 판정은 구조적이다: 정책 작성자가 명시적으로 0으로 둔 가중치(예: HYBRID `usage: "0"`, `featured_weight: "10000"`, mix part `"0"`)는 의도된 정책으로 존중하며 오류로 보지 않는다.
-34. **실연 라인 역할(사용자 결정)**: 실연 버킷의 라인 역할은 투영에서 그 권리자가 가진 실연 역할(주실연/부실연)이며, 둘 다이거나 없으면 버킷 역할. CMO·AGENCY kind 규칙이 우선한다.
-35. **입력 검증**: 투영의 `as_of`·`known_at`은 Instant, digest류는 digest 형식이어야 한다. 진단 경로는 입력별 접두사(`$.facts`, `$.projection`, `$.snapshot`, `$.events[i]`)를 쓴다.
+33. **실연 커버리지(권리자 단위, 사용자 결정)**: 조합 지분에서 실연 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다. `graph(PERFORMER_X)`는 역할 X에만 도달하고, `USAGE_WEIGHTED`·`HYBRID` 풀은 두 실연 역할 모두에 도달한다. 아니면 `ALLOC_UNCOVERED_CLAIMANT`(detail `R:party`, 역할 → party id 코드 유닛 오름차순, (역할, party) 쌍마다 한 번). 도달 판정은 구조적이다: 정책 작성자가 명시적으로 0으로 둔 가중치(예: HYBRID `usage: "0"`, `featured_weight: "10000"`, mix part `"0"`)는 의도된 정책으로 존중하며 오류로 보지 않는다.
+34. **실연 라인 역할(사용자 결정)**: 실연 버킷의 라인 역할은 조합 지분에서 그 권리자가 가진 실연 역할(주실연/부실연)이며, 둘 다이거나 없으면 버킷 역할. CMO·AGENCY kind 규칙이 우선한다.
+35. **입력 검증**: 조합 지분의 `as_of`·`known_at`은 Instant, digest류는 digest 형식이어야 한다. 진단 경로는 입력별 접두사(`$.facts`, `$.projection`, `$.snapshot`, `$.events[i]`)를 쓴다.
 36. **식별자**: `constructor` 등 Object.prototype 이름도 유효한 id이며, 구현은 키 조회에 소유 속성만 사용한다(`__proto__`만 금지).
 37. **allocation 텍스트 문법(계획 1-C)**: 정본은 `spec/grammar/allocation.ebnf`. 블록은 `uses facts "<id>"@<v> digest "<d>";`, `visibility`, `scope`, `bind`, `tier1`, `tier2 <권리자 풀 버킷> { split { … } }`, `guard`, `exceptions`, `rounding`이다. scope·bind·tier1·tier2·rounding은 필수이고 블록 순서는 자유다. 비율은 `%`(소수 둘째 자리까지) 또는 `bps`(정수), id는 식별자 또는 따옴표 문자열, 주석은 `//`. 문법 오류는 `PARSE_SYNTAX`이며 경로는 `@줄:열`이다. 텍스트 입력은 allocation만 받고(사용자 결정), facts는 읽기 전용 텍스트로 표시만 한다.
-38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`만 있으면 r, 실연 부류 잎(실연 풀·멤버 비율·실연 graph)만 있으면 실연 graph 하나뿐일 때 그 역할, 그 밖의 실연 조합은 `PERFORMER_FEATURED`(실연 라인의 실제 역할은 12.34에 따라 투영에서 도출된다). `contract`는 역할을 정하지 않는다. 서로 다른 비실연 역할이 섞이거나 잎이 contract뿐이면 `PARSE_ROLE_REQUIRED`.
+38. **버킷 역할 추론(사용자 결정)**: `as ROLE`을 생략하면 벡터 식에서 추론한다. `graph(r)`만 있으면 r, 실연 부류 잎(실연 풀·멤버 비율·실연 graph)만 있으면 실연 graph 하나뿐일 때 그 역할, 그 밖의 실연 조합은 `PERFORMER_FEATURED`(실연 라인의 실제 역할은 12.34에 따라 조합 지분에서 도출된다). `contract`는 역할을 정하지 않는다. 서로 다른 비실연 역할이 섞이거나 잎이 contract뿐이면 `PARSE_ROLE_REQUIRED`.
 39. **guard·exceptions 블록**: 엔진의 고정 의미를 문서로 드러내는 선택 블록이며 IR에 남지 않는다. `require covered(all_claimants)`, `require sum(split) == 100%`, `on DISPUTED -> hold(DISPUTED_SHARE)`, `on FRAUD_FLAG -> hold(RIGHTS_POOL)`만 허용하고, 그 밖은 `PARSE_UNSUPPORTED`.
 40. **포매터**: `formatAllocation`은 IR을 정규 텍스트로 쓰며 `parseAllocation(formatAllocation(ir)) = ir`이다. guard·exceptions는 출력하지 않고, `as ROLE`은 추론 결과와 다를 때만 쓴다. `formatFacts`는 원문 facts를 4.1 스타일로 표시하며 파싱 대상이 아니다.
-41. **CLI**: `compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`·`help`. 결과 JSON은 stdout, 진단은 stderr에 `<CODE> <path> <message>` 한 줄씩, 종료 코드는 0(성공)·1(진단 실패)·2(사용법 오류). `evaluate`·`verify`는 투영을 입력으로 다시 계산하며 제공된 투영을 받지 않는다. 라이브러리에서는 `verifyProjection`이 같은 역할을 한다.
+41. **CLI**: `compile`·`fmt`·`check`·`project`·`evaluate`·`verify`·`activate`·`help`. 결과 JSON은 stdout, 진단은 stderr에 `<CODE> <path> <message>` 한 줄씩, 종료 코드는 0(성공)·1(진단 실패)·2(사용법 오류). `evaluate`·`verify`는 조합 지분을 입력으로 다시 계산하며 제공된 조합 지분을 받지 않는다. 라이브러리에서는 `verifyProjection`이 같은 역할을 한다.
 42. **공개본 검증 보강**: `visibility: PUBLIC` 항목의 share·evidence는 공개본에서도 원문이어야 하고, `ids` 객체(party·work·recording 모두)의 키 `commit`은 커밋먼트 표지로 예약되며, 커밋먼트는 PRIVATE party의 `ids`에만 허용한다(work·recording의 `ids`는 커밋할 수 없다).
 43. **오류 코드 커버리지**: 모든 오류 코드는 테스트나 적합성 기대값에서 단언되어야 한다(`test/error-catalog.test.ts`). 도달 불가 방어 코드(`ALLOC_ROUNDING_INVARIANT`)만 이유와 함께 예외로 둔다.
 44. **1-C 범위 밖**: legacy-v1 변환기(사용자 결정으로 연기), facts 텍스트 입력, `diff` 명령, 결과 IR의 JSON Schema·버전 태그, 설치형 배포(Node는 `node_modules` 안의 `.ts`를 실행하지 않으므로 배포 전 빌드 단계가 필요하다).
 45. **via_mandate 정규형**: IR의 `graph.via_mandate`는 `true`이거나 생략해야 한다. `false`는 생략과 의미가 같으므로 검증기와 스키마가 거부한다(같은 의미에 IR 형태가 하나여야 digest가 갈라지지 않고 텍스트 왕복이 성립한다).
 46. **입력 형태와 CLI 안전장치**: `projectVectors`는 객체가 아닌 usage를 `FACTS_USAGE_INVALID`(`$.usage`)로, `checkActivation`은 형태가 틀린 선언 청구권자를 `CORE_TYPE_ERROR`(`$.declared…`)로 돌려준다. CLI는 파일을 읽기 전에 명령별 필수 옵션을 모두 확인하고(종료 코드 2), 명령 이름은 소유 속성으로만 조회하며, `compile`은 `.mdrl` 파일만 받는다. 예상하지 못한 예외는 한 줄 진단 `CORE_TYPE_ERROR $ unexpected error: …`와 종료 코드 1로 바꾼다.
 47. **검증기와 파서의 공통 한도·의존 범위**: 벡터 식 중첩 깊이는 파서와 검증기가 같은 한도(64)를 쓰며, v1.0의 안분 정책은 facts에만 의존할 수 있다(grant·approval 의존은 해당 모듈 구현 시 문법 `uses <module> …`과 함께 연다). facts 텍스트 표시는 자유 텍스트의 제어·양방향 문자를 이스케이프한다. JSON 중첩 깊이는 정규화 단계에서 256으로 제한한다(초과 시 CORE_TYPE_ERROR).
-48. **결과 IR 형식 태그 (계획 1-D)**: 투영 IR은 `"format": "mdrl-projection/1"`, 안분 평가 결과는 `"format": "mdrl-allocation-result/1"`을 갖는다. 형식 태그는 봉인 본문에 포함된다(형식 버전을 바꿔 끼울 수 없다). 안분 결과의 봉인 본문은 `trace`와 `result_digest`를 뺀 전체(입력 digest, `bind_time`, `pool_lines`, `lines`, `holdings`, `run_id`, `format`)이며, `trace`는 설명용 자료로 봉인 밖에 있고 재계산으로만 확인한다(12.50). 투영 IR은 `digest`를 뺀 전체가 봉인 본문이다. 형식 버전 `/N`은 봉인 본문의 표현이나 봉인 범위가 바뀔 때만 올리며, 언어 버전(`mdrl: "1.0"`)과는 독립이다. 평가기는 다른 `format`의 투영을 `CORE_TYPE_ERROR`(`$.projection.format`)로 거부한다. 도입으로 적합성 기대값의 digest만 바뀌고 금액·라인·보류는 그대로다.
-49. **결과 IR 스키마**: `spec/schema/projection.ir.schema.json`, `spec/schema/allocation.result.schema.json`(JSON Schema 2020-12, `package.json`의 `./spec/*` export로 설치 후에도 참조 가능). 적합성 케이스의 투영·평가 결과가 스키마를 통과해야 한다(`trace`는 선택 필드)(테스트가 강제).
+48. **결과 IR 형식 태그 (계획 1-D)**: 조합 지분 IR은 `"format": "mdrl-projection/1"`, 안분 평가 결과는 `"format": "mdrl-allocation-result/1"`을 갖는다. 형식 태그는 봉인 본문에 포함된다(형식 버전을 바꿔 끼울 수 없다). 안분 결과의 봉인 본문은 `trace`와 `result_digest`를 뺀 전체(입력 digest, `bind_time`, `pool_lines`, `lines`, `holdings`, `run_id`, `format`)이며, `trace`는 설명용 자료로 봉인 밖에 있고 재계산으로만 확인한다(12.50). 조합 지분 IR은 `digest`를 뺀 전체가 봉인 본문이다. 형식 버전 `/N`은 봉인 본문의 표현이나 봉인 범위가 바뀔 때만 올리며, 언어 버전(`mdrl: "1.0"`)과는 독립이다. 평가기는 다른 `format`의 조합 지분을 `CORE_TYPE_ERROR`(`$.projection.format`)로 거부한다. 도입으로 적합성 기대값의 digest만 바뀌고 금액·라인·보류는 그대로다.
+49. **결과 IR 스키마**: `spec/schema/projection.ir.schema.json`, `spec/schema/allocation.result.schema.json`(JSON Schema 2020-12, `package.json`의 `./spec/*` export로 설치 후에도 참조 가능). 적합성 케이스의 조합 지분·평가 결과가 스키마를 통과해야 한다(`trace`는 선택 필드)(테스트가 강제).
 50. **결과 검증 API**: `verifyAllocationResult(input, given)`는 제공된 결과를 신뢰하지 않고 입력으로 다시 평가해 대조한다. `given`이 객체가 아니면 `CORE_TYPE_ERROR`(`$.result`), `format`이 다르면 `CORE_TYPE_ERROR`(`$.result.format`), `projection_digest`·`result_digest`가 다르거나 내용이 재계산 결과와 다르면 `CORE_DIGEST_MISMATCH`. `given`에 `trace`가 있으면 재계산한 trace와 대조해 다르면 `CORE_DIGEST_MISMATCH`(`$.result.trace`). CLI `verify`는 이 함수를 쓴다. CLI 진단 출력은 경로·메시지의 제어·줄 구분·양방향 문자를 `\uXXXX`로 이스케이프한다.
 51. **배포용 빌드**: `tsconfig.build.json`(src·bin만, `rewriteRelativeImportExtensions`)으로 `dist/`에 JS·`.d.ts`·소스맵을 낸다. `package.json`의 `exports`는 `./core`·`./facts`·`./allocation`·`./text`(`types`·`default` 조건으로 `dist`를 가리킴)와 `./spec/*`·`./package.json`이고, `bin`은 `dist/bin/mdrl.js`, `files`는 `dist`와 `spec`, `prepack`은 빌드다. `private: true`는 유지한다. 개발·테스트는 계속 `src/*.ts`를 직접 실행한다. 배포 채널은 시스템 통합에서 정한다.
 52. **패키지 스모크 테스트**: `npm pack`한 tarball을 임시 디렉터리에 설치해 네 진입점 import, 설치된 `mdrl` CLI의 `compile`·`evaluate`, 설치된 CLI의 `verify`(정상 통과, 변조 시 종료 1), 스키마·`package.json` export 해석, 타입 선언 소비(`tsc`)를 확인하고 결과 digest가 적합성 기대값과 같은지 본다. 네트워크 없이 도는 별도 스크립트(`npm run smoke`)로 두고 `npm test`에는 넣지 않는다.

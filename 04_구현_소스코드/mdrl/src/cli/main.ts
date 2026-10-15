@@ -162,7 +162,7 @@ function project(io: Io, o: Opts): ProjectionIr {
   return r.value;
 }
 
-/** evaluate·verify 공통 입력. 투영은 파일로 받지 않고 facts·usage·시점으로 계산한다. */
+/** evaluate·verify 공통 입력. 조합 지분은 파일로 받지 않고 facts·usage·시점으로 계산한다. */
 function verificationInput(io: Io, o: Opts): VerificationInput {
   return {
     policy: loadPolicy(io, need(o, "policy")),

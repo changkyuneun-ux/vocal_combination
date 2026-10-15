@@ -54,7 +54,7 @@ export function loadFactsCase(name: string): BasicInput {
   return JSON.parse(readFileSync(new URL(`../conformance/facts/${name}/input.json`, import.meta.url), "utf8"));
 }
 
-/** 할당 케이스의 facts 케이스로 투영 IR을 만들어 평가기 입력을 구성한다. */
+/** 할당 케이스의 facts 케이스로 조합 지분 IR을 만들어 평가기 입력을 구성한다. */
 export function evaluationInput(c: AllocationCase): EvaluationInput {
   const f = loadFactsCase(c.facts_case);
   const p = projectToIr(f.facts, f.usage, f.as_of, f.known_at);

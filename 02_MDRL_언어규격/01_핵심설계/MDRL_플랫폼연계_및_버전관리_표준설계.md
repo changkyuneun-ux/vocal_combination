@@ -111,13 +111,13 @@ flowchart LR
 
 ### 3.1 봉인 단계 및 IR 라이프사이클 마스터 표
 
-모든 IR은 JSON이며 JCS 정규화 후 SHA-256으로 digest를 만든다. "종류 표시" 열은 파일을 열었을 때 어떤 IR인지 알려 주는 필드다. facts·정책은 머리 필드(`mdrl`·`module`·`id`·`version`·`depends_on`·`visibility_default`) 아래 `body`를 두는 객체이고 `module` 값으로 알아본다. 투영·결과·manifest는 최상위 `format` 문자열로 알아본다. 멤버(객체)·매출(배열)은 표시가 없어 봉인 레코드의 `sealed_document.kind`로만 구분한다.
+모든 IR은 JSON이며 JCS 정규화 후 SHA-256으로 digest를 만든다. "종류 표시" 열은 파일을 열었을 때 어떤 IR인지 알려 주는 필드다. facts·정책은 머리 필드(`mdrl`·`module`·`id`·`version`·`depends_on`·`visibility_default`) 아래 `body`를 두는 객체이고 `module` 값으로 알아본다. 조합 지분·결과·manifest는 최상위 `format` 문자열로 알아본다. 멤버(객체)·매출(배열)은 표시가 없어 봉인 레코드의 `sealed_document.kind`로만 구분한다.
 
 | 봉인 | IR 종류 | 종류 표시(최상위 JSON 모양) | 만드는 때 | 담는 내용 | 생성 위치 및 주체 | 산출물 및 봉인 대상 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **S1** | **facts IR** | `module: "facts"`<br>(객체: 머리 필드 + `body`) | 정책 컴파일<br>(1~2단계) | 주체·작품·녹음·보이스·스템, 권리 주장·위임<br>(계산식 없음) | • **UI/화면**: 백오피스 작품/녹음/보이스 등록, 권리자 포털<br>• **엔진 모듈**: `rights-core/src/engine-bridge/convert-facts.ts`<br>• **생성 주체**: 기획사 관리자 / 저작권자 (`SPACE_EDITOR`) | 곡당 1개<br>(`sealed_document`, kind=`facts`) |
 | **S2** | **정책 IR<br>(allocation)** | `module: "allocation"`<br>(객체: 머리 필드 + `body`) | 정책 컴파일<br>(2~3단계) | 1·2차 분배율, 벡터 식, 반올림, 참조하는 facts digest | • **UI/화면**: 백오피스 MDRL 정책 편집기 (`PolicyDetail.tsx`)<br>• **엔진 모듈**: `rights-core/src/policy/service.ts`, `mdrl/src/text`<br>• **생성 주체**: 기획사 / 마스터 권리자 (`SPACE_EDITOR`) | 정책 버전당 1개<br>(`sealed_document`, kind=`allocation`) |
-| **S3-a** | **투영 IR<br>(projection)** | `format: "mdrl-projection/1"`<br>(객체) | 조합 발행<br>(6단계) | 발행 시각 기준 역할별 기여 벡터와 권리 경로<br>(쓰인 스템의 사용 시간 반영) | • **UI/화면**: dobedupop 팬 조합 발행 API (`/combos/issue`)<br>• **엔진 모듈**: `rights-core/src/engine-bridge/issue.ts` (`buildProjection`)<br>• **생성 주체**: 팬(사용자)의 보컬 조합 발행 트랜잭션 | 조합당 1개<br>(`sealed_document`, kind=`projection`) |
+| **S3-a** | **조합 지분 IR<br>(projection)** | `format: "mdrl-projection/1"`<br>(객체) | 조합 발행<br>(6단계) | 발행 시각 기준 역할별 기여 벡터와 권리 경로<br>(쓰인 스템의 사용 시간 반영) | • **UI/화면**: dobedupop 팬 조합 발행 API (`/combos/issue`)<br>• **엔진 모듈**: `rights-core/src/engine-bridge/issue.ts` (`buildProjection`)<br>• **생성 주체**: 팬(사용자)의 보컬 조합 발행 트랜잭션 | 조합당 1개<br>(`sealed_document`, kind=`projection`) |
 | **S3-b** | **멤버 IR<br>(members)** | 없음<br>(객체 `{"members": {party: "n/d"}}`, 기약 유리수, 합 1) | 조합 발행<br>(6단계) | 보컬리스트별 참여 멤버 비율 | • **UI/화면**: dobedupop 팬 조합 발행 API (`/combos/issue`)<br>• **엔진 모듈**: `rights-core/src/engine-bridge/issue.ts` (`membersIr`)<br>• **생성 주체**: 팬(사용자)의 보컬 선택 비율 | 조합당 1개<br>(`sealed_document`, kind=`members`) |
 | **S4** | **매출 IR(events) +<br>정산 결과 IR** | 매출: 없음(배열)<br>결과: `format: "mdrl-allocation-result/1"`(객체) | 정산 run<br>(8~9단계) | 입력 매출 이벤트, 풀·라인·보류, `result_digest` | • **UI/화면**: 백오피스 정산 배치 실행기, 백그라운드 정산 워커<br>• **엔진 모듈**: `rights-core/src/settlement/service.ts`, `engine-bridge/settle.ts`<br>• **생성 주체**: 플랫폼 정산 운영자 (`SPACE_OPS`) | run당 1쌍<br>(`sealed_document`, kind=`events` & `allocation_result`) |
 | **S4-r** | **역분개 결과 IR<br>(reversal_result)** | `format: "mdrl-reversal-result/1"`<br>(객체) | 확정 후 환불 | 원 라인을 되돌리는 음수 라인 | • **UI/화면**: PG 결제 취소 웹훅, 백오피스 환불 집행기<br>• **엔진 모듈**: `rights-core/src/engine-bridge/reverse.ts` (`reverseEvent`)<br>• **생성 주체**: 정산 확정자 (`SPACE_SETTLE`) | 환불당 1개<br>(`sealed_document`, kind=`reversal_result`) |
@@ -127,7 +127,7 @@ flowchart LR
 
 1. **S3 발행 봉인의 참조 불변성 (Digest Pointers)**:
    * 팬이 보컬 조합 음원을 발행(`S3`)할 때, facts IR(`S1`)과 정책 IR(`S2`)은 새로 복사하거나 중복 저장하지 않습니다.
-   * 이미 봉인된 **S1의 digest(`facts_digest`)**와 **S2의 digest(`policy_digest`)**를 포인터로 참조하며, 발행 시점에 동적으로 계산되는 **투영 IR(`S3-a`)**과 **멤버 IR(`S3-b`)**만 새롭게 생성하여 봉인합니다.
+   * 이미 봉인된 **S1의 digest(`facts_digest`)**와 **S2의 digest(`policy_digest`)**를 포인터로 참조하며, 발행 시점에 동적으로 계산되는 **조합 지분 IR(`S3-a`)**과 **멤버 IR(`S3-b`)**만 새롭게 생성하여 봉인합니다.
    * 이 4개의 Digest가 단일 트랜잭션으로 **`issue_seal` 행에 영구 동결**되며, 이후 원곡 권리자가 지분을 수정하거나 기획사가 정책을 개정하더라도 **기존 발행된 조합 음원의 정산 규칙은 100% 영구 불변**합니다.
 
 2. **S5 감사 매니페스트를 통한 Zero-Trust 무신뢰 검증**:

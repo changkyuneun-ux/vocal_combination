@@ -199,8 +199,8 @@ const claimantsOf = (vec: PartyVector | undefined): string[] =>
   vec === undefined ? [] : sortedEntries(vec).filter(([k, w]) => k !== HOLD && w.n !== 0n).map(([k]) => k);
 
 /**
- * 커버리지(스펙 12.33): 실제 권리자가 있는 투영 역할마다 그 역할을 다루는 버킷이 있어야 하고,
- * 투영에서 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다.
+ * 커버리지(스펙 12.33): 실제 권리자가 있는 조합 지분 역할마다 그 역할을 다루는 버킷이 있어야 하고,
+ * 조합 지분에서 역할 R로 지분이 있는 실연자는 스냅샷 멤버이거나 R에 도달하는 사용량 기반 실연 소스로 배분되어야 한다.
  */
 function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members: PartyVector): Diagnostic[] {
   const covered = new Set<ClaimantRole>();
@@ -249,7 +249,7 @@ function checkCoverage(split: readonly SplitBucket[], vectors: Vectors, members:
 type LineRole = (party: string, bucketRole: ClaimantRole) => ClaimantRole;
 
 /**
- * 라인 역할 규칙: (1) CMO·AGENCY kind는 그 역할(스펙 12.16), (2) 실연 버킷이면 투영에서 그 권리자가
+ * 라인 역할 규칙: (1) CMO·AGENCY kind는 그 역할(스펙 12.16), (2) 실연 버킷이면 조합 지분에서 그 권리자가
  * 한 실연 역할에만 지분이 있을 때 그 역할(스펙 12.34), 둘 다이거나 없으면 버킷 역할, (3) 그 외는 버킷 역할.
  */
 function lineRoles(kinds: ReadonlyMap<string, string>, vectors: Vectors): LineRole {

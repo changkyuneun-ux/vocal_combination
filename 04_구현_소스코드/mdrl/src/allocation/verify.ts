@@ -7,11 +7,11 @@ import { projectToIr } from "../facts/result.ts";
 import { evaluate, type EvaluationInput } from "./evaluate.ts";
 import { ALLOCATION_RESULT_FORMAT } from "./types.ts";
 
-/** 결과 검증 입력: 투영은 받지 않고 facts·usage·시점으로 다시 계산한다. */
+/** 결과 검증 입력: 조합 지분은 받지 않고 facts·usage·시점으로 다시 계산한다. */
 export type VerificationInput = Omit<EvaluationInput, "projection"> & { usage: Usage; asOf: Instant; knownAt: Instant };
 
 /**
- * 제공된 안분 결과를 신뢰하지 않고 입력으로 투영과 평가를 다시 계산해 대조한다(스펙 12.50).
+ * 제공된 안분 결과를 신뢰하지 않고 입력으로 조합 지분과 평가를 다시 계산해 대조한다(스펙 12.50).
  * 일치하면 빈 배열을 돌려주고, 예외를 던지지 않는다.
  */
 export function verifyAllocationResult(input: VerificationInput, given: unknown): Diagnostic[] {

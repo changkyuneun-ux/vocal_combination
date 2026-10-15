@@ -23,7 +23,7 @@ export const ERROR_CODES = {
   ALLOC_WEIGHT_MISMATCH: "가중치 합이 10000bps(또는 1)가 아니다",
   ALLOC_MODE_REQUIRED: "performance_pool의 mode와 모드별 필수 가중치를 명시해야 한다",
   ALLOC_DUPLICATE_NAME: "버킷 이름 또는 배분 키가 중복된다",
-  ALLOC_UNCOVERED_CLAIMANT: "투영에서 도출된 청구권자(역할 또는 실연자)를 어느 버킷도 다루지 않는다",
+  ALLOC_UNCOVERED_CLAIMANT: "조합 지분에서 도출된 청구권자(역할 또는 실연자)를 어느 버킷도 다루지 않는다",
   ALLOC_INFEASIBLE: "cap·floor_guarantee 조건을 만족하는 분배가 없다",
   ALLOC_SCOPE_MISMATCH: "매출 이벤트가 정책 범위(이벤트 유형·통화)를 벗어난다",
   ALLOC_EMPTY_VECTOR: "배분할 벡터가 비어 있다",

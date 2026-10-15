@@ -4,7 +4,7 @@
 
 **Goal:** MDRL 엔진을 실제 PostgreSQL 위의 권리 코어 백엔드(`rights-core`)에 연결해, 권리 등록 → 정책 컴파일·승인·활성화 → 팩 활성화 → 조합 발행(봉인)까지를 최소 HTTP API와 시나리오 러너(합성 곡 1개·1만 조합, 전수 재도출 감사)로 증명한다.
 
-**Architecture:** Node·TypeScript 모듈형 모놀리스. `routes → service → repo(SQL)` 계층, 모듈 사이는 service 함수로만 호출한다. `mdrl`을 import하는 곳은 `src/engine-bridge/`뿐이다. 관계형 행이 원본이고, 결정 입력(정책 IR·facts IR·투영·멤버)은 행에서 결정적으로 만들어 digest로 봉인한 문서(`sealed_document` + 파일시스템 blob)만 쓴다.
+**Architecture:** Node·TypeScript 모듈형 모놀리스. `routes → service → repo(SQL)` 계층, 모듈 사이는 service 함수로만 호출한다. `mdrl`을 import하는 곳은 `src/engine-bridge/`뿐이다. 관계형 행이 원본이고, 결정 입력(정책 IR·facts IR·조합 지분·멤버)은 행에서 결정적으로 만들어 digest로 봉인한 문서(`sealed_document` + 파일시스템 blob)만 쓴다.
 
 **Tech Stack:** Node.js ≥ 24(TypeScript 직접 실행), TypeScript 5.9(`erasableSyntaxOnly`, 타입검사 전용), `node:test`, Fastify 5, node-postgres(`pg`) 8, PostgreSQL 17(Docker Compose), npm workspaces(`mdrl`, `rights-core`).
 
@@ -2370,7 +2370,7 @@ function buildProjection(facts: FactsDocument, usageMs: Record<string, number>, 
   return r.value;
 }
 
-/** S3: 정책이 고정한 facts와 스냅샷 사용량·멤버 비율로 투영을 만들고 봉인한다. as_of = known_at = 발행 시각(9.3-6). */
+/** S3: 정책이 고정한 facts와 스냅샷 사용량·멤버 비율로 조합 지분을 만들고 봉인한다. as_of = known_at = 발행 시각(9.3-6). */
 export async function sealIssue(
   ctx: BridgeCtx, tx: Tx,
   input: { snapshotId: string; factsDigest: string; policyDigest: string; usageMs: Record<string, number>; members: Record<string, number>; issuedAt: string },
@@ -2386,7 +2386,7 @@ export async function sealIssue(
   return { snapshotId: input.snapshotId, factsDigest: input.factsDigest, policyDigest: input.policyDigest, projectionDigest: p.digest, membersDigest: m.digest, asOf: input.issuedAt, knownAt: input.issuedAt };
 }
 
-/** 감사: 스냅샷 행과 봉인된 facts로 투영·멤버 IR을 다시 만들어 발행 봉인과 대조한다. 봉인을 새로 쓰지 않는다. */
+/** 감사: 스냅샷 행과 봉인된 facts로 조합 지분·멤버 IR을 다시 만들어 발행 봉인과 대조한다. 봉인을 새로 쓰지 않는다. */
 export async function rederiveIssue(ctx: BridgeCtx, tx: Tx, snapshotId: string) {
   const s = (await tx.query("SELECT * FROM issue_seal WHERE snapshot_id = $1", [snapshotId])).rows[0];
   if (s === undefined) throw notFound("issue seal", snapshotId);
@@ -2720,7 +2720,7 @@ export async function closeDispute(tx: Tx, clock: Clock, input: { disputeId: str
 
 `rights-core/src/engine-bridge/activation.ts`에 추가(import에 `deriveClaimants`, `projectVectors`를 `mdrl/facts`에서, `invalid`를 errors에서 추가):
 ```ts
-/** 투영에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
+/** 조합 지분에서 파생한 청구권자 집합(정렬된 "ROLE:party"). 재고정 판정에 쓴다(통합 설계 3.3). */
 export async function claimantSet(ctx: BridgeCtx, tx: Tx, factsDigest: string, at: string): Promise<string[]> {
   const facts = await loadFacts(ctx, tx, factsDigest);
   const projection = projectVectors(facts, fullUsage(facts.body.stems), at, at);
@@ -3143,7 +3143,7 @@ test("reduced scenario (200 combinations): all seals re-derive, dispute flow pas
   assert.equal(r.auditMismatches, 0);
   assert.equal(r.factsRederiveOk, true);
   assert.equal(r.disputeFlowOk, true);
-  // 투영 IR에는 as_of(발행 시각)가 들어가므로 발행마다 digest가 다르다. 같은 조합은 벡터·경로만 같다.
+  // 조합 지분 IR에는 as_of(발행 시각)가 들어가므로 발행마다 digest가 다르다. 같은 조합은 벡터·경로만 같다.
   assert.equal(r.distinctProjections, r.issued);
   assert.ok(r.distinctVectorSets >= 2 && r.distinctVectorSets <= 81, String(r.distinctVectorSets));
   assert.ok(r.p95Ms > 0);
@@ -3277,7 +3277,7 @@ import { SONG, seedSyntheticSong } from "./synthetic-song.ts";
 
 export type ScenarioReport = {
   issued: number; p50Ms: number; p95Ms: number; maxMs: number; totalMs: number;
-  /** 서로 다른 투영 digest 수(as_of가 발행마다 달라 issued와 같아야 한다). */
+  /** 서로 다른 조합 지분 digest 수(as_of가 발행마다 달라 issued와 같아야 한다). */
   distinctProjections: number;
   /** 서로 다른 (vectors, paths) 조합 수 = 실질적으로 다른 조합 수(멤버 3명·슬롯 4개면 최대 81). */
   distinctVectorSets: number;
@@ -3423,7 +3423,7 @@ Expected: scenario 2 PASS, 전체 fail 0, `TSC_OK`.
 - [ ] **Step 5: 1만 조합 실행**
 
 Run: `cd rights-core && npm run scenario 2>&1 | tail -15`
-Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁 흐름의 발행 1건은 감사 뒤에 일어나므로 세지 않는다), `distinctProjections` 10000, `distinctVectorSets` 81 이하, `auditMismatches` 0, `factsRederiveOk` true, `disputeFlowOk` true. p95가 100ms를 넘으면 리포트 값과 함께 원인(쿼리 수, blob 쓰기, 투영 계산)을 기록한다 — 테스트를 느슨하게 만들지 않는다.
+Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁 흐름의 발행 1건은 감사 뒤에 일어나므로 세지 않는다), `distinctProjections` 10000, `distinctVectorSets` 81 이하, `auditMismatches` 0, `factsRederiveOk` true, `disputeFlowOk` true. p95가 100ms를 넘으면 리포트 값과 함께 원인(쿼리 수, blob 쓰기, 조합 지분 계산)을 기록한다 — 테스트를 느슨하게 만들지 않는다.
 
 - [ ] **Step 6: 결과 기록**
 
@@ -3438,7 +3438,7 @@ Expected: JSON 리포트와 마지막 줄 `SCENARIO PASS`. `issued` 10000(분쟁
 | 등록 순서 무관(시드 3개) | 통과 |
 | 1만 조합 발행 | <issued>건, 총 <totalMs>ms |
 | 발행 지연 p50 / p95 / max | <p50> / <p95> / <max> ms (목표 p95 ≤ 100ms: 충족/미충족) |
-| 서로 다른 투영 digest / 서로 다른 벡터·경로 조합 | <distinctProjections>개 / <distinctVectorSets>개 |
+| 서로 다른 조합 지분 digest / 서로 다른 벡터·경로 조합 | <distinctProjections>개 / <distinctVectorSets>개 |
 | 발행 봉인 전수 재도출 불일치 | <auditMismatches>건 |
 | facts 재봉인 대조 | 통과/실패 |
 | 분쟁 → 일시정지 → 종결 → 재고정 → 재발행 | 통과/실패 |

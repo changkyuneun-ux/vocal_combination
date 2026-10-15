@@ -13,7 +13,7 @@ import type { IssueAudit } from "../../api/types.ts";
 type Share = { role: string; party: string; share: string };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** 투영 봉인의 vectors({역할: {party: "n/d"}})를 권리자별 몫 행으로 편다. */
+/** 조합 지분 봉인의 vectors({역할: {party: "n/d"}})를 권리자별 몫 행으로 편다. */
 function shares(projection: unknown): Share[] {
   if (!isObj(projection) || !isObj(projection.vectors)) return [];
   return Object.entries(projection.vectors).flatMap(([role, v]) =>
@@ -80,7 +80,7 @@ export function IssueDetail() {
               <tbody>
                 <tr><td>facts</td><td><SealLink digest={a.expected.factsDigest} label="facts" /></td></tr>
                 <tr><td>정책</td><td><SealLink digest={a.expected.policyDigest} label="policy" /></td></tr>
-                <tr><td>투영</td><td><SealLink digest={a.expected.projectionDigest} label="투영" /></td></tr>
+                <tr><td>조합 지분</td><td><SealLink digest={a.expected.projectionDigest} label="조합 지분" /></td></tr>
                 <tr><td>멤버</td><td><SealLink digest={a.expected.membersDigest} label="멤버" /></td></tr>
               </tbody>
             </table>
@@ -90,7 +90,7 @@ export function IssueDetail() {
             <table className="data">
               <thead><tr><th scope="col">항목</th><th scope="col">봉인된 값</th><th scope="col">재도출 값</th><th scope="col">결과</th></tr></thead>
               <tbody>
-                <tr><td>투영</td><td><Digest value={a.expected.projectionDigest} label="대조 투영 봉인" /></td><td><Digest value={a.recomputed.projectionDigest} label="대조 투영 재도출" /></td>
+                <tr><td>조합 지분</td><td><Digest value={a.expected.projectionDigest} label="대조 조합 지분 봉인" /></td><td><Digest value={a.recomputed.projectionDigest} label="대조 조합 지분 재도출" /></td>
                   <td><Match ok={a.expected.projectionDigest === a.recomputed.projectionDigest} /></td></tr>
                 <tr><td>멤버</td><td><Digest value={a.expected.membersDigest} label="대조 멤버 봉인" /></td><td><Digest value={a.recomputed.membersDigest} label="대조 멤버 재도출" /></td>
                   <td><Match ok={a.expected.membersDigest === a.recomputed.membersDigest} /></td></tr>
@@ -99,7 +99,7 @@ export function IssueDetail() {
           </Section>
           <Section title="분배 결과 표">
             <ErrorPanel error={projection.error} />
-            <DataTable<Share> rows={shares(projection.data)} empty="투영의 권리자별 몫이 없습니다."
+            <DataTable<Share> rows={shares(projection.data)} empty="조합 지분의 권리자별 몫이 없습니다."
               columns={[{ key: "role", label: "역할" }, { key: "party", label: "권리자" }, { key: "share", label: "몫(역할 안 비율)" }]} />
           </Section>
           <Section title="멤버 비율">

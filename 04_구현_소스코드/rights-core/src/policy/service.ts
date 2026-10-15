@@ -74,7 +74,7 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   if (row.status !== "APPROVED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
   await requireNotSigned(tx, row.policyDigest, actor);
   const pack = await packRow(tx, row.packId, "SHARE"); // 판정과 활성화 사이에 청구권자 교체를 막는다
-  // checkActivation은 투영 경로 위의 분쟁만 본다. 범위에 열린 분쟁이 하나라도 있으면 경로와 무관하게 거부한다.
+  // checkActivation은 조합 지분 경로 위의 분쟁만 본다. 범위에 열린 분쟁이 하나라도 있으면 경로와 무관하게 거부한다.
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const diags = await checkPackActivation(ctx, tx, { factsDigest: row.factsDigest, declared: await declaredClaimants(tx, row.packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `${ref.policyId}@${ref.version} cannot be activated`, diags);
