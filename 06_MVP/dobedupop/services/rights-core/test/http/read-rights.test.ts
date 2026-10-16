@@ -45,7 +45,8 @@ test("/me and /users", async () => {
   const byId = new Map<string, any>(users.items.map((u: any) => [u.userId, u]));
   assert.deepEqual(byId.get("usr_ops").roles, ["SPACE_OPS"]);
   assert.deepEqual(byId.get("sys_settler").roles, ["SYSTEM"]);
-  assert.deepEqual(Object.keys(byId.get("usr_ops")).sort(), ["displayName", "roles", "userId"]);
+  // 온보딩 화면용 필드(소속·로그인 준비 상태). 비밀번호·토큰 값은 없다.
+  assert.deepEqual(Object.keys(byId.get("usr_ops")).sort(), ["disabled", "displayName", "hasPassword", "identityVerified", "lastLoginAt", "partyId", "roles", "tenantId", "tenantName", "totpEnabled", "userId"]);
   assert.deepEqual(users.items.map((u: any) => u.userId), [...byId.keys()].sort());
   assert.equal(users.next, null);
 });
@@ -80,7 +81,7 @@ test("/parties (paging, type filter), /works", async () => {
   assert.deepEqual(seen, everything.map((p: any) => p.partyId));
   assert.equal(new Set(seen).size, seen.length);
   assert.equal(sizes[sizes.length - 1], seen.length % 3 || 3);
-  assert.deepEqual(Object.keys(everything[0]).sort(), ["createdAt", "displayName", "ipiNo", "isni", "partyId", "partyType"]);
+  assert.deepEqual(Object.keys(everything[0]).sort(), ["createdAt", "displayName", "ipiNo", "isni", "partyId", "partyType", "tenantId"]);
   const labels = await ok("/parties?type=LABEL");
   assert.ok(labels.items.length > 0 && labels.items.every((p: any) => p.partyType === "LABEL"));
   const works = await ok("/works");

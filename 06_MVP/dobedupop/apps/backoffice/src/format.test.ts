@@ -18,8 +18,9 @@ describe("format", () => {
     expect(shortDigest("mdrl:sha256:abcdef0123456789ffff")).toBe("abcdef012345");
     expect(shortDigest("abcdef0123456789")).toBe("abcdef012345");
   });
-  it("formatInstant keeps UTC", () => {
-    expect(formatInstant("2026-03-01T10:00:00.000Z")).toBe("2026-03-01 10:00:00.000Z");
+  it("formatInstant shows a readable UTC minute", () => {
+    expect(formatInstant("2026-03-01T10:00:05.123Z")).toBe("2026-03-01 10:00 UTC");
+    expect(formatInstant("not a time")).toBe("not a time");
   });
   it("sumKrw", () => {
     expect(sumKrw(["1", "-3", "10"])).toBe("8");

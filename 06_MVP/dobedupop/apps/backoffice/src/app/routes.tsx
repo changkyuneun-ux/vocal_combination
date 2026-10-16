@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
+import { AccountsPage, TenantDetailPage, TenantsPage } from "../pages/admin/Onboarding.tsx";
 import { Dashboard } from "../pages/dashboard/Dashboard.tsx";
 import { Parties } from "../pages/registry/Parties.tsx";
 import { Assets } from "../pages/registry/Assets.tsx";
@@ -73,6 +74,9 @@ const rightsRoutes: RouteDef[] = [
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
 const opsRoutes: RouteDef[] = [
   { path: "/", title: "⑧ 권리 파이프라인 관제", element: <Pipeline /> },
+  { path: "/admin/tenants", title: "테넌트", element: <TenantsPage /> },
+  { path: "/admin/tenants/:tenantId", title: "테넌트 상세", element: <TenantDetailPage /> },
+  { path: "/admin/accounts", title: "계정", element: <AccountsPage /> },
   { path: "/dashboard", title: "검증 체크리스트", element: <Dashboard /> },
   { path: "/revenue", title: "매출", element: <Revenue /> },
   { path: "/revenue/traffic", title: "감상 수익 풀", element: <TrafficPools /> },
@@ -144,7 +148,10 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     { title: "8 지급", items: [
       { to: "/payout/profiles", label: "지급 프로필", roles: ["SPACE_SETTLE"] }, { to: "/payout/runs", label: "지급 run", roles: ["SPACE_SETTLE"] }, { to: "/statements", label: "명세서", roles: ["SPACE_SETTLE"] },
     ] },
-    { title: "9 조회 통제", items: [{ to: "/control", label: "열람 기록·break-glass" }] },
+    { title: "9 관리·조회 통제", items: [
+      { to: "/admin/tenants", label: "테넌트(온보딩)", roles: ["SPACE_OPS"] }, { to: "/admin/accounts", label: "계정", roles: ["SPACE_OPS"] },
+      { to: "/control", label: "열람 기록·break-glass" },
+    ] },
     ...(import.meta.env.DEV ? [{ title: "10 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
   ];
 }

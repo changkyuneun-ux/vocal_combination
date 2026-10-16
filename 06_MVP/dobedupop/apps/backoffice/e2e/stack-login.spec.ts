@@ -57,3 +57,32 @@ test("데모 페르소나 빠른 로그인, 게이트웨이는 개발용 신원 
   const r = await page.request.get(`${site("portal")}/api/portal/me`, { headers: { "x-actor": "usr_ops" } });
   expect(r.status()).toBe(401);
 });
+
+test("운영 온보딩 화면: 테넌트 등록 → 담당자 계정 발급(초대 링크) → 담당자가 포털에 로그인", async ({ page, browser }) => {
+  const tid = `tnt_ui_${uid}`;
+  await page.goto(`${site("ops")}/admin/tenants?persona=usr_ops`);
+  await page.getByLabel("테넌트 id").fill(tid);
+  await page.getByLabel("테넌트 이름").fill(`UI 레이블 ${uid}`);
+  await page.getByLabel("테넌트 유형").selectOption("LABEL");
+  await page.getByRole("button", { name: "테넌트 등록" }).click();
+  await page.getByRole("status").getByRole("link", { name: tid }).click();
+  await expect(page.getByRole("heading", { name: `UI 레이블 ${uid}` })).toBeVisible();
+  await page.getByLabel("새 계정 아이디").fill(`usr_ui_${uid}`);
+  await page.getByLabel("새 계정 이름").fill("UI 권리 편집");
+  await page.getByRole("checkbox", { name: "권리 편집" }).check();
+  await page.getByRole("button", { name: "계정 만들기" }).click();
+  const link = await page.getByLabel("초대 링크 주소").inputValue();
+  expect(link).toMatch(new RegExp(`^http://portal\\.${DOMAIN.replace(/\./g, "\\.")}/\\?invite=`));
+  await expect(page.getByRole("row").filter({ hasText: `usr_ui_${uid}` })).toContainText("초대 수락 대기");
+  const p2 = await (await browser.newContext()).newPage();
+  await p2.goto(link);
+  await p2.getByLabel("새 비밀번호").fill("ui-password-12345");
+  await p2.getByRole("button", { name: "비밀번호 정하기" }).click();
+  await p2.getByLabel("아이디").fill(`usr_ui_${uid}`);
+  await p2.getByLabel("비밀번호").fill("ui-password-12345");
+  await p2.getByRole("button", { name: "로그인" }).click();
+  await expect(p2.getByLabel("로그인한 사용자")).toContainText(`usr_ui_${uid}`);
+  await expect(p2.getByRole("heading", { name: `UI 레이블 ${uid}` })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("row").filter({ hasText: `usr_ui_${uid}` })).toContainText("비밀번호");
+});

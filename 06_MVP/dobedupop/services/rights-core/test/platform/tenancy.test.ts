@@ -122,3 +122,19 @@ test("a connection without a scope sees nothing (fail-closed)", async () => {
     await c.end();
   }
 });
+
+test("account and tenant lists for onboarding: the platform sees all, a tenant only its own; counts come with tenants", async () => {
+  const all = (await json("GET", "/users?limit=200", "usr_ops", 200)).items.map((u: any) => u.userId);
+  assert.ok(all.includes("usr_a") && all.includes("usr_b"));
+  const mine = (await json("GET", "/users?limit=200", "usr_a", 200)).items;
+  assert.deepEqual(mine.map((u: any) => u.userId), ["usr_a"], "a tenant user sees only its own tenant's accounts");
+  assert.deepEqual(mine[0].roles, ["RIGHTS_EDITOR"]);
+  assert.equal(mine[0].hasPassword, false);
+  assert.deepEqual((await json("GET", "/users?tenant=tnt_lbl_b&limit=200", "usr_ops", 200)).items.map((u: any) => u.userId), ["usr_b"]);
+  assert.deepEqual((await json("GET", "/users?tenant=tnt_lbl_b&limit=200", "usr_a", 200)).items.map((u: any) => u.userId), ["usr_a"], "a tenant cannot look at another tenant");
+  const t = (await json("GET", "/tenants", "usr_ops", 200)).find((x: any) => x.tenantId === "tnt_lbl_a");
+  assert.equal(t.users, 1);
+  assert.equal(typeof t.parties, "number");
+  assert.equal((await json("POST", "/tenants", "usr_ops", 400, { tenantId: "Bad Id", tenantType: "LABEL", name: "x" })).code, "BAD_REQUEST");
+  assert.equal((await json("POST", "/tenants", "usr_ops", 409, { tenantId: "tnt_lbl_a", tenantType: "LABEL", name: "x" })).code, "TENANT_EXISTS");
+});

@@ -14,9 +14,10 @@ export function shortDigest(d: string): string {
   return (i >= 0 ? d.slice(i + 1) : d).slice(0, 12);
 }
 
-/** UTC 그대로: "2026-03-01 10:00:00.000Z" */
+/** 읽기 쉬운 UTC 시각: "2026-03-01T10:00:05.123Z" → "2026-03-01 10:00 UTC"(초 이하는 툴팁에서 본다). 형식이 다르면 원문. */
 export function formatInstant(iso: string): string {
-  return iso.replace("T", " ");
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
+  return m ? `${m[1]} ${m[2]} UTC` : iso;
 }
 
 export function sumKrw(xs: string[]): string {

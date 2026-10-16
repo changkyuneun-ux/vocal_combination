@@ -4,17 +4,18 @@ import { cursorKey, pageOf, ts, type Page } from "../platform/paging.ts";
 
 type Rows = Record<string, any>[];
 
-export async function listParties(tx: Tx, f: { type?: string }, page: Page) {
+export async function listParties(tx: Tx, f: { type?: string; tenant?: string }, page: Page) {
   const after = cursorKey(page, ["s"]);
   const p: unknown[] = [];
   const w: string[] = [];
   if (f.type !== undefined) { p.push(f.type); w.push(`party_type = $${p.length}`); }
+  if (f.tenant !== undefined) { p.push(f.tenant); w.push(`tenant_id = $${p.length}`); }
   if (after) { p.push(after[0]); w.push(`party_id > $${p.length}`); }
   p.push(page.limit + 1);
   const rows = (await tx.query(`SELECT * FROM party ${w.length ? "WHERE " + w.join(" AND ") : ""} ORDER BY party_id LIMIT $${p.length}`, p)).rows;
   return pageOf(rows.map((r) => ({
     partyId: r.party_id as string, partyType: r.party_type as string, displayName: r.display_name as string,
-    isni: (r.isni as string | null), ipiNo: (r.ipi_no as string | null), createdAt: ts(r.created_at)!,
+    isni: (r.isni as string | null), ipiNo: (r.ipi_no as string | null), createdAt: ts(r.created_at)!, tenantId: r.tenant_id as string,
   })), page, (r) => [r.partyId]);
 }
 

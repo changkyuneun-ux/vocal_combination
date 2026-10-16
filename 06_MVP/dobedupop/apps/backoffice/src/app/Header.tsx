@@ -108,7 +108,8 @@ export function Header() {
 /** 개발 서버 머리글: 가상 시계, 앱 전환, 사용자 전환(x-actor). */
 function DevHeader() {
   const [toast, setToast] = useState<ApiError | null>(null);
-  const users = useGet<{ items: UserRow[] }>(["users"], "/users");
+  // 개발 서버 사용자 전환: 계정 목록은 테넌트마다 자기 계정만 보이므로 플랫폼 계정(기본 사용자)으로 전체를 읽는다.
+  const users = useGet<{ items: UserRow[] }>(["users", "dev-switcher"], "/users?limit=200", { api: { actorOverride: DEFAULT_ACTOR } });
   const actor = useActor();
   // 저장된 사용자가 없어졌거나 비정상이면 /users가 UNKNOWN_ACTOR(401)로 실패한다. 기본 사용자로 한 번 복구한다.
   const usersError = users.error;

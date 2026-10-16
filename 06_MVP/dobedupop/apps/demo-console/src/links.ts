@@ -21,7 +21,7 @@ export const PERSONAS: Persona[] = [
 
 /** 단계별로 보여 줄 화면과 페르소나. */
 export const STEP_VIEW: Record<string, { app: "portal" | "artist" | "ops"; persona: string; path?: string; label: string }[]> = {
-  onboard: [{ app: "ops", persona: "usr_ops", label: "운영: 테넌트·파티" }],
+  onboard: [{ app: "ops", persona: "usr_ops", label: "운영: 빅히트 뮤직 테넌트·계정", path: "/admin/tenants/tnt_bighit" }, { app: "ops", persona: "usr_ops", label: "운영: 전체 계정", path: "/admin/accounts" }, { app: "portal", persona: "usr_bh_rights", label: "포털: 내 테넌트" }],
   register: [{ app: "portal", persona: "usr_bh_rights", label: "포털: 곡·녹음·스템", path: "/registry/assets" }, { app: "portal", persona: "usr_bh_rights", label: "포털: 원천 문서", path: "/documents" }],
   claims: [{ app: "portal", persona: "usr_bh_rights", label: "포털: 권리 요약", path: "/registry/summary" }, { app: "portal", persona: "usr_bh_rights", label: "포털: 확인 요청", path: "/confirmations" }],
   members: [{ app: "artist", persona: "usr_member_jungkook", label: "실연자 앱(정국)" }],

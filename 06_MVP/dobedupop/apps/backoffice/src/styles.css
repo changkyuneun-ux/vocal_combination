@@ -117,3 +117,8 @@ ul.plain li + li { margin-top: 4px; }
   .content { padding: 16px; }
   .split { grid-template-columns: 1fr; }
 }
+
+/* 온보딩: 초대 링크 */
+.invite-box { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+.invite-box strong { color: var(--accent-text); }
+.invite-box input { font-family: var(--font-mono); font-size: 13px; }

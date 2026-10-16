@@ -97,7 +97,7 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/consents", async (req) =>
     withActor(deps, req, (tx) => listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) })));
   // 조회(로그인한 누구나)
-  app.get("/parties", async (req) => withActor(deps, req, (tx) => q.listParties(tx, { type: optFilter(q0(req), "type") }, parsePage(q0(req)))));
+  app.get("/parties", async (req) => withActor(deps, req, (tx) => q.listParties(tx, { type: optFilter(q0(req), "type"), ...(optFilter(q0(req), "tenant") !== undefined && { tenant: optFilter(q0(req), "tenant") }) }, parsePage(q0(req)))));
   app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
   /** 보이는 곡(facts 범위) 목록: 화면의 곡 선택에 쓴다. 테넌트는 자기 곡만(RLS). */
   app.get("/scopes", async (req) => withActor(deps, req, async (tx) => (await tx.query(
