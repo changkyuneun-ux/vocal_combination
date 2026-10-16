@@ -100,7 +100,7 @@ function Detail({ id }: { id: string }) {
       {d && latest && <>
         <div className="split">
           <div>{latest.disposedAt ? <p className="muted">원문이 폐기되었습니다(해시·기록은 남아 있다).</p>
-            : <iframe title="원문" src={fileUrl(latest.version)} style={{ width: "100%", height: "32rem", border: "1px solid var(--line, #ccc)" }} />}</div>
+            : <iframe title="원문" src={fileUrl(latest.version)} style={{ width: "100%", height: "32rem", border: "1px solid var(--line)", borderRadius: 8, background: "#fff" }} />}</div>
           <Clauses id={id} v={latest} />
         </div>
         <label className="field"><span>거부 사유(잘못 올린 버전 표시)</span><input aria-label="거부 사유" value={reason} onChange={(e) => setReason(e.target.value)} /></label>

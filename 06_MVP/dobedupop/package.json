@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "packages/mdrl",
+    "packages/ui",
     "services/audio-service",
     "services/integration-hub",
     "services/rights-core",

@@ -4,6 +4,7 @@ FROM node:24-bookworm-slim AS web
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/mdrl/package.json packages/mdrl/
+COPY packages/ui/package.json packages/ui/
 COPY services/rights-core/package.json services/rights-core/
 COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/
@@ -14,6 +15,8 @@ COPY demo/dynamite/package.json demo/dynamite/
 RUN npm ci --ignore-scripts
 # 백오피스 타입 검사는 E2E가 쓰는 오디오 시험 도구까지 본다.
 COPY services/audio-service services/audio-service
+# 공통 테마(색·글꼴)
+COPY packages/ui packages/ui
 COPY apps apps
 RUN npm run build:hosts -w backoffice && npm run build -w performer-app && npm run build -w demo-console
 

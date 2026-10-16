@@ -7,6 +7,7 @@ import { APPS, currentApp } from "./apps.ts";
 import { queryClient } from "./queryClient.ts";
 import { api, ApiError, authApi, sessionMode } from "../api/client.ts";
 import { LoginPage } from "./Login.tsx";
+import { setActor } from "./actor.ts";
 
 export type Me = { userId: string; displayName: string; roles: string[]; tenantId: string; scope: string };
 
@@ -16,7 +17,8 @@ export type Me = { userId: string; displayName: string; roles: string[]; tenantI
  */
 function AuthGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<"checking" | "in" | "out">(sessionMode ? "checking" : "in");
-  const check = () => api<Me>("GET", "/me").then(() => setState("in"), (e) => setState(e instanceof ApiError && e.status === 401 ? "out" : "in"));
+  // 로그인한 사용자를 "현재 사용자"로 둔다(화면의 안내 문구가 쓴다. 세션 모드에서는 x-actor를 보내지 않는다).
+  const check = () => api<Me>("GET", "/me").then((me) => { setActor(me.userId); setState("in"); }, (e) => setState(e instanceof ApiError && e.status === 401 ? "out" : "in"));
   useEffect(() => {
     if (!sessionMode) return;
     // 데모 진행판이 연 링크(?persona=): 데모 환경이면 그 페르소나로 바로 로그인한다(운영 환경은 이 경로가 404라 로그인 화면이 나온다).

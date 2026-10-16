@@ -4,6 +4,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/mdrl/package.json packages/mdrl/
+COPY packages/ui/package.json packages/ui/
 COPY services/rights-core/package.json services/rights-core/
 COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/
@@ -22,6 +23,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 COPY packages/mdrl/package.json packages/mdrl/
+COPY packages/ui/package.json packages/ui/
 COPY services/rights-core/package.json services/rights-core/
 COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/

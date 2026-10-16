@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { Section } from "../../components/Section.tsx";
@@ -28,7 +29,7 @@ function CountBars({ counts }: { counts: Record<string, number> }) {
       {RUN_STATUSES.map((s) => { const n = counts[s] ?? 0; return (
         <li key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ width: 96 }}>{s}</span>
-          <span aria-hidden="true" style={{ display: "inline-block", height: 10, width: `${(n / total) * 240}px`, background: "var(--accent, #4a6cf7)", minWidth: n > 0 ? 2 : 0 }} />
+          <span aria-hidden="true" style={{ display: "inline-block", height: 10, width: `${(n / total) * 240}px`, background: "var(--accent)", minWidth: n > 0 ? 2 : 0 }} />
           <span>{n}</span>
         </li>
       ); })}
@@ -73,9 +74,7 @@ export function BatchDetail() {
         {active && <p className="muted" role="status">정산 진행 중 — {POLL_MS / 1000}초마다 자동 갱신합니다.</p>}
       </Section>
       <Section title="run 상태별 건수"><CountBars counts={counts} /></Section>
-      <Section title="배치 확정" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="배치 확정" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>확정은 정산 담당(SPACE_SETTLE, usr_settle)이 하며 배치 생성자와 달라야 합니다. 현재 사용자: <strong>{actor}</strong></p>
         <button type="button" className="btn primary" disabled={!check.ok || m.isPending} onClick={() => m.mutate(batchId, { onSuccess: () => { void qc.invalidateQueries({ queryKey: ["batch-ledger"] }); } })}>확정</button>
         {!check.ok && <p className="muted" role="status">확정할 수 없음: {check.reason}</p>}

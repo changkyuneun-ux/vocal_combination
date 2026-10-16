@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Link } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -45,9 +46,7 @@ export function Ledger() {
   const entries = useList<EntryRow>("ledger-entries", "/ledger/entries", { kind, account: account.trim(), party: party.trim() });
   return (
     <>
-      <Section title="원장 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="원장 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>원장 조회는 정산 담당(SPACE_SETTLE)만 합니다. 현재 사용자: <strong>{actor}</strong></p>
       </Section>
       <Section title="시산표"><Trial /></Section>

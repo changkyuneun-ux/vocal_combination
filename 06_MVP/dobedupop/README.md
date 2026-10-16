@@ -12,6 +12,7 @@ services/
   integration-hub/   연동 허브(유통사 CSV·DDEX 번역)
 packages/
   mdrl/              MDRL 엔진 라이브러리(engine-bridge만 import)
+  ui/                공통 화면 테마(색 토큰 라이트·다크, Pretendard 글꼴, 기본 컴포넌트) — 모든 앱이 쓴다. 화면 코드에 색을 직접 쓰지 않는다
 deploy/
   docker/            코어(API·워커·검증 워커·오디오 공용) 이미지, 게이트웨이 이미지
   gateway/Caddyfile  서브도메인 = 앱 = 채널, 다른 채널 차단, 보안 헤더, 운영 IP 제한

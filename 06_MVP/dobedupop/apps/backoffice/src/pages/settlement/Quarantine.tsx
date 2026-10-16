@@ -1,4 +1,5 @@
 import { Section } from "../../components/Section.tsx";
+import { sessionMode } from "../../api/client.ts";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
@@ -15,9 +16,7 @@ export function Quarantine() {
   const list = useList<QuarantineRow>("quarantine", "/quarantine", { open: "true" });
   const m = useAction(releaseQuarantine, ["quarantine"]);
   return (
-    <Section title="열린 격리" actions={
-      <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-    }>
+    <Section title="열린 격리" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
       <p>격리 해제는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
       <ErrorPanel error={list.error} />
       <ErrorPanel error={m.error} />

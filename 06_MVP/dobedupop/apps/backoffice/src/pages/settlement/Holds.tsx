@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Link } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
@@ -74,9 +75,7 @@ export function Holds() {
   const list = useList<HoldRow>("holds", "/holds", { status, reason });
   return (
     <>
-      <Section title="보류 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="보류 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>제안 조회와 해제는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
       </Section>
       <Section title="보류 목록" actions={

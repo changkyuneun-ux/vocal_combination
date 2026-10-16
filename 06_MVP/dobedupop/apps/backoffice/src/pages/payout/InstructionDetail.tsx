@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router";
+import { sessionMode } from "../../api/client.ts";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
@@ -28,9 +29,7 @@ export function InstructionDetail() {
   const reason = d ? failureReason(d.audit) : null;
   return (
     <>
-      <Section title={`지급 지시 ${instructionId}`} actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title={`지급 지시 ${instructionId}`} actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <ErrorPanel error={q.error} />
         {d && (
           <div className="stack">

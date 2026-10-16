@@ -80,9 +80,7 @@ export function Statements() {
     { enabled: party !== "" && fromIso !== "" && toIsoValue !== "" });
   return (
     <>
-      {!portal && !sessionMode && <Section title="명세서 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      {!portal && !sessionMode && <Section title="명세서 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>명세·원장 조회는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
       </Section>}
       <Section title="권리자 명세">

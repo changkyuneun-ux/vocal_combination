@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Link, useParams } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -51,9 +52,7 @@ export function RunDetail() {
       <Section title="보류 합계">
         {run.data && <DataTable rows={sumRows(run.data.holdings)} columns={cols} />}
       </Section>
-      <Section title="운영 작업" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="운영 작업" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>무효화·재대기는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
         <form className="form" onSubmit={(e) => { e.preventDefault(); voidM.mutate({ runId, reason }); }}>
           <label className="field"><span>무효화 사유(1~{MAX_REASON}자)</span>

@@ -106,7 +106,7 @@ export function PolicyDiffViewer({
   const targetInfo = versions.find((v) => v.version === targetVer);
 
   return (
-    <div className="diff-modal stack" style={{ background: "var(--bg-card, #1e1e24)", border: "1px solid var(--border, #333)", borderRadius: "8px", padding: "16px", marginTop: "16px" }}>
+    <div className="diff-modal stack" style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", marginTop: "16px" }}>
       <div className="row-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>정책 버전 Diff 비교 ({policyId})</h3>
         {onClose && (
@@ -141,7 +141,7 @@ export function PolicyDiffViewer({
       </div>
 
       {baseInfo && targetInfo && (
-        <div className="grid-diff-meta" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "0.85em", background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "6px" }}>
+        <div className="grid-diff-meta" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "0.85em", background: "var(--surface-2)", padding: "12px", borderRadius: "8px" }}>
           <div>
             <strong>v{baseInfo.version}</strong> <StatusBadge status={baseInfo.status} />
             <dl className="kv" style={{ marginTop: "8px" }}>
@@ -167,7 +167,7 @@ export function PolicyDiffViewer({
         </div>
       )}
 
-      <div className="diff-view" style={{ fontFamily: "monospace", fontSize: "0.9em", background: "#121216", borderRadius: "6px", overflowX: "auto", maxHeight: "450px", overflowY: "auto", padding: "8px" }}>
+      <div className="diff-view" style={{ fontFamily: "var(--font-mono)", fontSize: "13px", background: "var(--code-bg)", color: "var(--code-fg)", borderRadius: "8px", overflowX: "auto", maxHeight: "450px", overflowY: "auto", padding: "8px" }}>
         {baseDetail.isLoading || targetDetail.isLoading ? (
           <p className="muted" style={{ padding: "16px" }}>버전 내용을 불러오는 중...</p>
         ) : diffLines.length === 0 ? (
@@ -176,15 +176,15 @@ export function PolicyDiffViewer({
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
               {diffLines.map((line, idx) => {
-                const bg = line.type === "added" ? "rgba(46, 160, 67, 0.2)" : line.type === "removed" ? "rgba(248, 81, 73, 0.2)" : "transparent";
-                const color = line.type === "added" ? "#7ee787" : line.type === "removed" ? "#ffa198" : "#ccc";
+                const bg = line.type === "added" ? "var(--ok-soft)" : line.type === "removed" ? "var(--bad-soft)" : "transparent";
+                const color = line.type === "added" ? "var(--ok)" : line.type === "removed" ? "var(--bad)" : "var(--code-fg)";
                 const sign = line.type === "added" ? "+" : line.type === "removed" ? "-" : " ";
                 return (
                   <tr key={idx} style={{ backgroundColor: bg }}>
-                    <td style={{ width: "35px", textAlign: "right", color: "#666", userSelect: "none", paddingRight: "8px" }}>
+                    <td style={{ width: "35px", textAlign: "right", color: "var(--muted)", userSelect: "none", paddingRight: "8px" }}>
                       {line.baseLineNum ?? ""}
                     </td>
-                    <td style={{ width: "35px", textAlign: "right", color: "#666", userSelect: "none", paddingRight: "8px" }}>
+                    <td style={{ width: "35px", textAlign: "right", color: "var(--muted)", userSelect: "none", paddingRight: "8px" }}>
                       {line.targetLineNum ?? ""}
                     </td>
                     <td style={{ width: "20px", textAlign: "center", color, userSelect: "none" }}>{sign}</td>

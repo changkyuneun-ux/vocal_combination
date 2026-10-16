@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Link } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -47,9 +48,7 @@ export function PayoutRuns() {
   const first = clock.data?.now;
   return (
     <>
-      <Section title="지급 실행 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="지급 실행 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>지급 run 생성·조회는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
         <p className="muted">직무 분리: 어떤 권리자의 계좌 토큰을 마지막으로 바꾼 사용자가 run을 실행하면 그 권리자의 지시는 ACCOUNT_SOD로 보류됩니다. 프로필은 usr_settle2로 등록하세요.</p>
       </Section>

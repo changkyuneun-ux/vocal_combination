@@ -75,7 +75,7 @@ export function ContractsPage() {
         {notice && <p role="status">{notice}</p>}
         {preview && <>
           <p aria-label="서명할 당사자">서명할 당사자: {preview.signers.join(", ")} · 서명하면 만들어질 기록: {preview.records.length === 0 ? "없음(문서만)" : preview.records.map((r) => `${r.type} ${r.rightType ?? r.rightKind ?? ""}`).join(", ")}</p>
-          <iframe title="계약서 미리보기" sandbox="" srcDoc={preview.html} style={{ width: "100%", height: 480, border: "1px solid var(--line, #ccc)" }} />
+          <iframe title="계약서 미리보기" sandbox="" srcDoc={preview.html} style={{ width: "100%", height: 480, border: "1px solid var(--line)", borderRadius: 8, background: "#fff" }} />
         </>}
       </Section>
       <Section title="계약">

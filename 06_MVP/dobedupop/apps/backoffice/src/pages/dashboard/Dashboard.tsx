@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { sessionMode } from "../../api/client.ts";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -81,9 +82,7 @@ export function Dashboard() {
   const v = inv.data ? violations(inv.data) : null;
   return (
     <>
-      <Section title="대시보드 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
-      }>
+      <Section title="대시보드 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>}>
         <p>건수·점검은 현재 사용자(<strong>{actor}</strong>)로 읽습니다. 권한이 없는 항목은 오류를 그대로 보여 주고, 체크리스트에서는 "알 수 없음"으로 표시합니다. 200건을 넘으면 "200+"로 표시합니다.</p>
       </Section>
       <Section title="단계별 건수">

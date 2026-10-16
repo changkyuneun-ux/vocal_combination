@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Section } from "../../components/Section.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
@@ -126,8 +127,8 @@ export function Profiles() {
     <>
       <Section title="지급 프로필 안내" actions={
         <>
-          <button type="button" className="btn primary" disabled={actor === REGISTER_ACTOR} onClick={() => setActor(REGISTER_ACTOR)}>{REGISTER_ACTOR}로 전환</button>
-          <button type="button" className="btn" disabled={actor === RUN_ACTOR} onClick={() => setActor(RUN_ACTOR)}>{RUN_ACTOR}로 전환</button>
+          {!sessionMode && <button type="button" className="btn primary" disabled={actor === REGISTER_ACTOR} onClick={() => setActor(REGISTER_ACTOR)}>{REGISTER_ACTOR}로 전환</button>}
+          {!sessionMode && <button type="button" className="btn" disabled={actor === RUN_ACTOR} onClick={() => setActor(RUN_ACTOR)}>{RUN_ACTOR}로 전환</button>}
         </>
       }>
         <p>프로필 등록·조회는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>

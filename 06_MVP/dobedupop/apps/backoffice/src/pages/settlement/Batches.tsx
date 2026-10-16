@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Link } from "react-router";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -72,9 +73,7 @@ export function Batches() {
           ]} />
         <Pager next={list.next} loadMore={list.loadMore} />
       </Section>
-      <Section title="배치 생성" actions={
-        <button type="button" className="btn primary" disabled={actor === OPS_ACTOR} onClick={() => setActor(OPS_ACTOR)}>usr_ops로 전환</button>
-      }>
+      <Section title="배치 생성" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === OPS_ACTOR} onClick={() => setActor(OPS_ACTOR)}>usr_ops로 전환</button>}>
         <p>배치 생성은 정산 운영(SPACE_OPS, usr_ops)이 합니다. 현재 사용자: <strong>{actor}</strong>. 기본 기간은 가상 시계 기준 지난달 1일 ~ 이번 달 1일(UTC)입니다.</p>
         {first === undefined
           ? (clock.error ? <ErrorPanel error={clock.error} /> : <p className="muted">가상 시계를 읽는 중…</p>)

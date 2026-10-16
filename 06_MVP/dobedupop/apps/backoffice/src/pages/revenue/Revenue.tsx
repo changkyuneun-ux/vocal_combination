@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { sessionMode } from "../../api/client.ts";
 import { Section } from "../../components/Section.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
@@ -238,9 +239,7 @@ export function Revenue() {
   const shared: Shared = { taken, onRecorded: (id) => setSubmitted((x) => [...x, id]) };
   return (
     <>
-      <Section title="입력 담당 안내" actions={
-        <button type="button" className="btn primary" disabled={actor === INGEST_ACTOR} onClick={() => setActor(INGEST_ACTOR)}>sys_ingest로 전환</button>
-      }>
+      <Section title="입력 담당 안내" actions={!sessionMode && <button type="button" className="btn primary" disabled={actor === INGEST_ACTOR} onClick={() => setActor(INGEST_ACTOR)}>sys_ingest로 전환</button>}>
         <p>매출 입력은 수집 담당(sys_ingest)으로 합니다. 현재 사용자: <strong>{actor}</strong></p>
       </Section>
       <Section title="매출 이벤트 입력">
