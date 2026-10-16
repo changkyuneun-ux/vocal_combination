@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "rights-core",
+      "credentials": [{ "accessKey": "rcs3", "secretKey": "rcs3-dev-secret" }],
+      "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+    }
+  ]
+}

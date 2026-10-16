@@ -100,3 +100,16 @@ test("ensureDevUsers creates the system identities and the editor roles", async 
   const roles = (await db.tx((tx) => tx.query("SELECT role FROM portal_role WHERE user_id = 'usr_editor'"))).rows.map((x) => x.role as string).sort();
   assert.deepEqual(roles, ["EDITOR", "RIGHTS_EDITOR"]);
 });
+
+test("follow(): a second process's clock picks up an advance made by another process", async () => {
+  const other = await loadDevClock(db, () => real.t);
+  const stop = other.follow(db, 20);
+  try {
+    const before = other.now();
+    await db.tx((tx) => clock.advance(tx, 3_600_000));
+    for (let i = 0; i < 100 && other.now() === before; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(other.now(), clock.now());
+  } finally {
+    stop();
+  }
+});

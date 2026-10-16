@@ -13,6 +13,11 @@ export type DevClock = Clock & {
   resetTo(tx: Tx, at: string): Promise<string>;
   /** dev_clock 행을 다시 읽는다(초기화 뒤). */
   reload(tx: Tx): Promise<void>;
+  /**
+   * 여러 프로세스(API·워커·검증 워커)가 같은 가상 시각을 쓰도록 dev_clock을 주기적으로 다시 읽는다.
+   * 다른 프로세스가 시계를 옮기면 intervalMs 안에 따라간다. 멈추는 함수를 돌려준다.
+   */
+  follow(db: Db, intervalMs: number): () => void;
 };
 
 const ISO_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -71,6 +76,16 @@ export async function loadDevClock(db: Db, realNow: () => number = () => Date.no
     async reload(tx) {
       const next = await read(tx);
       onCommit(tx, () => { row = next; });
+    },
+    follow(db, intervalMs) {
+      let busy = false;
+      const timer = setInterval(() => {
+        if (busy) return;
+        busy = true;
+        db.tx(read).then((r) => { row = r; }).catch((e) => console.error("dev clock follow", e)).finally(() => { busy = false; });
+      }, intervalMs);
+      timer.unref();
+      return () => clearInterval(timer);
     },
   };
   return clock;

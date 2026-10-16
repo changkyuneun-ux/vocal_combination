@@ -64,6 +64,9 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
 
 export function buildServer(deps: Deps): FastifyInstance {
   const app = Fastify({ logger: false });
+  // 상태 점검(게이트웨이는 외부에 열지 않는다): 살아 있음, DB 연결 준비.
+  app.get("/healthz", async () => ({ status: "ok", role: "api" }));
+  app.get("/readyz", async () => { await deps.db.tx((tx) => tx.query("SELECT 1")); return { status: "ready", role: "api" }; });
   // 본문 없는 JSON POST(예: approve/activate)는 {}로 취급한다.
   app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
     const text = (body as string).trim();

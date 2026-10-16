@@ -19,6 +19,16 @@ export function providerFromEnv(env: Readonly<Record<string, string | undefined>
   throw new Error(`RC_PSP must be "fake" or unset, got ${v}`);
 }
 
+/**
+ * 운영(production) 진입점용: 가상 PSP로는 시작하지 않는다(MVP 진행계획 M2 — production은 가상 공급자 거부).
+ * 실제 PSP 어댑터가 아직 없으므로 지금은 항상 거부한다. 어댑터가 생기면 여기서 고른다.
+ */
+export function productionProviderFromEnv(env: Readonly<Record<string, string | undefined>>): PayoutProvider {
+  const v = env.RC_PSP;
+  if (v === undefined || v === "" || v === "fake") throw new Error("PRODUCTION_REFUSES_FAKE: RC_PSP must name a real PSP adapter in production (none is implemented yet; run the demo profile instead)");
+  throw new Error(`RC_PSP: unknown PSP adapter ${v}`);
+}
+
 /** 지급 멱등 키 형식(payout:<instruction_id>). 키를 만드는 모든 곳이 이 상수·함수를 쓴다. */
 export const PAYOUT_KEY_PREFIX = "payout:";
 export const payoutIdempotencyKey = (instructionId: string): string => `${PAYOUT_KEY_PREFIX}${instructionId}`;

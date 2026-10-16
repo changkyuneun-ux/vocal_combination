@@ -10,3 +10,15 @@ services:
       - "54329:5432"
     volumes:
       - ./services/rights-core/db/init:/docker-entrypoint-initdb.d:ro
+  # S3 호환 오브젝트 저장소(MVP 진행계획 M2): 봉인 원문·원천 문서·오디오. 개발·데모는 SeaweedFS, 운영은 국내 리전 오브젝트 저장소로 바꾼다.
+  # 자격 증명은 deploy/s3/s3.json(개발용 값). S3 API http://localhost:8333
+  s3:
+    image: chrislusf/seaweedfs:3.97
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
+    ports:
+      - "8333:8333"
+    volumes:
+      - s3-data:/data
+      - ./deploy/s3/s3.json:/etc/seaweedfs/s3.json:ro
+volumes:
+  s3-data:

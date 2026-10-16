@@ -1,11 +1,12 @@
 import { systemClock } from "../platform/clock.ts";
 import { ensureSystemIdentities } from "../platform/actor.ts";
-import { providerFromEnv } from "../payout/provider.ts";
+import { productionProviderFromEnv } from "../payout/provider.ts";
 import { startServer } from "./assemble.ts";
 
 const url = process.env.DATABASE_URL ?? "postgres://rc_app:rc_app@localhost:54329/rights_core";
-// PSP 어댑터: 이 단계에는 가짜 어댑터만 있다(RC_PSP가 "fake"나 빈 값이 아니면 시작을 거부한다).
-const provider = providerFromEnv(process.env);
+// 운영(production) 진입점: 가상 공급자로는 시작하지 않는다(MVP 진행계획 M2). 실제 PSP 어댑터가 아직 없으므로 지금은 시작을 거부하고,
+// 데모 환경은 개발 진입점(dev/main.ts, RC_DEV=1: 가상 시계·가상 공급자)을 역할별로 띄운다. 역할은 RC_ROLE(api·worker·verifier·all).
+const provider = productionProviderFromEnv(process.env);
 await startServer({
   url,
   clock: systemClock,

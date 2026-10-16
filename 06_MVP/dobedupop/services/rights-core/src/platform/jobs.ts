@@ -9,7 +9,8 @@ export type SendOptions = { startAfterSeconds?: number };
 export type Jobs = { send(tx: Tx, name: JobName, data: Record<string, string>, opts?: SendOptions): Promise<void> };
 export type JobHandler = (data: Record<string, string>) => Promise<void>;
 export type BossJobs = Jobs & {
-  work(handlers: Record<JobName, JobHandler>): Promise<void>;
+  /** 준 처리기의 큐만 처리한다(역할별 프로세스 — 워커는 검증을 빼고, 검증 워커는 verify-run만). */
+  work(handlers: Partial<Record<JobName, JobHandler>>): Promise<void>;
   /** 개발 전용(운영 경로는 부르지 않는다): 그 큐의 워커만 멈추고(진행 중 작업은 끝까지 기다린다) 작업은 큐에 쌓아 둔다. work() 뒤에만 쓴다. */
   pause(name: JobName): Promise<void>;
   /** 개발 전용: pause한 큐를 같은 처리기·옵션으로 다시 연다. 멈추지 않은 큐에는 아무 일도 하지 않는다. */
@@ -106,7 +107,9 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
     },
     async work(handlers) {
       for (const name of JOB_NAMES) {
-        registered.set(name, handlers[name]);
+        const h = handlers[name];
+        if (h === undefined) continue;
+        registered.set(name, h);
         await register(name);
       }
     },

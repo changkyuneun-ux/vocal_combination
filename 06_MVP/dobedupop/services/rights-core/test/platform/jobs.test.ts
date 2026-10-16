@@ -89,7 +89,7 @@ test("a delayed send is recorded with its delay and stored by pg-boss with a fut
 
 test("the server entry point registers the payout job handlers with the RC_PSP-selected provider", () => {
   const main = readFileSync(fileURLToPath(new URL("../../src/http/main.ts", import.meta.url)), "utf8");
-  assert.match(main, /providerFromEnv\(process\.env\)/);
+  assert.match(main, /productionProviderFromEnv\(process\.env\)/);
   const assemble = readFileSync(fileURLToPath(new URL("../../src/http/assemble.ts", import.meta.url)), "utf8");
   assert.match(assemble, /payoutJobHandlers\(\{ db, clock: opts\.clock, jobs, provider: opts\.provider \}\)/);
 });

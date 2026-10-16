@@ -1,6 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { createFsObjectStore, type ObjectStore } from "../platform/object-store.ts";
 import { analyze, decodeForWatermark, detectWatermark, render, watermarkBits, type Analysis, type RenderInput, type Rendered } from "audio-service";
 
 /** 업로드한 원본 오디오의 저장소(파일 해시 sha256로 주소를 매긴다). 원본은 이 저장소와 오디오 처리 서비스 밖으로 나가지 않는다. */
@@ -18,23 +18,27 @@ export const localRenderer: Renderer = {
   watermarkBits,
 };
 
-/** 개발·시험용 파일시스템 저장소. 경로는 sha256 앞 4자리로 두 단계 나눈다. 임시 파일 후 rename(원자적). */
-export function createFsAudioStore(root: string): AudioStore {
+/** 오디오 저장소: 오브젝트 저장소 위에 둔다. 키는 sha256 앞 4자리로 두 단계 나눈다(<2>/<2>/<sha256>). */
+export function createObjectAudioStore(os: ObjectStore): AudioStore {
   return {
     async put(bytes) {
       const sha256 = createHash("sha256").update(bytes).digest("hex");
-      const dir = join(root, sha256.slice(0, 2), sha256.slice(2, 4));
-      const path = join(dir, sha256);
-      const uri = `file://${path}`;
-      try { await stat(path); return { sha256, uri }; } catch { /* 없으면 쓴다 */ }
-      await mkdir(dir, { recursive: true });
-      const tmp = `${path}.${randomBytes(4).toString("hex")}.tmp`;
-      await writeFile(tmp, bytes);
-      await rename(tmp, path);
-      return { sha256, uri };
+      const key = `${sha256.slice(0, 2)}/${sha256.slice(2, 4)}/${sha256}`;
+      if (!(await os.exists(key))) await os.put(key, bytes);
+      return { sha256, uri: os.uri(key) };
     },
-    async get(uri) { return readFile(uri.slice("file://".length)); },
+    async get(uri) {
+      const key = os.keyOf(uri);
+      if (key !== null) return os.get(key);
+      if (uri.startsWith("file://")) return readFile(uri.slice("file://".length));
+      throw new Error(`audio ${uri} is not in this store`);
+    },
   };
+}
+
+/** 개발·시험용 파일시스템 저장소(경로 = root/<2>/<2>/<sha256>). */
+export function createFsAudioStore(root: string): AudioStore {
+  return createObjectAudioStore(createFsObjectStore(root));
 }
 
 /** 같은 프로세스에서 오디오 처리 서비스 라이브러리를 부른다(개발·시험). */
