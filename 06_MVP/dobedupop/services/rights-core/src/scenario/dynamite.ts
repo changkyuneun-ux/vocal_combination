@@ -55,7 +55,7 @@ export const MEMBERS = [
   { key: "suga", name: "슈가", ms: 6240 },
 ] as const;
 type MemberKey = (typeof MEMBERS)[number]["key"];
-const SLOTS = (() => {
+export const SLOTS = (() => {
   let at = 0;
   return MEMBERS.map((m) => {
     const s = { id: `slt_part_${m.key}`, owner: m.key, label: `${m.name} 파트`, startMs: at, endMs: at + m.ms };
@@ -100,10 +100,10 @@ export const COMBINATIONS: { vcId: string; fan: string; title: string; swap: Par
   { vcId: "vc_bts_vocal", fan: "팬 F3", title: "랩 파트를 보컬 멤버가", swap: { rm: "jin", suga: "v", jhope: "jimin" }, purchases: 300 },
   { vcId: "vc_bts_jin", fan: "팬 F4", title: "진이 정국·지민 파트까지", swap: { jungkook: "jin", jimin: "jin" }, purchases: 200 },
 ];
-const singerOf = (c: (typeof COMBINATIONS)[number], slotOwner: MemberKey): MemberKey => c.swap[slotOwner] ?? slotOwner;
+export const singerOf = (c: (typeof COMBINATIONS)[number], slotOwner: MemberKey): MemberKey => c.swap[slotOwner] ?? slotOwner;
 
 /** 멤버 비율(bps): 맡은 파트 수 비례, 합 10000이 되도록 최대잉여법. */
-function memberBps(singers: MemberKey[]): Record<string, number> {
+export function memberBps(singers: MemberKey[]): Record<string, number> {
   const counts = new Map<MemberKey, number>();
   for (const s of singers) counts.set(s, (counts.get(s) ?? 0) + 1);
   const parts = [...counts].map(([k, n]) => ({ k, exact: (n * 10000) / singers.length }));
@@ -151,7 +151,7 @@ async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   ]);
 }
 
-const FAN_ONLY = { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
+export const FAN_ONLY = { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD", "SHARE_LINK"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
 
 /**
  * 팬앱 전용 이용허락 동의(가정)를 코어에 저장한다(다음 작업 2). 멤버 7명은 실연자 앱 계정(본인 파티)으로 자기 보이스에 서명하고,
@@ -221,7 +221,7 @@ async function seedFans(tx: Tx, clock: Clock): Promise<void> {
 }
 
 /** 4월 재생(가정): 조합별 유효 재생 수. 정국·지민 맞바꾸기에는 30초 미만 재생 30회를 섞는다(세지 않는다). */
-const APRIL_PLAYS: { vcId: string; plays: number; short?: number }[] = [
+export const APRIL_PLAYS: { vcId: string; plays: number; short?: number }[] = [
   { vcId: "vc_bts_orig", plays: 600 }, { vcId: "vc_bts_swap", plays: 250, short: 30 }, { vcId: "vc_bts_vocal", plays: 100 }, { vcId: "vc_bts_jin", plays: 50 },
 ];
 const APRIL_POOL_KRW = "1000000";

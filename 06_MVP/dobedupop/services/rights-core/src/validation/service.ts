@@ -30,7 +30,7 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
     out.push({ rule: d.code, severity: "BLOCK", subjectType: "SCOPE", subjectId: d.path, message: `권리 사실 검증 실패: ${d.message}`, hint: "권리 주장·위임의 지분·대상을 고친다" });
   }
   const claims = await q("SELECT claim_id, version, source_id, edge, target_id, status FROM right_claim WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
-  const mandates = await q("SELECT mandate_id, version, from_party_id, to_party_id, right_kind, status FROM mandate WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
+  const mandates = await q("SELECT mandate_id, version, from_party_id, to_party_id, right_kind, share_bps, status FROM mandate WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
   const evidence = await q(
     `SELECT e.record_type, e.record_id, e.record_version, d.document_id, d.version, d.title, d.parties, d.status, d.effective_to
        FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id AND d.version = e.document_version
@@ -130,7 +130,12 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
     out.push({ rule: "DOC_CONFIRMATION_PENDING", severity: "WARN", subjectType: "RECORD", subjectId: rec(r.record_type, r.record_id), dueAt: iso(r.due_at)!,
       related: [{ requestId: Number(r.request_id) }], message: `${rec(r.record_type, r.record_id)}가 ${r.counterparty_id}의 확인을 기다린다`, hint: "상대 당사자에게 확인을 독촉하거나, 플랫폼 밖이면 기한 뒤 원문 대조로 확인한다" });
   }
-  const payees = [...new Set([...claims.filter((c) => c.edge !== "PERFORMED_BY").map((c) => c.target_id as string), ...mandates.map((m) => m.to_party_id as string)])];
+  // 실연 몫 전부를 확정된 위임(VERIFIED, 합 100%)으로 넘긴 실연자는 직접 받지 않는다(예: 소속사가 멤버 몫을 받는다) — 지급 정보가 필요 없다.
+  const performerOnly = (p: string) => claims.every((c) => c.target_id !== p || c.edge === "OWNED_BY");
+  const mandatedAway = (p: string) => mandates.filter((m) => m.from_party_id === p && m.right_kind === "PERFORMER" && m.status === "VERIFIED")
+    .reduce((sum, m) => sum + Number(m.share_bps), 0) >= 10000;
+  const payees = [...new Set([...claims.filter((c) => c.edge !== "PERFORMED_BY").map((c) => c.target_id as string), ...mandates.map((m) => m.to_party_id as string)])]
+    .filter((p) => !(performerOnly(p) && mandatedAway(p)));
   const profiled = new Set((await q("SELECT party_id FROM party_payout_profile WHERE party_id = ANY($1)", [payees])).map((r) => r.party_id as string));
   for (const p of payees.filter((x) => !profiled.has(x))) {
     out.push({ rule: "DOC_PAYOUT_PROFILE_MISSING", severity: "WARN", subjectType: "PARTY", subjectId: p, message: `권리자 ${p}의 지급 정보(계좌·세무 유형)가 없다`, hint: "지급 프로필을 등록하게 한다(없으면 지급이 보류된다)" });
