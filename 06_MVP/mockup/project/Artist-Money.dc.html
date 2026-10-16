@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>실연자 앱 수익</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#7A1F68}a:hover{color:#5A1550}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #E6DEE4;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.tab{flex:1;text-align:center;font-size:12px;padding:10px 0;color:#4A4F59;text-decoration:none;min-height:44px;box-sizing:border-box}
+.tab.on{color:#7A1F68;font-weight:700}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:6px 0;border-bottom:1px solid #F0E9EE}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FAF6F9;font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;display:flex;flex-direction:column">
+  <header style="padding:20px 18px 12px;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <strong style="font-size:18px">정국</strong>
+      <span style="font-size:12px;color:#4A4F59">본인 인증됨 · artist.dobedupop.localhost</span>
+    </div>
+    <a href="Main.dc.html" style="font-size:12px">구조 지도</a>
+  </header>
+  <main style="flex:1;overflow-y:auto;padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px">
+    <h1 style="margin:0;font-size:20px">2026년 명세</h1>
+    <section class="card">
+      <div style="font-size:13px;color:#4A4F59;line-height:1.6">이 곡의 실연 몫은 위임계약에 따라 빅히트 뮤직(소속사)이 받는다. 그래서 내 명세의 정산액은 0원이고, 대신 위임 전 내 기여분을 참고값으로 보여 준다.</div>
+      <div class="row"><span>정산</span><span class="mono">0원</span></div>
+      <div class="row"><span>지급</span><span class="mono">0원</span></div>
+      <div class="row" style="border-bottom:0"><span>소속사 명세에서 확인</span><span class="mono">실연 몫 2,286,960원(7명 합)</span></div>
+    </section>
+    <h2 style="margin:6px 0 0;font-size:17px">내 기여분(참고값, 3월)</h2>
+    <section class="card" style="gap:4px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid #F0E9EE">
+          <div style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><strong>{{r.title}}</strong><span class="mono">{{r.total}}</span></div>
+          <div style="font-size:12px;color:#4A4F59">{{r.detail}}</div>
+        </div>
+      </sc-for>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;padding-top:8px"><span>합계</span><span class="mono">547,000원</span></div>
+      <div style="font-size:12px;color:#4A4F59">엔진 시뮬레이션 값(위임 라우팅 제외). 봉인·원장에는 쓰지 않는다. 환불·이상거래 보류는 반영된다.</div>
+    </section>
+  </main>
+  <nav aria-label="실연자 앱 탭" style="display:flex;border-top:1px solid #E6DEE4;background:#FFFFFF">
+    <a class="tab" href="Artist-Consent.dc.html">동의</a>
+    <a class="tab" href="Artist-Usage.dc.html">사용</a>
+    <a class="tab on" href="Artist-Money.dc.html">수익</a>
+    <a class="tab" href="Artist-Usage.dc.html">이의제기</a>
+    <a class="tab" href="Artist-Usage.dc.html">알림</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: [
+        { title: '원곡 배치', total: '350,400원', detail: '1건당 292원 × 1,200건 · 정국 파트' },
+        { title: '정국·지민 파트 맞바꾸기', total: '95,500원', detail: '1건당 191원 × 500건 · 지민 파트를 부름' },
+        { title: '랩 파트를 보컬 멤버가', total: '101,100원', detail: '1건당 337원 × 300건 · 정국 파트' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

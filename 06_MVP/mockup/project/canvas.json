@@ -1,0 +1,35 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-16T02:20:00Z" },
+  "title": "dobedupop MVP UI 구조 목업",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1180, "title": "구조 지도 — 서브도메인·게이트웨이·시나리오 동선", "expand": "fill", "is_interactive": true },
+    "Portal-Home.dc.html": { "x": 0, "y": 1560, "w": 1440, "h": 1000, "title": "권리자 포털 · 홈(해야 할 일)", "expand": "fill", "is_interactive": true },
+    "Portal-Rights.dc.html": { "x": 1520, "y": 1560, "w": 1440, "h": 1000, "title": "권리자 포털 · 권리 요약 + 원천 문서", "expand": "fill", "is_interactive": true },
+    "Portal-Policy.dc.html": { "x": 3040, "y": 1560, "w": 1440, "h": 1000, "title": "권리자 포털 · 분배 규칙과 승인", "expand": "fill", "is_interactive": true },
+    "Artist-Consent.dc.html": { "x": 0, "y": 2900, "w": 390, "h": 844, "title": "실연자 앱 · 동의와 계약 서명", "is_interactive": true },
+    "Artist-Money.dc.html": { "x": 470, "y": 2900, "w": 390, "h": 844, "title": "실연자 앱 · 수익과 내 기여분", "is_interactive": true },
+    "Artist-Usage.dc.html": { "x": 940, "y": 2900, "w": 390, "h": 844, "title": "실연자 앱 · 사용 이력과 이의제기", "is_interactive": true },
+    "Ops-Pipeline.dc.html": { "x": 0, "y": 4100, "w": 1440, "h": 1000, "title": "운영 백오피스 · ⑧ 관제 홈", "expand": "fill", "is_interactive": true },
+    "Ops-Trace.dc.html": { "x": 1520, "y": 4100, "w": 1440, "h": 1000, "title": "운영 백오피스 · 한 건 추적", "expand": "fill", "is_interactive": true },
+    "Ops-Settlement.dc.html": { "x": 3040, "y": 4100, "w": 1440, "h": 1000, "title": "운영 백오피스 · 정산 실행·검증·확정", "expand": "fill", "is_interactive": true },
+    "Demo-Console.dc.html": { "x": 0, "y": 5460, "w": 1440, "h": 1000, "title": "데모 진행판 · 단계 실행과 페르소나", "expand": "fill", "is_interactive": true }
+  },
+  "order": [
+    "Main.dc.html",
+    "Portal-Home.dc.html", "Portal-Rights.dc.html", "Portal-Policy.dc.html",
+    "Artist-Consent.dc.html", "Artist-Money.dc.html", "Artist-Usage.dc.html",
+    "Ops-Pipeline.dc.html", "Ops-Trace.dc.html", "Ops-Settlement.dc.html",
+    "Demo-Console.dc.html"
+  ],
+  "notes": {
+    "t_map": { "x": 0, "y": -260, "text": "dobedupop MVP — 전체 UI 구조", "kind": "title1", "maxW": 1440 },
+    "t_portal": { "x": 0, "y": 1300, "text": "권리자 포털 · portal.dobedupop.localhost", "kind": "title1", "maxW": 4480 },
+    "t_artist": { "x": 0, "y": 2640, "text": "실연자 앱 · artist.dobedupop.localhost", "kind": "title1", "maxW": 1330 },
+    "t_ops": { "x": 0, "y": 3840, "text": "운영 백오피스 · ops.dobedupop.localhost", "kind": "title1", "maxW": 4480 },
+    "t_demo": { "x": 0, "y": 5200, "text": "데모 진행판 · demo.dobedupop.localhost", "kind": "title1", "maxW": 1440 }
+  },
+  "designSystems": []
+}

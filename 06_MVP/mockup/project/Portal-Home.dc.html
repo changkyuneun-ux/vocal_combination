@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>권리자 포털 홈</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F1}
+a{color:#2348B8}a:hover{color:#16307D}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #DEDED8;border-radius:10px;padding:18px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:#E3F4E8;color:#11632F}.warn{background:#FDF0DC;color:#7A4105}.bad{background:#FCE4E2;color:#9B1C14}.muted{background:#ECECE8;color:#4A4F59}.info{background:#E4EAFB;color:#1D3C99}
+.nav a,.nav span{display:block;padding:8px 12px;border-radius:6px;font-size:14px;text-decoration:none;color:#2B3138}
+.nav a.on{background:#E4EAFB;color:#1D3C99;font-weight:600}
+.nav span{color:#5B616E}
+.grp{font-size:11px;font-weight:700;color:#5B616E;letter-spacing:.04em;padding:14px 12px 4px}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid #C9C9C2;background:#FFFFFF;font-size:13px;font-weight:600;color:#1B1D21;text-decoration:none}
+.btn.primary{background:#2348B8;border-color:#2348B8;color:#FFFFFF}
+td{font-size:13px;padding:10px 8px;border-bottom:1px solid #ECECE8;vertical-align:top}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#FFFFFF;border-bottom:1px solid #DEDED8;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="font-size:16px">dobedupop · 권리자 포털</strong>
+      <span class="mono" style="font-size:12px;color:#4A4F59">portal.dobedupop.localhost</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+      <span class="badge info">테넌트 빅히트 뮤직(레이블)</span>
+      <span>권리 편집자 · 김레이블</span>
+      <a class="btn" href="Main.dc.html">구조 지도</a>
+    </div>
+  </header>
+  <div style="display:flex;flex-wrap:wrap;flex:1">
+    <nav class="nav" aria-label="포털 메뉴" style="flex:1 1 220px;max-width:260px;background:#FAFAF8;border-right:1px solid #DEDED8;padding:12px">
+      <a class="on" href="Portal-Home.dc.html">홈</a>
+      <div class="grp">① 권리 등록</div>
+      <span>카탈로그(작품·녹음·스템·슬롯)</span>
+      <a href="Portal-Rights.dc.html">권리 요약·원천 문서</a>
+      <span>권리 주장·위임</span>
+      <span>표준 계약</span>
+      <span>확인 요청</span>
+      <div class="grp">② 정책·상품</div>
+      <a href="Portal-Policy.dc.html">분배 규칙</a>
+      <span>팩</span>
+      <div class="grp">③ 발행·심사</div>
+      <span>발행 조합·승인 큐</span>
+      <div class="grp">점검·정산</div>
+      <span>정합성 점검</span>
+      <span>명세·지급</span>
+      <div class="grp">설정</div>
+      <span>사용자·권한</span>
+      <span>조회 투명성</span>
+    </nav>
+    <main style="flex:999 1 560px;min-width:0;padding:28px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div>
+          <h1 style="margin:0;font-size:24px">해야 할 일</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#4A4F59">권리 결정은 권리자가 한다. 플랫폼은 점검 결과와 요청만 보낸다.</p>
+        </div>
+        <a class="btn primary" href="Portal-Rights.dc.html">곡 등록 이어 하기</a>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+        <sc-for list="{{todos}}" as="t" hint-placeholder-count="4">
+          <div class="card" style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <strong style="font-size:15px">{{t.title}}</strong>
+              <span class="badge {{t.cls}}">{{t.state}}</span>
+            </div>
+            <div style="font-size:13px;color:#4A4F59;line-height:1.6">{{t.body}}</div>
+            <a href="{{t.href}}" style="font-size:13px;font-weight:600;padding:6px 0">{{t.go}}</a>
+          </div>
+        </sc-for>
+      </div>
+
+      <section class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px">
+          <h2 style="margin:0;font-size:17px">내 곡</h2>
+          <span style="font-size:12px;color:#4A4F59">곡 = 권리 사실 범위(facts scope)</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;min-width:640px">
+            <tbody>
+              <tr>
+                <td><strong>Dynamite</strong><div class="mono" style="font-size:12px;color:#4A4F59">fsc_dynamite · rcd_dynamite</div></td>
+                <td>슬롯 7(멤버별 파트 묶음) · 3:19</td>
+                <td><span class="badge ok">정책 v1 활성</span> <span class="badge ok">팩 판매 중</span></td>
+                <td><span class="mono" style="font-size:12px">pak_dynamite_fan</span><div style="font-size:12px;color:#4A4F59">조합 1건 3,300원</div></td>
+                <td><a href="Portal-Rights.dc.html">권리 요약</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:17px">2026년 3월 정산(확정)</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <div><div style="font-size:12px;color:#4A4F59">레이블(마스터) 정산</div><div style="font-size:22px;font-weight:700">2,031,876원</div></div>
+          <div><div style="font-size:12px;color:#4A4F59">환불 역분개</div><div style="font-size:22px;font-weight:700">−924원</div></div>
+          <div><div style="font-size:12px;color:#4A4F59">지급(가상 PSP)</div><div style="font-size:22px;font-weight:700">2,030,952원</div></div>
+        </div>
+        <div style="font-size:12px;color:#4A4F59">다른 권리자(작가·소속사)의 지분 상세는 보이지 않는다(테넌트 격리).</div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      todos: [
+        { title: '확인 요청 보냄', state: '확인 대기', cls: 'warn', body: '작가 David Stewart·Jessica Agombar의 작품 지분(각 50%) 주장. 확인되기 전에는 정산에 들어가지 않는다.', go: '확인 요청 보기', href: 'Portal-Rights.dc.html' },
+        { title: '정합성 점검', state: '차단 1', cls: 'bad', body: '녹음 권리 주장에 근거 문서가 없다. 녹음 계약서를 올리고 연결하면 자동으로 풀린다.', go: '근거 연결하기', href: 'Portal-Rights.dc.html' },
+        { title: '표준 계약', state: '서명 대기', cls: 'warn', body: '멤버 7명 수익 수령 위임계약 — 실연자 앱에서 서명 중. 모두 서명하면 "기록 반영".', go: '계약 보기', href: 'Portal-Home.dc.html' },
+        { title: '분배 규칙', state: '승인 대기', cls: 'info', body: '편집자가 만든 v1. 승인자와 활성화 담당은 서로 다른 사람이어야 한다.', go: '분배 규칙 보기', href: 'Portal-Policy.dc.html' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

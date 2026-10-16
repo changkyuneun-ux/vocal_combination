@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>dobedupop MVP 구조 지도</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F1}
+a{color:#2348B8}a:hover{color:#16307D}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #DEDED8;border-radius:10px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.portal{background:#E4EAFB;color:#1D3C99}
+.artist{background:#F6E6F3;color:#7A1F68}
+.ops{background:#E9ECEF;color:#2B3138}
+.demo{background:#FDF0DC;color:#7A4105}
+.node{background:#FFFFFF;border:1px solid #C9C9C2;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.5}
+.arrow{color:#6B707A;font-size:20px;text-align:center;align-self:center}
+th{font-size:12px;color:#4A4F59;font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid #DEDED8}
+td{font-size:13px;padding:9px 10px;border-bottom:1px solid #ECECE8;vertical-align:top}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;max-width:1360px;margin:0 auto;padding:40px 32px 56px;display:flex;flex-direction:column;gap:32px">
+  <header style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:13px;color:#4A4F59;font-weight:600;letter-spacing:.02em">dobedupop MVP · 데모 환경</div>
+      <h1 style="margin:0;font-size:32px;font-weight:700">전체 UI 구조 지도</h1>
+      <p style="margin:0;font-size:14px;color:#4A4F59;max-width:760px;line-height:1.6">권리자 포털·실연자 앱·운영 백오피스를 서브도메인으로 나누고, BTS "Dynamite" 2차 이용 가상 데이터로 권리 등록부터 지급까지 보여 준다. 팬 앱과 공개 검증은 빼고, 팬 활동은 가상 팬 생성기가 대신한다. 화면 수치는 Dynamite 예시 보고서 값이다.</p>
+    </div>
+    <span class="badge demo">가상 사례 · 권리관계·금액은 가정</span>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:18px">1. 서브도메인과 앱</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      <sc-for list="{{apps}}" as="a" hint-placeholder-count="4">
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <strong style="font-size:16px">{{a.name}}</strong>
+            <span class="badge {{a.cls}}">{{a.badge}}</span>
+          </div>
+          <div class="mono" style="font-size:13px;color:#2B3138">{{a.host}}</div>
+          <div style="font-size:12px;color:#4A4F59">허용 API <span class="mono">{{a.api}}</span> · {{a.who}}</div>
+          <div style="font-size:13px;line-height:1.6;color:#2B3138">{{a.menus}}</div>
+          <a href="{{a.href}}" style="font-size:13px;font-weight:600;padding:10px 0">화면 보기 →</a>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:18px">2. 배포 구조(한 대의 데모 서버, Docker Compose)</h2>
+    <div class="card" style="padding:20px;display:grid;grid-template-columns:minmax(0,1.1fr) 40px minmax(0,1fr) 40px minmax(0,1.2fr) 40px minmax(0,1fr);gap:10px;align-items:stretch;overflow-x:auto">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;font-weight:600;color:#4A4F59">브라우저</div>
+        <div class="node"><span class="badge portal">포털</span> <span class="mono">portal.</span></div>
+        <div class="node"><span class="badge artist">실연자</span> <span class="mono">artist.</span></div>
+        <div class="node"><span class="badge ops">운영</span> <span class="mono">ops.</span> · IP 제한</div>
+        <div class="node"><span class="badge demo">데모</span> <span class="mono">demo.</span> · 데모 환경만</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;font-weight:600;color:#4A4F59">게이트웨이</div>
+        <div class="node" style="flex:1"><strong>호스트별 채널 제한</strong><br>portal → <span class="mono">/api/portal</span><br>artist → <span class="mono">/api/performer</span><br>ops → <span class="mono">/api/ops</span><br><span class="mono">/fan</span>은 외부에 열지 않음<br>보안 헤더·세션 쿠키</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;font-weight:600;color:#4A4F59">권리 및 정산 코어(한 이미지, 세 역할)</div>
+        <div class="node"><strong>API</strong> · 채널 정책 · 세션 → RLS 범위</div>
+        <div class="node"><strong>워커</strong> · Outbox + pg-boss(정산·지급·렌더 작업)</div>
+        <div class="node"><strong>검증 워커</strong> · 다른 신원으로 재계산, 불일치면 run VOID</div>
+        <div class="node" style="background:#F7F7F4">MDRL 엔진은 <span class="mono">engine-bridge</span>에서 라이브러리로 호출</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;font-weight:600;color:#4A4F59">저장소</div>
+        <div class="node"><strong>PostgreSQL</strong> · 행 단위 보안(RLS)</div>
+        <div class="node"><strong>오브젝트 저장소</strong> · 봉인 원문·원천 문서·오디오</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+      <div class="node"><strong>오디오 처리 서비스</strong><br>스템 검수·출처 검사·렌더링(별도 컨테이너)</div>
+      <div class="node"><strong>연동 허브</strong><br>유통사 CSV·DDEX 번역(가상 리포트 파일)</div>
+      <div class="node"><strong>가상 공급자</strong><br>PSP · 본인 인증 · 전자서명 — production에서는 거부</div>
+      <div class="node"><strong>가상 팬 생성기</strong><br>내부망에서 <span class="mono">/fan</span> 호출: 조합 발행·구매·재생</div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:18px">3. 데모 시나리오 동선</h2>
+    <div class="card" style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:820px">
+        <thead><tr><th style="width:48px">순서</th><th>무엇을 보여 주나</th><th style="width:120px">앱</th><th style="width:220px">페르소나</th><th style="width:150px">화면</th></tr></thead>
+        <tbody>
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="11">
+            <tr>
+              <td class="mono">{{s.n}}</td>
+              <td>{{s.what}}</td>
+              <td><span class="badge {{s.cls}}">{{s.app}}</span></td>
+              <td style="color:#4A4F59">{{s.who}}</td>
+              <td><a href="{{s.href}}">{{s.screen}}</a></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      apps: [
+        { name: '권리자 포털', badge: '포털', cls: 'portal', host: 'portal.dobedupop.localhost', api: '/api/portal', who: '레이블·소속사·출판사·작가', menus: '홈 · ① 권리 등록(카탈로그·권리 요약·원천 문서·표준 계약·확인 요청) · ② 분배 규칙·팩 · ③ 발행 · 정합성 점검 · 명세·지급 · 조회 투명성', href: 'Portal-Home.dc.html' },
+        { name: '실연자 앱', badge: '실연자', cls: 'artist', host: 'artist.dobedupop.localhost', api: '/api/performer', who: '본인 인증한 멤버(모바일)', menus: '동의(동의·철회·계약 서명) · 사용 · 수익(명세·내 기여분) · 이의제기 · 알림', href: 'Artist-Consent.dc.html' },
+        { name: '운영 백오피스', badge: '운영', cls: 'ops', host: 'ops.dobedupop.localhost', api: '/api/ops', who: '플랫폼 운영(역할별)', menus: '⑧ 관제 홈·한 건 추적·영향 분석 · ⑤ 무결성(점검 큐·확인·분쟁·스템 검수) · ⑥ 정산·재무(매출·연동·정산·원장·지급) · ⑦ 관리·감사(테넌트·조회 통제·템플릿)', href: 'Ops-Pipeline.dc.html' },
+        { name: '데모 진행판', badge: '데모', cls: 'demo', host: 'demo.dobedupop.localhost', api: '/api/demo', who: '시연자(데모 환경만)', menus: '단계 1~11 실행·건너뛰기 · 페르소나별 앱 열기 · 가상 시계 · 가상 팬 생성기 · 처음부터 다시', href: 'Demo-Console.dc.html' }
+      ],
+      steps: [
+        { n: '1', what: '곡·녹음·스템·슬롯 등록, 녹음 계약서 원문 올리기, 권리 요약', app: '포털', cls: 'portal', who: '빅히트 뮤직(레이블) 권리 편집자', screen: '권리 요약', href: 'Portal-Rights.dc.html' },
+        { n: '2', what: '작가 지분 주장 → 상대 확인, 작품 이용허락 표준 계약(가상 서명)', app: '포털', cls: 'portal', who: '레이블 · 작가 2명', screen: '포털 홈', href: 'Portal-Home.dc.html' },
+        { n: '3', what: '멤버 본인 인증, 팬앱 이용 동의, 수익 수령 위임계약 서명', app: '실연자', cls: 'artist', who: '멤버 7명', screen: '동의', href: 'Artist-Consent.dc.html' },
+        { n: '4', what: '정합성 점검: 빠진 근거가 활성화를 막고, 고치면 풀린다', app: '포털', cls: 'portal', who: '레이블 · 컴플라이언스', screen: '포털 홈', href: 'Portal-Home.dc.html' },
+        { n: '5', what: '분배 규칙 폼 → 예시 계산 → 승인 → 활성화, 팩 활성화', app: '포털', cls: 'portal', who: '편집자 ≠ 승인자 ≠ 활성화 담당', screen: '분배 규칙', href: 'Portal-Policy.dc.html' },
+        { n: '6', what: '가상 팬의 조합 발행·구매, 솔로 조합 발행 거부', app: '데모', cls: 'demo', who: '가상 팬 생성기', screen: '데모 진행판', href: 'Demo-Console.dc.html' },
+        { n: '7', what: '매출 수집 → 정산 실행 → 독립 재계산 → 확정', app: '운영', cls: 'ops', who: '정산 실행자 ≠ 확정자', screen: '정산', href: 'Ops-Settlement.dc.html' },
+        { n: '8', what: '원장·지급(가상 PSP), 권리자·멤버 명세', app: '운영', cls: 'ops', who: '정산 담당 · 권리자 · 멤버', screen: '수익(실연자)', href: 'Artist-Money.dc.html' },
+        { n: '9', what: '유통사 리포트(가상 CSV)·감상 수익 풀을 재생 비중으로 배정', app: '운영', cls: 'ops', who: '운영', screen: '⑧ 관제 홈', href: 'Ops-Pipeline.dc.html' },
+        { n: '10', what: '동의 철회·이의제기 → 노출 중지, 영향 분석, 환불 역분개', app: '실연자', cls: 'artist', who: '멤버 → 운영', screen: '사용·이의제기', href: 'Artist-Usage.dc.html' },
+        { n: '11', what: '조합 하나를 원곡부터 지급까지 한 건 추적', app: '운영', cls: 'ops', who: '관제 담당', screen: '한 건 추적', href: 'Ops-Trace.dc.html' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

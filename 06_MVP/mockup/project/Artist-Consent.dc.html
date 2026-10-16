@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>실연자 앱 동의</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#7A1F68}a:hover{color:#5A1550}
+.card{background:#FFFFFF;border:1px solid #E6DEE4;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.ok{background:#E3F4E8;color:#11632F}.warn{background:#FDF0DC;color:#7A4105}
+.btn{display:block;text-align:center;padding:12px;border-radius:10px;border:1px solid #CFC3CC;background:#FFFFFF;font-size:15px;font-weight:600;color:#1B1D21;font-family:inherit;min-height:44px;box-sizing:border-box;cursor:pointer;width:100%}
+.btn.primary{background:#7A1F68;border-color:#7A1F68;color:#FFFFFF}
+.tab{flex:1;text-align:center;font-size:12px;padding:10px 0;color:#4A4F59;text-decoration:none;min-height:44px;box-sizing:border-box}
+.tab.on{color:#7A1F68;font-weight:700}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FAF6F9;font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;display:flex;flex-direction:column">
+  <header style="padding:20px 18px 12px;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <strong style="font-size:18px">정국</strong>
+      <span style="font-size:12px;color:#4A4F59">본인 인증됨 · artist.dobedupop.localhost</span>
+    </div>
+    <a href="Main.dc.html" style="font-size:12px">구조 지도</a>
+  </header>
+  <main style="flex:1;overflow-y:auto;padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px">
+    <h1 style="margin:0;font-size:20px">동의</h1>
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:16px">Dynamite · 내 보이스</strong><span class="badge ok">동의함</span></div>
+      <div style="font-size:13px;color:#4A4F59;line-height:1.6">팬앱 안에서 미리듣기·조합·개인 보관·링크 공유 · 대한민국 · 2027-01-01까지</div>
+      <div style="font-size:12px;color:#4A4F59">동의서 원문 보관됨(자체 서명: 본인 인증 계정·시각·기기·원문 해시)</div>
+      <button class="btn" type="button">철회하기</button>
+    </section>
+    <h2 style="margin:6px 0 0;font-size:17px">계약 서명 요청</h2>
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><strong style="font-size:15px">실연 수익 수령 위임계약</strong><span class="badge warn">내 서명 대기</span></div>
+      <div style="font-size:13px;color:#4A4F59;line-height:1.6">빅히트 뮤직(소속사)이 이 곡에서 생기는 내 실연 수익의 100%를 대신 받는다 · 2026-01-01 ~ 2027-01-01</div>
+      <div style="background:#F7F2F6;border-radius:10px;padding:12px;font-size:13px;line-height:1.7">제1조 당사자 … 제2조 위임 범위 … 제3조 기간 … 제4조 정산 보고: 수임인은 받은 금액과 전달한 금액을 실연자 앱에서 확인할 수 있게 한다.</div>
+      <div style="font-size:12px;color:#4A4F59">당사자: 정국(대기) · 빅히트 뮤직 소속사(서명함)</div>
+      <button class="btn primary" type="button">읽었고 서명합니다</button>
+    </section>
+  </main>
+  <nav aria-label="실연자 앱 탭" style="display:flex;border-top:1px solid #E6DEE4;background:#FFFFFF">
+    <a class="tab on" href="Artist-Consent.dc.html">동의</a>
+    <a class="tab" href="Artist-Usage.dc.html">사용</a>
+    <a class="tab" href="Artist-Money.dc.html">수익</a>
+    <a class="tab" href="Artist-Usage.dc.html">이의제기</a>
+    <a class="tab" href="Artist-Usage.dc.html">알림</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

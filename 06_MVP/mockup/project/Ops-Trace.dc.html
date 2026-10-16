@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>한 건 추적</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2F3F4}
+a{color:#2348B8}a:hover{color:#16307D}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #D9DCDF;border-radius:10px;padding:16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:#E3F4E8;color:#11632F}.warn{background:#FDF0DC;color:#7A4105}.muted{background:#E9ECEF;color:#3A4048}
+.nav a,.nav span{display:block;padding:7px 12px;border-radius:6px;font-size:14px;text-decoration:none;color:#E6E8EB}
+.nav a.on{background:#3A434D;color:#FFFFFF;font-weight:600}
+.nav span{color:#B4BAC1}
+.grp{font-size:11px;font-weight:700;color:#9AA1A9;letter-spacing:.04em;padding:14px 12px 4px}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid #C3C8CD;background:#FFFFFF;font-size:13px;font-weight:600;color:#1B1D21;text-decoration:none;font-family:inherit}
+input{font-family:'IBM Plex Mono',monospace;font-size:14px;padding:9px 10px;border:1px solid #C3C8CD;border-radius:8px;min-width:0}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#1F252B;color:#FFFFFF;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="font-size:16px">dobedupop · 운영 백오피스</strong>
+      <span class="mono" style="font-size:12px;color:#C9CED3">ops.dobedupop.localhost</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+      <span>관제 담당 · 정관제</span>
+      <a class="btn" href="Main.dc.html">구조 지도</a>
+    </div>
+  </header>
+  <div style="display:flex;flex-wrap:wrap;flex:1">
+    <nav class="nav" aria-label="운영 메뉴" style="flex:1 1 220px;max-width:260px;background:#2A3138;padding:12px">
+      <div class="grp">⑧ 관제</div>
+      <a href="Ops-Pipeline.dc.html">파이프라인 홈</a>
+      <a class="on" href="Ops-Trace.dc.html">한 건 추적</a>
+      <span>영향 분석</span>
+      <div class="grp">⑥ 정산·재무</div>
+      <a href="Ops-Settlement.dc.html">정산 배치</a>
+    </nav>
+    <main style="flex:999 1 560px;min-width:0;padding:28px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div>
+          <h1 style="margin:0;font-size:24px">한 건 추적</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#3A4048">단계마다 봉인 digest·정책 버전·기준 시점을 보여 금액의 근거를 설명한다.</p>
+        </div>
+        <form style="display:flex;gap:8px;flex-wrap:wrap" aria-label="추적 대상">
+          <label for="q" style="position:absolute;left:-9999px">조합·매출·파티 id</label>
+          <input id="q" value="vc_bts_orig">
+          <button class="btn" type="button">추적</button>
+        </form>
+      </div>
+      <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0">
+        <sc-for list="{{chain}}" as="c" hint-placeholder-count="8">
+          <li style="display:flex;gap:14px">
+            <div style="display:flex;flex-direction:column;align-items:center;width:28px;flex:none">
+              <div style="width:28px;height:28px;border-radius:50%;background:#1F252B;color:#FFFFFF;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">{{c.n}}</div>
+              <div style="flex:1;width:2px;background:#C3C8CD;min-height:16px"></div>
+            </div>
+            <section class="card" style="flex:1;min-width:0;margin-bottom:12px;display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong style="font-size:15px">{{c.stage}}</strong><span class="badge {{c.cls}}">{{c.state}}</span></div>
+              <div style="font-size:13px;line-height:1.6">{{c.body}}</div>
+              <div class="mono" style="font-size:12px;color:#3A4048;overflow-wrap:anywhere">{{c.proof}}</div>
+            </section>
+          </li>
+        </sc-for>
+      </ol>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      chain: [
+        { n: '1', stage: '원곡·녹음', state: '확정', cls: 'ok', body: 'Dynamite(작사·작곡 David Stewart · Jessica Agombar) · 녹음 rcd_dynamite · 3:19', proof: 'facts v1 mdrl:sha256:2e77bb42dcb9910a…ecff9258' },
+        { n: '2', stage: '스템·슬롯', state: 'READY 7', cls: 'ok', body: '멤버별 파트 묶음 슬롯 7개 · 스템 기술 검수·출처 검사 통과', proof: 'audio-service QC · 음향 지문' },
+        { n: '3', stage: '정책', state: 'v1 활성', cls: 'ok', body: '권리자 70 · 플랫폼 25 · 운영 5 / 녹음 40 · 작품 15 · 실연 45', proof: 'pol_dynamite_fan v1 mdrl:sha256:1cbc37c4fa849f3c…23057828' },
+        { n: '4', stage: '조합 발행', state: '봉인', cls: 'ok', body: '원곡 배치(멤버 7명 각자 자기 파트) · 팬 F1 · 이용허락 판정 PERMIT', proof: '조합 지분 mdrl:sha256:fe70064c3be1726a…fc198b859 · 멤버 mdrl:sha256:e19c2b4c3651fe79…cbc3ce' },
+        { n: '5', stage: '매출', state: '1,200건', cls: 'ok', body: '구매 1,200건 · 3,960,000원 · 첫 이벤트 ev_orig_0001', proof: '가상 팬 생성기 → /fan · 이상거래 검사 CLEAR' },
+        { n: '6', stage: '정산', state: '확정', cls: 'ok', body: '1건(3,300원) 배분: 소속사 1,040 · 레이블 924 · 작가 173 · 173 · 플랫폼 825 · 운영 165', proof: 'run_bat_bts_2026_03_snp_vc_bts_orig · mdrl:sha256:3f3306e59ea46650…7915fc1d · 검증 워커 재계산 일치' },
+        { n: '7', stage: '환불·역분개', state: '1건', cls: 'warn', body: 'ev_orig_0001 환불(ev_rf_0001) → 확정 라인을 같은 비율로 되돌림', proof: 'rev_ev_rf_0001 · mdrl:sha256:f98b398760243ae8…29032693c' },
+        { n: '8', stage: '원장·지급', state: '지급', cls: 'ok', body: '소속사 2,285,920 · 레이블 2,030,952 · 작가 각 296,604(원천징수 83,650)', proof: '가상 PSP · 지급 지시 4건 PAID · 배치 bat_bts_2026_03' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

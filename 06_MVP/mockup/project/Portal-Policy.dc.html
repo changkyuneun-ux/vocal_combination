@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>분배 규칙과 승인</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F1}
+a{color:#2348B8}a:hover{color:#16307D}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #DEDED8;border-radius:10px;padding:18px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:#E3F4E8;color:#11632F}.warn{background:#FDF0DC;color:#7A4105}.muted{background:#ECECE8;color:#4A4F59}.info{background:#E4EAFB;color:#1D3C99}
+.nav a,.nav span{display:block;padding:8px 12px;border-radius:6px;font-size:14px;text-decoration:none;color:#2B3138}
+.nav a.on{background:#E4EAFB;color:#1D3C99;font-weight:600}
+.nav span{color:#5B616E}
+.grp{font-size:11px;font-weight:700;color:#5B616E;letter-spacing:.04em;padding:14px 12px 4px}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid #C9C9C2;background:#FFFFFF;font-size:13px;font-weight:600;color:#1B1D21;text-decoration:none;font-family:inherit;cursor:pointer}
+.btn.primary{background:#2348B8;border-color:#2348B8;color:#FFFFFF}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#4A4F59}
+input{font-family:inherit;font-size:14px;padding:9px 10px;border:1px solid #C9C9C2;border-radius:8px;color:#1B1D21;width:100%;box-sizing:border-box}
+td{font-size:13px;padding:8px;border-bottom:1px solid #ECECE8}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#FFFFFF;border-bottom:1px solid #DEDED8;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="font-size:16px">dobedupop · 권리자 포털</strong>
+      <span class="mono" style="font-size:12px;color:#4A4F59">portal.dobedupop.localhost</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+      <span class="badge info">테넌트 빅히트 뮤직(레이블)</span>
+      <span>정책 편집자 · 최편집</span>
+      <a class="btn" href="Main.dc.html">구조 지도</a>
+    </div>
+  </header>
+  <div style="display:flex;flex-wrap:wrap;flex:1">
+    <nav class="nav" aria-label="포털 메뉴" style="flex:1 1 220px;max-width:260px;background:#FAFAF8;border-right:1px solid #DEDED8;padding:12px">
+      <a href="Portal-Home.dc.html">홈</a>
+      <div class="grp">① 권리 등록</div>
+      <a href="Portal-Rights.dc.html">권리 요약·원천 문서</a>
+      <div class="grp">② 정책·상품</div>
+      <a class="on" href="Portal-Policy.dc.html">분배 규칙</a>
+      <span>팩</span>
+      <div class="grp">③ 발행·심사</div>
+      <span>발행 조합·승인 큐</span>
+      <div class="grp">점검·정산</div>
+      <span>정합성 점검</span>
+      <span>명세·지급</span>
+    </nav>
+    <main style="flex:999 1 560px;min-width:0;padding:28px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <h1 style="margin:0;font-size:24px">분배 규칙 · Dynamite 팬 조합 팩</h1>
+        <p style="margin:6px 0 0;font-size:14px;color:#4A4F59">폼으로 정하면 MDRL 정책이 만들어진다. 고급 모드에서 MDRL을 직접 볼 수 있다.</p>
+      </div>
+      <ol aria-label="승인 단계" style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{flow}}" as="s" hint-placeholder-count="4">
+          <li class="card" style="padding:10px 14px;flex:1 1 180px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;justify-content:space-between;gap:6px"><strong style="font-size:14px">{{s.step}}</strong><span class="badge {{s.cls}}">{{s.state}}</span></div>
+            <div style="font-size:12px;color:#4A4F59">{{s.who}}</div>
+          </li>
+        </sc-for>
+      </ol>
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <section class="card" style="flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:14px">
+          <h2 style="margin:0;font-size:17px">규칙 입력</h2>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+            <label>권리자 몫<input value="70%" aria-label="권리자 몫"></label>
+            <label>플랫폼 몫<input value="25%" aria-label="플랫폼 몫"></label>
+            <label>운영 비용<input value="5%" aria-label="운영 비용"></label>
+          </div>
+          <div style="font-size:13px;font-weight:600">권리자 몫 안에서</div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+            <label>녹음(마스터)<input value="40%" aria-label="녹음 몫"></label>
+            <label>작품(작사·작곡)<input value="15%" aria-label="작품 몫"></label>
+            <label>실연(멤버)<input value="45%" aria-label="실연 몫"></label>
+          </div>
+          <label>실연 몫을 나누는 기준<input value="조합에서 실제로 부른 시간 비례" aria-label="실연 배분 기준"></label>
+          <label>대상 매출<input value="구매 · 감상(구독·광고 풀)" aria-label="대상 매출"></label>
+          <div style="font-size:12px;color:#11632F;font-weight:600">합계 100% 확인됨</div>
+        </section>
+        <section class="card" style="flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin:0;font-size:17px">예시 계산 · 원곡 배치 조합 1건(3,300원)</h2>
+          <table style="width:100%;border-collapse:collapse">
+            <tbody>
+              <tr><td>빅히트 뮤직(레이블) · 녹음</td><td style="text-align:right" class="mono">924원</td></tr>
+              <tr><td>David Stewart · 작품</td><td style="text-align:right" class="mono">173원</td></tr>
+              <tr><td>Jessica Agombar · 작품</td><td style="text-align:right" class="mono">173원</td></tr>
+              <tr><td>빅히트 뮤직(소속사) · 실연 7명 위임 수령</td><td style="text-align:right" class="mono">1,040원</td></tr>
+              <tr><td>플랫폼</td><td style="text-align:right" class="mono">825원</td></tr>
+              <tr><td>운영 비용</td><td style="text-align:right" class="mono">165원</td></tr>
+            </tbody>
+          </table>
+          <div style="font-size:13px;line-height:1.6;background:#F7F7F4;border-radius:8px;padding:12px">쉬운 말 설명: 팬이 조합 하나를 사면 70%가 권리자에게 간다. 그중 40%는 녹음, 15%는 작사·작곡, 45%는 노래한 멤버 몫이고, 멤버 몫은 소속사가 위임받아 받는다. 봉인 없이 엔진으로 계산한 예시다.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" type="button">고급 모드(MDRL)</button>
+            <button class="btn primary" type="button">MDRL로 만들기 → 승인 요청</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      flow: [
+        { step: '1. 편집', state: '완료', cls: 'ok', who: '최편집(정책 편집자)' },
+        { step: '2. 컴파일·검증', state: '통과', cls: 'ok', who: '엔진 · facts v1 고정' },
+        { step: '3. 승인', state: '대기', cls: 'warn', who: '이승인 — 편집자와 다른 사람' },
+        { step: '4. 활성화', state: '대기', cls: 'muted', who: '박활성 — 편집·승인자와 다른 사람' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

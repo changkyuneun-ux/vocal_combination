@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>데모 진행판</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FBF7F0}
+a{color:#7A4105}a:hover{color:#4F2A03}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #E7DCCB;border-radius:10px;padding:16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:#E3F4E8;color:#11632F}.now{background:#7A4105;color:#FFFFFF}.todo{background:#EFE9DF;color:#4A4F59}
+.portal{background:#E4EAFB;color:#1D3C99}.artist{background:#F6E6F3;color:#7A1F68}.ops{background:#E9ECEF;color:#2B3138}.demo{background:#FDF0DC;color:#7A4105}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid #D6C7AF;background:#FFFFFF;font-size:13px;font-weight:600;color:#1B1D21;text-decoration:none;font-family:inherit;cursor:pointer;min-height:40px;box-sizing:border-box}
+.btn.primary{background:#7A4105;border-color:#7A4105;color:#FFFFFF}
+.btn:disabled{opacity:.45;cursor:default}
+select{font-family:inherit;font-size:14px;padding:8px;border:1px solid #D6C7AF;border-radius:8px;background:#FFFFFF}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#FFFFFF;border-bottom:1px solid #E7DCCB;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="font-size:16px">dobedupop · 데모 진행판</strong>
+      <span class="mono" style="font-size:12px;color:#4A4F59">demo.dobedupop.localhost · 데모 환경에서만 배포</span>
+    </div>
+    <a class="btn" href="Main.dc.html">구조 지도</a>
+  </header>
+  <div style="max-width:1280px;width:100%;box-sizing:border-box;margin:0 auto;padding:28px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+    <main style="flex:999 1 620px;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div>
+          <h1 style="margin:0;font-size:24px">Dynamite 2차 이용 시연</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#4A4F59">단계를 실행하면 공개 API로 데이터를 넣는다(정책·검증을 그대로 통과). 화면을 보여 줄 때는 페르소나 링크로 해당 앱을 연다.</p>
+        </div>
+        <div style="font-size:14px;font-weight:600">{{progress}}</div>
+      </div>
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="11">
+        <section class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+          <span class="mono" style="width:28px;font-weight:700">{{s.n}}</span>
+          <div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><strong style="font-size:15px">{{s.what}}</strong><span class="badge {{s.stateCls}}">{{s.state}}</span></div>
+            <div style="font-size:12px;color:#4A4F59"><span class="badge {{s.appCls}}">{{s.app}}</span> {{s.who}}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn" href="{{s.href}}">화면 열기</a>
+            <button class="btn primary" type="button" disabled="{{s.locked}}" onClick="{{s.run}}">실행</button>
+          </div>
+        </section>
+      </sc-for>
+    </main>
+    <aside style="flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:14px">
+      <section class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:16px">진행</h2>
+        <button class="btn" type="button" onClick="{{reset}}">처음부터 다시(데이터 초기화)</button>
+        <div style="font-size:13px">가상 시계 <span class="mono">{{clock}}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" type="button">+1일</button><button class="btn" type="button">+14일</button><button class="btn" type="button">+30일</button></div>
+      </section>
+      <section class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:16px">데이터 세트</h2>
+        <label for="ds" style="font-size:12px;font-weight:600;color:#4A4F59">이름 표시</label>
+        <select id="ds"><option>실명(내부 시연) — 가상 사례 표시</option><option>가명(외부 시연)</option></select>
+        <div style="font-size:12px;color:#4A4F59;line-height:1.6">곡 크레딧·멤버·가창 시간만 실제 정보이고, 지분·계약·가격·판매량은 가정이다.</div>
+      </section>
+      <section class="card" style="display:flex;flex-direction:column;gap:8px">
+        <h2 style="margin:0;font-size:16px">가상 팬 생성기</h2>
+        <div style="font-size:13px;line-height:1.7">조합 4개 발행 · 솔로 조합 2회 시도(거부)<br>구매 2,201건(이상거래 1건 포함) · 환불 1건<br>4월 재생 보고 → 감상 수익 풀 배정</div>
+        <div style="font-size:12px;color:#4A4F59">내부망에서 코어 <span class="mono">/fan</span> 채널을 부른다. 게이트웨이는 외부에 열지 않는다.</div>
+      </section>
+      <section class="card" style="display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0;font-size:16px">페르소나</h2>
+        <div style="font-size:13px;line-height:1.8">레이블 권리 편집자·정책 편집자·승인자·활성화 담당<br>작가 2명 · 소속사 · 멤버 7명<br>운영: 관제·정산 실행자·확정자·컴플라이언스·법무</div>
+        <div style="font-size:12px;color:#4A4F59">데모 환경에서만 빠른 로그인. 운영 빌드에는 없다.</div>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { done: 5 }; }
+  renderVals() {
+    const base = [
+      ['1', '곡·녹음·스템 등록, 녹음 계약서 원문', '포털', 'portal', '레이블 권리 편집자', 'Portal-Rights.dc.html'],
+      ['2', '작가 지분 주장·확인, 작품 이용허락 표준 계약', '포털', 'portal', '레이블 · 작가 2명', 'Portal-Home.dc.html'],
+      ['3', '멤버 본인 인증·동의·위임계약 서명', '실연자', 'artist', '멤버 7명', 'Artist-Consent.dc.html'],
+      ['4', '정합성 점검 → 차단 해소', '포털', 'portal', '레이블 · 컴플라이언스', 'Portal-Home.dc.html'],
+      ['5', '분배 규칙 승인·활성화, 팩 활성화', '포털', 'portal', '편집자 ≠ 승인자 ≠ 활성화 담당', 'Portal-Policy.dc.html'],
+      ['6', '가상 팬 조합 발행·구매(솔로 조합 거부)', '데모', 'demo', '가상 팬 생성기', 'Ops-Pipeline.dc.html'],
+      ['7', '정산 실행 → 독립 재계산 → 확정', '운영', 'ops', '정산 실행자 ≠ 확정자', 'Ops-Settlement.dc.html'],
+      ['8', '원장·지급, 권리자·멤버 명세', '운영', 'ops', '정산 담당 · 권리자 · 멤버', 'Artist-Money.dc.html'],
+      ['9', '유통사 리포트·감상 수익 풀 배정', '운영', 'ops', '운영', 'Ops-Pipeline.dc.html'],
+      ['10', '동의 철회·이의제기 → 노출 중지, 역분개', '실연자', 'artist', '멤버 → 운영', 'Artist-Usage.dc.html'],
+      ['11', '한 건 추적(원곡 → 지급)', '운영', 'ops', '관제 담당', 'Ops-Trace.dc.html']
+    ];
+    const done = this.state.done;
+    const steps = base.map((b, i) => ({
+      n: b[0], what: b[1], app: b[2], appCls: b[3], who: b[4], href: b[5],
+      state: i < done ? '완료' : i === done ? '지금' : '대기',
+      stateCls: i < done ? 'ok' : i === done ? 'now' : 'todo',
+      locked: i !== done,
+      run: () => this.setState({ done: Math.min(base.length, i + 1) })
+    }));
+    const clocks = ['2026-01-01', '2026-01-01', '2026-01-15', '2026-02-01', '2026-02-10', '2026-03-01', '2026-03-31', '2026-04-05', '2026-04-30', '2026-05-01', '2026-05-01', '2026-05-01'];
+    return {
+      steps,
+      progress: done + ' / ' + base.length + ' 단계 완료',
+      clock: clocks[done] + 'T00:00Z',
+      reset: () => this.setState({ done: 0 })
+    };
+  }
+}
+</script>
+</body>
+</html>

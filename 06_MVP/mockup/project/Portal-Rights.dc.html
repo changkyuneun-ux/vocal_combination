@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>권리 요약과 원천 문서</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F1}
+a{color:#2348B8}a:hover{color:#16307D}
+.mono{font-family:'IBM Plex Mono',monospace}
+.card{background:#FFFFFF;border:1px solid #DEDED8;border-radius:10px;padding:18px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:#E3F4E8;color:#11632F}.warn{background:#FDF0DC;color:#7A4105}.bad{background:#FCE4E2;color:#9B1C14}.muted{background:#ECECE8;color:#4A4F59}.info{background:#E4EAFB;color:#1D3C99}
+.nav a,.nav span{display:block;padding:8px 12px;border-radius:6px;font-size:14px;text-decoration:none;color:#2B3138}
+.nav a.on{background:#E4EAFB;color:#1D3C99;font-weight:600}
+.nav span{color:#5B616E}
+.grp{font-size:11px;font-weight:700;color:#5B616E;letter-spacing:.04em;padding:14px 12px 4px}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;border:1px solid #C9C9C2;background:#FFFFFF;font-size:13px;font-weight:600;color:#1B1D21;text-decoration:none;font-family:inherit;cursor:pointer}
+.btn.primary{background:#2348B8;border-color:#2348B8;color:#FFFFFF}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans KR',sans-serif;color:#1B1D21;min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#FFFFFF;border-bottom:1px solid #DEDED8;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong style="font-size:16px">dobedupop · 권리자 포털</strong>
+      <span class="mono" style="font-size:12px;color:#4A4F59">portal.dobedupop.localhost</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+      <span class="badge info">테넌트 빅히트 뮤직(레이블)</span>
+      <span>권리 편집자 · 김레이블</span>
+      <a class="btn" href="Main.dc.html">구조 지도</a>
+    </div>
+  </header>
+  <div style="display:flex;flex-wrap:wrap;flex:1">
+    <nav class="nav" aria-label="포털 메뉴" style="flex:1 1 220px;max-width:260px;background:#FAFAF8;border-right:1px solid #DEDED8;padding:12px">
+      <a href="Portal-Home.dc.html">홈</a>
+      <div class="grp">① 권리 등록</div>
+      <span>카탈로그(작품·녹음·스템·슬롯)</span>
+      <a class="on" href="Portal-Rights.dc.html">권리 요약·원천 문서</a>
+      <span>권리 주장·위임</span>
+      <span>표준 계약</span>
+      <span>확인 요청</span>
+      <div class="grp">② 정책·상품</div>
+      <a href="Portal-Policy.dc.html">분배 규칙</a>
+      <span>팩</span>
+      <div class="grp">③ 발행·심사</div>
+      <span>발행 조합·승인 큐</span>
+      <div class="grp">점검·정산</div>
+      <span>정합성 점검</span>
+      <span>명세·지급</span>
+    </nav>
+    <main style="flex:999 1 560px;min-width:0;padding:28px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px">
+        <div>
+          <h1 style="margin:0;font-size:24px">Dynamite · 권리 요약</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#4A4F59">MDRL을 몰라도 읽을 수 있게 문장으로 보여 준다. 기록마다 근거 문서와 확인 상태가 붙는다.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="badge ok">facts v1 봉인</span>
+          <span class="mono" style="font-size:12px;color:#4A4F59">mdrl:sha256:2e77bb42…f9258</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+        <section class="card" style="flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <h2 style="margin:0 0 8px;font-size:17px">권리 문장</h2>
+          <sc-for list="{{facts}}" as="f" hint-placeholder-count="5">
+            <div style="padding:12px 0;border-top:1px solid #ECECE8;display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                <div style="font-size:14px;line-height:1.6">{{f.text}}</div>
+                <span class="badge {{f.cls}}">{{f.state}}</span>
+              </div>
+              <div style="font-size:12px;color:#4A4F59">근거: {{f.evidence}}</div>
+            </div>
+          </sc-for>
+        </section>
+        <section class="card" style="flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <h2 style="margin:0;font-size:17px">원천 문서 · 녹음 계약서(가상) v1</h2>
+            <span class="badge ok">해시 확인</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <div style="flex:1 1 220px;min-height:300px;background:#F7F7F4;border:1px dashed #B9B9B2;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;color:#4A4F59;font-size:13px;padding:16px">원문 보기(PDF)<br>p.3 / 12<br>암호화 저장 · 열람 기록</div>
+            <div style="flex:1 1 200px;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:12px;font-weight:600;color:#4A4F59">표시한 조항</div>
+              <div style="border:1px solid #DEDED8;border-radius:8px;padding:10px;font-size:13px;line-height:1.5">
+                <span class="badge info">권리자</span> p.3<br>"녹음물의 마스터 권리는 레이블이 100% 보유한다"<br><span style="font-size:12px;color:#4A4F59">연결: CLAIM c_dynamite_master v2</span>
+              </div>
+              <div style="border:1px solid #DEDED8;border-radius:8px;padding:10px;font-size:13px;line-height:1.5">
+                <span class="badge info">기간</span> p.9<br>"계약 기간은 2026-01-01부터 5년"
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn primary" type="button">조항 표시</button>
+                <button class="btn" type="button">기록에 연결</button>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#4A4F59;line-height:1.6">새 버전(개정·해지) 올리기 · 잘못 올린 버전 거부 · 보관 기한 효력 종료 후 10년 — 바뀌면 이 문서가 닿는 곡을 바로 다시 점검한다.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      facts: [
+        { text: '녹음 Dynamite의 마스터 권리는 빅히트 뮤직(레이블)이 100% 가진다.', state: '확정', cls: 'ok', evidence: '녹음 계약서(가상) v1 p.3' },
+        { text: '작품 Dynamite는 David Stewart가 50%, Jessica Agombar가 50% 가진다.', state: '확인 대기', cls: 'warn', evidence: '작품 이용허락 표준계약(서명 완료) · 작가 확인 요청 14일' },
+        { text: '보이스 7개는 각 멤버 본인이 가진다. 스템마다 부른 멤버가 기록되어 있다.', state: '확정', cls: 'ok', evidence: '실연 이용 동의서(앱 자체 서명) 7건' },
+        { text: '멤버 7명의 실연 수익은 빅히트 뮤직(소속사)이 100% 받는다.', state: '서명 대기', cls: 'warn', evidence: '실연 수익 수령 위임계약(표준) · 실연자 앱 서명 중' },
+        { text: '이 곡은 팬앱 안에서 미리듣기·조합·개인 보관·링크 공유에 쓸 수 있다(대한민국, 1년).', state: '동의 유효', cls: 'ok', evidence: '녹음·작품·실연 이용허락 동의' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
