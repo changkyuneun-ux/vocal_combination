@@ -14,7 +14,7 @@ export const test = base.extend<object, { devServerCheck: void }>({
     await ctx.dispose();
     if (res === null || res.status() === 404 || !res.ok()) {
       throw new Error(
-        `rights-core 개발 서버(${BACKEND}/dev/clock)가 응답하지 않거나 404다. 먼저 docker compose up -d 와 npm run dev:db -w rights-core 를 실행하고 npm run dev --prefix ../rights-core 로 RC_DEV 모드 서버를 띄운다.`,
+        `rights-core 개발 서버(${BACKEND}/dev/clock)가 응답하지 않거나 404다. 먼저 docker compose up -d 와 npm run dev:db -w rights-core 를 실행하고 npm run dev --prefix ../../services/rights-core 로 RC_DEV 모드 서버를 띄운다.`,
       );
     }
     await use();

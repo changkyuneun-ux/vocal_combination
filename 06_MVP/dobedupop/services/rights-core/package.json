@@ -7,16 +7,16 @@
     "node": ">=24"
   },
   "scripts": {
-    "pretest": "npm run build --prefix ../mdrl",
+    "pretest": "npm run build --prefix ../../packages/mdrl",
     "test": "node --test --test-concurrency=4 \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "serve": "node src/http/main.ts",
     "dev:db": "node src/dev/setup-db.ts",
     "dev": "node src/dev/main.ts",
     "migrate": "node src/platform/migrate-cli.ts",
-    "prescenario": "npm run build --prefix ../mdrl",
+    "prescenario": "npm run build --prefix ../../packages/mdrl",
     "scenario": "node src/scenario/main.ts",
-    "scenario:dynamite": "npm run build --prefix ../mdrl && node src/scenario/dynamite.ts"
+    "scenario:dynamite": "npm run build --prefix ../../packages/mdrl && node src/scenario/dynamite.ts"
   },
   "dependencies": {
     "audio-service": "0.1.0",

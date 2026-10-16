@@ -1,4 +1,4 @@
 { "version": "0.0.1", "configurations": [
-  { "name": "rights-core-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "04_구현_소스코드/rights-core"], "port": 8080 },
-  { "name": "backoffice", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "04_구현_소스코드/backoffice"], "port": 5173 }
+  { "name": "rights-core-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "06_MVP/dobedupop/services/rights-core"], "port": 8080 },
+  { "name": "backoffice", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "06_MVP/dobedupop/apps/backoffice"], "port": 5173 }
 ] }

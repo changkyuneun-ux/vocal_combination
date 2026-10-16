@@ -17,7 +17,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   webServer: [
     {
-      command: "npm run dev --prefix ../rights-core",
+      command: "npm run dev --prefix ../../services/rights-core",
       url: "http://127.0.0.1:8080/dev/clock",
       reuseExistingServer: true,
       timeout: 60_000,

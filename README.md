@@ -15,19 +15,20 @@
 | [01_기획_비즈니스](01_기획_비즈니스/) | 사업기획서 v1.15, IR Deck, 특허 문서 (`최신_사업기획서/`, `기획_히스토리/`) |
 | [02_MDRL_언어규격](02_MDRL_언어규격/) | [MDRL 언어레퍼런스북 v1.0](02_MDRL_언어규격/MDRL_언어레퍼런스북_v1.0.md), 핵심설계(안분·정산DSL·게이팅), 구현계획, 정산인프라 연계 |
 | [03_dobedupop_플랫폼설계](03_dobedupop_플랫폼설계/) | 데이터모델 v2.8, 백오피스 UI가이드 v1.6·구성방안 v1.8·IA (`최신설계/`, `설계_히스토리/`) |
-| [04_구현_소스코드](04_구현_소스코드/) | npm 워크스페이스(`mdrl`, `rights-core`, `backoffice`)와 HTML 프로토타입 |
+| [04_구현_소스코드](04_구현_소스코드/) | HTML 프로토타입과 초기 웹앱(코드 패키지는 2026-10-16 `06_MVP/dobedupop`로 옮김) |
+| [06_MVP](06_MVP/) | [MVP 모노레포 `dobedupop`](06_MVP/dobedupop/)(apps·services·packages)와 [UI 구조 목업](06_MVP/mockup/) |
 | [05_참고자료](05_참고자료/) | 벤치마킹, 초기 NFT·서비스 검토 자료 |
 | [99_아카이브](99_아카이브/) | 구버전, 중복 파일, 백업, 이전 Claude 산출물 |
 
 ## 명칭 규칙
 
-- 플랫폼명은 `dobedupop`(두비덥팝)으로 씁니다. 이전 문서의 `dobedupop`·`dobedopop`은 과거 표기로 취급합니다. 역사 자료의 본문은 보존합니다.
+- 플랫폼명은 `dobedupop`(두비덥팝)으로 씁니다. 이전 문서의 `dobedubpop`·`dobedopop`은 과거 표기로 취급합니다. 역사 자료의 본문은 보존합니다.
 - 권리언어의 명칭은 **MDRL**로 통일합니다. 코드의 패키지명·CLI·`.mdrl` 확장자·문서 키·digest 접두어(`mdrl:sha256:`)·DB 도메인(`mdrl_id`)도 모두 `mdrl`입니다. 과거 이름인 `VCRL`/`vcrl`은 히스토리 폴더와 아카이브에만 남아 있습니다.
 
 ## 개발 시작하기
 
 ```bash
-cd 04_구현_소스코드
+cd 06_MVP/dobedupop
 npm install
 
 npm run build -w mdrl          # 로컬 패키지 빌드

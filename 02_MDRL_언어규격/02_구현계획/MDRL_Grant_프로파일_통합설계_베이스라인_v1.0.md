@@ -269,10 +269,10 @@ type RequiredRight = {
 
 ## 11. 현재 구현 접점
 
-- [Grant 평가기](../../04_구현_소스코드/mdrl/src/grant/evaluate.ts)
-- [프로파일 레지스트리](../../04_구현_소스코드/mdrl/src/profiles/registry.ts)
-- [발행 서비스](../../04_구현_소스코드/rights-core/src/issuance/service.ts)
-- [발행 봉인](../../04_구현_소스코드/rights-core/src/engine-bridge/issue.ts)
-- [정산 연결](../../04_구현_소스코드/rights-core/src/engine-bridge/settle.ts)
-- [보류 해제](../../04_구현_소스코드/rights-core/src/settlement/holds.ts)
+- [Grant 평가기](../../06_MVP/dobedupop/packages/mdrl/src/grant/evaluate.ts)
+- [프로파일 레지스트리](../../06_MVP/dobedupop/packages/mdrl/src/profiles/registry.ts)
+- [발행 서비스](../../06_MVP/dobedupop/services/rights-core/src/issuance/service.ts)
+- [발행 봉인](../../06_MVP/dobedupop/services/rights-core/src/engine-bridge/issue.ts)
+- [정산 연결](../../06_MVP/dobedupop/services/rights-core/src/engine-bridge/settle.ts)
+- [보류 해제](../../06_MVP/dobedupop/services/rights-core/src/settlement/holds.ts)
 

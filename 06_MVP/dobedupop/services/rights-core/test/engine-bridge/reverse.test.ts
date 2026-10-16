@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { evaluate } from "mdrl/allocation";
 import { reverse } from "mdrl/allocation";
 import { shadowReport } from "mdrl/allocation";
-import { evaluationInput, loadAllocationCase } from "../../../mdrl/test/helpers.ts";
+import { evaluationInput, loadAllocationCase } from "../../../../packages/mdrl/test/helpers.ts";
 
 test("reverse contract: partial refund creates negative reversal lines conserving value", () => {
   const c = loadAllocationCase("001-basic");

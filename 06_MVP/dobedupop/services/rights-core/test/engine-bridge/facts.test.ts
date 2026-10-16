@@ -13,7 +13,7 @@ import { createFsBlobStore } from "../../src/engine-bridge/blob-fs.ts";
 import { loadSealed } from "../../src/engine-bridge/seal-store.ts";
 import { loadFacts, sealFacts } from "../../src/engine-bridge/facts.ts";
 
-const conformance = JSON.parse(readFileSync(new URL("../../../mdrl/conformance/facts/001-basic/input.json", import.meta.url), "utf8"));
+const conformance = JSON.parse(readFileSync(new URL("../../../../packages/mdrl/conformance/facts/001-basic/input.json", import.meta.url), "utf8"));
 const T0 = "2026-01-01T00:00:00.000Z";
 const KNOWN_AT = "2026-06-01T00:00:00.000Z";
 const KIND_TO_TYPE: Record<string, reg.PartyType> = { AGENCY: "AGENCY", AUTHOR: "AUTHOR", CMO: "CMO", LABEL: "LABEL", PERFORMER: "MEMBER" };

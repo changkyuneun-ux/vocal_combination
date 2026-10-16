@@ -1,5 +1,5 @@
 import { expect, ok, resetAll, test } from "./fixtures.ts";
-import { gen } from "../../audio-service/test/gen.ts";
+import { gen } from "../../../services/audio-service/test/gen.ts";
 
 /**
  * 스템 오디오(다음 작업 9): 화면에서 오디오를 올리면 개발 서버의 작업 큐가 오디오 처리 서비스로 검사하고 상태가 바뀐다.

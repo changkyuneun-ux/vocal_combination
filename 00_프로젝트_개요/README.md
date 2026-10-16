@@ -51,15 +51,19 @@ Vocal Combination/
 │   ├── 최신설계/                            # ★ 데이터모델 v2.8, UI가이드 v1.6, 백오피스 v1.8, IA
 │   └── 설계_히스토리/                       # 구버전 데이터모델(v2.1~2.7), 이전 UI가이드 등
 │
-├── 04_구현_소스코드/                        # [개발] 소스 코드 및 프로토타입
+├── 04_구현_소스코드/                        # [개발] 프로토타입과 초기 웹앱(코드 패키지는 06_MVP로 옮김)
 │   ├── prototypes/                         # HTML 목업 및 화면 프로토타입
 │   │   ├── dobedupop-backoffice-prototype_v2.7.html  # ★ 최신 백오피스 HTML 프로토타입
 │   │   ├── mockups/                        # 정산 콘솔, 모바일 팬 UX 등 서브 화면 목업
 │   │   └── prototypes_히스토리/             # v2.3~v2.6 이전 프로토타입
-│   ├── backoffice/                         # React 19 + Vite 기반 관리자 콘솔 웹앱
-│   ├── rights-core/                        # Fastify + PostgreSQL + pg-boss 백엔드/원장 서버
-│   ├── mdrl/                               # MDRL TypeScript 레퍼런스 컴파일러 & CLI
 │   └── Vocal-Combination-App/              # 초기 독립 웹앱 레거시 코드
+│
+├── 06_MVP/                                 # [MVP] 상용 시스템의 출발점
+│   ├── dobedupop/                          # 모노레포(apps·services·packages)
+│   │   ├── apps/                           # backoffice(권리자 포털·운영 백오피스), performer(실연자 앱)
+│   │   ├── services/                       # rights-core, audio-service, integration-hub
+│   │   └── packages/                       # mdrl
+│   └── mockup/                             # MVP UI 구조 목업
 │
 ├── 05_참고자료/                            # [참고] 외부 벤치마킹, 기술 동향 리포트
 └── 99_아카이브/                            # [보관] 과거 산출물, 임시 파일(Claude outputs 등)
@@ -69,10 +73,10 @@ Vocal Combination/
 
 ## 4. 개발 환경 및 실행 가이드
 
-`04_구현_소스코드` 디렉터리 내에서 모노레포 구조로 패키지가 관리됩니다:
+`06_MVP/dobedupop` 디렉터리 내에서 모노레포 구조로 패키지가 관리됩니다:
 
 ```bash
-cd 04_구현_소스코드
+cd 06_MVP/dobedupop
 
 # 1. 의존성 설치
 npm install

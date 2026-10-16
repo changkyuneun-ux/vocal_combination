@@ -1,3 +1,4 @@
+name: dobedupop
 services:
   postgres:
     image: postgres:17
@@ -8,4 +9,4 @@ services:
     ports:
       - "54329:5432"
     volumes:
-      - ./rights-core/db/init:/docker-entrypoint-initdb.d:ro
+      - ./services/rights-core/db/init:/docker-entrypoint-initdb.d:ro

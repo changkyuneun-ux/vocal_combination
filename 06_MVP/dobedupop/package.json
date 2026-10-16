@@ -1,13 +1,13 @@
 {
-  "name": "dobedupop-platform",
+  "name": "dobedupop",
   "private": true,
   "workspaces": [
-    "mdrl",
-    "audio-service",
-    "integration-hub",
-    "rights-core",
-    "backoffice",
-    "performer-app"
+    "packages/mdrl",
+    "services/audio-service",
+    "services/integration-hub",
+    "services/rights-core",
+    "apps/backoffice",
+    "apps/performer"
   ],
   "scripts": {
     "dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"
