@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, currentUser, setUser, type Claim, type Confirmation, type Consent, type ContractDetail, type ContractSummary, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
+import { api, ApiError, authApi, currentUser, sessionMode, setUser, type AuthConfig, type Claim, type Confirmation, type Consent, type ContractDetail, type ContractSummary, type Contributions, type Me, type Notice, type Objection, type Statement, type Usage, type Voice } from "./api.ts";
 import { EDGE_LABEL, KIND_LABEL, newConsentId, revocable, won, yearPeriod } from "./logic.ts";
 
 type Tab = "consents" | "usage" | "money" | "objections" | "notifications";
@@ -38,6 +38,49 @@ function Login({ onLogin }: { onLogin: (id: string) => void }) {
       <label className="field">계정<input aria-label="계정 id" value={id} onChange={(e) => setId(e.target.value)} /></label>
       <button className="primary" onClick={() => void go()}>들어가기</button>
       <Err e={err} />
+    </main>
+  );
+}
+
+/**
+ * 로그인(MVP 진행계획 M3): 계정 아이디로 본인 인증 코드를 받아 들어온다(비밀번호 없음). 코드는 휴대폰(운영: 문자·PASS)으로 가고,
+ * 데모 환경은 화면에 보여 준다. 데모 환경에서는 멤버 페르소나로 바로 들어갈 수 있다.
+ */
+function OtpLogin({ onDone }: { onDone: () => void }) {
+  const [loginId, setLoginId] = useState("");
+  const [challenge, setChallenge] = useState<{ challengeId: number; devCode?: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [config, setConfig] = useState<AuthConfig | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  useEffect(() => { authApi<AuthConfig>("GET", "/config").then(setConfig, setErr); }, []);
+  const start = async () => { try { setChallenge(await authApi("POST", "/otp/start", { loginId: loginId.trim() })); setErr(null); } catch (e) { setErr(e); } };
+  const confirm = async () => { try { await authApi("POST", "/otp/confirm", { loginId: loginId.trim(), challengeId: challenge!.challengeId, code }); onDone(); } catch (e) { setErr(e); } };
+  const persona = async (id: string) => { try { await authApi("POST", "/dev-login", { userId: id }); onDone(); } catch (e) { setErr(e); } };
+  return (
+    <main className="screen center">
+      <h1>실연자</h1>
+      <p className="muted">내 보이스가 어디에 쓰이는지 보고, 동의하고, 수익을 확인합니다.</p>
+      {challenge === null ? (
+        <>
+          <label className="field">계정<input aria-label="계정 아이디" autoComplete="username" value={loginId} onChange={(e) => setLoginId(e.target.value)} /></label>
+          <button className="primary" disabled={loginId.trim() === ""} onClick={() => void start()}>인증 코드 받기</button>
+        </>
+      ) : (
+        <>
+          {challenge.devCode && <p className="dev" data-testid="dev-code">데모용 코드: {challenge.devCode}</p>}
+          <label className="field">인증 코드<input aria-label="인증 코드" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} /></label>
+          <button className="primary" disabled={code.length !== 6} onClick={() => void confirm()}>로그인</button>
+          <button className="link" onClick={() => { setChallenge(null); setCode(""); }}>처음으로</button>
+        </>
+      )}
+      <Err e={err} />
+      {config?.devLogin && config.personas.length > 0 && (
+        <section className="card" aria-label="데모 페르소나">
+          <strong>데모 페르소나로 들어가기</strong>
+          <p className="muted small">데모 환경에만 있는 빠른 로그인입니다.</p>
+          {config.personas.map((p) => <button key={p.userId} onClick={() => void persona(p.userId)}>{p.displayName} <span className="muted small">{p.userId}</span></button>)}
+        </section>
+      )}
     </main>
   );
 }
@@ -304,20 +347,26 @@ function Notifications({ onRead }: { onRead: () => void }) {
 }
 
 export function App() {
-  const [user, setUserState] = useState<string | null>(currentUser());
+  // 빌드된 앱은 세션 쿠키가 신원이다: /me가 되면 로그인된 것이다.
+  const [user, setUserState] = useState<string | null>(sessionMode ? "session" : currentUser());
   const me = useLoad(() => (user ? api<Me>("GET", "/me") : Promise.resolve(undefined)), [user]);
   const initial = (new URLSearchParams(location.search).get("tab") as Tab | null) ?? "consents";
   const [tab, setTab] = useState<Tab>(TABS.some((t) => t.id === initial) ? initial : "consents");
   const unread = useLoad(() => (user && me.data?.identityVerified ? api<Notice[]>("GET", "/notifications").then((l) => l.filter((n) => !n.read).length) : Promise.resolve(0)), [user, me.data?.identityVerified, tab]);
+  const signOut = () => {
+    if (sessionMode) { void authApi("POST", "/logout").finally(() => location.reload()); return; }
+    setUser(null); setUserState(null);
+  };
   if (!user) return <Login onLogin={setUserState} />;
-  if (me.error) return <main className="screen center"><Err e={me.error} /><button onClick={() => { setUser(null); setUserState(null); }}>다시 로그인</button></main>;
+  if (sessionMode && me.error instanceof ApiError && me.error.status === 401) return <OtpLogin onDone={me.reload} />;
+  if (me.error) return <main className="screen center"><Err e={me.error} /><button onClick={signOut}>다시 로그인</button></main>;
   if (!me.data) return <main className="screen center"><p className="muted">불러오는 중…</p></main>;
   if (!me.data.identityVerified) return <Identity onDone={me.reload} />;
   return (
     <div className="app">
       <header className="top">
         <div><strong>{me.data.displayName}</strong><span className="muted small"> 본인 인증됨</span></div>
-        <button className="link" onClick={() => { setUser(null); setUserState(null); }}>나가기</button>
+        <button className="link" onClick={signOut}>나가기</button>
       </header>
       <main className="screen">
         {tab === "consents" && <><Consents /><Contracts partyId={me.data.partyId} /></>}

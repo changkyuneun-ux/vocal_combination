@@ -9,8 +9,8 @@ import { defineConfig } from "@playwright/test";
 const stack = process.env.E2E_BACKEND !== undefined;
 export default defineConfig({
   testDir: "e2e",
-  testMatch: stack ? /stack\.spec\.ts/ : /.*\.spec\.ts/,
-  testIgnore: stack ? [] : [/stack\.spec\.ts/],
+  testMatch: stack ? /stack.*\.spec\.ts/ : /.*\.spec\.ts/,
+  testIgnore: stack ? [] : [/stack.*\.spec\.ts/],
   workers: 1,
   fullyParallel: false,
   timeout: 120_000,

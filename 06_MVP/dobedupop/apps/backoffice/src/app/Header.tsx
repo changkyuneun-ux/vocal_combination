@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_ACTOR, setActor, useActor } from "./actor.ts";
 import { useClock } from "../api/clock.ts";
-import { devApi, ApiError } from "../api/client.ts";
+import { authApi, devApi, ApiError, sessionMode } from "../api/client.ts";
 import { useAction, useGet } from "../api/hooks.ts";
 import type { UserRow } from "../api/types.ts";
 import { violations, type InvariantReport } from "../api/invariants.ts";
@@ -81,7 +81,32 @@ function InvariantBadge() {
   );
 }
 
+/** 로그인 세션 모드: 지금 사용자와 로그아웃. */
+function SessionUser() {
+  const me = useGet<{ userId: string; displayName: string; roles: string[] }>(["me"], "/me");
+  const out = async () => { await authApi("POST", "/logout").catch(() => {}); location.reload(); };
+  return (
+    <div className="right">
+      {me.data && <span aria-label="로그인한 사용자">{me.data.displayName} <span className="muted small">{me.data.userId} · {me.data.roles.join(", ")}</span></span>}
+      <button className="btn tiny" type="button" onClick={() => void out()}>로그아웃</button>
+    </div>
+  );
+}
+
 export function Header() {
+  if (sessionMode) {
+    return (
+      <header className="header">
+        <div className="app-name">{APPS[currentApp()].name}</div>
+        <SessionUser />
+      </header>
+    );
+  }
+  return <DevHeader />;
+}
+
+/** 개발 서버 머리글: 가상 시계, 앱 전환, 사용자 전환(x-actor). */
+function DevHeader() {
   const [toast, setToast] = useState<ApiError | null>(null);
   const users = useGet<{ items: UserRow[] }>(["users"], "/users");
   const actor = useActor();

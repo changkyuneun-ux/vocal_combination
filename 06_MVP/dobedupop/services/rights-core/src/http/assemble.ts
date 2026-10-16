@@ -66,6 +66,8 @@ export type StartOpts = {
   /** dev 진입점이 넘긴다(buildServer가 /dev/* 라우트를 등록). */
   dev?: Omit<DevDeps, "jobs" | "devDbName"> | undefined;
   port: number;
+  /** 운영 진입점: 개발용 신원 헤더를 받지 않고(세션 쿠키만) Secure 쿠키를 쓴다. */
+  production?: boolean;
   /** 프로세스 역할. 주지 않으면 RC_ROLE(기본 all). */
   role?: Role;
   /** 시작 직후(워커·서버 시작 전) 실행할 준비 단계. 호출자가 필요한 시드를 심는다. */
@@ -115,6 +117,7 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   await jobs.work(Object.fromEntries(queuesFor(role).map((n) => [n, all[n]])));
   const app = role !== "all" && role !== "api" ? healthServer(db, role) : buildServer({
     db, ctx, clock: opts.clock, jobs, provider: opts.provider, audio, push, documents,
+    ...(opts.production === true && { headerIdentity: false, cookieSecure: process.env.RC_COOKIE_SECURE !== "0" }),
     // 본인 인증 공급자: 개발 서버는 코드를 응답으로 돌려주는 개발용 공급자, 운영은 실제 공급자(휴대폰·PASS)를 붙인다(미설정이면 503).
     ...(opts.dev !== undefined && { identity: devIdentityProvider }),
     // 전자서명 공급자(결정 D1): 국내 사업자를 정할 때까지 개발 서버만 개발용 임의 공급자를 붙인다(운영은 미설정이면 503).

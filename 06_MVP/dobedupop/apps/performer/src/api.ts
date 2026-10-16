@@ -1,4 +1,8 @@
-/** 실연자 채널(/performer) 호출. 신원은 개발용 x-actor(운영은 본인 인증 기반 로그인 토큰으로 바꾼다). */
+/**
+ * 실연자 채널(/performer) 호출. 빌드된 앱은 로그인 세션 쿠키(본인 인증 코드로 로그인, MVP 진행계획 M3), 개발 서버는 x-actor로 계정을 고른다.
+ * 모든 요청에 CSRF 헤더를 붙인다.
+ */
+export const sessionMode = !import.meta.env.DEV;
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
 }
@@ -8,7 +12,7 @@ export const setUser = (id: string | null) => { try { if (id) localStorage.setIt
 
 export async function api<T>(method: "GET" | "POST", path: string, body?: unknown, user = currentUser()): Promise<T> {
   const res = await fetch(`/api/performer${path}`, {
-    method, headers: { ...(user ? { "x-actor": user } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
+    method, headers: { "x-dbp-csrf": "1", ...(user && !sessionMode ? { "x-actor": user } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
@@ -39,3 +43,7 @@ export type ContractSummary = {
   signatures: { partyId: string; displayName: string; signedAt?: string }[];
 };
 export type ContractDetail = ContractSummary & { html: string; sha256: string };
+
+/** 로그인·로그아웃(/api/performer/auth/…). */
+export const authApi = <T>(method: "GET" | "POST", path: string, body?: unknown) => api<T>(method, `/auth${path}`, body, null);
+export type AuthConfig = { devLogin: boolean; personas: { userId: string; displayName: string }[] };

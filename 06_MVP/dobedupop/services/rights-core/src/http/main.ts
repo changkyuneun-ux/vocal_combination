@@ -13,6 +13,8 @@ await startServer({
   provider,
   pspSecret: process.env.RC_PSP_SECRET,
   port: Number(process.env.PORT ?? 8080),
+  // 세션 쿠키만 받는다(x-actor 헤더 없음), 쿠키는 Secure(RC_COOKIE_SECURE=0이면 끔).
+  production: true,
   // 워커가 쓰는 시스템 신원(sys_ingest·sys_settler·sys_verifier)을 먼저 보장한다.
   prepare: (db) => db.tx((tx) => ensureSystemIdentities(tx, systemClock)),
 });

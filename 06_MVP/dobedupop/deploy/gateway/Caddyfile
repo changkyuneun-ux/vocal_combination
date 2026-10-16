@@ -31,7 +31,10 @@
 (channel) {
 	handle /api/{args[0]}/* {
 		uri strip_prefix /api
-		reverse_proxy {$CORE_API:core-api:8080}
+		# 개발용 신원 헤더는 밖에서 들어오지 못한다(로그인 세션 쿠키만). 데모 시험은 코어에 직접 붙어 헤더를 쓴다.
+		reverse_proxy {$CORE_API:core-api:8080} {
+			header_up -X-Actor
+		}
 	}
 	handle /api/* {
 		respond `{"code":"CHANNEL_FORBIDDEN","message":"this host only serves the {args[0]} channel"}` 403

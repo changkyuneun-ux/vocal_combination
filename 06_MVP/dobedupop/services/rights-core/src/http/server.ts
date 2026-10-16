@@ -28,6 +28,8 @@ import type { DocumentStore } from "../documents/store.ts";
 import { documentRoutes } from "../documents/routes.ts";
 import { validationRoutes } from "../validation/routes.ts";
 import { contractRoutes, devEsignRoutes } from "../contracts/routes.ts";
+import { readCookie, resolveSession, SESSION_COOKIE } from "../platform/auth.ts";
+import { assertCsrf, authRoutes, userAdminRoutes } from "../platform/auth-routes.ts";
 import type { SignatureProvider } from "../contracts/esign.ts";
 import type { IdentityProvider } from "../performer/identity.ts";
 import type { PushSender } from "../performer/notifications.ts";
@@ -37,13 +39,25 @@ import type { PushSender } from "../performer/notifications.ts";
  * audio는 오디오 처리 서비스 연동(스템 업로드·검사·렌더). identity는 본인 인증 공급자, push는 웹 푸시 전송자(실연자 앱).
  * 없으면 해당 경로가 503이다.
  */
-export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender; documents?: DocumentStore; esign?: SignatureProvider };
+export type Deps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs; provider?: PayoutProvider; pspSecret?: string; dev?: DevDeps; audio?: AudioDeps; identity?: IdentityProvider; push?: PushSender; documents?: DocumentStore; esign?: SignatureProvider;
+  /** 개발용 신원 헤더(x-actor)를 받을지. 기본 받음(시험·개발 서버). 운영 진입점은 끈다(세션 쿠키만). */
+  headerIdentity?: boolean;
+  /** 세션 쿠키에 Secure를 붙일지(HTTPS 운영). */
+  cookieSecure?: boolean;
+};
 
-/** 요청 하나 = 트랜잭션 하나. x-actor 헤더로 신원을 읽는다(개발용 — 통합 설계 9.1). 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다. */
+/**
+ * 요청 하나 = 트랜잭션 하나. 신원은 그 채널의 세션 쿠키(MVP 진행계획 M3)에서 읽고, 개발·시험에서는 x-actor 헤더도 받는다(운영 진입점은 끈다).
+ * 쿠키 세션으로 상태를 바꾸는 요청은 CSRF 헤더가 있어야 한다. 트랜잭션 조회 범위는 행위자의 테넌트로 좁힌다.
+ */
 export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx, actor: Actor) => Promise<T>): Promise<T> {
-  const userId = req.headers["x-actor"];
-  if (typeof userId !== "string" || userId === "") throw new DomainError("UNKNOWN_ACTOR", 401, "x-actor header is required");
+  const cookie = req.channel === undefined ? undefined : readCookie(req.headers.cookie, SESSION_COOKIE(req.channel));
+  const header = deps.headerIdentity === false ? undefined : req.headers["x-actor"];
+  if (cookie === undefined && (typeof header !== "string" || header === "")) throw new DomainError("UNAUTHENTICATED", 401, "sign in first");
+  if (cookie !== undefined && !["GET", "HEAD", "OPTIONS"].includes(req.method)) assertCsrf(req);
   return deps.db.tx(async (tx) => {
+    const userId = cookie !== undefined ? await resolveSession(tx, deps.clock, cookie, req.channel!) : (header as string);
+    if (userId === null) throw new DomainError("UNAUTHENTICATED", 401, "the session expired; sign in again");
     const actor = await loadActor(tx, userId);
     // 사용자 API는 모두 채널 아래에 있다. 채널 없이 신원을 쓰는 경로는 만들지 않는다.
     if (req.channel === undefined) throw new DomainError("CHANNEL_REQUIRED", 404, "user APIs live under a channel: /ops, /portal, /performer, /fan, /partner");
@@ -108,11 +122,11 @@ export function buildServer(deps: Deps): FastifyInstance {
       register(sub);
     }, { prefix: `/${ch}` });
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
-  channel("ops", (sub) => { all(sub); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); });
+  channel("ops", (sub) => { all(sub); authRoutes(sub, deps); userAdminRoutes(sub, deps); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); });
   channel("portal", (sub) => {
-    platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
+    authRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
   });
-  channel("performer", (sub) => performerRoutes(sub, deps));
+  channel("performer", (sub) => { authRoutes(sub, deps); performerRoutes(sub, deps); });
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
   channel("partner", (sub) => { partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
   // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).

@@ -19,7 +19,7 @@ declare module "fastify" {
 
 const RIGHTS_HOLDER_TENANTS = new Set(["LABEL", "AGENCY", "PUBLISHER", "CMO"]);
 
-function allowed(channel: Channel, a: Actor): boolean {
+export function allowed(channel: Channel, a: Actor): boolean {
   switch (channel) {
     case "ops": return a.scope === "platform";
     case "portal": return a.scope === "platform" || (a.scope === "tenant" && RIGHTS_HOLDER_TENANTS.has(a.tenantType));

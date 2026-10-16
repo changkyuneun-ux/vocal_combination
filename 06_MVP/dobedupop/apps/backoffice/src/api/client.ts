@@ -18,9 +18,16 @@ export type Paged<T> = { items: T[]; next: string | null };
 export type Method = "GET" | "POST" | "PUT";
 export type ApiOptions = { actorOverride?: string; fetchImpl?: typeof fetch; channel?: string };
 
+/**
+ * 신원(MVP 진행계획 M3): 빌드된 앱은 로그인 세션 쿠키로만 다닌다(게이트웨이가 x-actor를 지운다). 개발 서버(Vite)에서만 사용자 전환용 x-actor를 보낸다.
+ * 모든 요청에 CSRF 헤더를 붙인다(코어가 쿠키 세션의 상태 변경 요청에 요구한다).
+ */
+export const sessionMode = !import.meta.env.DEV;
+export const CSRF_HEADER = "x-dbp-csrf";
+
 async function request<T>(method: Method, url: string, body: unknown, actor: string | null, fetchImpl?: typeof fetch): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (actor) headers["x-actor"] = actor;
+  const headers: Record<string, string> = { [CSRF_HEADER]: "1" };
+  if (actor && !sessionMode) headers["x-actor"] = actor;
   if (body !== undefined) headers["content-type"] = "application/json";
   const f = fetchImpl ?? fetch;
   const res = await f(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -45,6 +52,12 @@ export function api<T>(method: Method, path: string, body?: unknown, opts: ApiOp
   return request<T>(method, `/api/${channel}${path}`, body, opts.actorOverride ?? currentActor(), opts.fetchImpl);
 }
 
+/** 로그인·로그아웃·초대 수락: /api/<채널>/auth/…, 신원 없이. */
+export function authApi<T>(method: Method, path: string, body?: unknown, opts: Pick<ApiOptions, "fetchImpl" | "channel"> = {}): Promise<T> {
+  const channel = opts.channel ?? APPS[currentApp()].channel;
+  return request<T>(method, `/api/${channel}/auth${path}`, body, null, opts.fetchImpl);
+}
+
 /** /api/dev/… , x-actor 없음. */
 export function devApi<T>(method: Method, path: string, body?: unknown, opts: Pick<ApiOptions, "fetchImpl"> = {}): Promise<T> {
   return request<T>(method, `/api/dev${path}`, body, null, opts.fetchImpl);
@@ -55,7 +68,7 @@ export async function apiUpload<T>(method: "PUT" | "POST", path: string, file: B
   const channel = opts.channel ?? APPS[currentApp()].channel;
   const actor = opts.actorOverride ?? currentActor();
   const res = await (opts.fetchImpl ?? fetch)(`/api/${channel}${path}`, {
-    method, body: file, headers: { "content-type": file.type || "application/octet-stream", ...(actor ? { "x-actor": actor } : {}) },
+    method, body: file, headers: { "content-type": file.type || "application/octet-stream", [CSRF_HEADER]: "1", ...(actor && !sessionMode ? { "x-actor": actor } : {}) },
   });
   const text = await res.text();
   const json = (() => { try { return text ? JSON.parse(text) : undefined; } catch { return undefined; } })() as { code?: string; message?: string; diagnostics?: unknown[] } | undefined;

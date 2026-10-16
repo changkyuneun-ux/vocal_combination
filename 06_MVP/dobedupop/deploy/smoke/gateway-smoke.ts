@@ -1,20 +1,21 @@
 /**
  * 게이트웨이 연기 시험(MVP 진행계획 M2·M6): 서브도메인 = 채널, 다른 채널·코어 루트 경로 차단, 보안 헤더, 데모 도구 위치.
  *   node deploy/smoke/gateway-smoke.ts [기본 도메인(기본 dobedupop.localhost)] [포트(기본 80)]
- * 신원은 아직 개발용 x-actor 헤더다(M3에서 세션으로 바뀐다).
+ * 게이트웨이는 개발용 신원 헤더(x-actor)를 지운다: 채널을 통과한 요청도 로그인 세션 없이는 401이다(M3).
  */
 const domain = process.argv[2] ?? "dobedupop.localhost";
 const port = process.argv[3] ?? "80";
 type Case = { host: string; path: string; actor?: string; status: number; contains?: string; note: string };
 const cases: Case[] = [
   { host: "portal", path: "/", status: 200, contains: "<div id=\"root\">", note: "포털 앱" },
-  { host: "portal", path: "/api/portal/parties", actor: "usr_editor", status: 200, note: "포털 채널 통과" },
+  { host: "portal", path: "/api/portal/parties", actor: "usr_editor", status: 401, contains: "UNAUTHENTICATED", note: "포털 채널 통과(코어 도달), 개발용 신원 헤더는 지워져 로그인 필요" },
   { host: "portal", path: "/api/ops/parties", actor: "usr_ops", status: 403, contains: "CHANNEL_FORBIDDEN", note: "포털 주소로 운영 채널 차단" },
   { host: "portal", path: "/api/dev/clock", status: 403, contains: "CHANNEL_FORBIDDEN", note: "포털 주소로 개발 도구 차단" },
   { host: "artist", path: "/", status: 200, contains: "<div id=\"root\">", note: "실연자 앱" },
   { host: "artist", path: "/api/portal/parties", actor: "usr_editor", status: 403, contains: "CHANNEL_FORBIDDEN", note: "실연자 주소로 포털 채널 차단" },
   { host: "ops", path: "/", status: 200, contains: "<div id=\"root\">", note: "운영 앱" },
-  { host: "ops", path: "/api/ops/pipeline/signals", actor: "usr_ops", status: 200, note: "운영 채널 통과" },
+  { host: "ops", path: "/api/ops/pipeline/signals", actor: "usr_ops", status: 401, contains: "UNAUTHENTICATED", note: "운영 채널 통과(코어 도달), 로그인 필요" },
+  { host: "ops", path: "/api/ops/auth/config", status: 200, contains: "\"mfa\":\"REQUIRED\"", note: "운영 로그인은 인증 앱 코드 필수" },
   { host: "ops", path: "/api/performer/me", actor: "usr_ops", status: 403, contains: "CHANNEL_FORBIDDEN", note: "운영 주소로 실연자 채널 차단" },
   { host: "demo", path: "/api/dev/clock", status: 200, contains: "now", note: "데모 주소의 개발 도구(데모 환경만)" },
   { host: "portal", path: "/healthz", status: 200, contains: "<div id=\"root\">", note: "코어 상태 점검은 밖에 열지 않음(앱 화면이 나온다)" },
