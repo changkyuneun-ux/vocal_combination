@@ -80,7 +80,15 @@ export async function startServer(opts: StartOpts): Promise<{ db: ReturnType<typ
   const db = createDb(opts.url, { max: poolMaxFromEnv(process.env) });
   const blobDir = opts.dev?.blobDir ?? process.env.BLOB_DIR ?? DEFAULT_BLOB_DIR;
   // 오브젝트 저장소(MVP 진행계획 M2): RC_OBJECT_STORE=s3이면 S3 호환 저장소 한 버킷에 seal/·documents/·audio/ 접두어로, 아니면 로컬 파일.
-  if (process.env.RC_OBJECT_STORE === "s3") await ensureS3Bucket(s3ConfigFromEnv(process.env));
+  if (process.env.RC_OBJECT_STORE === "s3") {
+    // 저장소가 아직 뜨는 중일 수 있다(컨테이너 동시 시작): 연결 오류는 최대 60초 다시 시도한다.
+    for (let i = 0; ; i++) {
+      try { await ensureS3Bucket(s3ConfigFromEnv(process.env)); break; } catch (e) {
+        if (i >= 60 || !(e instanceof TypeError)) throw e;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+  }
   const stores = {
     seal: objectStoreFromEnv(process.env, "seal", blobDir),
     documents: objectStoreFromEnv(process.env, "documents", process.env.DOC_DIR ?? fileURLToPath(new URL("../../.documents/", import.meta.url))),

@@ -1,7 +1,7 @@
 import { expect, test as base, type APIRequestContext, type Page } from "@playwright/test";
 
 /** 백엔드에 직접 호출한다(브라우저는 Vite 프록시 /api를 쓰지만, 검증 보조 호출은 같은 서버의 8080으로 간다). */
-export const BACKEND = "http://127.0.0.1:8080";
+export const BACKEND = process.env.E2E_BACKEND ?? "http://127.0.0.1:8080";
 
 /**
  * 사전 조건 확인(워커마다 한 번, 이 test를 쓰는 모든 spec에 자동 적용): 개발 서버가 RC_DEV=1로 떠 있어야 한다

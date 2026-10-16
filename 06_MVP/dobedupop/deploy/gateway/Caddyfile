@@ -1,0 +1,72 @@
+# dobedupop 게이트웨이(MVP 진행계획 M2). 서브도메인 = 앱 = 코어 채널. 호스트마다 허용한 채널만 코어로 넘기고,
+# 다른 채널·코어 루트 경로(상태 점검·PSP 통지·개발 도구)는 막는다. 코어의 채널 정책(CHANNEL_FORBIDDEN)이 한 번 더 거른다.
+#   BASE_DOMAIN       기본 dobedupop.localhost(브라우저가 hosts 없이 이 컴퓨터로 연결)
+#   CORE_API          코어 API 주소(기본 core-api:8080)
+#   OPS_ALLOW         운영 백오피스 접근 허용 IP(기본 private_ranges)
+#   DEMO_TOOLS        데모 환경이면 demo 호스트에서 코어 개발 도구(/dev)를 연다(production은 이 블록이 없다)
+{
+	auto_https off
+	admin off
+}
+
+(security) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; frame-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+}
+
+(spa) {
+	handle {
+		root * {args[0]}
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+(channel) {
+	handle /api/{args[0]}/* {
+		uri strip_prefix /api
+		reverse_proxy {$CORE_API:core-api:8080}
+	}
+	handle /api/* {
+		respond `{"code":"CHANNEL_FORBIDDEN","message":"this host only serves the {args[0]} channel"}` 403
+	}
+}
+
+http://portal.{$BASE_DOMAIN:dobedupop.localhost} {
+	import security
+	import channel portal
+	import spa /srv/portal
+}
+
+http://artist.{$BASE_DOMAIN:dobedupop.localhost} {
+	import security
+	import channel performer
+	import spa /srv/artist
+}
+
+http://ops.{$BASE_DOMAIN:dobedupop.localhost} {
+	import security
+	@outside not remote_ip {$OPS_ALLOW:private_ranges}
+	respond @outside `{"code":"IP_FORBIDDEN"}` 403
+	import channel ops
+	import spa /srv/ops
+}
+
+http://demo.{$BASE_DOMAIN:dobedupop.localhost} {
+	import security
+	handle /api/dev/* {
+		@off not expression `"{$DEMO_TOOLS:off}" == "on"`
+		respond @off `{"code":"NOT_FOUND"}` 404
+		uri strip_prefix /api
+		reverse_proxy {$CORE_API:core-api:8080}
+	}
+	handle {
+		respond "dobedupop 데모 진행판은 MVP M5에서 배포한다" 200
+	}
+}

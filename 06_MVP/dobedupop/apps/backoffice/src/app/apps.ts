@@ -2,12 +2,14 @@
  * 웹 앱 두 개(다음 작업 6): 운영 백오피스(ops)와 권리자 포털(portal). 같은 코드베이스에서 화면·메뉴·API 채널만 다르다.
  * - 운영 빌드는 VITE_APP=ops, 포털 빌드는 VITE_APP=portal(포털은 /portal 아래에 배포)로 각각 만든다.
  * - 개발 서버는 하나로 두 앱을 같이 띄운다: /portal 아래는 포털, 나머지는 운영 백오피스.
+ * - MVP 서브도메인 배포(portal.dobedupop.*)는 포털을 루트에 둔다: VITE_PORTAL_BASE=/ 로 빌드한다(build:portal-host).
  */
+const portalBase = (import.meta.env?.VITE_PORTAL_BASE as string | undefined) ?? "/portal";
 export type AppKind = "ops" | "portal";
 
 export const APPS: Record<AppKind, { name: string; basename: string; channel: string }> = {
   ops: { name: "dobedupop · 운영 백오피스", basename: "", channel: "ops" },
-  portal: { name: "dobedupop · 권리자 포털", basename: "/portal", channel: "portal" },
+  portal: { name: "dobedupop · 권리자 포털", basename: portalBase === "/" ? "" : portalBase, channel: "portal" },
 };
 
 /** 빌드가 정한 앱(VITE_APP)이 있으면 그것, 없으면(개발 서버) 경로로 정한다. */

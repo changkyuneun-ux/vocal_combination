@@ -27,4 +27,6 @@ const server = createServer(async (req, res) => {
   }
 });
 const port = Number(process.env.PORT ?? 8090);
-server.listen(port, "127.0.0.1", () => console.log(`audio-service listening on http://127.0.0.1:${port}`));
+// 컨테이너 안에서는 AUDIO_LISTEN_HOST=0.0.0.0(코어만 같은 내부망에서 부른다).
+const host = process.env.AUDIO_LISTEN_HOST || "127.0.0.1";
+server.listen(port, host, () => console.log(`audio-service listening on http://${host}:${port}`));

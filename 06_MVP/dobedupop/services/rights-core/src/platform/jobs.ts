@@ -15,6 +15,8 @@ export type BossJobs = Jobs & {
   pause(name: JobName): Promise<void>;
   /** 개발 전용: pause한 큐를 같은 처리기·옵션으로 다시 연다. 멈추지 않은 큐에는 아무 일도 하지 않는다. */
   resume(name: JobName): Promise<void>;
+  /** 이 프로세스가 그 큐를 처리하는가(역할을 나누면 일부 큐만 처리한다). */
+  handles(name: JobName): boolean;
   drainIdle(timeoutMs: number): Promise<void>;
   stop(): Promise<void>;
 };
@@ -124,6 +126,7 @@ export async function startBossJobs(appUrl: string, opts: BossWorkOptions = {}):
       if (active.has(name)) return;
       await register(name);
     },
+    handles: (name) => registered.has(name),
     async drainIdle(timeoutMs) {
       // 끝나지 않은 작업만 센다(findJobs는 완료된 작업까지 전부 읽어 수만 건이면 느리다).
       const deadline = Date.now() + timeoutMs;

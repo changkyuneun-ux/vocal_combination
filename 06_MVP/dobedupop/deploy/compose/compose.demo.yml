@@ -1,0 +1,110 @@
+# dobedupop MVP 데모 환경(MVP 진행계획 M2, 결정 MD6: 데모 서버 한 대에 Docker Compose).
+#   docker compose -f deploy/compose/compose.demo.yml --env-file deploy/env/demo.env up -d --build
+# 브라우저: http://portal.dobedupop.localhost  http://artist.dobedupop.localhost  http://ops.dobedupop.localhost
+# 데모 환경은 코어를 개발 진입점(RC_DEV=1: 가상 시계·가상 공급자·데모 도구)으로 띄운다. 운영 환경은 http/main.ts(가상 공급자 거부)다.
+name: dobedupop-demo
+
+x-core: &core
+  # 이미지는 migrate 서비스가 빌드한다(같은 이미지를 여러 서비스가 동시에 빌드하지 않게).
+  image: dobedupop-core:demo
+  restart: unless-stopped
+  environment: &core-env
+    RC_DEV: "1"
+    DATABASE_URL: postgres://rc_app:rc_app@postgres:5432/rights_core_dev
+    RC_ADMIN_URL: postgres://rc:${POSTGRES_PASSWORD:-rc}@postgres:5432/rights_core_dev
+    RC_SERVER_ADMIN_URL: postgres://rc:${POSTGRES_PASSWORD:-rc}@postgres:5432/rights_core
+    RC_PSP: fake
+    RC_PSP_SECRET: ${RC_PSP_SECRET:?set in demo.env}
+    RC_DOC_KEY: ${RC_DOC_KEY:?set in demo.env}
+    RC_OBJECT_STORE: s3
+    S3_ENDPOINT: http://s3:8333
+    S3_BUCKET: dobedupop-demo
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-rcs3}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-rcs3-dev-secret}
+    AUDIO_SERVICE_URL: http://audio:8090
+    RC_LISTEN_HOST: 0.0.0.0
+    RC_SETUP: skip
+    VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+    VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  depends_on:
+    migrate: { condition: service_completed_successfully }
+    s3: { condition: service_started }
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rc}
+      POSTGRES_DB: rights_core
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../../services/rights-core/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U rc -d rights_core"], interval: 2s, timeout: 3s, retries: 30 }
+
+  s3:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
+    volumes:
+      - s3-data:/data
+      - ../s3/s3.json:/etc/seaweedfs/s3.json:ro
+
+  # 1회 작업: 데모 DB 생성·마이그레이션·데모 사용자. 끝나면 코어 역할들이 뜬다.
+  migrate:
+    image: dobedupop-core:demo
+    build: { context: ../.., dockerfile: deploy/docker/core.Dockerfile }
+    command: ["node", "services/rights-core/src/dev/main.ts"]
+    environment:
+      <<: *core-env
+      RC_ROLE: migrate
+      RC_SETUP: ""
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  core-api:
+    <<: *core
+    command: ["node", "services/rights-core/src/dev/main.ts"]
+    environment: { <<: *core-env, RC_ROLE: api, PORT: "8080" }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 3s, retries: 20 }
+
+  core-worker:
+    <<: *core
+    command: ["node", "services/rights-core/src/dev/main.ts"]
+    environment: { <<: *core-env, RC_ROLE: worker, PORT: "8081" }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 3s, retries: 20 }
+
+  # 독립 검증 워커: 실행 워커와 다른 프로세스에서 정산 결과를 다시 계산한다.
+  core-verifier:
+    <<: *core
+    command: ["node", "services/rights-core/src/dev/main.ts"]
+    environment: { <<: *core-env, RC_ROLE: verifier, PORT: "8082" }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8082/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 5s, timeout: 3s, retries: 20 }
+
+  audio:
+    image: dobedupop-core:demo
+    restart: unless-stopped
+    command: ["node", "services/audio-service/src/server.ts"]
+    environment: { PORT: "8090", AUDIO_LISTEN_HOST: 0.0.0.0 }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  gateway:
+    image: dobedupop-gateway:demo
+    build: { context: ../.., dockerfile: deploy/docker/gateway.Dockerfile }
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:-dobedupop.localhost}
+      CORE_API: core-api:8080
+      OPS_ALLOW: ${OPS_ALLOW:-private_ranges}
+      DEMO_TOOLS: "on"
+    ports:
+      - "${GATEWAY_PORT:-80}:80"
+    depends_on:
+      core-api: { condition: service_healthy }
+
+volumes:
+  pg-data:
+  s3-data:

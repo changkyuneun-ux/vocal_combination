@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+**/.blobs
+**/.blobs-dev
+**/.audio
+**/.documents
+**/*.tgz
+.git

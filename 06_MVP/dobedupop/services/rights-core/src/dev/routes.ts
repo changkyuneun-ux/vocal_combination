@@ -105,6 +105,12 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
     for (const n of JOB_NAMES) await jobs.pause(n);
     let failure: unknown;
     try {
+      // 역할을 나눠 띄운 데모 환경: 다른 프로세스(워커·검증 워커)에서 진행 중인 작업이 끝나기를 기다린다(최대 30초).
+      for (let i = 0; i < 300; i++) {
+        const active = (await deps.db.tx((tx) => tx.query("SELECT count(*)::int AS n FROM pgboss.job WHERE state = 'active'"))).rows[0].n as number;
+        if (active === 0) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
       await resetDevDatabase(deps.dev.adminUrl, deps.dev.devDbName);
       // 초기화는 시계가 뒤로 가는 유일한 경로다(set·advance는 앞으로만 간다).
       await deps.db.tx((tx) => clock.resetTo(tx, DEV_CLOCK_START));
