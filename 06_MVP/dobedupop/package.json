@@ -7,7 +7,9 @@
     "services/integration-hub",
     "services/rights-core",
     "apps/backoffice",
-    "apps/performer"
+    "apps/performer",
+    "demo/dynamite",
+    "apps/demo-console"
   ],
   "scripts": {
     "dev": "npm run dev -w rights-core & npm run dev -w backoffice & wait"

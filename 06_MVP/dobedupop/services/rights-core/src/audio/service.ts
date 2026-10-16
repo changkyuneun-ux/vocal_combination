@@ -112,6 +112,13 @@ export async function getStemAudio(tx: Tx, stemId: string) {
   return toView(r);
 }
 
+/** 곡의 스템 오디오 상태를 한 번에(화면이 스템마다 묻지 않게). 오디오가 없는 스템은 목록에 없다. */
+export async function listScopeStemAudio(tx: Tx, scopeId: string) {
+  return (await tx.query(
+    `SELECT a.* FROM stem_audio a JOIN stem st ON st.stem_id = a.stem_id JOIN recording_version r ON r.recording_id = st.recording_id
+       JOIN facts_scope s ON s.work_id = r.work_id WHERE s.facts_scope_id = $1 ORDER BY a.stem_id`, [scopeId])).rows.map(toView);
+}
+
 /** ⑤ 오디오 검수 큐: READY가 아닌 스템(검사 대기·QC 실패·검토·차단). status로 거른다. */
 export async function listAudioQueue(tx: Tx, status?: string) {
   return (await tx.query(`SELECT * FROM stem_audio WHERE status <> 'READY' ${status ? "AND status = $1" : ""} ORDER BY uploaded_at, stem_id`, status ? [status] : [])).rows.map(toView);

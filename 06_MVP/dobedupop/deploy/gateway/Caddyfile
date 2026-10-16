@@ -63,13 +63,19 @@ http://ops.{$BASE_DOMAIN:dobedupop.localhost} {
 
 http://demo.{$BASE_DOMAIN:dobedupop.localhost} {
 	import security
+	# 데모 진행판 서버(단계 실행·초기화)
+	handle /api/demo/* {
+		uri strip_prefix /api/demo
+		reverse_proxy {$DEMO_RUNNER:demo-runner:8095}
+	}
 	handle /api/dev/* {
 		@off not expression `"{$DEMO_TOOLS:off}" == "on"`
 		respond @off `{"code":"NOT_FOUND"}` 404
 		uri strip_prefix /api
 		reverse_proxy {$CORE_API:core-api:8080}
 	}
-	handle {
-		respond "dobedupop 데모 진행판은 MVP M5에서 배포한다" 200
+	handle /api/* {
+		respond `{"code":"NOT_FOUND"}` 404
 	}
+	import spa /srv/demo
 }

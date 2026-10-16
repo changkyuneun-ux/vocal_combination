@@ -9,6 +9,8 @@ COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/
 COPY apps/backoffice/package.json apps/backoffice/
 COPY apps/performer/package.json apps/performer/
+COPY apps/demo-console/package.json apps/demo-console/
+COPY demo/dynamite/package.json demo/dynamite/
 RUN npm ci --ignore-scripts
 COPY packages/mdrl packages/mdrl
 RUN npm run build -w mdrl
@@ -25,9 +27,13 @@ COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/
 COPY apps/backoffice/package.json apps/backoffice/
 COPY apps/performer/package.json apps/performer/
+COPY apps/demo-console/package.json apps/demo-console/
+COPY demo/dynamite/package.json demo/dynamite/
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/packages/mdrl packages/mdrl
 COPY services services
+# 데모 진행판 서버(데모 환경에서만 띄운다): 페르소나 시나리오를 코어 API로 단계별 실행.
+COPY demo demo
 USER node
 EXPOSE 8080
 CMD ["node", "services/rights-core/src/http/main.ts"]

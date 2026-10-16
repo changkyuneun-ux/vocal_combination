@@ -71,6 +71,10 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
   });
 
   app.get("/dev/jobs", async () => ({ paused: jobs.paused() }));
+  // 데모 진행판(MVP M4): 단계 사이에 작업(정산·검증·원장·지급)이 끝나기를 기다릴 때 쓴다. 예약(start_after)된 작업도 센다.
+  app.get("/dev/jobs/pending", async () => deps.db.tx(async (tx) => ({
+    pending: (await tx.query("SELECT count(*)::int AS n FROM pgboss.job WHERE state = ANY('{created,retry,active}'::pgboss.job_state[])")).rows[0].n as number,
+  })));
   app.post("/dev/jobs/pause", async (req) => {
     await jobs.pause(jobNameOf(req.body));
     return { paused: jobs.paused() };

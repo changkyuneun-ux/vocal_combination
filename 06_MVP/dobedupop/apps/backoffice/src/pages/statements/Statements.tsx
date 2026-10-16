@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Section } from "../../components/Section.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Money } from "../../components/Money.tsx";
 import { setActor, useActor } from "../../app/actor.ts";
+import { currentApp } from "../../app/apps.ts";
+import { sessionMode } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
 import { useClock } from "../../api/clock.ts";
 import { useAll } from "../../api/all.ts";
@@ -20,7 +22,7 @@ function Verdict({ ok, children }: { ok: boolean | null; children: React.ReactNo
   return <p role="status"><span className={`badge ${tone}`}>{text}</span> {children}</p>;
 }
 
-function Result({ s, accounts, now }: { s: StatementData; accounts: LedgerAccount[]; now: string | undefined }) {
+function Result({ s, accounts, now, ledger = true }: { s: StatementData; accounts: LedgerAccount[]; now: string | undefined; ledger?: boolean }) {
   const acct = accounts.find((a) => a.accountId === partyPayableId(s.partyId));
   const r = reconcile(s, acct?.balance ?? null);
   const act = actualPayout(s);
@@ -45,26 +47,31 @@ function Result({ s, accounts, now }: { s: StatementData; accounts: LedgerAccoun
         대조 1 — 항등식 계산값 <Money krw={r.identity.toString()} /> {r.identityOk ? "=" : "≠"} 기말 <Money krw={r.closing.toString()} />
         {!r.identityOk && <> (차이 <Money krw={r.identityDiff.toString()} />)</>}
       </Verdict>
-      <Verdict ok={r.balanceOk}>
+      {ledger && <Verdict ok={r.balanceOk}>
         {r.expectedClosing === null
           ? <>대조 2 — {partyPayableId(s.partyId)} 계정이 없습니다.</>
           : <>대조 2 — 기말 <Money krw={r.closing.toString()} /> {r.balanceOk ? "=" : "≠"} −({partyPayableId(s.partyId)} 잔액 <Money krw={acct?.balance ?? "0"} />) = <Money krw={r.expectedClosing.toString()} />
               {!r.balanceOk && r.balanceDiff !== null && <> (차이 <Money krw={r.balanceDiff.toString()} />)</>}</>}
-      </Verdict>
-      {now !== undefined && s.to < now && <p className="muted">기간 끝이 가상 시계({now})보다 앞서면 그 뒤의 전기 때문에 대조 2가 어긋날 수 있습니다.</p>}
+      </Verdict>}
+      {ledger && now !== undefined && s.to < now && <p className="muted">기간 끝이 가상 시계({now})보다 앞서면 그 뒤의 전기 때문에 대조 2가 어긋날 수 있습니다.</p>}
     </>
   );
 }
 
 export function Statements() {
   const actor = useActor();
-  const accounts = useAll<LedgerAccount>("ledger-accounts-all", "/ledger/accounts");
+  // 권리자 포털: 자기 테넌트 파티의 명세만(원장 대조는 운영 화면에서 한다).
+  const portal = currentApp() === "portal";
+  const accounts = useAll<LedgerAccount>("ledger-accounts-all", "/ledger/accounts", { enabled: !portal });
+  const mine = useGet<{ partyId: string; displayName: string }[]>(["my-parties"], "/my/parties", { enabled: portal });
   const clock = useClock();
   const [party, setParty] = useState("");
   const [from, setFrom] = useState(DEFAULT_FROM);
   const [toEdit, setToEdit] = useState<string | null>(null);
   const first = clock.data?.now;
-  const parties = (accounts.data ?? []).filter((a) => a.kind === "PARTY_PAYABLE" && a.partyId !== null).map((a) => a.partyId as string);
+  const parties = portal ? (mine.data ?? []).map((p) => p.partyId) : (accounts.data ?? []).filter((a) => a.kind === "PARTY_PAYABLE" && a.partyId !== null).map((a) => a.partyId as string);
+  // 포털은 자기 파티가 적으니 첫 파티를 바로 보여 준다.
+  useEffect(() => { if (portal && party === "" && parties.length > 0) setParty(parties[0]!); }, [portal, party, parties.length]);
   const to = toEdit ?? (first ? toLocalInput(first) : "");
   const fromIso = toIso(from);
   const toIsoValue = toEdit === null ? first ?? "" : toIso(toEdit);
@@ -73,11 +80,11 @@ export function Statements() {
     { enabled: party !== "" && fromIso !== "" && toIsoValue !== "" });
   return (
     <>
-      <Section title="명세서 안내" actions={
+      {!portal && !sessionMode && <Section title="명세서 안내" actions={
         <button type="button" className="btn primary" disabled={actor === SETTLE_ACTOR} onClick={() => setActor(SETTLE_ACTOR)}>usr_settle로 전환</button>
       }>
         <p>명세·원장 조회는 정산 담당(SPACE_SETTLE)이 합니다. 현재 사용자: <strong>{actor}</strong></p>
-      </Section>
+      </Section>}
       <Section title="권리자 명세">
         <div className="inline-form">
           <label className="field"><span>권리자</span>
@@ -93,7 +100,7 @@ export function Statements() {
         <ErrorPanel error={clock.error} />
         <ErrorPanel error={q.error} />
         {party === "" && <p className="muted">권리자를 선택하세요.</p>}
-        {q.data && <Result s={q.data} accounts={accounts.data ?? []} now={clock.data?.now} />}
+        {q.data && <Result s={q.data} accounts={accounts.data ?? []} now={clock.data?.now} ledger={!portal} />}
       </Section>
     </>
   );

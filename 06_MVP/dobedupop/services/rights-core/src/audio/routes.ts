@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { DomainError } from "../platform/errors.ts";
-import { getStemAudio, listAudioQueue, registerReference, reviewStemAudio, uploadStemAudio } from "./service.ts";
+import { getStemAudio, listAudioQueue, registerReference, reviewStemAudio, uploadStemAudio, listScopeStemAudio } from "./service.ts";
 import { getRender, verifyRender } from "./render.ts";
 
 function audioOf(deps: Deps) {
@@ -23,6 +23,7 @@ export function stemAudioRoutes(app: FastifyInstance, deps: Deps): void {
     return reply.status(202).send(out);
   });
   app.get<{ Params: { id: string } }>("/stems/:id/audio", async (req) => withActor(deps, req, (tx) => getStemAudio(tx, req.params.id)));
+  app.get<{ Params: { id: string } }>("/scopes/:id/stem-audio", async (req) => withActor(deps, req, (tx) => listScopeStemAudio(tx, req.params.id)));
 }
 
 /** 운영 백오피스 ⑤: 오디오 검수 큐, 검토 판단, 상용 참조 음원 등록. */

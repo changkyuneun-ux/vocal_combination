@@ -14,6 +14,9 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
       return { userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort(), tenantId: actor.tenantId, scope: actor.scope };
     }));
 
+  /** 서버 시각(데모 환경은 가상 시계): 화면의 기간 기본값("지금")에 쓴다. 로그인한 누구나. */
+  app.get("/clock", async (req) => withActor(deps, req, async () => ({ now: deps.clock.now() })));
+
   /** 테넌트 목록: 플랫폼 범위는 전부, 테넌트 범위는 자기 테넌트만. */
   app.get("/tenants", async (req) =>
     withActor(deps, req, async (tx, actor) => {

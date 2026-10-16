@@ -99,6 +99,10 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   // 조회(로그인한 누구나)
   app.get("/parties", async (req) => withActor(deps, req, (tx) => q.listParties(tx, { type: optFilter(q0(req), "type") }, parsePage(q0(req)))));
   app.get("/works", async (req) => withActor(deps, req, (tx) => q.listWorks(tx, {}, parsePage(q0(req)))));
+  /** 보이는 곡(facts 범위) 목록: 화면의 곡 선택에 쓴다. 테넌트는 자기 곡만(RLS). */
+  app.get("/scopes", async (req) => withActor(deps, req, async (tx) => (await tx.query(
+    "SELECT s.facts_scope_id, s.work_id, w.title FROM facts_scope s JOIN work w ON w.work_id = s.work_id ORDER BY w.title, s.facts_scope_id LIMIT 500")).rows
+    .map((r) => ({ factsScopeId: r.facts_scope_id as string, workId: r.work_id as string, title: r.title as string }))));
   app.get<{ Params: { id: string } }>("/scopes/:id", async (req) => withActor(deps, req, (tx) => q.getScope(tx, req.params.id)));
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
   // 조항 → 기록 근거 연결, 확인 요청(원천 문서 설계 S3).

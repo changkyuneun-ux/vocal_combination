@@ -91,6 +91,15 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  # 데모 진행판 서버: Dynamite 시연 단계를 코어 API로 실행한다(데모 환경에서만). DEMO_PURCHASES=small이면 구매 건수를 줄인다.
+  demo-runner:
+    image: dobedupop-core:demo
+    restart: unless-stopped
+    command: ["node", "demo/dynamite/src/runner.ts"]
+    environment: { CORE_URL: "http://core-api:8080", PORT: "8095", DEMO_LISTEN_HOST: 0.0.0.0, DEMO_PURCHASES: "${DEMO_PURCHASES:-}" }
+    depends_on:
+      core-api: { condition: service_healthy }
+
   gateway:
     image: dobedupop-gateway:demo
     build: { context: ../.., dockerfile: deploy/docker/gateway.Dockerfile }
@@ -104,6 +113,7 @@ services:
       - "${GATEWAY_PORT:-80}:80"
     depends_on:
       core-api: { condition: service_healthy }
+      demo-runner: { condition: service_started }
 
 volumes:
   pg-data:

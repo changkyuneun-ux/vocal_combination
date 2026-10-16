@@ -9,14 +9,18 @@ COPY services/audio-service/package.json services/audio-service/
 COPY services/integration-hub/package.json services/integration-hub/
 COPY apps/backoffice/package.json apps/backoffice/
 COPY apps/performer/package.json apps/performer/
+COPY apps/demo-console/package.json apps/demo-console/
+COPY demo/dynamite/package.json demo/dynamite/
 RUN npm ci --ignore-scripts
 # 백오피스 타입 검사는 E2E가 쓰는 오디오 시험 도구까지 본다.
 COPY services/audio-service services/audio-service
 COPY apps apps
-RUN npm run build:hosts -w backoffice && npm run build -w performer-app
+RUN npm run build:hosts -w backoffice && npm run build -w performer-app && npm run build -w demo-console
 
 FROM caddy:2.10-alpine
 COPY deploy/gateway/Caddyfile /etc/caddy/Caddyfile
 COPY --from=web /app/apps/backoffice/dist/portal-host /srv/portal
 COPY --from=web /app/apps/backoffice/dist/ops /srv/ops
 COPY --from=web /app/apps/performer/dist /srv/artist
+# 데모 진행판은 데모 호스트에서만 열린다(운영 게이트웨이 설정에는 demo 블록이 없다).
+COPY --from=web /app/apps/demo-console/dist /srv/demo

@@ -43,7 +43,8 @@ export function Placeholder({ title }: { title: string }) {
 }
 
 export type RouteDef = { path: string; title: string; element: ReactNode };
-export type MenuItem = { to: string; label: string };
+/** roles: 로그인 세션에서 이 역할 중 하나가 있어야 메뉴에 보인다(화면은 코어가 다시 검사한다). */
+export type MenuItem = { to: string; label: string; roles?: string[] };
 export type MenuGroup = { title: string; items: MenuItem[] };
 
 
@@ -130,7 +131,7 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     ];
   }
   return [
-    { title: "0 관제", items: [{ to: "/", label: "⑧ 파이프라인 관제" }, { to: "/dashboard", label: "검증 체크리스트" }] },
+    { title: "0 관제", items: [{ to: "/", label: "⑧ 파이프라인 관제" }, { to: "/dashboard", label: "검증 체크리스트", roles: ["SPACE_SETTLE"] }] },
     registryMenu,
     { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
     { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
@@ -139,9 +140,9 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     { title: "6 정산", items: [
       { to: "/settlement/batches", label: "정산 배치" }, { to: "/settlement/quarantine", label: "격리" }, { to: "/settlement/holds", label: "보류" },
     ] },
-    { title: "7 원장", items: [{ to: "/ledger", label: "원장" }] },
+    { title: "7 원장", items: [{ to: "/ledger", label: "원장", roles: ["SPACE_SETTLE"] }] },
     { title: "8 지급", items: [
-      { to: "/payout/profiles", label: "지급 프로필" }, { to: "/payout/runs", label: "지급 run" }, { to: "/statements", label: "명세서" },
+      { to: "/payout/profiles", label: "지급 프로필", roles: ["SPACE_SETTLE"] }, { to: "/payout/runs", label: "지급 run", roles: ["SPACE_SETTLE"] }, { to: "/statements", label: "명세서", roles: ["SPACE_SETTLE"] },
     ] },
     { title: "9 조회 통제", items: [{ to: "/control", label: "열람 기록·break-glass" }] },
     ...(import.meta.env.DEV ? [{ title: "10 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),

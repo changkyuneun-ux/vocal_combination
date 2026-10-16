@@ -22,7 +22,7 @@ deploy/
 docs/                요건 추적표(앞으로 데모 가이드·운영 런북)
 ```
 
-앞으로 생길 폴더(진행계획 M4·M5): `apps/demo-console/`(데모 진행판), `demo/dynamite/`(가상 데이터·가상 팬 생성기).
+데모: `apps/demo-console/`(데모 진행판 화면), `demo/dynamite/`(진행판 서버 — 페르소나 시나리오를 단계별로 실행). 사용법은 [데모 가이드](docs/데모_가이드.md).
 
 ## 데모 스택(서브도메인)
 
@@ -36,7 +36,7 @@ node deploy/smoke/gateway-smoke.ts                    # 채널 격리·보안 �
 - 컨테이너: postgres, s3(SeaweedFS), migrate(1회), core-api, core-worker, core-verifier, audio, gateway
 - 로그인: 운영 = 비밀번호 + 인증 앱 코드(첫 로그인에서 등록), 포털 = 비밀번호, 실연자 = 본인 인증 코드. 데모 환경은 로그인 화면에 "데모 페르소나로 들어가기"가 있다. 계정은 운영이 발급하고 초대 링크(`?invite=`)로 비밀번호를 정한다.
 - 게이트웨이는 개발용 신원 헤더(x-actor)를 지운다. 시험은 `compose.demo.test.yml`로 연 코어 포트(127.0.0.1:18080)에 직접 붙어 헤더를 쓴다.
-- 역할을 나눈 정산 시험: `compose.demo.test.yml`을 덧붙여 올린 뒤 `cd apps/backoffice && E2E_BACKEND=http://127.0.0.1:18080 npx playwright test`
+- 데모 스택 시험(Dynamite 금액 대조·로그인·화면 점검): `compose.demo.test.yml`을 덧붙여 올린 뒤 `cd apps/backoffice && E2E_BACKEND=http://127.0.0.1:18080 npx playwright test`
 
 ## 개발 실행
 

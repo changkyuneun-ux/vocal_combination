@@ -5,7 +5,7 @@ import { Layout } from "./Layout.tsx";
 import { routesFor } from "./routes.tsx";
 import { APPS, currentApp } from "./apps.ts";
 import { queryClient } from "./queryClient.ts";
-import { api, ApiError, sessionMode } from "../api/client.ts";
+import { api, ApiError, authApi, sessionMode } from "../api/client.ts";
 import { LoginPage } from "./Login.tsx";
 
 export type Me = { userId: string; displayName: string; roles: string[]; tenantId: string; scope: string };
@@ -19,7 +19,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const check = () => api<Me>("GET", "/me").then(() => setState("in"), (e) => setState(e instanceof ApiError && e.status === 401 ? "out" : "in"));
   useEffect(() => {
     if (!sessionMode) return;
-    void check();
+    // 데모 진행판이 연 링크(?persona=): 데모 환경이면 그 페르소나로 바로 로그인한다(운영 환경은 이 경로가 404라 로그인 화면이 나온다).
+    const params = new URLSearchParams(location.search);
+    const persona = params.get("persona");
+    if (persona) {
+      params.delete("persona");
+      history.replaceState(null, "", `${location.pathname}${params.size > 0 ? `?${params}` : ""}`);
+      void authApi("POST", "/dev-login", { userId: persona }).then(() => { queryClient.clear(); return check(); }, () => check());
+    } else void check();
     return queryClient.getQueryCache().subscribe((ev) => {
       const e = ev.query.state.error;
       if (e instanceof ApiError && e.status === 401 && e.code !== "CHANNEL_FORBIDDEN") setState("out");

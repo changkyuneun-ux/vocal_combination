@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { devApi, type ApiError } from "./client.ts";
+import { api, devApi, sessionMode, type ApiError } from "./client.ts";
 import type { ClockState } from "./types.ts";
 
 /** 가상 시계 쿼리 키. 사용자와 무관하다(/api/dev는 x-actor가 없다). 헤더의 전진·지정이 이 키를 무효화한다. */
@@ -9,7 +9,8 @@ export const CLOCK_KEY = ["clock", "now"] as const;
 export function useClock() {
   return useQuery<ClockState, ApiError>({
     queryKey: CLOCK_KEY,
-    queryFn: () => devApi<ClockState>("GET", "/clock"),
+    // 빌드된 앱(로그인 세션)은 개발 도구에 닿지 않는다: 채널의 서버 시각(/clock)을 쓴다. 데모 환경에서는 그것이 가상 시계다.
+    queryFn: () => (sessionMode ? api<ClockState>("GET", "/clock") : devApi<ClockState>("GET", "/clock")),
     refetchInterval: 5000,
   });
 }

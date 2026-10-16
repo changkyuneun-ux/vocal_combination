@@ -16,15 +16,13 @@ type StemAudio = {
 };
 const TONE: Record<StemAudio["status"], string> = { PENDING: "muted", READY: "ok", QC_FAILED: "bad", REVIEW: "warn", BLOCKED: "bad" };
 
-function StemRow({ stemId }: { stemId: string }) {
-  const q = useGet<StemAudio>(["stem-audio", stemId], `/stems/${encodeURIComponent(stemId)}/audio`, { refetchInterval: (d) => (d?.status === "PENDING" ? 2000 : false) });
+function StemRow({ stemId, a, loaded, refetch }: { stemId: string; a: StemAudio | undefined; loaded: boolean; refetch: () => void }) {
   const [err, setErr] = useState<ApiError | null>(null);
-  const none = q.error?.status === 404;
+  const none = loaded && a === undefined;
   const upload = async (f: File | undefined) => {
     if (!f) return;
-    try { await apiUpload("PUT", `/stems/${encodeURIComponent(stemId)}/audio`, f); setErr(null); void q.refetch(); } catch (e) { setErr(e as ApiError); }
+    try { await apiUpload("PUT", `/stems/${encodeURIComponent(stemId)}/audio`, f); setErr(null); refetch(); } catch (e) { setErr(e as ApiError); }
   };
-  const a = q.data;
   return (
     <tr>
       <td><code>{stemId}</code></td>
@@ -44,6 +42,11 @@ function StemRow({ stemId }: { stemId: string }) {
 export function StemAudioPage() {
   const [scope, setScope] = useScopeParam();
   const facts = useGet<ScopeFacts>(["facts", scope], `/scopes/${encodeURIComponent(scope)}/facts`, { enabled: scope !== "" });
+  // 곡의 스템 오디오 상태를 한 번에 읽는다(검사 대기 중인 것이 있으면 2초마다 다시).
+  const audio = useGet<StemAudio[]>(["stem-audio", scope], `/scopes/${encodeURIComponent(scope)}/stem-audio`, {
+    enabled: scope !== "", refetchInterval: (d) => (d?.some((x) => x.status === "PENDING") ? 2000 : false),
+  });
+  const byStem = new Map((audio.data ?? []).map((x) => [x.stemId, x]));
   return (
     <>
       <Section title="스템 오디오">
@@ -54,7 +57,7 @@ export function StemAudioPage() {
         {facts.data && (
           <table className="data" aria-label="스템 오디오 상태">
             <thead><tr><th scope="col">스템</th><th scope="col">상태</th><th scope="col">QC 실패</th><th scope="col">출처 검사</th><th scope="col">검사 시각</th><th scope="col">올리기</th></tr></thead>
-            <tbody>{facts.data.stems.map((s) => <StemRow key={s.stemId} stemId={s.stemId} />)}</tbody>
+            <tbody>{facts.data.stems.map((s) => <StemRow key={s.stemId} stemId={s.stemId} a={byStem.get(s.stemId)} loaded={audio.data !== undefined} refetch={() => void audio.refetch()} />)}</tbody>
           </table>
         )}
       </Section>
