@@ -9,7 +9,7 @@ test("권리자 포털: 권리 화면만 있고, 레이블 사용자는 자기 �
   await ok(request, null, "POST", "/dev/seed/synthetic-song", {});
 
   await page.goto("/portal/");
-  await expect(page.locator(".app-name")).toHaveText("dobedubpop · 권리자 포털");
+  await expect(page.locator(".app-name")).toHaveText("dobedupop · 권리자 포털");
   const menu = page.getByRole("navigation", { name: "메뉴" });
   await expect(menu.getByRole("link", { name: "당사자" })).toBeVisible();
   for (const ops of ["정산 배치", "원장", "지급 run", "매출", "PSP 시뮬레이터"]) await expect(menu.getByRole("link", { name: ops, exact: true })).toHaveCount(0);

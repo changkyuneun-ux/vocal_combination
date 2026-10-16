@@ -6,8 +6,8 @@
 export type AppKind = "ops" | "portal";
 
 export const APPS: Record<AppKind, { name: string; basename: string; channel: string }> = {
-  ops: { name: "dobedubpop · 운영 백오피스", basename: "", channel: "ops" },
-  portal: { name: "dobedubpop · 권리자 포털", basename: "/portal", channel: "portal" },
+  ops: { name: "dobedupop · 운영 백오피스", basename: "", channel: "ops" },
+  portal: { name: "dobedupop · 권리자 포털", basename: "/portal", channel: "portal" },
 };
 
 /** 빌드가 정한 앱(VITE_APP)이 있으면 그것, 없으면(개발 서버) 경로로 정한다. */

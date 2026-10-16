@@ -13,7 +13,7 @@ export type PushSubscriptionRow = { endpoint: string; p256dh: string; auth: stri
 export type PushSender = { publicKey: string; send(sub: PushSubscriptionRow, payload: PushPayload): Promise<"sent" | "gone" | "failed"> };
 
 /** 웹 푸시(VAPID) 전송자. 키가 없으면 실행마다 새로 만든다(개발용 — 운영은 VAPID_PUBLIC_KEY·VAPID_PRIVATE_KEY를 고정한다). */
-export function webPushSender(keys?: { publicKey: string; privateKey: string }, subject = "mailto:ops@dobedubpop.example"): PushSender {
+export function webPushSender(keys?: { publicKey: string; privateKey: string }, subject = "mailto:ops@dobedupop.example"): PushSender {
   const k = keys ?? webpush.generateVAPIDKeys();
   return {
     publicKey: k.publicKey,

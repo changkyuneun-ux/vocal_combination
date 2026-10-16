@@ -16,7 +16,7 @@ export function assertDevDbName(name: string, allowed: string = DEV_DB_NAME): vo
 export const MIGRATION_SEED_SQL: readonly string[] = [
   `INSERT INTO payout_policy VALUES ('default', 10000, 30, '{"DOMESTIC_INDIVIDUAL":330,"DOMESTIC_CORP":0,"FOREIGN":2200,"EXEMPT":0}')`,
   // 0030: 플랫폼 소유 곡은 정합성 검증을 경고만 한다(validation_enforced = false).
-  `INSERT INTO tenant VALUES ('tnt_platform', 'PLATFORM_OPS', 'dobedubpop 플랫폼 운영', 'ACTIVE', '2026-01-01T00:00:00Z', false)`,
+  `INSERT INTO tenant VALUES ('tnt_platform', 'PLATFORM_OPS', 'dobedupop 플랫폼 운영', 'ACTIVE', '2026-01-01T00:00:00Z', false)`,
   `INSERT INTO tenant VALUES ('tnt_platform_default', 'PLATFORM_DEFAULT', '개인(소속 없음)', 'ACTIVE', '2026-01-01T00:00:00Z')`,
   // 0032: 표준 계약 템플릿 v1 5종(법무 초안 시드). 문안이 길어 마이그레이션 파일의 문장을 그대로 읽는다.
   /INSERT INTO contract_template \(template_id[\s\S]*?\);\n/.exec(readFileSync(new URL("../../migrations/0032_contracts.sql", import.meta.url), "utf8"))![0],

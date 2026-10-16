@@ -2,7 +2,7 @@
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("push", (event) => {
-  let data = { title: "dobedubpop", body: "새 알림이 있습니다", kind: "", notificationId: 0 };
+  let data = { title: "dobedupop", body: "새 알림이 있습니다", kind: "", notificationId: 0 };
   try { data = { ...data, ...event.data.json() }; } catch { /* 본문이 JSON이 아니면 기본 문구 */ }
   event.waitUntil(self.registration.showNotification(data.title, { body: data.body, tag: `n-${data.notificationId}`, data, icon: "/icon.svg" }));
 });
