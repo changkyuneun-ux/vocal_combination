@@ -28,7 +28,7 @@ export type PersonaOpts = { purchases?: Partial<Record<string, number>>; log?: (
 export const TENANT = "tnt_bighit";
 export const P = {
   ops: "usr_ops", onboard: "usr_rights", settle: "usr_settle", confirmer: "usr_settle2", accounts: "usr_accounts", ingest: "sys_ingest",
-  rights: "usr_bh_rights", policy: "usr_bh_policy", approver: "usr_bh_approver", activator: "usr_bh_activator",
+  admin: "usr_bh_admin", rights: "usr_bh_rights", policy: "usr_bh_policy", approver: "usr_bh_approver", activator: "usr_bh_activator",
   member: (k: string) => `usr_member_${k}`, fan: (f: string) => `usr_fan_${f}`,
 } as const;
 const SCOPE = "fsc_dynamite", PACK = "pak_dynamite_fan", RECORDING = "rcd_dynamite", WORK = "wrk_dynamite";
@@ -59,18 +59,23 @@ const T0 = "2026-01-01T00:00:00.000Z";
 
 export const STEPS: Step[] = [
   {
-    id: "onboard", title: "온보딩: 빅히트 뮤직 테넌트와 계정", persona: "운영(usr_ops)·플랫폼 온보딩 담당(usr_rights)", app: "ops",
-    detail: "운영이 빅히트 뮤직 테넌트와 빅히트 담당자 4명(권리 편집·정책 편집·승인·활성화) 계정을 만들고, 온보딩 담당이 멤버 7명·해외 작가 2명·가상 팬 파티를 등록한다.",
+    id: "onboard", title: "온보딩: 빅히트 뮤직 테넌트(신청 → 확인됨)와 관리자·담당자 계정", persona: "플랫폼 온보딩 담당(usr_rights)·빅히트 관리자(usr_bh_admin)", app: "ops",
+    detail: "온보딩 담당이 빅히트 뮤직을 권리 테넌트로 등록하고(신청) 사업자·대표자·플랫폼 계약을 확인해 확인됨으로 올린 뒤 첫 관리자 계정을 발급한다. 빅히트 관리자가 담당자 4명(권리 편집·정책 편집·승인·활성화)을 초대한다. 온보딩 담당은 멤버 7명·해외 작가 2명·가상 팬 당사자를 등록한다.",
     async run(d) {
-      const { ops } = helpers(d);
+      const { ops, must } = helpers(d);
       await d.setClock("2026-01-01T09:00:00.000Z");
-      // 플랫폼 쪽 페르소나: 온보딩 담당(파티 등록·작가 계약), 계좌 담당(지급 정보 — 지급 실행자와 다른 사람).
-      await d.provisionUser({ userId: P.onboard, displayName: "플랫폼 온보딩 담당", roles: ["RIGHTS_EDITOR"], tenantId: "tnt_platform" });
+      // 플랫폼 쪽 페르소나: 온보딩 담당(조직·당사자 등록, 위탁 당사자 계약), 계좌 담당(지급 정보 — 지급 실행자와 다른 사람).
+      await d.provisionUser({ userId: P.onboard, displayName: "플랫폼 온보딩 담당", roles: ["ONBOARDING"], tenantId: "tnt_platform" });
       await d.provisionUser({ userId: P.accounts, displayName: "플랫폼 계좌 담당", roles: ["SPACE_SETTLE"], tenantId: "tnt_platform" });
-      await ops(P.ops, "POST", "/tenants", { tenantId: TENANT, tenantType: "LABEL", name: "빅히트 뮤직" });
+      // 권리 테넌트 수명주기(테넌트 정책 7절): 신청 → 확인됨(사업자·대표자·플랫폼 계약). 활성은 권리 보유 증빙(계약서 원문)을 본 뒤.
+      await ops(P.onboard, "POST", "/tenants", { tenantId: TENANT, tenantType: "LABEL", name: "빅히트 뮤직", businessNo: "BRN-DEMO-BIGHIT", country: "KR", representative: "대표 (가상)" });
+      for (const item of ["BUSINESS_ID", "REPRESENTATIVE", "PLATFORM_AGREEMENT"]) await ops(P.onboard, "PUT", `/tenants/${TENANT}/checks/${item}`, { checked: true, note: "데모: 서류 확인" });
+      await ops(P.onboard, "POST", `/tenants/${TENANT}/status`, { status: "VERIFIED" });
+      // 운영은 첫 관리자만 발급하고(결정 TD4), 담당자는 빅히트 관리자가 권리자 포털에서 초대한다.
+      await d.provisionUser({ userId: P.admin, displayName: "빅히트 관리자", roles: ["TENANT_ADMIN"], tenantId: TENANT });
       for (const [userId, name, role] of [[P.rights, "빅히트 권리 편집", "RIGHTS_EDITOR"], [P.policy, "빅히트 정책 편집", "EDITOR"],
         [P.approver, "빅히트 승인", "WORK_APPROVER"], [P.activator, "빅히트 활성화", "ACTIVATOR"]] as const) {
-        await d.provisionUser({ userId, displayName: name, roles: [role], tenantId: TENANT });
+        await must(`invite ${userId}`, d.call("portal", P.admin, "POST", "/users", { userId, displayName: name, roles: [role] }), [201, 409]);
       }
       for (const m of MEMBERS) await ops(P.onboard, "POST", "/parties", { partyId: `pty_${m.key}`, partyType: "MEMBER", displayName: m.name, tenantId: "tnt_platform_default" });
       for (const a of AUTHORS) await ops(P.onboard, "POST", "/parties", { partyId: a, partyType: "AUTHOR", displayName: NAMES[a] });
@@ -170,14 +175,17 @@ export const STEPS: Step[] = [
     },
   },
   {
-    id: "ops-verify", title: "운영: 지급 정보, 작가 지분 원문 대조 확인", persona: "운영 계좌 담당(usr_accounts)·운영(usr_ops)", app: "ops",
-    detail: "운영이 레이블·소속사·작가의 지급 정보(계좌 토큰은 지급 실행자와 다른 담당)를 등록하고, 14일 기한이 지난 작가 지분 확인 요청을 퍼블리싱 계약서 원문과 대조해 확인한다.",
+    id: "ops-verify", title: "운영: 지급 정보, 작가 지분 원문 대조 확인, 빅히트 활성", persona: "운영 계좌 담당(usr_accounts)·운영(usr_ops)·온보딩 담당(usr_rights)", app: "ops",
+    detail: "운영이 레이블·소속사·작가의 지급 정보(계좌 토큰은 지급 실행자와 다른 담당)를 등록하고, 14일 기한이 지난 작가 지분 확인 요청을 퍼블리싱 계약서 원문과 대조해 확인한다. 온보딩 담당이 권리 보유 증빙(녹음 계약서 원문)을 확인해 빅히트를 활성으로 올린다.",
     async run(d) {
       const { ops } = helpers(d);
       await d.setClock("2026-01-20T09:00:00.000Z");
       for (const p of ["pty_bighit_label", "pty_bighit_agency", ...AUTHORS]) {
         await ops(P.accounts, "PUT", `/parties/${p}/payout-profile`, { taxType: p.startsWith("pty_bighit") ? "DOMESTIC_CORP" : "FOREIGN", payoutAccountRef: `tok_${p}`, kycVerified: true });
       }
+      // 권리 보유 증빙(녹음 계약서 원문)을 확인하고 빅히트를 활성으로 올린다 — 이제 팩·정책을 활성화하고 판매할 수 있다.
+      await ops(P.onboard, "PUT", `/tenants/${TENANT}/checks/RIGHTS_EVIDENCE`, { checked: true, documentId: MASTER_DOC, note: "Dynamite 녹음 계약서 원문" });
+      await ops(P.onboard, "POST", `/tenants/${TENANT}/status`, { status: "ACTIVE" });
       const pending = (await ops(P.ops, "GET", "/confirmations?status=OPEN")) as any[];
       for (const r of pending.filter((x) => x.recordId === "c_work_ds" || x.recordId === "c_work_ja")) {
         await ops(P.ops, "POST", `/confirmations/${r.requestId}/platform-verify`, { reason: "퍼블리싱 계약서 원문 대조(작가 지분 각 50%)" });

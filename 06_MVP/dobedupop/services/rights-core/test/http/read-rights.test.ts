@@ -40,13 +40,17 @@ test("401 without x-actor on every read; 404 NOT_FOUND on unknown ids", async ()
 
 test("/me and /users", async () => {
   const seededName = (await w.db.pool.query("SELECT display_name FROM user_account WHERE user_id = 'usr_issuer'")).rows[0].display_name as string;
-  assert.deepEqual(await ok("/me", "usr_issuer"), { userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"], tenantId: "tnt_platform", scope: "platform" });
+  const me = await ok("/me", "usr_issuer");
+  assert.deepEqual(me, {
+    userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"], tenantId: "tnt_platform", tenantType: "PLATFORM_OPS", orgClass: "PLATFORM", tenantStatus: "ACTIVE", scope: "platform",
+    memberships: [{ tenantId: "tnt_platform", name: me.memberships[0].name, tenantType: "PLATFORM_OPS", orgClass: "PLATFORM", status: "ACTIVE", home: true, roles: ["ISSUER"] }],
+  });
   const users = await ok("/users");
   const byId = new Map<string, any>(users.items.map((u: any) => [u.userId, u]));
   assert.deepEqual(byId.get("usr_ops").roles, ["SPACE_OPS"]);
   assert.deepEqual(byId.get("sys_settler").roles, ["SYSTEM"]);
   // 온보딩 화면용 필드(소속·로그인 준비 상태). 비밀번호·토큰 값은 없다.
-  assert.deepEqual(Object.keys(byId.get("usr_ops")).sort(), ["disabled", "displayName", "hasPassword", "identityVerified", "lastLoginAt", "partyId", "roles", "tenantId", "tenantName", "totpEnabled", "userId"]);
+  assert.deepEqual(Object.keys(byId.get("usr_ops")).sort(), ["disabled", "displayName", "hasPassword", "homeMembership", "identityVerified", "lastLoginAt", "memberships", "partyId", "roles", "tenantId", "tenantName", "totpEnabled", "userId"]);
   assert.deepEqual(users.items.map((u: any) => u.userId), [...byId.keys()].sort());
   assert.equal(users.next, null);
 });

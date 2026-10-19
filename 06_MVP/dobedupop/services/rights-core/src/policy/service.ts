@@ -1,4 +1,5 @@
 import { requireRole, type Actor } from "../platform/actor.ts";
+import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -80,6 +81,7 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   const diags = await checkPackActivation(ctx, tx, { factsDigest: row.factsDigest, declared: await declaredClaimants(tx, row.packId), at: clock.now() });
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `${ref.policyId}@${ref.version} cannot be activated`, diags);
   await assertActivationAllowed(tx, clock, pack.factsScopeId); // 정합성 검증(원천 문서 설계 S3a)
+  await assertOwnerTenantActive(tx, pack.factsScopeId, "activate"); // 테넌트 수명주기(결정 TD7): 활성 테넌트만
   await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: row.policyDigest });
   await supersedeAndActivate(tx, clock, row);
   await audit(tx, clock, { actor: actor.userId, action: "POLICY_ACTIVATED", entityType: "policy_version", entityId: `${ref.policyId}@${ref.version}` });

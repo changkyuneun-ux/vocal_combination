@@ -37,9 +37,35 @@ const EDGE_ENDPOINTS: Record<ClaimEdge, readonly [EntityKind, EntityKind]> = {
 const NON_FACTS_PARTY = new Set(["FAN", "PLATFORM"]);
 
 /** tenantId를 생략하면 요청 범위의 테넌트(rc.tenant_id)에 소속된다. */
-export async function registerParty(tx: Tx, clock: Clock, p: { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string; tenantId?: string }): Promise<void> {
-  await tx.query("INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, rc_tenant(), 'tnt_platform'))",
-    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now(), p.tenantId ?? null]);
+export type PartyInput = { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string; tenantId?: string; legalId?: string; managementDocumentId?: string };
+
+export async function registerParty(tx: Tx, clock: Clock, p: PartyInput): Promise<void> {
+  await tx.query(
+    `INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at, tenant_id, legal_id, management_document_id)
+     VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, rc_tenant(), 'tnt_platform'),$8,$9)`,
+    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now(), p.tenantId ?? null, p.legalId ?? null, p.managementDocumentId ?? null]);
+}
+
+/**
+ * 한 테넌트에 여러 당사자를 두는 기준(결정 TD2): 권리 테넌트의 당사자는 그 테넌트와 같은 법인(사업자번호가 같거나 비워 두면 테넌트 사업자번호)이거나,
+ * 다른 법인이면 관리 위임 계약(원천 문서)이 있어야 한다. 참여 기관은 자기 당사자 하나, 개인 소속은 개인 당사자(멤버·팬·작가·세션)만 둔다.
+ * 비워 둔 legalId는 테넌트 사업자번호로 채운다(입력 객체를 고친다).
+ */
+export async function assertPartyAdmissible(tx: Tx, tenantId: string, p: PartyInput): Promise<void> {
+  const t = (await tx.query("SELECT org_class, tenant_type, business_no FROM tenant WHERE tenant_id = $1", [tenantId])).rows[0];
+  if (t === undefined) throw notFound("tenant", tenantId);
+  if (t.org_class === "RIGHTS") {
+    if (p.legalId === undefined && t.business_no !== null) p.legalId = t.business_no;
+    if (p.legalId !== undefined && t.business_no !== null && p.legalId !== t.business_no && p.managementDocumentId === undefined) {
+      throw invalid("PARTY_OTHER_ENTITY", `${p.partyId} (${p.legalId}) is another legal entity than ${tenantId} (${t.business_no}); attach the management delegation contract (managementDocumentId) or register a separate tenant`);
+    }
+  } else if (t.org_class === "PARTICIPANT") {
+    const n = (await tx.query("SELECT count(*)::int AS n FROM party WHERE tenant_id = $1", [tenantId])).rows[0].n as number;
+    if (t.tenant_type === "B2B_PARTNER") throw invalid("PARTY_NOT_ALLOWED", "a distribution partner is not a payee party");
+    if (n > 0) throw invalid("PARTY_NOT_ALLOWED", `${tenantId} already has its party; a participant organization has one`);
+  } else if (t.org_class === "INDIVIDUAL") {
+    if (!["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"].includes(p.partyType)) throw invalid("PARTY_NOT_ALLOWED", `${p.partyType} is an organization; register it in its own tenant`);
+  }
 }
 
 export async function registerWork(tx: Tx, clock: Clock, w: { workId: string; title: string; iswc?: string }): Promise<void> {

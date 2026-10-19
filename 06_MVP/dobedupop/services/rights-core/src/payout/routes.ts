@@ -39,7 +39,7 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     const actor = await withActor(deps, req, async (_tx, a) => a);
     const b: any = req.body;
     return deps.db.tx((tx) => setPayoutProfile(tx, deps.clock, actor, {
-      partyId: req.params.id, taxType: b?.taxType, kycVerified: b?.kycVerified,
+      partyId: req.params.id, taxType: b?.taxType, kycVerified: b?.kycVerified, ...(typeof b?.accountHolderId === "string" && { accountHolderId: b.accountHolderId }),
       ...(b !== null && typeof b === "object" && "payoutAccountRef" in b ? { payoutAccountRef: b.payoutAccountRef } : {}),
     }));
   });

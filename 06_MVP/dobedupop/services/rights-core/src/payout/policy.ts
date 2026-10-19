@@ -2,7 +2,7 @@ import type { Tx } from "../platform/db.ts";
 
 export type TaxType = "DOMESTIC_INDIVIDUAL" | "DOMESTIC_CORP" | "FOREIGN" | "EXEMPT";
 export const TAX_TYPES: readonly TaxType[] = ["DOMESTIC_INDIVIDUAL", "DOMESTIC_CORP", "FOREIGN", "EXEMPT"];
-export type HoldReason = "NO_PROFILE" | "NO_ACCOUNT" | "KYC_REQUIRED" | "ACCOUNT_COOLING" | "ACCOUNT_SOD" | "INITIAL_HOLD";
+export type HoldReason = "NO_PROFILE" | "NO_ACCOUNT" | "KYC_REQUIRED" | "ACCOUNT_COOLING" | "ACCOUNT_SOD" | "INITIAL_HOLD" | "TENANT_SUSPENDED";
 export type PayoutPolicy = { minPayoutKrw: bigint; initialHoldDays: number; accountCoolingHours: number; taxBps: Record<TaxType, number> };
 
 const DAY_MS = 86_400_000;

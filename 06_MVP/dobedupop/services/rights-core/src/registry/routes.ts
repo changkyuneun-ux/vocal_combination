@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
-import { requireRole, type Actor } from "../platform/actor.ts";
+import { requireAnyRole, requireRole, type Actor } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
@@ -21,10 +21,15 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     if (s !== undefined) await revalidate(tx, deps.clock, s.facts_scope_id);
   };
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
+  /**
+   * 등록 역할: 권리 테넌트는 RIGHTS_EDITOR. 플랫폼 운영은 권리를 등록하지 않고(결정 TD3) 당사자 등록만 온보딩(ONBOARDING)으로 한다.
+   * (플랫폼 RIGHTS_EDITOR는 이제 발급할 수 없다. 기존 개발·시험 계정만 남아 있다.)
+   */
   const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
     app.post(path, async (req, reply) => {
       const out = await withActor(deps, req, async (tx, actor) => {
-        requireRole(actor, "RIGHTS_EDITOR");
+        if (actor.scope === "platform" && path === "/parties") requireAnyRole(actor, ["ONBOARDING", "RIGHTS_EDITOR"]);
+        else requireRole(actor, "RIGHTS_EDITOR");
         const body = req.body as Record<string, unknown>;
         const missing = required.filter((k) => body?.[k] === undefined);
         if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
@@ -32,11 +37,12 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
       });
       return reply.status(201).send(out ?? {});
     });
-  created<any>("/parties", (tx, b, actor) => {
+  created<any>("/parties", async (tx, b, actor) => {
     // 다른 테넌트 소속으로 파티를 만드는 것은 플랫폼 운영만 할 수 있다(권리자 온보딩 대행).
     if (b.tenantId !== undefined && b.tenantId !== actor.tenantId && actor.scope !== "platform") {
       throw new DomainError("TENANT_FORBIDDEN", 403, `${actor.userId} cannot register a party in tenant ${b.tenantId}`);
     }
+    await reg.assertPartyAdmissible(tx, b.tenantId ?? actor.tenantId, b);
     return reg.registerParty(tx, deps.clock, b);
   });
   created<any>("/works", (tx, b) => reg.registerWork(tx, deps.clock, b));

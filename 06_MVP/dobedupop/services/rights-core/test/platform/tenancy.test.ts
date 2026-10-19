@@ -18,17 +18,21 @@ const PORTAL_USERS = new Set(["usr_a", "usr_b", "usr_agency"]);
 const app = viaChannel(buildServer({ db: w.db, ctx: w.ctx, clock, jobs: recordingJobs() }), (actor) => (PORTAL_USERS.has(actor ?? "") ? "portal" : "ops"));
 after(async () => { await app.close(); await w.drop(); });
 
-const call = (method: "GET" | "POST", url: string, actor: string, payload?: object) =>
+const call = (method: "GET" | "POST" | "PUT", url: string, actor: string, payload?: object) =>
   app.inject({ method, url, headers: { "x-actor": actor }, ...(payload === undefined ? {} : { payload }) });
-const json = async (method: "GET" | "POST", url: string, actor: string, status: number, payload?: object): Promise<any> => {
+const json = async (method: "GET" | "POST" | "PUT", url: string, actor: string, status: number, payload?: object): Promise<any> => {
   const r = await call(method, url, actor, payload);
   assert.equal(r.statusCode, status, `${method} ${url} as ${actor}: ${r.body}`);
   return r.json();
 };
 
 // 테넌트 셋: 레이블 A·B(소유 데이터 격리), 기획사(참여 데이터). 플랫폼 SPACE_OPS가 HTTP로 등록한다.
+// 등록하면 신청(APPLIED) 상태다. 확인 항목을 채워 확인됨 → 활성으로 올린다(테넌트 정책 7절).
 for (const [id, type] of [["tnt_lbl_a", "LABEL"], ["tnt_lbl_b", "LABEL"], ["tnt_agency", "AGENCY"]]) {
-  await json("POST", "/tenants", "usr_ops", 201, { tenantId: id, tenantType: type, name: id });
+  assert.equal((await json("POST", "/tenants", "usr_ops", 201, { tenantId: id, tenantType: type, name: id })).status, "APPLIED");
+  for (const item of ["BUSINESS_ID", "REPRESENTATIVE", "PLATFORM_AGREEMENT", "RIGHTS_EVIDENCE"]) await json("PUT", `/tenants/${id}/checks/${item}`, "usr_ops", 200, { checked: true });
+  await json("POST", `/tenants/${id}/status`, "usr_ops", 200, { status: "VERIFIED" });
+  assert.equal((await json("POST", `/tenants/${id}/status`, "usr_ops", 200, { status: "ACTIVE" })).status, "ACTIVE");
 }
 await w.db.tx(async (tx) => {
   const c0 = fixedClock("2026-01-01T00:00:00.000Z", 0);

@@ -19,7 +19,10 @@ import { signerRoutes } from "../contracts/routes.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
 function me(actor: Actor) {
-  return { userId: actor.userId, tenantId: actor.tenantId, tenantType: actor.tenantType, scope: actor.scope, roles: [...actor.roles].sort(), ...(actor.partyId && { partyId: actor.partyId }) };
+  return {
+    userId: actor.userId, tenantId: actor.tenantId, tenantType: actor.tenantType, orgClass: actor.orgClass, tenantStatus: actor.tenantStatus, scope: actor.scope,
+    roles: [...actor.roles].sort(), ...(actor.partyId && { partyId: actor.partyId }), ...(actor.readOnly && { readOnly: true }),
+  };
 }
 
 function period(q: Record<string, unknown>): { from: string; to: string } {

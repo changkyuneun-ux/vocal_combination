@@ -3,13 +3,22 @@ import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { DomainError } from "./errors.ts";
 
-export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER" | "COMPLIANCE" | "LEGAL";
+export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER" | "COMPLIANCE" | "LEGAL"
+  | "TENANT_ADMIN" | "ONBOARDING" | "TRUST_OFFICER" | "PARTNER_INTEGRATION";
+/** 참여 구분(테넌트 정책 2절, 결정 TD1): 권리 테넌트·참여 기관·개인·플랫폼 운영. */
+export type OrgClass = "RIGHTS" | "PARTICIPANT" | "INDIVIDUAL" | "PLATFORM";
+export type TenantStatus = "APPLIED" | "VERIFIED" | "ACTIVE" | "SUSPENDED" | "TERMINATED";
 /**
  * scope: platform = 플랫폼 운영 테넌트 사용자(전체 조회), tenant = 그 외 테넌트 사용자(자기 테넌트 소유·참여 데이터만),
  * party = 소속 없는 개인(개인 기본 테넌트) 사용자(자기 파티의 참여 데이터만). partyId는 본인 파티(실연자·팬 계정)다.
  * 범위는 요청 트랜잭션에 설정되고 RLS가 적용한다(migrations/0017_tenancy.sql, 0018_consent.sql).
+ * tenantId는 지금 일하는 소속이고(결정 TD9 — 한 계정 여러 소속), roles는 그 소속에서의 역할이다. readOnly는 신청·정지 상태 조직의
+ * 관리자 로그인(열람만, 결정 TD7)이다.
  */
-export type Actor = { userId: string; roles: ReadonlySet<Role>; tenantId: string; tenantType: string; scope: "platform" | "tenant" | "party"; partyId?: string; partyType?: string };
+export type Actor = {
+  userId: string; roles: ReadonlySet<Role>; tenantId: string; tenantType: string; orgClass: OrgClass; tenantStatus: TenantStatus;
+  scope: "platform" | "tenant" | "party"; partyId?: string; partyType?: string; readOnly?: boolean;
+};
 
 export const PLATFORM_TENANT = "tnt_platform";
 
@@ -38,20 +47,44 @@ export async function ensureSystemIdentities(tx: Tx, clock: Clock): Promise<void
   }
 }
 
-export async function loadActor(tx: Tx, userId: string): Promise<Actor> {
+/**
+ * 행위자를 읽는다. tenantId를 주면 그 소속으로(소속이 없으면 403 MEMBERSHIP_REQUIRED), 안 주면 기본 소속으로 읽는다.
+ * 조직 상태(결정 TD7): 해지는 로그인 불가, 신청·정지는 조직 관리자만 열람으로 들어온다(readOnly), 확인됨·활성은 정상.
+ */
+export async function loadActor(tx: Tx, userId: string, tenantId?: string): Promise<Actor> {
   const u = (await tx.query(
-    `SELECT u.tenant_id, u.party_id, t.tenant_type, t.status, p.party_type
-       FROM user_account u JOIN tenant t ON t.tenant_id = u.tenant_id LEFT JOIN party p ON p.party_id = u.party_id WHERE u.user_id = $1`, [userId],
+    "SELECT u.tenant_id, u.party_id, p.party_type FROM user_account u LEFT JOIN party p ON p.party_id = u.party_id WHERE u.user_id = $1", [userId],
   )).rows[0];
   if (u === undefined) throw new DomainError("UNKNOWN_ACTOR", 401, `unknown actor: ${userId}`);
-  if (u.status !== "ACTIVE") throw new DomainError("TENANT_INACTIVE", 403, `tenant ${u.tenant_id} is ${u.status}`);
-  const roles = (await tx.query("SELECT role FROM portal_role WHERE user_id = $1", [userId])).rows.map((r) => r.role as Role);
-  const scope = u.tenant_type === "PLATFORM_OPS" ? "platform" : u.tenant_type === "PLATFORM_DEFAULT" ? "party" : "tenant";
+  const tid = tenantId ?? (u.tenant_id as string);
+  const t = (await tx.query(
+    `SELECT t.tenant_type, t.org_class, t.status FROM user_membership m JOIN tenant t ON t.tenant_id = m.tenant_id WHERE m.user_id = $1 AND m.tenant_id = $2`, [userId, tid],
+  )).rows[0];
+  if (t === undefined) throw new DomainError("MEMBERSHIP_REQUIRED", 403, `${userId} is not a member of ${tid}`);
+  const roles = new Set((await tx.query("SELECT role FROM portal_role WHERE user_id = $1 AND tenant_id = $2", [userId, tid])).rows.map((r) => r.role as Role));
+  const status = t.status as TenantStatus;
+  if (status === "TERMINATED") throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tid} is TERMINATED`);
+  const readOnly = status === "APPLIED" || status === "SUSPENDED";
+  if (readOnly && !roles.has("TENANT_ADMIN")) throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tid} is ${status}; only its administrator can sign in`);
+  const orgClass = t.org_class as OrgClass;
+  const scope = orgClass === "PLATFORM" ? "platform" : orgClass === "INDIVIDUAL" ? "party" : "tenant";
   if (scope === "party" && u.party_id === null) throw new DomainError("PARTY_REQUIRED", 403, `${userId} has no party in the individual tenant`);
   return {
-    userId, roles: new Set(roles), tenantId: u.tenant_id as string, tenantType: u.tenant_type as string, scope,
+    userId, roles, tenantId: tid, tenantType: t.tenant_type as string, orgClass, tenantStatus: status, scope,
     ...(u.party_id === null ? {} : { partyId: u.party_id as string, partyType: u.party_type as string }),
+    ...(readOnly && { readOnly: true }),
   };
+}
+
+/** 계정의 소속 목록(기본 소속 먼저). */
+export async function listMemberships(tx: Tx, userId: string): Promise<{ tenantId: string; name: string; tenantType: string; orgClass: OrgClass; status: TenantStatus; home: boolean; roles: Role[] }[]> {
+  return (await tx.query(
+    `SELECT m.tenant_id, t.name, t.tenant_type, t.org_class, t.status, m.tenant_id = u.tenant_id AS home,
+            COALESCE(array_agg(r.role ORDER BY r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
+       FROM user_membership m JOIN user_account u ON u.user_id = m.user_id JOIN tenant t ON t.tenant_id = m.tenant_id
+       LEFT JOIN portal_role r ON r.user_id = m.user_id AND r.tenant_id = m.tenant_id
+      WHERE m.user_id = $1 GROUP BY m.tenant_id, t.name, t.tenant_type, t.org_class, t.status, u.tenant_id ORDER BY (m.tenant_id = u.tenant_id) DESC, m.tenant_id`, [userId],
+  )).rows.map((r) => ({ tenantId: r.tenant_id, name: r.name, tenantType: r.tenant_type, orgClass: r.org_class, status: r.status, home: r.home, roles: r.roles }));
 }
 
 /** 요청 트랜잭션의 조회 범위를 행위자 기준으로 좁힌다. 이후 같은 트랜잭션의 모든 쿼리에 RLS가 적용된다. */

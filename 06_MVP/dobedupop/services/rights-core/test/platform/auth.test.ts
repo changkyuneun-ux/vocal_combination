@@ -43,8 +43,15 @@ test("TOTP matches RFC 6238 (SHA-1) and passwords are scrypt-hashed", () => {
   assert.ok(!verifyPassword("wrong horse!", h));
 });
 
-test("ops invites a tenant user, who sets a password and signs in to the portal with a session cookie", async () => {
-  const created = await post("/ops/users", { userId: "usr_bh_rights", displayName: "빅히트 권리", tenantId: "tnt_bighit", roles: ["RIGHTS_EDITOR"] }, asOps);
+let adminCookie = "";
+test("ops invites the tenant's first administrator, who invites the staff; staff sign in to the portal with a session cookie", async () => {
+  // 운영은 조직의 첫 관리자만 발급한다(결정 TD4). 담당자 역할은 줄 수 없다.
+  assert.equal((await post("/ops/users", { userId: "usr_bh_x", displayName: "x", tenantId: "tnt_bighit", roles: ["RIGHTS_EDITOR"] }, asOps)).json().code, "FIRST_ADMIN_ONLY");
+  const adm = (await post("/ops/users", { userId: "usr_bh_admin", displayName: "빅히트 관리자", tenantId: "tnt_bighit", roles: ["TENANT_ADMIN"] }, asOps)).json();
+  await post("/portal/auth/invite/accept", { token: adm.inviteToken, password: "bighit-admin-pw-1" });
+  adminCookie = cookieOf(await post("/portal/auth/login", { userId: "usr_bh_admin", password: "bighit-admin-pw-1" }));
+  assert.equal((await post("/ops/users", { userId: "usr_bh_x", displayName: "x", tenantId: "tnt_bighit", roles: ["TENANT_ADMIN"] }, asOps)).json().code, "TENANT_HAS_ADMIN");
+  const created = await post("/portal/users", { userId: "usr_bh_rights", displayName: "빅히트 권리", roles: ["RIGHTS_EDITOR"] }, { cookie: adminCookie });
   assert.equal(created.statusCode, 201, created.body);
   const { inviteToken, login } = created.json();
   assert.equal(login, "PASSWORD");
@@ -73,7 +80,7 @@ test("ops invites a tenant user, who sets a password and signs in to the portal 
 });
 
 test("five wrong passwords lock the account for 15 minutes (the failures are committed)", async () => {
-  await post("/ops/users", { userId: "usr_bh_policy", displayName: "빅히트 정책", tenantId: "tnt_bighit", roles: ["EDITOR"] }, asOps).then(async (r) =>
+  await post("/portal/users", { userId: "usr_bh_policy", displayName: "빅히트 정책", roles: ["EDITOR"] }, { cookie: adminCookie }).then(async (r) =>
     post("/portal/auth/invite/accept", { token: r.json().inviteToken, password: "policy-password-1" }));
   for (let i = 0; i < 5; i++) assert.equal((await post("/portal/auth/login", { userId: "usr_bh_policy", password: "nope-nope-nope" })).statusCode, 401);
   assert.equal((await post("/portal/auth/login", { userId: "usr_bh_policy", password: "policy-password-1" })).json().code, "ACCOUNT_LOCKED");

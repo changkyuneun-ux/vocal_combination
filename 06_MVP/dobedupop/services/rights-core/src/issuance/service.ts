@@ -1,4 +1,5 @@
 import { requireRole, type Actor } from "../platform/actor.ts";
+import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Db, type Tx } from "../platform/db.ts";
@@ -84,6 +85,7 @@ export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   if (diags.length > 0) throw invalid("ACTIVATION_BLOCKED", `pack ${packId} cannot be activated`, diags);
   // 정합성 검증(원천 문서 설계 S3a): 적용 테넌트의 곡에 열린 BLOCK 이슈가 있으면 활성화하지 않는다.
   await assertActivationAllowed(tx, clock, pack.factsScopeId);
+  await assertOwnerTenantActive(tx, pack.factsScopeId, "activate"); // 테넌트 수명주기(결정 TD7): 활성 테넌트만
   await tx.query("UPDATE vocal_pack SET status = 'ACTIVE' WHERE pack_id = $1", [packId]);
   await invalidateDecisions(tx, pack.factsScopeId, { all: true });
   await audit(tx, clock, { actor: actor.userId, action: "PACK_ACTIVATED", entityType: "vocal_pack", entityId: packId, after: { policy: `${active.policyId}@${active.version}` } });
@@ -120,6 +122,7 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   requireRole(actor, "ISSUER");
   const pack = await packRow(tx, input.packId, "SHARE");
   if (pack.status !== "ACTIVE") throw conflict("PACK_NOT_ACTIVE", `pack ${input.packId} is ${pack.status}`);
+  await assertOwnerTenantActive(tx, pack.factsScopeId, "issue"); // 정지된 테넌트의 팩은 판매하지 않는다(결정 TD7)
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
   const active = await activePolicyForPack(tx, input.packId);
   if (active === undefined) throw conflict("NO_ACTIVE_POLICY", `pack ${input.packId} has no active policy`);

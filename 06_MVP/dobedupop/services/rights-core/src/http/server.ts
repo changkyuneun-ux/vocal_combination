@@ -1,10 +1,10 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
-import { applyActorScope, loadActor, type Actor } from "../platform/actor.ts";
+import { applyActorScope, type Actor } from "../platform/actor.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
-import { assertChannel, type Channel } from "./channels.ts";
+import { actorForChannel, type Channel } from "./channels.ts";
 import { activeBreakGlass, applyBreakGlass, inspectRoute } from "../platform/inspection.ts";
 import { platformRoutes } from "../platform/routes.ts";
 import { registryRoutes } from "../registry/routes.ts";
@@ -56,12 +56,19 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
   if (cookie === undefined && (typeof header !== "string" || header === "")) throw new DomainError("UNAUTHENTICATED", 401, "sign in first");
   if (cookie !== undefined && !["GET", "HEAD", "OPTIONS"].includes(req.method)) assertCsrf(req);
   return deps.db.tx(async (tx) => {
-    const userId = cookie !== undefined ? await resolveSession(tx, deps.clock, cookie, req.channel!) : (header as string);
-    if (userId === null) throw new DomainError("UNAUTHENTICATED", 401, "the session expired; sign in again");
-    const actor = await loadActor(tx, userId);
     // 사용자 API는 모두 채널 아래에 있다. 채널 없이 신원을 쓰는 경로는 만들지 않는다.
     if (req.channel === undefined) throw new DomainError("CHANNEL_REQUIRED", 404, "user APIs live under a channel: /ops, /portal, /performer, /fan, /partner");
-    assertChannel(req.channel, actor);
+    const session = cookie !== undefined ? await resolveSession(tx, deps.clock, cookie, req.channel) : null;
+    if (cookie !== undefined && session === null) throw new DomainError("UNAUTHENTICATED", 401, "the session expired; sign in again");
+    // 지금 일하는 소속(결정 TD9): 세션에 있고, 개발·시험 헤더는 x-tenant로 고른다.
+    const xt = req.headers["x-tenant"];
+    const actor = session !== null
+      ? await actorForChannel(tx, session.userId, req.channel, session.tenantId)
+      : await actorForChannel(tx, header as string, req.channel, typeof xt === "string" && xt !== "" ? xt : undefined);
+    // 신청·정지 상태 조직의 관리자는 열람만 한다(결정 TD7).
+    if (actor.readOnly === true && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      throw new DomainError("TENANT_INACTIVE", 403, `tenant ${actor.tenantId} is ${actor.tenantStatus}; read only`);
+    }
     await applyActorScope(tx, actor);
     // 3단계 통제: 플랫폼 사용자가 break-glass를 열어 두었으면 그 테넌트 소유 데이터에도 쓸 수 있다(RLS rc_can_write).
     const bg = actor.scope === "platform" ? await activeBreakGlass(tx, actor.userId, () => deps.clock.now()) : undefined;
@@ -124,11 +131,11 @@ export function buildServer(deps: Deps): FastifyInstance {
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
   channel("ops", (sub) => { all(sub); authRoutes(sub, deps); userAdminRoutes(sub, deps); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); });
   channel("portal", (sub) => {
-    authRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
+    authRoutes(sub, deps); userAdminRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
   });
   channel("performer", (sub) => { authRoutes(sub, deps); performerRoutes(sub, deps); });
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
-  channel("partner", (sub) => { partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
+  channel("partner", (sub) => { authRoutes(sub, deps); userAdminRoutes(sub, deps); partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
   // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).
   pspWebhookRoutes(app, deps);
   if (deps.dev !== undefined) { devRoutes(app, { ...deps, dev: deps.dev }); devEsignRoutes(app, deps); }
