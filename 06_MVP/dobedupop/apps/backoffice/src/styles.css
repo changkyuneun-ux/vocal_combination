@@ -1,54 +1,51 @@
-/* 권리자 포털·운영 백오피스. 색·글꼴·기본 컴포넌트는 공통 테마(dobedupop-ui/theme.css)의 토큰만 쓴다. */
+/* 권리자 포털·참여 기관·운영 백오피스. 최종 UI 목업의 틀(머리글 + 왼쪽 메뉴 + 본문). 색·글꼴은 공통 테마 토큰만 쓴다. */
 @import "dobedupop-ui/theme.css";
 
 /* ── 틀: 머리글 + 왼쪽 메뉴 + 본문 ───────────────────────────────────────────── */
-.layout { display: grid; grid-template-columns: 252px minmax(0, 1fr); grid-template-rows: 56px 1fr; min-height: 100vh; }
+.layout { display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 100vh; }
 .header {
-  grid-column: 1 / -1; position: sticky; top: 0; z-index: 30;
-  display: flex; align-items: center; gap: 16px; padding: 0 20px;
-  background: var(--surface); border-bottom: 1px solid var(--line);
+  grid-column: 1 / -1; position: sticky; top: 0; z-index: 30; min-height: 56px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 10px 24px;
+  background: var(--header-bg); color: var(--header-fg); border-bottom: 1px solid var(--header-line);
 }
-.app-name { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 750; color: var(--fg); white-space: nowrap; }
-.app-name::before {
-  content: "d"; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
-  background: var(--accent); color: var(--accent-fg); font-weight: 800; font-size: 16px;
-}
-.right { display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative; font-size: 14px; color: var(--fg-2); }
-.right .small { color: var(--muted); }
+.app-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; font-size: 16px; font-weight: 700; color: var(--header-fg); white-space: nowrap; }
+.app-host { font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--header-muted); }
+.right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-left: auto; position: relative; font-size: 13px; color: var(--header-fg); }
+.right .small, .header .muted { color: var(--header-muted); }
+.header .btn { background: var(--surface); color: var(--fg); }
+.header label { color: var(--header-fg); }
 .clock { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
 .clock-now { font-variant-numeric: tabular-nums; margin-right: 6px; font-weight: 650; }
 
 .menu {
   position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
-  background: var(--surface); border-right: 1px solid var(--line); padding: 12px 10px 24px;
+  background: var(--nav-bg); border-right: 1px solid var(--nav-line); padding: 12px;
 }
-.menu-group + .menu-group { margin-top: 6px; }
-.menu-group h3 { margin: 14px 12px 6px; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.menu-group h3 { margin: 0; padding: 14px 12px 4px; font-size: 11px; font-weight: 700; color: var(--nav-muted); letter-spacing: .04em; }
 .menu a {
-  display: block; padding: 7px 12px; margin: 1px 0; border-radius: 8px;
-  color: var(--fg-2); font-size: 14px; font-weight: 500; text-decoration: none;
+  display: block; padding: 8px 12px; border-radius: 6px;
+  color: var(--nav-fg); font-size: 14px; font-weight: 400; text-decoration: none;
 }
-.menu a:hover { background: var(--surface-2); color: var(--fg); }
-.menu a.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+.menu a:hover { background: var(--nav-hover); color: var(--nav-fg); }
+.menu a.active { background: var(--nav-active-bg); color: var(--nav-active-fg); font-weight: 600; }
 
-.content { padding: 24px 28px 48px; min-width: 0; max-width: 1480px; }
+.content { padding: 28px; min-width: 0; max-width: 1480px; }
 
 /* ── 구역(카드) ─────────────────────────────────────────────────────────────── */
 .section {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-  padding: 20px 24px; margin-bottom: 20px; box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px; margin-bottom: 20px;
 }
-.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .section-head h2 { font-size: 17px; margin: 0; }
 .section p { color: var(--fg-2); }
 .section p.muted, .section .muted { color: var(--muted); }
 
 /* ── 표 ─────────────────────────────────────────────────────────────────────── */
-table.data { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
-table.data caption { text-align: left; padding: 0 0 8px; font-size: 13px; }
-table.data th, table.data td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
-table.data th { background: var(--surface-2); color: var(--fg-2); font-weight: 650; font-size: 13px; white-space: nowrap; }
-table.data thead th:first-child { border-top-left-radius: 8px; } table.data thead th:last-child { border-top-right-radius: 8px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data caption { text-align: left; padding: 0 0 8px; font-size: 12px; color: var(--muted); }
+table.data th, table.data td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+table.data th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; border-bottom-color: var(--line); }
 table.data tbody tr:hover td { background: var(--surface-2); }
 table.data tbody tr:last-child td { border-bottom: none; }
 table.data td code { white-space: nowrap; }
@@ -85,8 +82,8 @@ fieldset.field legend { font-size: 13px; font-weight: 600; color: var(--fg-2); p
 .kv dt { color: var(--muted); } .kv dd { margin: 0; color: var(--fg); }
 ul.versions { list-style: none; margin: 0; padding: 0; } li.ver { border-bottom: 1px solid var(--line); padding: 10px 0; }
 .cards { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; padding: 0; margin: 0 0 12px; }
-.card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; display: grid; gap: 2px; background: var(--surface); min-width: 140px; }
-.card strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; background: var(--surface); min-width: 160px; }
+.card strong { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 ul.plain { list-style: none; margin: 0; padding: 0; }
 ul.plain li + li { margin-top: 4px; }
 
@@ -97,7 +94,7 @@ ul.plain li + li { margin-top: 4px; }
   padding: 28px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow-lg);
 }
 .login-card h1 { font-size: 20px; margin: 0; display: flex; align-items: center; gap: 10px; }
-.login-card h1::before { content: "d"; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--accent-fg); font-weight: 800; }
+.login-card .app-host { display: block; margin-top: -10px; color: var(--muted); }
 .login-card form { display: flex; flex-direction: column; gap: 12px; }
 .login-card form input { width: 100%; }
 .login-card form .btn.primary { min-height: 42px; font-size: 15px; }
@@ -113,7 +110,7 @@ ul.plain li + li { margin-top: 4px; }
 
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; grid-template-rows: 56px auto 1fr; }
-  .menu { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  .menu { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--nav-line); }
   .content { padding: 16px; }
   .split { grid-template-columns: 1fr; }
 }

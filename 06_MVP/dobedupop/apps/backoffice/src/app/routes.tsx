@@ -135,10 +135,12 @@ export function routesFor(kind: AppKind): RouteDef[] {
   return [...opsRoutes, ...rightsRoutes, ...devRoutes];
 }
 
-const registryMenu: MenuGroup = { title: "1 등록부", items: [
-  { to: "/registry/summary", label: "권리 요약" }, { to: "/documents", label: "원천 문서" }, { to: "/confirmations", label: "확인 요청" }, { to: "/validation", label: "정합성 점검" }, { to: "/contracts", label: "표준 계약" }, { to: "/registry/parties", label: "당사자" }, { to: "/registry/assets", label: "곡·녹음·슬롯·스템·보이스" }, { to: "/audio", label: "스템 오디오·검수" },
-  { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/registry/disputes", label: "분쟁" },
-] };
+/** 목업의 메뉴 묶음(최종 UI 목업): 포털 ① 권리 등록 ② 정책·상품 ③ 발행·심사, 운영 ⑧ 관제 ⑤ 무결성 ⑥ 정산·재무 ⑦ 관리·감사. */
+const catalog: MenuItem[] = [
+  { to: "/registry/assets", label: "카탈로그(곡·녹음·슬롯·스템)" }, { to: "/registry/summary", label: "권리 요약" }, { to: "/documents", label: "원천 문서" },
+  { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/contracts", label: "표준 계약" },
+  { to: "/registry/parties", label: "당사자" },
+];
 
 /** 매출·정산 화면을 여는 역할(코어가 요구하는 역할과 같다). */
 const MONEY = ["SPACE_OPS", "SPACE_SETTLE"];
@@ -146,44 +148,44 @@ const MONEY = ["SPACE_OPS", "SPACE_SETTLE"];
 export function menuFor(kind: AppKind): MenuGroup[] {
   if (kind === "partner") {
     return [
-      { title: "0 내 조직", items: [{ to: "/", label: "내 조직" }, { to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }] },
-      { title: "1 연결", items: [{ to: "/links", label: "연결·상품 대응" }, { to: "/trust/works", label: "신탁 작품", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
-      { title: "2 명세", items: [{ to: "/statements", label: "명세서", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
+      { title: "홈", items: [{ to: "/", label: "내 조직" }] },
+      { title: "① 연결", items: [{ to: "/links", label: "연결·상품 대응" }, { to: "/trust/works", label: "신탁 작품", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
+      { title: "② 정산", items: [{ to: "/statements", label: "명세서", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
+      { title: "설정", items: [{ to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }] },
     ];
   }
   if (kind === "portal") {
     return [
-      { title: "0 내 조직", items: [{ to: "/", label: "내 조직" }, { to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }, { to: "/delegation", label: "위임 대행", roles: ["TENANT_ADMIN"] }] },
-      registryMenu,
-      { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
-      { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
-      { title: "4 발행", items: [{ to: "/issues", label: "발행 조회" }] },
-      { title: "5 명세", items: [{ to: "/statements", label: "명세서" }] },
-      { title: "6 연결", items: [{ to: "/links", label: "신탁·유통 연결" }] },
-      { title: "7 투명성", items: [{ to: "/inspections", label: "플랫폼 열람 기록" }] },
+      { title: "홈", items: [{ to: "/", label: "내 조직" }] },
+      { title: "① 권리 등록", items: [...catalog, { to: "/confirmations", label: "확인 요청" }, { to: "/audio", label: "스템 오디오·검수" }, { to: "/registry/disputes", label: "분쟁" }] },
+      { title: "② 정책·상품", items: [{ to: "/policy", label: "분배 규칙" }, { to: "/packs", label: "팩" }] },
+      { title: "③ 발행·심사", items: [{ to: "/issues", label: "발행 조합" }] },
+      { title: "점검·정산", items: [{ to: "/validation", label: "정합성 점검" }, { to: "/statements", label: "명세·지급" }] },
+      { title: "연결", items: [{ to: "/links", label: "신탁·유통 연결" }] },
+      { title: "설정", items: [
+        { to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }, { to: "/delegation", label: "위임 대행", roles: ["TENANT_ADMIN"] },
+        { to: "/inspections", label: "조회 투명성" },
+      ] },
     ];
   }
   return [
-    { title: "0 관제", items: [{ to: "/", label: "⑧ 파이프라인 관제" }, { to: "/dashboard", label: "검증 체크리스트", roles: ["SPACE_SETTLE"] }] },
-    registryMenu,
-    { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
-    { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
-    { title: "4 발행", items: [{ to: "/issues", label: "발행" }] },
-    { title: "5 매출", items: [{ to: "/revenue", label: "매출", roles: MONEY }, { to: "/revenue/traffic", label: "감상 수익 풀", roles: MONEY }, { to: "/hub", label: "연동 허브", roles: MONEY }] },
-    { title: "6 정산", items: [
+    { title: "⑧ 관제", items: [{ to: "/", label: "파이프라인 홈" }, { to: "/dashboard", label: "검증 체크리스트", roles: ["SPACE_SETTLE"] }] },
+    { title: "⑤ 무결성·신뢰안전", items: [
+      { to: "/validation", label: "정합성 점검 큐" }, { to: "/confirmations", label: "확인 요청" }, { to: "/registry/disputes", label: "분쟁" }, { to: "/audio", label: "스템 검수·렌더" },
+    ] },
+    { title: "권리 등록부(조회)", items: catalog },
+    { title: "정책·상품·발행", items: [{ to: "/policy", label: "분배 규칙" }, { to: "/packs", label: "팩" }, { to: "/issues", label: "발행" }] },
+    { title: "⑥ 정산·재무", items: [
+      { to: "/revenue", label: "매출·이상거래", roles: MONEY }, { to: "/hub", label: "연동 허브", roles: MONEY }, { to: "/revenue/traffic", label: "감상 수익 풀", roles: MONEY },
       { to: "/settlement/batches", label: "정산 배치", roles: MONEY }, { to: "/settlement/quarantine", label: "격리", roles: MONEY }, { to: "/settlement/holds", label: "보류", roles: MONEY },
+      { to: "/ledger", label: "원장", roles: ["SPACE_SETTLE"] }, { to: "/payout/profiles", label: "지급 프로필", roles: ["SPACE_SETTLE"] }, { to: "/payout/runs", label: "지급", roles: ["SPACE_SETTLE"] },
+      { to: "/statements", label: "명세서", roles: ["SPACE_SETTLE"] },
     ] },
-    { title: "7 원장", items: [{ to: "/ledger", label: "원장", roles: ["SPACE_SETTLE"] }] },
-    { title: "8 지급", items: [
-      { to: "/payout/profiles", label: "지급 프로필", roles: ["SPACE_SETTLE"] }, { to: "/payout/runs", label: "지급 run", roles: ["SPACE_SETTLE"] }, { to: "/statements", label: "명세서", roles: ["SPACE_SETTLE"] },
-    ] },
-    { title: "9 온보딩", items: [
+    { title: "⑦ 관리·감사", items: [
       { to: "/admin/tenants", label: "권리 테넌트", roles: ["SPACE_OPS", "ONBOARDING"] }, { to: "/admin/participants", label: "참여 기관", roles: ["SPACE_OPS", "ONBOARDING"] },
       { to: "/admin/people", label: "개인 계정", roles: ["SPACE_OPS", "ONBOARDING"] }, { to: "/admin/links", label: "연결", roles: ["SPACE_OPS", "ONBOARDING"] },
+      { to: "/admin/staff", label: "운영 인력", roles: ["SPACE_OPS"] }, { to: "/control", label: "조회 통제·break-glass" },
     ] },
-    { title: "10 관리·조회 통제", items: [
-      { to: "/admin/staff", label: "운영 인력", roles: ["SPACE_OPS"] }, { to: "/control", label: "열람 기록·break-glass" },
-    ] },
-    ...(import.meta.env.DEV ? [{ title: "11 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
+    ...(import.meta.env.DEV ? [{ title: "개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
   ];
 }

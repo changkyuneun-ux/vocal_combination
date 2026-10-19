@@ -1,15 +1,15 @@
-/* 실연자 앱(모바일 우선). 색·글꼴·기본 컴포넌트는 공통 테마 토큰만 쓴다. */
+/* 실연자 앱(모바일 우선, 최종 UI 목업: 연분홍 바탕·자주 강조·둥근 카드). 색·글꼴·기본 컴포넌트는 공통 테마 토큰만 쓴다. */
 @import "dobedupop-ui/theme.css";
 
 html, body { font-size: 16px; }
 body { background: var(--bg); }
 .app { min-height: 100dvh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; background: var(--bg); }
 .top {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 18px;
-  position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 20px 18px 12px;
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
 }
-.top strong { font-size: 18px; }
-.top .small { color: var(--ok); font-weight: 600; margin-left: 6px; }
+.top strong { font-size: 18px; display: block; }
+.top .small { color: var(--muted); font-size: 12px; }
 .screen { flex: 1; padding: 16px 16px 96px; }
 .screen.center { max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; justify-content: center; min-height: 100dvh; padding: 24px 20px; }
 .screen.center h1 { font-size: 28px; }
@@ -55,8 +55,7 @@ textarea { min-height: 96px; }
   color: var(--muted); min-height: 58px;
 }
 .tabs button:hover { background: var(--surface-2); color: var(--fg); }
-.tabs button.on { color: var(--accent-text); }
-.tabs button.on::before { content: ""; position: absolute; top: 0; left: 25%; right: 25%; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
+.tabs button.on { color: var(--accent-text); font-weight: 700; }
 .dot { position: absolute; top: 6px; right: calc(50% - 26px); background: var(--bad); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 6px; line-height: 18px; }
 
 .contract-frame { width: 100%; height: 380px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }

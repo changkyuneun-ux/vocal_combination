@@ -1,11 +1,13 @@
-/* 데모 진행판. 색·글꼴·기본 컴포넌트는 공통 테마 토큰만 쓴다. */
+/* 데모 진행판(최종 UI 목업: 따뜻한 바탕·호박색 강조, 흰 머리글). 색·글꼴·기본 컴포넌트는 공통 테마 토큰만 쓴다. */
 @import "dobedupop-ui/theme.css";
 
-.page { max-width: 1320px; margin: 0 auto; padding: 28px 20px 56px; }
-.top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: flex-end; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
-.top h1 { margin: 0 0 6px; font-size: 26px; display: flex; align-items: center; gap: 12px; }
-.top h1::before { content: "d"; display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); font-weight: 800; font-size: 18px; }
-.top p { margin: 0; font-size: 15px; }
+.page { max-width: 1280px; margin: 0 auto; padding: 0 28px 56px; }
+.bar { background: var(--surface); border-bottom: 1px solid var(--line); padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.bar strong { font-size: 16px; }
+.bar .host { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: flex-end; padding: 28px 0 20px; }
+.top h1 { margin: 0 0 6px; font-size: 24px; }
+.top p { margin: 0; font-size: 14px; }
 h2 { font-size: 18px; margin: 0 0 12px; display: flex; align-items: baseline; gap: 8px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .clock { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 650; padding: 8px 12px; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; }
@@ -16,17 +18,16 @@ h2 { font-size: 18px; margin: 0 0 12px; display: flex; align-items: baseline; ga
 
 .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
 .step {
-  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line-strong);
-  border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px;
 }
-.step.done { border-left-color: var(--ok); }
-.step.running { border-left-color: var(--info); }
-.step.failed { border-left-color: var(--bad); }
+.step.running { border-color: var(--accent); }
+.step.failed { border-color: var(--bad); }
 .step-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .step-head strong { font-size: 16px; color: var(--fg); }
 .num {
-  display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--surface-2); color: var(--fg-2); font-weight: 750; font-size: 14px; font-variant-numeric: tabular-nums;
+  display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-family: var(--font-mono);
+  background: var(--surface-3); color: var(--fg-2); font-weight: 700; font-size: 13px;
 }
 .step.done .num { background: var(--ok-soft); color: var(--ok); }
 .step.running .num { background: var(--info-soft); color: var(--info); }

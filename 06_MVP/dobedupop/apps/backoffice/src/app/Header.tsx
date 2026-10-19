@@ -97,6 +97,9 @@ function SessionUser() {
   const out = async () => { await authApi("POST", "/logout").catch(() => {}); location.reload(); };
   const call = async (path: string, body: unknown) => { try { await authApi("POST", path, body); location.reload(); } catch (e) { setErr(e as ApiError); } };
   const choices = (me.data?.memberships ?? []).filter(fitsApp);
+  // 목업처럼 지금 일하는 조직을 배지로(포털·참여 기관). 운영은 플랫폼이라 생략.
+  const orgName = me.data?.scope === "platform" && me.data.actingOnBehalfOf === undefined ? null
+    : (me.data?.memberships ?? []).find((m) => m.tenantId === me.data?.tenantId)?.name ?? null;
   return (
     <div className="right">
       {me.data?.actingOnBehalfOf && (
@@ -117,18 +120,24 @@ function SessionUser() {
           </select>
         </label>
       )}
-      {me.data && <span aria-label="로그인한 사용자">{me.data.displayName} <span className="muted small">{me.data.userId} · {me.data.roles.map((r) => ROLE_LABEL[r] ?? r).join(", ")}</span></span>}
+      {orgName && <span className="badge info">{orgName}</span>}
+      {me.data && <span aria-label="로그인한 사용자">{me.data.roles.map((r) => ROLE_LABEL[r] ?? r).join("·") || "역할 없음"} · {me.data.displayName} <span className="muted small">{me.data.userId}</span></span>}
       <button className="btn tiny" type="button" onClick={() => void out()}>로그아웃</button>
       {err && <div className="toast" role="alert"><ErrorPanel error={err} /><button className="btn tiny" onClick={() => setErr(null)}>닫기</button></div>}
     </div>
   );
 }
 
+/** 앱 이름 + 접속 주소(목업 머리글). */
+function AppName() {
+  return <div className="app-name"><span className="app-title">{APPS[currentApp()].name}</span><span className="app-host">{typeof location === "undefined" ? "" : location.host}</span></div>;
+}
+
 export function Header() {
   if (sessionMode) {
     return (
       <header className="header">
-        <div className="app-name">{APPS[currentApp()].name}</div>
+        <AppName />
         <SessionUser />
       </header>
     );
@@ -153,7 +162,7 @@ function DevHeader() {
   const known = rows.some((u) => u.userId === actor);
   return (
     <header className="header">
-      <div className="app-name">{APPS[currentApp()].name}</div>
+      <AppName />
       {/* 가상 시계·앱 전환은 개발 서버에서만(운영 빌드에는 /dev 경로가 없다). */}
       {import.meta.env.DEV && <VirtualClock onError={setToast} />}
       {import.meta.env.DEV && <>

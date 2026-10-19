@@ -28,10 +28,12 @@ export function App() {
   };
   const done = view?.steps.filter((s) => s.status === "done").length ?? 0;
   return (
+    <>
+    <div className="bar"><strong>dobedupop · 데모 진행판</strong><span className="host">{location.host} · 데모 환경에서만 배포</span></div>
     <div className="page">
       <header className="top">
         <div>
-          <h1>dobedupop 데모 진행판</h1>
+          <h1>Dynamite 2차 이용 시연</h1>
           <p className="muted">BTS "Dynamite" 2차 이용(가상 사례 — 곡 크레딧·멤버만 실제, 지분·계약·가격·판매량은 가정)</p>
         </div>
         <div className="controls">
@@ -80,5 +82,6 @@ export function App() {
         </aside>
       </main>
     </div>
+    </>
   );
 }

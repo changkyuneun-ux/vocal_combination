@@ -365,7 +365,7 @@ export function App() {
   return (
     <div className="app">
       <header className="top">
-        <div><strong>{me.data.displayName}</strong><span className="muted small"> 본인 인증됨</span></div>
+        <div><strong>{me.data.displayName}</strong><span className="small">본인 인증됨 · {location.host}</span></div>
         <button className="link" onClick={signOut}>나가기</button>
       </header>
       <main className="screen">
