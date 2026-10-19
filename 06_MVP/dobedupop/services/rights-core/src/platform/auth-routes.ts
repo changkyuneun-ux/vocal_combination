@@ -5,7 +5,7 @@ import { listMemberships, withSystemScope } from "./actor.ts";
 import { DomainError } from "./errors.ts";
 import {
   acceptInvite, addMembership, createAccount, devLogin, logout, otpConfirm, otpStart, passwordLogin, readCookie, reinvite, SESSION_COOKIE, SESSION_TTL_MS, sessionCookie,
-  setDisabled, setRoles, switchTenant,
+  actFor, setDisabled, setRoles, switchTenant,
 } from "./auth.ts";
 
 /** 상태를 바꾸는 요청은 이 헤더가 있어야 한다(쿠키 세션의 CSRF 방어: 다른 출처는 사용자 정의 헤더를 붙여 보낼 수 없다). */
@@ -65,6 +65,13 @@ export function authRoutes(app: FastifyInstance, deps: Deps): void {
     assertCsrf(req);
     if (deps.dev === undefined) throw new DomainError("NOT_FOUND", 404, "persona login exists only in the demo environment");
     return signedIn(reply, channel(req), await deps.db.tx((tx) => devLogin(tx, deps.clock, channel(req), body(req).userId, meta(req), body(req).tenantId)));
+  });
+  /** 위임 대행 시작·끝(TN6): { tenantId } 또는 { tenantId: null }. */
+  app.post("/auth/act-for", async (req) => {
+    assertCsrf(req);
+    const raw = readCookie(req.headers.cookie, SESSION_COOKIE(channel(req)));
+    if (raw === undefined) throw new DomainError("UNAUTHENTICATED", 401, "sign in first");
+    return deps.db.tx((tx) => actFor(tx, deps.clock, raw, channel(req), body(req).tenantId ?? null));
   });
   /** 소속 전환(결정 TD9): 지금 세션의 일하는 소속을 바꾼다. */
   app.post("/auth/switch", async (req) => {

@@ -4,11 +4,20 @@ import { cursorKey, pageOf, ts, type Page } from "../platform/paging.ts";
 
 type Rows = Record<string, any>[];
 
-export async function listParties(tx: Tx, f: { type?: string; tenant?: string }, page: Page) {
+/**
+ * 당사자 목록. restrict(플랫폼 밖 조회)면 공용 명부 범위(결정 TD8): 권리자로 활동하는 당사자(조직·작가·아티스트·참여 기관)는 모두 보이고,
+ * 개인(멤버·세션·팬)은 관리 주체와, 그 당사자가 나오는 곡의 소유 테넌트(보이는 주장·스템이 가리킴)만 본다. id를 정확히 주면 찾을 수 있다.
+ */
+export async function listParties(tx: Tx, f: { type?: string; tenant?: string; id?: string; restrict?: boolean }, page: Page) {
   const after = cursorKey(page, ["s"]);
   const p: unknown[] = [];
   const w: string[] = [];
   if (f.type !== undefined) { p.push(f.type); w.push(`party_type = $${p.length}`); }
+  if (f.id !== undefined) { p.push(f.id); w.push(`party_id = $${p.length}`); }
+  else if (f.restrict === true) {
+    w.push(`(party_type NOT IN ('MEMBER','SESSION','FAN') OR rc_party_visible(party_id)
+             OR EXISTS (SELECT 1 FROM right_claim c WHERE c.target_id = party.party_id) OR EXISTS (SELECT 1 FROM stem s WHERE s.performer_party_id = party.party_id))`);
+  }
   if (f.tenant !== undefined) { p.push(f.tenant); w.push(`tenant_id = $${p.length}`); }
   if (after) { p.push(after[0]); w.push(`party_id > $${p.length}`); }
   p.push(page.limit + 1);

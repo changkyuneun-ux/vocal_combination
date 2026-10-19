@@ -152,3 +152,55 @@ test("parties per tenant (TD2): another legal entity needs a management contract
   assert.equal(await code("ops", "usr_onb", "POST", "/parties", { partyId: "pty_cmo2", partyType: "CMO", displayName: "x", tenantId: "tnt_cmo" }), "PARTY_NOT_ALLOWED");
   now = "2026-03-02T00:00:00.000Z";
 });
+
+const raw = (ch: string, actor: string, method: Method, url: string, headers: Record<string, string>, payload?: object) =>
+  app.inject({ method, url: `/${ch}${url}`, headers: { "x-actor": actor, "x-dbp-csrf": "1", ...headers }, ...(payload && { payload }) });
+
+test("delegation (TN6): only work the tenant's administrator delegated, under the tenant's scope, recorded as on-behalf", async () => {
+  const behalf = { "x-on-behalf-of": "tnt_lbl" };
+  assert.equal((await raw("portal", "usr_onb", "POST", "/works", behalf, { workId: "wrk_dlg", title: "대행" })).json().code, "NOT_DELEGATED");
+  assert.equal(await code("portal", "usr_lbl_rights", "PUT", "/tenants/tnt_lbl/delegation", { tasks: ["RIGHTS_ENTRY"] }), "ROLE_REQUIRED", "only the administrator delegates");
+  assert.deepEqual((await ok("portal", "usr_lbl_admin", "PUT", "/tenants/tnt_lbl/delegation", { tasks: ["RIGHTS_ENTRY"] })).tasks, ["RIGHTS_ENTRY"]);
+  assert.equal((await raw("portal", "usr_onb", "POST", "/works", behalf, { workId: "wrk_dlg", title: "대행" })).statusCode, 201);
+  assert.equal((await db.pool.query("SELECT owner_tenant_id FROM work WHERE work_id = 'wrk_dlg'")).rows[0].owner_tenant_id, "tnt_lbl", "the delegate writes as the tenant");
+  // 대행 범위는 그 테넌트로 좁혀진다(다른 테넌트 곡은 안 보인다). 정책 결정은 위임할 수 없다. 온보딩 역할이 없으면 대행하지 못한다.
+  const seen = (await raw("portal", "usr_onb", "GET", "/works?limit=200", behalf)).json().items.map((w: any) => w.workId);
+  assert.ok(seen.includes("wrk_dlg") && !seen.includes("wrk_new") && !seen.includes("wrk_rm"), seen.join(","));
+  assert.equal((await raw("portal", "usr_onb", "POST", "/policies/pol_x/compile", behalf, { packId: "pak_x", sourceText: "x" })).json().code, "ROLE_REQUIRED");
+  assert.equal((await raw("portal", "usr_ops", "GET", "/works", behalf)).json().code, "ROLE_REQUIRED");
+  const d = await ok("portal", "usr_lbl_admin", "GET", "/tenants/tnt_lbl/delegation");
+  assert.deepEqual(d.log.map((x: any) => [x.actor, x.action, x.entityId]), [["usr_onb", "DELEGATED_REQUEST", "POST /portal/works"]], "the tenant sees what was done on its behalf");
+  await ok("portal", "usr_lbl_admin", "PUT", "/tenants/tnt_lbl/delegation", { tasks: [] });
+  assert.equal((await raw("portal", "usr_onb", "GET", "/works", behalf)).json().code, "NOT_DELEGATED");
+});
+
+test("independent artist (TN12) and party transfer (TN2): a verified performer becomes a one-person tenant; the person's party moves with it", async () => {
+  await db.tx(async (tx) => {
+    await tx.query("INSERT INTO party (party_id, party_type, display_name, created_at, tenant_id) VALUES ('pty_suga', 'MEMBER', 'SUGA', $1, 'tnt_platform_default')", [now]);
+  });
+  await ok("ops", "usr_ops", "POST", "/users", { userId: "usr_suga", displayName: "SUGA", tenantId: "tnt_platform_default", roles: ["PERFORMER"], partyId: "pty_suga" });
+  const body = { tenantId: "tnt_suga", name: "Agust D", userId: "usr_suga", country: "KR" };
+  assert.equal(await code("ops", "usr_onb", "POST", "/onboarding/independent-artists", body), "IDENTITY_REQUIRED");
+  await db.pool.query("UPDATE user_account SET identity_verified_at = $1, identity_method = 'DEV' WHERE user_id = 'usr_suga'", [now]);
+  const r = await ok("ops", "usr_onb", "POST", "/onboarding/independent-artists", body);
+  assert.equal(r.tenant.status, "APPLIED");
+  assert.deepEqual(r.tenant.checks.map((c: any) => c.item), ["IDENTITY"]);
+  assert.deepEqual(r.membership.roles, ["RIGHTS_EDITOR", "TENANT_ADMIN"]);
+  assert.deepEqual([r.party.from, r.party.to, r.party.managerKind], ["tnt_platform_default", "tnt_suga", "TENANT"]);
+  // 실연자 앱은 그대로(개인 소속, 본인 당사자).
+  assert.equal((await ok("performer", "usr_suga", "GET", "/me")).partyId, "pty_suga");
+  // 관리 이관: 위탁 작가를 레이블이 맡는다(사유 필수).
+  assert.equal(await code("ops", "usr_onb", "POST", "/parties/pty_foreign_author/manager", { tenantId: "tnt_lbl" }), "REASON_REQUIRED");
+  assert.equal((await ok("ops", "usr_onb", "POST", "/parties/pty_foreign_author/manager", { tenantId: "tnt_lbl", reason: "작가가 레이블 퍼블리싱과 계약" })).to, "tnt_lbl");
+  assert.equal(await code("ops", "usr_onb", "POST", "/parties/pty_lbl/manager", { tenantId: "tnt_platform_default", reason: "x" }), "PARTY_NOT_ALLOWED");
+});
+
+test("public registry (TD8): individuals show only to their manager and to tenants whose songs name them; exact ids still resolve", async () => {
+  const ids = async (actor: string, q = "") => (await ok("portal", actor, "GET", `/parties?limit=200${q}`)).items.map((p: any) => p.partyId);
+  const lbl = await ids("usr_lbl_rights");
+  assert.ok(lbl.includes("pty_foreign_author") && lbl.includes("pty_cmo"), "rights holders are public");
+  assert.ok(!lbl.includes("pty_rm") && !lbl.includes("pty_suga"), "individual performers are not");
+  assert.deepEqual(await ids("usr_lbl_rights", "&id=pty_suga"), ["pty_suga"]);
+  assert.ok((await ids("usr_suga")).includes("pty_suga"), "the manager (the one-person tenant) sees its own party");
+  assert.ok((await (await ok("ops", "usr_ops", "GET", "/parties?limit=200")).items.map((p: any) => p.partyId)).includes("pty_rm"), "the platform sees everyone");
+});

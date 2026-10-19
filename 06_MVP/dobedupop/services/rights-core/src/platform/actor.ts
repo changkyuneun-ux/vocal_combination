@@ -18,6 +18,8 @@ export type TenantStatus = "APPLIED" | "VERIFIED" | "ACTIVE" | "SUSPENDED" | "TE
 export type Actor = {
   userId: string; roles: ReadonlySet<Role>; tenantId: string; tenantType: string; orgClass: OrgClass; tenantStatus: TenantStatus;
   scope: "platform" | "tenant" | "party"; partyId?: string; partyType?: string; readOnly?: boolean;
+  /** 위임 대행(TN6): 플랫폼 온보딩이 이 테넌트 권한으로 일하는 중. tenantId도 이 테넌트다. */
+  actingOnBehalfOf?: string;
 };
 
 export const PLATFORM_TENANT = "tnt_platform";
@@ -89,8 +91,8 @@ export async function listMemberships(tx: Tx, userId: string): Promise<{ tenantI
 
 /** 요청 트랜잭션의 조회 범위를 행위자 기준으로 좁힌다. 이후 같은 트랜잭션의 모든 쿼리에 RLS가 적용된다. */
 export async function applyActorScope(tx: Tx, actor: Actor): Promise<void> {
-  await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true), set_config('rc.party_id', $3, true), set_config('rc.user_id', $4, true)",
-    [actor.scope, actor.tenantId, actor.partyId ?? "", actor.userId]);
+  await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true), set_config('rc.party_id', $3, true), set_config('rc.user_id', $4, true), set_config('rc.on_behalf_of', $5, true)",
+    [actor.scope, actor.tenantId, actor.partyId ?? "", actor.userId, actor.actingOnBehalfOf ?? ""]);
 }
 
 /**

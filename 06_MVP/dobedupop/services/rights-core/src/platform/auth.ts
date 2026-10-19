@@ -6,6 +6,7 @@ import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { conflict, DomainError, invalid, notFound } from "./errors.ts";
 import { confirmVerification, startVerification, type IdentityProvider } from "../performer/identity.ts";
+import { delegatedActor } from "./delegation.ts";
 
 /**
  * 인증·세션(MVP 진행계획 M3, 결정 MD3). 코어가 세션을 발급하고, 세션은 발급한 채널(서브도메인)에서만 쓴다.
@@ -97,15 +98,30 @@ async function issueSession(tx: Tx, clock: Clock, actor: Actor, channel: Channel
 /**
  * 쿠키의 세션 → 사용자와 지금 일하는 소속. 다른 채널에서 만든 세션, 만료·폐기·잠긴 계정이면 null. 마지막 사용 시각은 5분마다만 고친다.
  */
-export async function resolveSession(tx: Tx, clock: Clock, raw: string, channel: Channel): Promise<{ userId: string; tenantId: string | null } | null> {
+export async function resolveSession(tx: Tx, clock: Clock, raw: string, channel: Channel): Promise<{ userId: string; tenantId: string | null; onBehalfOf: string | null } | null> {
   return withSystemScope(tx, async () => {
     const s = (await tx.query(
-      `SELECT s.user_id, s.tenant_id, s.channel, s.expires_at, s.last_seen_at, s.revoked_at, u.disabled_at FROM user_session s JOIN user_account u USING (user_id) WHERE s.token_sha256 = $1`, [sha(raw)])).rows[0];
+      `SELECT s.user_id, s.tenant_id, s.on_behalf_of, s.channel, s.expires_at, s.last_seen_at, s.revoked_at, u.disabled_at FROM user_session s JOIN user_account u USING (user_id) WHERE s.token_sha256 = $1`, [sha(raw)])).rows[0];
     if (s === undefined || s.revoked_at !== null || s.disabled_at !== null || s.channel !== channel) return null;
     const now = Date.parse(clock.now());
     if ((s.expires_at as Date).getTime() <= now || (s.last_seen_at as Date).getTime() + IDLE_MS[channel] <= now) return null;
     if ((s.last_seen_at as Date).getTime() + 5 * 60_000 <= now) await tx.query("UPDATE user_session SET last_seen_at = $2 WHERE token_sha256 = $1", [sha(raw), clock.now()]);
-    return { userId: s.user_id as string, tenantId: (s.tenant_id as string | null) ?? null };
+    return { userId: s.user_id as string, tenantId: (s.tenant_id as string | null) ?? null, onBehalfOf: (s.on_behalf_of as string | null) ?? null };
+  });
+}
+
+/** 위임 대행 시작·끝(TN6): 권리자 포털 세션에 대행할 테넌트를 둔다(null이면 끝). 위임이 없으면 시작하지 못한다. */
+export async function actFor(tx: Tx, clock: Clock, raw: string, channel: Channel, tenantId: unknown) {
+  if (channel !== "portal") throw new DomainError("METHOD_NOT_ALLOWED", 400, "delegated work happens in the rights holder portal");
+  if (tenantId !== null && typeof tenantId !== "string") throw invalid("BAD_REQUEST", "tenantId must be a tenant id or null");
+  return withSystemScope(tx, async () => {
+    const s = await resolveSession(tx, clock, raw, channel);
+    if (s === null) throw new DomainError("UNAUTHENTICATED", 401, "sign in first");
+    const actor = await eligible(tx, s.userId, channel, s.tenantId);
+    if (tenantId !== null) await delegatedActor(tx, actor, tenantId);
+    await tx.query("UPDATE user_session SET on_behalf_of = $2 WHERE token_sha256 = $1", [sha(raw), tenantId]);
+    await audit(tx, clock, { actor: s.userId, action: tenantId === null ? "DELEGATION_END" : "DELEGATION_START", entityType: "tenant", entityId: (tenantId ?? s.onBehalfOf ?? "") as string });
+    return { userId: s.userId, onBehalfOf: tenantId };
   });
 }
 

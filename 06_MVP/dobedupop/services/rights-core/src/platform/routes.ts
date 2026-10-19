@@ -4,7 +4,8 @@ import { listMemberships, requireAnyRole, withSystemScope } from "./actor.ts";
 import { endBreakGlass, listBreakGlass, listInspections, startBreakGlass } from "./inspection.ts";
 import { DomainError } from "./errors.ts";
 import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
-import { getTenant, registerTenant, setCheck, setTenantStatus, updateTenantInfo } from "./tenants.ts";
+import { getTenant, onboardIndependentArtist, registerTenant, setCheck, setTenantStatus, transferParty, updateTenantInfo } from "./tenants.ts";
+import { delegationLog, getDelegation, setDelegation } from "./delegation.ts";
 import type { Tx } from "./db.ts";
 import type { Clock } from "./clock.ts";
 
@@ -45,6 +46,19 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
         businessNo: (r.business_no as string | null) ?? null, country: (r.country as string | null) ?? null,
       }));
     })));
+  /** 위임 업무(TN6): 조회는 그 조직과 플랫폼, 변경은 그 조직 관리자만. 대행 기록은 그 조직과 플랫폼이 본다. */
+  app.get<{ Params: { id: string } }>("/tenants/:id/delegation", async (req) => withActor(deps, req, async (tx, actor) => {
+    if (actor.scope !== "platform" && actor.tenantId !== req.params.id) throw new DomainError("NOT_FOUND", 404, `tenant not found: ${req.params.id}`);
+    return withSystemScope(tx, async () => ({ ...(await getDelegation(tx, req.params.id)), log: await delegationLog(tx, req.params.id) }));
+  }));
+  app.put<{ Params: { id: string }; Body: { tasks?: unknown } }>("/tenants/:id/delegation", async (req) =>
+    withActor(deps, req, (tx, actor) => withSystemScope(tx, () => setDelegation(tx, deps.clock, actor, req.params.id, req.body?.tasks))));
+  /** 관리 이관(TN2·TD6): 당사자의 관리 주체를 옮긴다(플랫폼 온보딩). */
+  app.post<{ Params: { id: string } }>("/parties/:id/manager", async (req) =>
+    withActor(deps, req, (tx, actor) => transferParty(tx, deps.clock, actor, req.params.id, (req.body ?? {}) as Record<string, unknown>)));
+  /** 독립 아티스트 1인 온보딩(TN12): 본인 인증한 개인 계정 → 1인 권리 테넌트 + 관리자 소속 + 본인 당사자 관리 이관. */
+  app.post("/onboarding/independent-artists", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => onboardIndependentArtist(tx, deps.clock, actor, (req.body ?? {}) as Record<string, unknown>))));
   /** 조직 상세(확인 항목·다음 상태): 플랫폼은 전부, 조직 사용자는 자기 조직만. */
   app.get<{ Params: { id: string } }>("/tenants/:id", async (req) =>
     withActor(deps, req, async (tx, actor) => {

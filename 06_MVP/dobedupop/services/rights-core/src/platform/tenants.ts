@@ -1,4 +1,4 @@
-import { requireAnyRole, type Actor, type OrgClass, type TenantStatus } from "./actor.ts";
+import { requireAnyRole, withSystemScope, type Actor, type OrgClass, type TenantStatus } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
@@ -167,4 +167,58 @@ export async function assertOwnerTenantActive(tx: Tx, factsScopeId: string, what
   if (r === undefined || r.status === "ACTIVE") return;
   throw conflict(what === "issue" ? "TENANT_NOT_SELLING" : "TENANT_NOT_ACTIVE",
     `${r.tenant_id} is ${r.status}: ${what === "issue" ? "its packs are not on sale" : "packs and policies can be activated only by an ACTIVE tenant"}`);
+}
+
+/**
+ * 관리 이관(TN2, 결정 TD6): 당사자의 관리 주체를 옮긴다(플랫폼 온보딩·운영, 사유 필수). 넘겨받은 쪽은 과거 명세도 본다(명세는 당사자 열쇠).
+ * 위탁 당사자가 가입하거나 권리 테넌트·신탁단체가 맡을 때, 해지한 테넌트의 당사자를 옮길 때 쓴다.
+ */
+export async function transferParty(tx: Tx, clock: Clock, actor: Actor, partyId: string, b: { tenantId?: unknown; reason?: unknown }) {
+  requireAnyRole(actor, ["ONBOARDING", "SPACE_OPS"]);
+  assertPlatform(actor);
+  if (typeof b.tenantId !== "string") throw invalid("BAD_REQUEST", "tenantId is required");
+  if (typeof b.reason !== "string" || b.reason.trim() === "") throw invalid("REASON_REQUIRED", "a reason is required to change a party's manager");
+  return withSystemScope(tx, async () => {
+    const p = (await tx.query("SELECT party_type, tenant_id FROM party WHERE party_id = $1 FOR UPDATE", [partyId])).rows[0];
+    if (p === undefined) throw notFound("party", partyId);
+    const t = await tenantRow(tx, b.tenantId as string);
+    if (t.status === "TERMINATED") throw conflict("TENANT_INACTIVE", `${t.tenant_id} is TERMINATED`);
+    if (p.tenant_id === t.tenant_id) throw conflict("NO_CHANGE", `${partyId} is already managed by ${t.tenant_id}`);
+    const individual = ["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"].includes(p.party_type);
+    if (t.org_class === "INDIVIDUAL" && !individual) throw invalid("PARTY_NOT_ALLOWED", `${p.party_type} is an organization`);
+    if (t.org_class === "PARTICIPANT") {
+      if (t.tenant_type !== "CMO") throw invalid("PARTY_NOT_ALLOWED", "a distribution partner is not a payee party");
+      if ((await tx.query("SELECT 1 FROM party WHERE tenant_id = $1", [t.tenant_id])).rowCount !== 0) throw invalid("PARTY_NOT_ALLOWED", `${t.tenant_id} already has its party`);
+    }
+    await tx.query("UPDATE party SET tenant_id = $2 WHERE party_id = $1", [partyId, t.tenant_id]);
+    await audit(tx, clock, { actor: actor.userId, action: "PARTY_MANAGER_CHANGE", entityType: "party", entityId: partyId, after: { from: p.tenant_id, to: t.tenant_id, reason: (b.reason as string).trim() } });
+    return { partyId, from: p.tenant_id as string, to: t.tenant_id as string, managerKind: managerKind(t.org_class) };
+  });
+}
+
+/** 관리 주체 종류(테넌트 정책 TR3): 권리 테넌트·본인·참여 기관·플랫폼 위탁. */
+export function managerKind(orgClass: string): "TENANT" | "SELF" | "PARTICIPANT" | "PLATFORM_TRUST" {
+  return orgClass === "RIGHTS" ? "TENANT" : orgClass === "INDIVIDUAL" ? "SELF" : orgClass === "PARTICIPANT" ? "PARTICIPANT" : "PLATFORM_TRUST";
+}
+
+/**
+ * 독립 아티스트 1인 온보딩(TN12): 본인 인증을 마친 개인 계정으로 1인 권리 테넌트를 신청 상태로 만들고, 본인 확인 항목을 채우고,
+ * 그 계정에 관리자·권리 편집 소속을 더하고, 본인 당사자의 관리 주체를 새 테넌트로 옮긴다. 플랫폼 계약 확인 뒤 확인됨으로 올린다.
+ * 같은 사람의 실연자 자격(실연자 앱)은 기본 소속 그대로다.
+ */
+export async function onboardIndependentArtist(tx: Tx, clock: Clock, actor: Actor, b: Record<string, unknown>) {
+  requireAnyRole(actor, ["ONBOARDING", "SPACE_OPS"]);
+  assertPlatform(actor);
+  if (typeof b.userId !== "string") throw invalid("BAD_REQUEST", "userId is required");
+  const u = await withSystemScope(tx, async () => (await tx.query(
+    "SELECT u.party_id, u.identity_verified_at, u.identity_method, t.org_class FROM user_account u JOIN tenant t ON t.tenant_id = u.tenant_id WHERE u.user_id = $1", [b.userId])).rows[0]);
+  if (u === undefined) throw notFound("user", b.userId);
+  if (u.org_class !== "INDIVIDUAL" || u.party_id === null) throw invalid("NOT_AN_INDIVIDUAL", `${b.userId} is not a personal account with its own party`);
+  if (u.identity_verified_at === null) throw conflict("IDENTITY_REQUIRED", `${b.userId} has not verified identity yet (performer app)`);
+  const t = await registerTenant(tx, clock, actor, { ...b, tenantType: "INDEPENDENT_ARTIST" });
+  await setCheck(tx, clock, actor, t.tenantId, "IDENTITY", { checked: true, note: `본인 인증(${u.identity_method ?? "IDP"}) ${iso(u.identity_verified_at)}` });
+  const { addMembership } = await import("./auth.ts");
+  const m = await addMembership(tx, clock, actor, b.userId, { tenantId: t.tenantId, roles: ["TENANT_ADMIN", "RIGHTS_EDITOR"] });
+  const moved = await transferParty(tx, clock, actor, u.party_id as string, { tenantId: t.tenantId, reason: "독립 아티스트 1인 테넌트 온보딩" });
+  return { tenant: await getTenant(tx, t.tenantId), membership: m, party: moved };
 }

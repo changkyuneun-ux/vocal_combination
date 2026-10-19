@@ -69,19 +69,21 @@ export async function openObjection(tx: Tx, clock: Clock, actor: Actor, input: {
   return { disputeId, status: "OPEN" };
 }
 
-/** 나와 관련된 현재 권리 주장(이의제기 대상): 내 보이스 소유(OWNED_BY), 내가 부른 스템의 실연(PERFORMED_BY). */
+/**
+ * 나를 가리키는 현재 권리 주장(이의제기 대상): 내 보이스 소유(OWNED_BY), 내 스템·내 보이스의 실연(PERFORMED_BY).
+ * 시스템 범위로 우회하지 않고 개인 범위 RLS의 공유 규칙(0037 names_me — 테넌트 정책 TN7)이 보여 주는 행만 읽는다.
+ */
 export async function myClaims(tx: Tx, partyId: string) {
-  return asScopeOwner(tx, null, async () => (await tx.query(
+  const scope = (await tx.query("SELECT current_setting('rc.scope', true) AS s, current_setting('rc.party_id', true) AS p")).rows[0];
+  if (scope.s !== "party" || scope.p !== partyId) throw new Error("myClaims runs in the person's own (party) scope");
+  return (await tx.query(
     `SELECT c.claim_id, c.edge, c.source_id, c.target_id, c.share_bps, c.status, w.title FROM right_claim c
        JOIN facts_scope f ON f.facts_scope_id = c.facts_scope_id JOIN work w ON w.work_id = f.work_id
-      WHERE c.superseded_at IS NULL AND (
-            (c.edge = 'OWNED_BY' AND c.target_id = $1)
-         OR (c.edge = 'PERFORMED_BY' AND (EXISTS (SELECT 1 FROM stem s WHERE s.stem_id = c.source_id AND s.performer_party_id = $1)
-                                       OR EXISTS (SELECT 1 FROM right_claim o WHERE o.source_id = c.target_id AND o.edge = 'OWNED_BY' AND o.target_id = $1 AND o.superseded_at IS NULL))))
-      ORDER BY w.title, c.edge, c.claim_id`, [partyId])).rows.map((r) => ({
+      WHERE c.superseded_at IS NULL AND c.edge IN ('OWNED_BY', 'PERFORMED_BY')
+      ORDER BY w.title, c.edge, c.claim_id`)).rows.map((r) => ({
     claimId: r.claim_id as string, edge: r.edge as string, sourceId: r.source_id as string, targetId: r.target_id as string,
     shareBps: r.share_bps as number, status: r.status as string, title: r.title as string,
-  })));
+  }));
 }
 
 export async function myObjections(tx: Tx, userId: string) {

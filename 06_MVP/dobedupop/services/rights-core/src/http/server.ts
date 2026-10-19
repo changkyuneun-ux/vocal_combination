@@ -2,6 +2,8 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { applyActorScope, withSystemScope, type Actor } from "../platform/actor.ts";
 import { getTenant } from "../platform/tenants.ts";
+import { delegatedActor } from "../platform/delegation.ts";
+import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
@@ -64,9 +66,13 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
     if (cookie !== undefined && session === null) throw new DomainError("UNAUTHENTICATED", 401, "the session expired; sign in again");
     // 지금 일하는 소속(결정 TD9): 세션에 있고, 개발·시험 헤더는 x-tenant로 고른다.
     const xt = req.headers["x-tenant"];
-    const actor = session !== null
+    let actor = session !== null
       ? await actorForChannel(tx, session.userId, req.channel, session.tenantId)
       : await actorForChannel(tx, header as string, req.channel, typeof xt === "string" && xt !== "" ? xt : undefined);
+    // 위임 대행(TN6): 권리자 포털에서 플랫폼 온보딩이 맡긴 테넌트 권한으로 일한다(세션 또는 개발 헤더 x-on-behalf-of).
+    const xb = req.headers["x-on-behalf-of"];
+    const behalf = session !== null ? session.onBehalfOf : typeof xb === "string" && xb !== "" ? xb : null;
+    if (behalf !== null && req.channel === "portal") actor = await delegatedActor(tx, actor, behalf);
     // 신청·정지 상태 조직의 관리자는 열람만 한다(결정 TD7).
     if (actor.readOnly === true && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
       throw new DomainError("TENANT_INACTIVE", 403, `tenant ${actor.tenantId} is ${actor.tenantStatus}; read only`);
@@ -76,6 +82,10 @@ export async function withActor<T>(deps: Deps, req: FastifyRequest, fn: (tx: Tx,
     const bg = actor.scope === "platform" ? await activeBreakGlass(tx, actor.userId, () => deps.clock.now()) : undefined;
     if (bg !== undefined) await applyBreakGlass(tx, bg);
     const out = await fn(tx, actor);
+    // 위임 대행으로 바꾼 요청은 업무 모듈이 감사를 남기지 않아도 한 줄 남긴다(대상 테넌트는 acting_on_behalf_of 열이 받는다).
+    if (actor.actingOnBehalfOf !== undefined && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      await audit(tx, deps.clock, { actor: actor.userId, action: "DELEGATED_REQUEST", entityType: "route", entityId: `${req.method} ${req.url.split("?")[0]}` });
+    }
     // 1단계 통제: 운영 채널에서 다른 테넌트의 레코드 상세를 읽었으면 같은 트랜잭션에서 열람을 기록한다.
     if (req.channel === "ops" && req.method === "GET") {
       const route = (req.routeOptions.url ?? "").replace(/^\/ops/, "");
