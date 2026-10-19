@@ -51,6 +51,9 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
   const r = await runDynamitePersonas(driver, { purchases: { vc_bts_orig: 12, vc_bts_swap: 5, vc_bts_vocal: 3, vc_bts_jin: 2 } });
   // 정합성: 근거 문서·동의·확인·지급 정보를 갖춘 뒤라 차단 이슈 없이 활성화됐다(빅히트 테넌트는 적용 대상).
   assert.deepEqual(r.validationBlocksBeforeActivation, []);
+  // 참여 기관(가상 신탁단체)은 활성이고, 신탁 연결은 제안 상태다(확인 전에는 위임이 없어 금액이 그대로다).
+  const link = (await db.pool.query("SELECT status, proposed_side FROM participant_link WHERE link_id = 'lnk_trust_demo'")).rows[0];
+  assert.deepEqual(link, { status: "PROPOSED", proposed_side: "RIGHTS" });
   assert.deepEqual(r.issued, ["vc_bts_orig", "vc_bts_swap", "vc_bts_vocal", "vc_bts_jin"]);
   assert.equal(r.soloRejected.code, "ISSUE_NOT_SETTLEABLE");
   // 정산: 조합마다 run, 독립 재계산 통과 뒤 확정.

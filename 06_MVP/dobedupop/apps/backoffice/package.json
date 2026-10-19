@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --strictPort",
-    "build": "tsc -p tsconfig.json --noEmit && npm run build:ops && npm run build:portal",
+    "build": "tsc -p tsconfig.json --noEmit && npm run build:ops && npm run build:portal && npm run build:partner",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
     "build:ops": "VITE_APP=ops vite build --outDir dist/ops --emptyOutDir",
     "build:portal": "VITE_APP=portal vite build --base /portal/ --outDir dist/portal --emptyOutDir",
     "build:portal-host": "VITE_APP=portal VITE_PORTAL_BASE=/ vite build --outDir dist/portal-host --emptyOutDir",
-    "build:hosts": "tsc -p tsconfig.json --noEmit && npm run build:ops && npm run build:portal-host"
+    "build:partner": "VITE_APP=partner vite build --base /partner/ --outDir dist/partner --emptyOutDir",
+    "build:partner-host": "VITE_APP=partner VITE_PARTNER_BASE=/ vite build --outDir dist/partner-host --emptyOutDir",
+    "build:hosts": "tsc -p tsconfig.json --noEmit && npm run build:ops && npm run build:portal-host && npm run build:partner-host"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",

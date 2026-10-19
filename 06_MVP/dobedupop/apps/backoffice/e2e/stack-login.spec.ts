@@ -9,9 +9,17 @@ const DOMAIN = process.env.E2E_DOMAIN ?? "dobedupop.localhost";
 const site = (sub: string) => `http://${sub}.${DOMAIN}`;
 const uid = Date.now().toString(36);
 
+/** 권리 테넌트를 등록하고 확인 항목을 채워 확인됨으로 올린다(테넌트 정책 7절). */
+async function verifiedTenant(request: Parameters<typeof ok>[0], tenantId: string, name: string) {
+  await ok(request, "usr_ops", "POST", "/tenants", { tenantId, tenantType: "LABEL", name, businessNo: `BRN-${tenantId}` });
+  for (const item of ["BUSINESS_ID", "REPRESENTATIVE", "PLATFORM_AGREEMENT"]) await ok(request, "usr_ops", "PUT", `/tenants/${tenantId}/checks/${item}`, { checked: true });
+  await ok(request, "usr_ops", "POST", `/tenants/${tenantId}/status`, { status: "VERIFIED" });
+}
+
 test("권리자 포털: 초대 링크로 비밀번호를 정하고 아이디·비밀번호로 로그인, 로그아웃", async ({ page, request }) => {
-  await ok(request, "usr_ops", "POST", "/tenants", { tenantId: `tnt_lbl_${uid}`, tenantType: "LABEL", name: `레이블 ${uid}` });
-  const inv = await ok<{ inviteToken: string }>(request, "usr_ops", "POST", "/users", { userId: `usr_lbl_${uid}`, displayName: "레이블 권리 편집", tenantId: `tnt_lbl_${uid}`, roles: ["RIGHTS_EDITOR"] });
+  await verifiedTenant(request, `tnt_lbl_${uid}`, `레이블 ${uid}`);
+  // 운영은 첫 관리자만 발급한다(결정 TD4).
+  const inv = await ok<{ inviteToken: string }>(request, "usr_ops", "POST", "/users", { userId: `usr_lbl_${uid}`, displayName: "레이블 관리자", tenantId: `tnt_lbl_${uid}`, roles: ["TENANT_ADMIN"] });
   await page.goto(`${site("portal")}/?invite=${inv.inviteToken}`);
   await page.getByLabel("새 비밀번호").fill("label-password-123");
   await page.getByRole("button", { name: "비밀번호 정하기" }).click();
@@ -58,18 +66,24 @@ test("데모 페르소나 빠른 로그인, 게이트웨이는 개발용 신원 
   expect(r.status()).toBe(401);
 });
 
-test("운영 온보딩 화면: 테넌트 등록 → 담당자 계정 발급(초대 링크) → 담당자가 포털에 로그인", async ({ page, browser }) => {
+test("운영 온보딩 화면: 권리 테넌트 신청 → 확인 항목 → 확인됨 → 첫 관리자(초대 링크) → 관리자가 포털에서 담당자를 초대", async ({ page, browser }) => {
   const tid = `tnt_ui_${uid}`;
   await page.goto(`${site("ops")}/admin/tenants?persona=usr_ops`);
-  await page.getByLabel("테넌트 id").fill(tid);
-  await page.getByLabel("테넌트 이름").fill(`UI 레이블 ${uid}`);
-  await page.getByLabel("테넌트 유형").selectOption("LABEL");
-  await page.getByRole("button", { name: "테넌트 등록" }).click();
+  await page.getByLabel("조직 id").fill(tid);
+  await page.getByLabel("조직 이름").fill(`UI 레이블 ${uid}`);
+  await page.getByLabel("조직 유형").selectOption("LABEL");
+  await page.getByLabel("사업자번호").fill(`BRN-${uid}`);
+  await page.getByRole("button", { name: "등록(신청 상태로)" }).click();
   await page.getByRole("status").getByRole("link", { name: tid }).click();
   await expect(page.getByRole("heading", { name: `UI 레이블 ${uid}` })).toBeVisible();
+  for (const item of ["사업자 확인", "대표자 확인", "플랫폼 이용(참여) 계약 서명"]) {
+    await page.getByRole("row").filter({ hasText: item }).getByRole("button", { name: "확인" }).click();
+    await expect(page.getByRole("row").filter({ hasText: item })).toContainText("usr_ops");
+  }
+  await page.getByRole("button", { name: "확인됨(으)로" }).click();
+  await expect(page.getByText("로그인·권리 등록")).toBeVisible();
   await page.getByLabel("새 계정 아이디").fill(`usr_ui_${uid}`);
-  await page.getByLabel("새 계정 이름").fill("UI 권리 편집");
-  await page.getByRole("checkbox", { name: "권리 편집" }).check();
+  await page.getByLabel("새 계정 이름").fill("UI 관리자");
   await page.getByRole("button", { name: "계정 만들기" }).click();
   const link = await page.getByLabel("초대 링크 주소").inputValue();
   expect(link).toMatch(new RegExp(`^http://portal\\.${DOMAIN.replace(/\./g, "\\.")}/\\?invite=`));
@@ -83,6 +97,24 @@ test("운영 온보딩 화면: 테넌트 등록 → 담당자 계정 발급(초�
   await p2.getByRole("button", { name: "로그인" }).click();
   await expect(p2.getByLabel("로그인한 사용자")).toContainText(`usr_ui_${uid}`);
   await expect(p2.getByRole("heading", { name: `UI 레이블 ${uid}` })).toBeVisible();
+  // 조직 관리자가 담당자를 초대한다(포털 → 담당자 계정).
+  await p2.getByRole("link", { name: "담당자 계정" }).first().click();
+  await p2.getByLabel("새 계정 아이디").fill(`usr_ui_staff_${uid}`);
+  await p2.getByLabel("새 계정 이름").fill("UI 권리 편집");
+  await p2.getByRole("checkbox", { name: "권리 편집" }).check();
+  await p2.getByRole("button", { name: "계정 만들기" }).click();
+  expect(await p2.getByLabel("초대 링크 주소").inputValue()).toMatch(new RegExp(`^http://portal\\.`));
+  await expect(p2.getByRole("row").filter({ hasText: `usr_ui_staff_${uid}` })).toContainText("초대 수락 대기");
   await page.reload();
   await expect(page.getByRole("row").filter({ hasText: `usr_ui_${uid}` })).toContainText("비밀번호");
+});
+
+test("참여 기관: 신탁단체 관리자는 참여 기관 화면(partner.)으로 들어오고 권리자 포털에는 못 들어온다", async ({ page }) => {
+  await page.goto(`${site("partner")}/?persona=usr_cmo_admin`);
+  await expect(page.getByLabel("로그인한 사용자")).toContainText("usr_cmo_admin");
+  await expect(page.getByRole("heading", { name: "가상 신탁단체(데모)" })).toBeVisible();
+  await page.getByRole("link", { name: "연결·상품 대응" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "lnk_trust_demo" })).toContainText("확인 대기");
+  const r = await page.request.post(`${site("portal")}/api/portal/auth/dev-login`, { headers: { "x-dbp-csrf": "1" }, data: { userId: "usr_cmo_admin" } });
+  expect((await r.json()).code).toBe("CHANNEL_FORBIDDEN");
 });

@@ -1,6 +1,6 @@
 # dobedupop MVP 데모 환경(MVP 진행계획 M2, 결정 MD6: 데모 서버 한 대에 Docker Compose).
 #   docker compose -f deploy/compose/compose.demo.yml --env-file deploy/env/demo.env up -d --build
-# 브라우저: http://portal.dobedupop.localhost  http://artist.dobedupop.localhost  http://ops.dobedupop.localhost
+# 브라우저: http://portal.dobedupop.localhost  http://partner.dobedupop.localhost  http://artist.dobedupop.localhost  http://ops.dobedupop.localhost
 # 데모 환경은 코어를 개발 진입점(RC_DEV=1: 가상 시계·가상 공급자·데모 도구)으로 띄운다. 운영 환경은 http/main.ts(가상 공급자 거부)다.
 name: dobedupop-demo
 

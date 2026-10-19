@@ -1,5 +1,9 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { AccountsPage, TenantDetailPage, TenantsPage } from "../pages/admin/Onboarding.tsx";
+import { OrgDetailPage, OrgListPage, PeoplePage, StaffPage } from "../pages/admin/Onboarding.tsx";
+import { OrgAccountsPage, OrgHome } from "../pages/org/Home.tsx";
+import { LinksPage } from "../pages/org/Links.tsx";
+import { DelegationPage } from "../pages/org/Delegation.tsx";
+import { TrustWorksPage } from "../pages/partner/TrustWorks.tsx";
 import { Dashboard } from "../pages/dashboard/Dashboard.tsx";
 import { Parties } from "../pages/registry/Parties.tsx";
 import { Assets } from "../pages/registry/Assets.tsx";
@@ -33,7 +37,6 @@ import { Holds } from "../pages/settlement/Holds.tsx";
 import { Ledger } from "../pages/ledger/Ledger.tsx";
 import { EntryDetail } from "../pages/ledger/EntryDetail.tsx";
 import { Section } from "../components/Section.tsx";
-import { PortalHome } from "../pages/portal/Home.tsx";
 import { Pipeline } from "../pages/monitor/Pipeline.tsx";
 import { StemAudioPage } from "../pages/audio/Audio.tsx";
 import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
@@ -74,9 +77,12 @@ const rightsRoutes: RouteDef[] = [
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
 const opsRoutes: RouteDef[] = [
   { path: "/", title: "⑧ 권리 파이프라인 관제", element: <Pipeline /> },
-  { path: "/admin/tenants", title: "테넌트", element: <TenantsPage /> },
-  { path: "/admin/tenants/:tenantId", title: "테넌트 상세", element: <TenantDetailPage /> },
-  { path: "/admin/accounts", title: "계정", element: <AccountsPage /> },
+  { path: "/admin/tenants", title: "권리 테넌트", element: <OrgListPage cls="RIGHTS" /> },
+  { path: "/admin/participants", title: "참여 기관", element: <OrgListPage cls="PARTICIPANT" /> },
+  { path: "/admin/orgs/:tenantId", title: "조직 상세", element: <OrgDetailPage /> },
+  { path: "/admin/staff", title: "운영 인력", element: <StaffPage /> },
+  { path: "/admin/people", title: "개인 계정", element: <PeoplePage /> },
+  { path: "/admin/links", title: "연결", element: <LinksPage /> },
   { path: "/dashboard", title: "검증 체크리스트", element: <Dashboard /> },
   { path: "/revenue", title: "매출", element: <Revenue /> },
   { path: "/revenue/traffic", title: "감상 수익 풀", element: <TrafficPools /> },
@@ -111,10 +117,22 @@ const devRoutes: RouteDef[] = import.meta.env.DEV
     })()
   : [];
 
+/** 조직 공통(권리자 포털·참여 기관): 첫 화면, 담당자 계정(조직 관리자), 연결. */
+const orgRoutes: RouteDef[] = [
+  { path: "/", title: "내 조직", element: <OrgHome /> },
+  { path: "/accounts", title: "담당자 계정", element: <OrgAccountsPage /> },
+  { path: "/links", title: "연결", element: <LinksPage /> },
+];
+
 export function routesFor(kind: AppKind): RouteDef[] {
-  return kind === "portal"
-    ? [{ path: "/", title: "내 테넌트", element: <PortalHome /> }, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }]
-    : [...opsRoutes, ...rightsRoutes, ...devRoutes];
+  if (kind === "portal") {
+    return [...orgRoutes, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }, { path: "/delegation", title: "위임 대행", element: <DelegationPage /> }];
+  }
+  if (kind === "partner") {
+    // 참여 기관 화면(결정 TD12): 권리 등록·정책·발행 화면이 없다.
+    return [...orgRoutes, { path: "/trust/works", title: "신탁 작품", element: <TrustWorksPage /> }, { path: "/statements", title: "명세서", element: <Statements /> }];
+  }
+  return [...opsRoutes, ...rightsRoutes, ...devRoutes];
 }
 
 const registryMenu: MenuGroup = { title: "1 등록부", items: [
@@ -122,16 +140,27 @@ const registryMenu: MenuGroup = { title: "1 등록부", items: [
   { to: "/registry/claims", label: "권리 주장" }, { to: "/registry/mandates", label: "위임" }, { to: "/registry/disputes", label: "분쟁" },
 ] };
 
+/** 매출·정산 화면을 여는 역할(코어가 요구하는 역할과 같다). */
+const MONEY = ["SPACE_OPS", "SPACE_SETTLE"];
+
 export function menuFor(kind: AppKind): MenuGroup[] {
+  if (kind === "partner") {
+    return [
+      { title: "0 내 조직", items: [{ to: "/", label: "내 조직" }, { to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }] },
+      { title: "1 연결", items: [{ to: "/links", label: "연결·상품 대응" }, { to: "/trust/works", label: "신탁 작품", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
+      { title: "2 명세", items: [{ to: "/statements", label: "명세서", roles: ["TRUST_OFFICER", "TENANT_ADMIN"] }] },
+    ];
+  }
   if (kind === "portal") {
     return [
-      { title: "0 내 테넌트", items: [{ to: "/", label: "내 테넌트" }] },
+      { title: "0 내 조직", items: [{ to: "/", label: "내 조직" }, { to: "/accounts", label: "담당자 계정", roles: ["TENANT_ADMIN"] }, { to: "/delegation", label: "위임 대행", roles: ["TENANT_ADMIN"] }] },
       registryMenu,
       { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
       { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
       { title: "4 발행", items: [{ to: "/issues", label: "발행 조회" }] },
       { title: "5 명세", items: [{ to: "/statements", label: "명세서" }] },
-      { title: "6 투명성", items: [{ to: "/inspections", label: "플랫폼 열람 기록" }] },
+      { title: "6 연결", items: [{ to: "/links", label: "신탁·유통 연결" }] },
+      { title: "7 투명성", items: [{ to: "/inspections", label: "플랫폼 열람 기록" }] },
     ];
   }
   return [
@@ -140,18 +169,21 @@ export function menuFor(kind: AppKind): MenuGroup[] {
     { title: "2 정책", items: [{ to: "/policy", label: "정책" }] },
     { title: "3 팩", items: [{ to: "/packs", label: "팩" }] },
     { title: "4 발행", items: [{ to: "/issues", label: "발행" }] },
-    { title: "5 매출", items: [{ to: "/revenue", label: "매출" }, { to: "/revenue/traffic", label: "감상 수익 풀" }, { to: "/hub", label: "연동 허브" }] },
+    { title: "5 매출", items: [{ to: "/revenue", label: "매출", roles: MONEY }, { to: "/revenue/traffic", label: "감상 수익 풀", roles: MONEY }, { to: "/hub", label: "연동 허브", roles: MONEY }] },
     { title: "6 정산", items: [
-      { to: "/settlement/batches", label: "정산 배치" }, { to: "/settlement/quarantine", label: "격리" }, { to: "/settlement/holds", label: "보류" },
+      { to: "/settlement/batches", label: "정산 배치", roles: MONEY }, { to: "/settlement/quarantine", label: "격리", roles: MONEY }, { to: "/settlement/holds", label: "보류", roles: MONEY },
     ] },
     { title: "7 원장", items: [{ to: "/ledger", label: "원장", roles: ["SPACE_SETTLE"] }] },
     { title: "8 지급", items: [
       { to: "/payout/profiles", label: "지급 프로필", roles: ["SPACE_SETTLE"] }, { to: "/payout/runs", label: "지급 run", roles: ["SPACE_SETTLE"] }, { to: "/statements", label: "명세서", roles: ["SPACE_SETTLE"] },
     ] },
-    { title: "9 관리·조회 통제", items: [
-      { to: "/admin/tenants", label: "테넌트(온보딩)", roles: ["SPACE_OPS"] }, { to: "/admin/accounts", label: "계정", roles: ["SPACE_OPS"] },
-      { to: "/control", label: "열람 기록·break-glass" },
+    { title: "9 온보딩", items: [
+      { to: "/admin/tenants", label: "권리 테넌트", roles: ["SPACE_OPS", "ONBOARDING"] }, { to: "/admin/participants", label: "참여 기관", roles: ["SPACE_OPS", "ONBOARDING"] },
+      { to: "/admin/people", label: "개인 계정", roles: ["SPACE_OPS", "ONBOARDING"] }, { to: "/admin/links", label: "연결", roles: ["SPACE_OPS", "ONBOARDING"] },
     ] },
-    ...(import.meta.env.DEV ? [{ title: "10 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
+    { title: "10 관리·조회 통제", items: [
+      { to: "/admin/staff", label: "운영 인력", roles: ["SPACE_OPS"] }, { to: "/control", label: "열람 기록·break-glass" },
+    ] },
+    ...(import.meta.env.DEV ? [{ title: "11 개발 도구", items: [{ to: "/dev/psp", label: "PSP 시뮬레이터" }, { to: "/dev/data", label: "개발 데이터" }] }] : []),
   ];
 }

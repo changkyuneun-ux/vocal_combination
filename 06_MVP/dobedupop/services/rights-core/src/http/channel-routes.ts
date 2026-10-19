@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { partyStatement } from "../ledger/statements.ts";
-import { withSystemScope, type Actor } from "../platform/actor.ts";
+import { listMemberships, withSystemScope, type Actor } from "../platform/actor.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import * as issuance from "../issuance/service.ts";
@@ -219,7 +219,11 @@ export function fanRenderRoutes(app: FastifyInstance, deps: Deps): void {
   });
 }
 
-/** 파트너 연동: 신원 확인. 리포트 파일 전송(유통사 CSV·DDEX DSR)은 연동 허브(hub/routes.ts)가 이 채널에 붙인다. */
+/** 참여 기관 화면(결정 TD12): 신원·소속, 서버 시각. 리포트 파일 전송(유통사 CSV·DDEX DSR)은 연동 허브(hub/routes.ts)가 이 채널에 붙인다. */
 export function partnerRoutes(app: FastifyInstance, deps: Deps): void {
-  app.get("/me", async (req) => withActor(deps, req, async (_tx, actor) => me(actor)));
+  app.get("/me", async (req) => withActor(deps, req, async (tx, actor) => {
+    const u = (await tx.query("SELECT display_name FROM user_account WHERE user_id = $1", [actor.userId])).rows[0];
+    return { ...me(actor), displayName: u.display_name as string, memberships: await withSystemScope(tx, () => listMemberships(tx, actor.userId)) };
+  }));
+  app.get("/clock", async (req) => withActor(deps, req, async () => ({ now: deps.clock.now() })));
 }

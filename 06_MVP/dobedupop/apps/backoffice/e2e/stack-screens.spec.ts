@@ -9,8 +9,9 @@ import { ensureDynamite } from "./demo-seed.ts";
 const DOMAIN = process.env.E2E_DOMAIN ?? "dobedupop.localhost";
 test.beforeAll(async ({ request }) => { test.setTimeout(25 * 60_000); await ensureDynamite(request); });
 const cases: { app: string; persona: string }[] = [
-  { app: "portal", persona: "usr_bh_rights" }, { app: "portal", persona: "usr_bh_policy" },
-  { app: "ops", persona: "usr_ops" }, { app: "ops", persona: "usr_settle" },
+  { app: "portal", persona: "usr_bh_rights" }, { app: "portal", persona: "usr_bh_policy" }, { app: "portal", persona: "usr_bh_admin" },
+  { app: "ops", persona: "usr_ops" }, { app: "ops", persona: "usr_settle" }, { app: "ops", persona: "usr_rights" },
+  { app: "partner", persona: "usr_cmo_admin" },
 ];
 
 for (const c of cases) {

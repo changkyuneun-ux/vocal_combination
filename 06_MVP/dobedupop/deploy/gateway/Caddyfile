@@ -47,6 +47,13 @@ http://portal.{$BASE_DOMAIN:dobedupop.localhost} {
 	import spa /srv/portal
 }
 
+# 참여 기관 화면(신탁단체·유통 파트너, 테넌트 정책 결정 TD12): 파트너 채널만.
+http://partner.{$BASE_DOMAIN:dobedupop.localhost} {
+	import security
+	import channel partner
+	import spa /srv/partner
+}
+
 http://artist.{$BASE_DOMAIN:dobedupop.localhost} {
 	import security
 	import channel performer

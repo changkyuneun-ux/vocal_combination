@@ -41,7 +41,7 @@ export function OpsControl() {
   const [minutes, setMinutes] = useState(30);
   const start = useAction(() => api("POST", "/break-glass", { targetTenantId: target, reason, minutes }), ["break-glass"]);
   const end = useAction((id: number) => api("POST", `/break-glass/${id}/end`, {}), ["break-glass"]);
-  const rightsHolders = (tenants.data ?? []).filter((t) => t.tenantType !== "PLATFORM_OPS" && t.tenantType !== "PLATFORM_DEFAULT");
+  const rightsHolders = (tenants.data ?? []).filter((t) => t.tenantType !== "PLATFORM_OPS" && t.tenantType !== "PLATFORM_DEFAULT"); // 권리 테넌트·참여 기관
   return (
     <>
       <Section title="break-glass(테넌트 데이터 쓰기 권한)">

@@ -9,7 +9,7 @@ import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
 import { actorForChannel, type Channel } from "./channels.ts";
 import { activeBreakGlass, applyBreakGlass, inspectRoute } from "../platform/inspection.ts";
-import { platformRoutes } from "../platform/routes.ts";
+import { platformRoutes, userListRoutes } from "../platform/routes.ts";
 import { registryRoutes } from "../registry/routes.ts";
 import { policyRoutes } from "../policy/routes.ts";
 import { issuanceRoutes } from "../issuance/routes.ts";
@@ -149,7 +149,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
   // 참여 기관(결정 TD12): 신탁단체·유통 파트너. 자기 당사자 명세(portalRoutes의 /my/parties·명세)와 연결·신탁 작품·상품 대응, 파트너 리포트.
   channel("partner", (sub) => {
-    authRoutes(sub, deps); userAdminRoutes(sub, deps); partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); portalRoutes(sub, deps); linkRoutes(sub, deps); participantRoutes(sub, deps);
+    authRoutes(sub, deps); userAdminRoutes(sub, deps); userListRoutes(sub, deps); partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); portalRoutes(sub, deps); linkRoutes(sub, deps); participantRoutes(sub, deps);
     sub.get("/tenants/:id", async (req) => withActor(deps, req, async (tx, actor) => {
       if (actor.tenantId !== (req.params as { id: string }).id) throw new DomainError("NOT_FOUND", 404, "tenant not found");
       return withSystemScope(tx, () => getTenant(tx, actor.tenantId));

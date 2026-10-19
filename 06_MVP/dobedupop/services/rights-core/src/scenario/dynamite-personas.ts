@@ -29,8 +29,10 @@ export const TENANT = "tnt_bighit";
 export const P = {
   ops: "usr_ops", onboard: "usr_rights", settle: "usr_settle", confirmer: "usr_settle2", accounts: "usr_accounts", ingest: "sys_ingest",
   admin: "usr_bh_admin", rights: "usr_bh_rights", policy: "usr_bh_policy", approver: "usr_bh_approver", activator: "usr_bh_activator",
-  member: (k: string) => `usr_member_${k}`, fan: (f: string) => `usr_fan_${f}`,
+  member: (k: string) => `usr_member_${k}`, fan: (f: string) => `usr_fan_${f}`, cmoAdmin: "usr_cmo_admin",
 } as const;
+/** 참여 기관 예시(테넌트 정책 2·4절): 가상 신탁단체. 연결은 제안 상태로만 둔다(확인하면 작품 몫 위임이 생긴다 — 데모 금액은 그대로). */
+export const DEMO_CMO = { tenantId: "tnt_demo_cmo", partyId: "pty_demo_cmo", name: "가상 신탁단체(데모)" } as const;
 const SCOPE = "fsc_dynamite", PACK = "pak_dynamite_fan", RECORDING = "rcd_dynamite", WORK = "wrk_dynamite";
 const AUTHORS = ["pty_david_stewart", "pty_jessica_agombar"] as const;
 const FANS = ["f1", "f2", "f3", "f4"] as const;
@@ -77,6 +79,13 @@ export const STEPS: Step[] = [
         [P.approver, "빅히트 승인", "WORK_APPROVER"], [P.activator, "빅히트 활성화", "ACTIVATOR"]] as const) {
         await must(`invite ${userId}`, d.call("portal", P.admin, "POST", "/users", { userId, displayName: name, roles: [role] }), [201, 409]);
       }
+      // 참여 기관: 가상 신탁단체(활성, 수령 당사자 하나, 첫 관리자). 권리를 만들지 않고 연결로만 닿는다.
+      await ops(P.onboard, "POST", "/tenants", { tenantId: DEMO_CMO.tenantId, tenantType: "CMO", name: DEMO_CMO.name, businessNo: "BRN-DEMO-CMO", country: "KR", representative: "대표 (가상)" });
+      for (const item of ["BUSINESS_ID", "REPRESENTATIVE", "PLATFORM_AGREEMENT", "TRUST_LICENSE"]) await ops(P.onboard, "PUT", `/tenants/${DEMO_CMO.tenantId}/checks/${item}`, { checked: true, note: "데모: 서류 확인" });
+      await ops(P.onboard, "POST", `/tenants/${DEMO_CMO.tenantId}/status`, { status: "VERIFIED" });
+      await ops(P.onboard, "POST", `/tenants/${DEMO_CMO.tenantId}/status`, { status: "ACTIVE" });
+      await ops(P.onboard, "POST", "/parties", { partyId: DEMO_CMO.partyId, partyType: "CMO", displayName: DEMO_CMO.name, tenantId: DEMO_CMO.tenantId });
+      await d.provisionUser({ userId: P.cmoAdmin, displayName: "신탁단체 관리자", roles: ["TENANT_ADMIN"], tenantId: DEMO_CMO.tenantId });
       for (const m of MEMBERS) await ops(P.onboard, "POST", "/parties", { partyId: `pty_${m.key}`, partyType: "MEMBER", displayName: m.name, tenantId: "tnt_platform_default" });
       for (const a of AUTHORS) await ops(P.onboard, "POST", "/parties", { partyId: a, partyType: "AUTHOR", displayName: NAMES[a] });
       for (const f of FANS) await ops(P.onboard, "POST", "/parties", { partyId: `pty_fan_${f}`, partyType: "FAN", displayName: `팬 ${f.toUpperCase()}`, tenantId: "tnt_platform_default" });
@@ -178,7 +187,7 @@ export const STEPS: Step[] = [
     id: "ops-verify", title: "운영: 지급 정보, 작가 지분 원문 대조 확인, 빅히트 활성", persona: "운영 계좌 담당(usr_accounts)·운영(usr_ops)·온보딩 담당(usr_rights)", app: "ops",
     detail: "운영이 레이블·소속사·작가의 지급 정보(계좌 토큰은 지급 실행자와 다른 담당)를 등록하고, 14일 기한이 지난 작가 지분 확인 요청을 퍼블리싱 계약서 원문과 대조해 확인한다. 온보딩 담당이 권리 보유 증빙(녹음 계약서 원문)을 확인해 빅히트를 활성으로 올린다.",
     async run(d) {
-      const { ops } = helpers(d);
+      const { ops, must } = helpers(d);
       await d.setClock("2026-01-20T09:00:00.000Z");
       for (const p of ["pty_bighit_label", "pty_bighit_agency", ...AUTHORS]) {
         await ops(P.accounts, "PUT", `/parties/${p}/payout-profile`, { taxType: p.startsWith("pty_bighit") ? "DOMESTIC_CORP" : "FOREIGN", payoutAccountRef: `tok_${p}`, kycVerified: true });
@@ -186,6 +195,9 @@ export const STEPS: Step[] = [
       // 권리 보유 증빙(녹음 계약서 원문)을 확인하고 빅히트를 활성으로 올린다 — 이제 팩·정책을 활성화하고 판매할 수 있다.
       await ops(P.onboard, "PUT", `/tenants/${TENANT}/checks/RIGHTS_EVIDENCE`, { checked: true, documentId: MASTER_DOC, note: "Dynamite 녹음 계약서 원문" });
       await ops(P.onboard, "POST", `/tenants/${TENANT}/status`, { status: "ACTIVE" });
+      // 신탁 연결 제안(플랫폼이 위탁 작가의 관리 주체로서): 신탁단체가 참여 기관 화면에서 확인하면 활성이 된다. 데모는 제안 상태로 둔다.
+      await must("trust link proposal", d.call("ops", P.onboard, "POST", "/links", { linkId: "lnk_trust_demo", linkType: "TRUST", participantTenantId: DEMO_CMO.tenantId,
+        authorPartyId: AUTHORS[0], memberRef: "IPI-DEMO-0001", validFrom: "2026-01-01T00:00:00.000Z" }), [201, 409]);
       const pending = (await ops(P.ops, "GET", "/confirmations?status=OPEN")) as any[];
       for (const r of pending.filter((x) => x.recordId === "c_work_ds" || x.recordId === "c_work_ja")) {
         await ops(P.ops, "POST", `/confirmations/${r.requestId}/platform-verify`, { reason: "퍼블리싱 계약서 원문 대조(작가 지분 각 50%)" });

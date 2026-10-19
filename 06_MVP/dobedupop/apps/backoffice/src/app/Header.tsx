@@ -8,6 +8,7 @@ import type { UserRow } from "../api/types.ts";
 import { violations, type InvariantReport } from "../api/invariants.ts";
 import { ErrorPanel } from "../components/ErrorPanel.tsx";
 import { APPS, currentApp } from "./apps.ts";
+import { ROLE_LABEL, type Me, type Membership, type TenantRow } from "../api/admin.ts";
 
 const HOUR = 3_600_000;
 const STEPS: { label: string; ms: number }[] = [
@@ -81,14 +82,44 @@ function InvariantBadge() {
   );
 }
 
-/** 로그인 세션 모드: 지금 사용자와 로그아웃. */
+/** 이 앱에 들어올 수 있는 소속(결정 TD9 — 소속 전환 후보). */
+function fitsApp(m: Membership): boolean {
+  const app = currentApp();
+  return app === "ops" ? m.orgClass === "PLATFORM" : app === "partner" ? m.orgClass === "PARTICIPANT" : m.orgClass === "RIGHTS" || m.orgClass === "PLATFORM";
+}
+
+/** 로그인 세션 모드: 지금 사용자, 소속 전환, (포털의 플랫폼 온보딩) 위임 대행, 로그아웃. */
 function SessionUser() {
-  const me = useGet<{ userId: string; displayName: string; roles: string[] }>(["me"], "/me");
+  const me = useGet<Me>(["me"], "/me");
+  const [err, setErr] = useState<ApiError | null>(null);
+  const isPlatformOnPortal = currentApp() === "portal" && (me.data?.scope === "platform" || me.data?.actingOnBehalfOf !== undefined) && me.data?.memberships?.some((m) => m.orgClass === "PLATFORM" && m.roles.includes("ONBOARDING"));
+  const rights = useGet<TenantRow[]>(["tenants", "RIGHTS", "act-for"], "/tenants?class=RIGHTS", { enabled: isPlatformOnPortal === true && me.data?.actingOnBehalfOf === undefined });
   const out = async () => { await authApi("POST", "/logout").catch(() => {}); location.reload(); };
+  const call = async (path: string, body: unknown) => { try { await authApi("POST", path, body); location.reload(); } catch (e) { setErr(e as ApiError); } };
+  const choices = (me.data?.memberships ?? []).filter(fitsApp);
   return (
     <div className="right">
-      {me.data && <span aria-label="로그인한 사용자">{me.data.displayName} <span className="muted small">{me.data.userId} · {me.data.roles.join(", ")}</span></span>}
+      {me.data?.actingOnBehalfOf && (
+        <span className="badge warn" role="status">대행 중: {me.data.actingOnBehalfOf} <button className="btn tiny" type="button" onClick={() => void call("/act-for", { tenantId: null })}>대행 끝내기</button></span>
+      )}
+      {isPlatformOnPortal && !me.data?.actingOnBehalfOf && (
+        <label>위임 대행{" "}
+          <select aria-label="대행할 테넌트" value="" onChange={(e) => e.target.value && void call("/act-for", { tenantId: e.target.value })}>
+            <option value="">테넌트 선택…</option>
+            {(rights.data ?? []).map((t) => <option key={t.tenantId} value={t.tenantId}>{t.name}</option>)}
+          </select>
+        </label>
+      )}
+      {choices.length > 1 && !me.data?.actingOnBehalfOf && (
+        <label>소속{" "}
+          <select aria-label="소속 전환" value={me.data?.tenantId ?? ""} onChange={(e) => void call("/switch", { tenantId: e.target.value })}>
+            {choices.map((m) => <option key={m.tenantId} value={m.tenantId}>{m.name}</option>)}
+          </select>
+        </label>
+      )}
+      {me.data && <span aria-label="로그인한 사용자">{me.data.displayName} <span className="muted small">{me.data.userId} · {me.data.roles.map((r) => ROLE_LABEL[r] ?? r).join(", ")}</span></span>}
       <button className="btn tiny" type="button" onClick={() => void out()}>로그아웃</button>
+      {err && <div className="toast" role="alert"><ErrorPanel error={err} /><button className="btn tiny" onClick={() => setErr(null)}>닫기</button></div>}
     </div>
   );
 }
@@ -125,7 +156,11 @@ function DevHeader() {
       <div className="app-name">{APPS[currentApp()].name}</div>
       {/* 가상 시계·앱 전환은 개발 서버에서만(운영 빌드에는 /dev 경로가 없다). */}
       {import.meta.env.DEV && <VirtualClock onError={setToast} />}
-      {import.meta.env.DEV && (currentApp() === "ops" ? <a className="btn tiny" href="/portal/">권리자 포털로</a> : <a className="btn tiny" href="/">운영 백오피스로</a>)}
+      {import.meta.env.DEV && <>
+        {currentApp() !== "ops" && <a className="btn tiny" href="/">운영 백오피스로</a>}
+        {currentApp() !== "portal" && <a className="btn tiny" href="/portal/">권리자 포털로</a>}
+        {currentApp() !== "partner" && <a className="btn tiny" href="/partner/">참여 기관으로</a>}
+      </>}
       <div className="right">
         <label>사용자{" "}
           <select value={actor} onChange={(e) => setActor(e.target.value)} aria-label="사용자 전환">

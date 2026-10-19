@@ -72,7 +72,7 @@ export function App() {
           <ul className="personas">
             {PERSONAS.map((p) => (
               <li key={p.userId}>
-                <a href={appUrl(location, p.app, p.userId)} target="_blank" rel="noreferrer"><strong>{p.name}</strong> <span className="muted small">{p.app === "portal" ? "권리자 포털" : p.app === "artist" ? "실연자 앱" : "운영 백오피스"}</span></a>
+                <a href={appUrl(location, p.app, p.userId)} target="_blank" rel="noreferrer"><strong>{p.name}</strong> <span className="muted small">{p.app === "portal" ? "권리자 포털" : p.app === "artist" ? "실연자 앱" : p.app === "partner" ? "참여 기관" : "운영 백오피스"}</span></a>
                 <div className="muted small">{p.what}</div>
               </li>
             ))}

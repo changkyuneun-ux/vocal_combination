@@ -24,6 +24,7 @@ FROM caddy:2.10-alpine
 COPY deploy/gateway/Caddyfile /etc/caddy/Caddyfile
 COPY --from=web /app/apps/backoffice/dist/portal-host /srv/portal
 COPY --from=web /app/apps/backoffice/dist/ops /srv/ops
+COPY --from=web /app/apps/backoffice/dist/partner-host /srv/partner
 COPY --from=web /app/apps/performer/dist /srv/artist
 # 데모 진행판은 데모 호스트에서만 열린다(운영 게이트웨이 설정에는 demo 블록이 없다).
 COPY --from=web /app/apps/demo-console/dist /srv/demo

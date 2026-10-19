@@ -20,6 +20,7 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
       return {
         userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort(), tenantId: actor.tenantId, tenantType: actor.tenantType,
         orgClass: actor.orgClass, tenantStatus: actor.tenantStatus, scope: actor.scope, ...(actor.readOnly && { readOnly: true }),
+        ...(actor.actingOnBehalfOf !== undefined && { actingOnBehalfOf: actor.actingOnBehalfOf }),
         memberships: await withSystemScope(tx, () => listMemberships(tx, actor.userId)),
       };
     }));
@@ -89,6 +90,33 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/tenants", async (req, reply) =>
     reply.status(201).send(await withActor(deps, req, (tx, actor) => registerTenant(tx, deps.clock, actor, (req.body ?? {}) as Record<string, unknown>))));
 
+  userListRoutes(app, deps);
+
+  /** audit_id DESC. 역할: SPACE_OPS·SPACE_SETTLE·RIGHTS_EDITOR 중 하나. */
+  app.get("/audit", async (req) =>
+    withActor(deps, req, async (tx, actor) => {
+      requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE", "RIGHTS_EDITOR", "ONBOARDING", "COMPLIANCE", "TENANT_ADMIN"]);
+      const q = req.query as Record<string, unknown>;
+      const page = parsePage(q);
+      const after = cursorKey(page, ["n"]);
+      const p: unknown[] = [];
+      const w: string[] = [];
+      for (const [name, col] of [["entityType", "entity_type"], ["entityId", "entity_id"], ["actor", "actor_user_id"]] as const) {
+        const v = optFilter(q, name);
+        if (v !== undefined) { p.push(v); w.push(`${col} = $${p.length}`); }
+      }
+      if (after) { p.push(after[0]); w.push(`audit_id < $${p.length}::bigint`); }
+      p.push(page.limit + 1);
+      const rows = (await tx.query(`SELECT * FROM audit_log ${w.length ? "WHERE " + w.join(" AND ") : ""} ORDER BY audit_id DESC LIMIT $${p.length}`, p)).rows;
+      return pageOf(rows.map((r) => ({
+        auditId: Number(r.audit_id), occurredAt: ts(r.occurred_at)!, actor: r.actor_user_id as string, action: r.action_name as string,
+        entityType: r.entity_type as string, entityId: r.entity_id as string, after: r.after_json as unknown,
+      })), page, (r) => [r.auditId]);
+    }));
+}
+
+/** 계정 목록: 운영·포털·참여 기관 채널이 함께 쓴다. */
+export function userListRoutes(app: FastifyInstance, deps: Deps): void {
   /**
    * 계정 목록(온보딩 화면·개발 서버 사용자 전환): 플랫폼 범위는 전부(?tenant=로 거른다), 테넌트 범위는 자기 테넌트 계정만.
    * 로그인 준비 상태(비밀번호·인증 앱)와 마지막 로그인을 함께 준다. 비밀번호·토큰 값은 주지 않는다.
@@ -121,26 +149,4 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
         identityVerified: r.identity_verified_at !== null, lastLoginAt: ts(r.last_login_at),
       })), page, (r) => [r.userId]);
     })));
-
-  /** audit_id DESC. 역할: SPACE_OPS·SPACE_SETTLE·RIGHTS_EDITOR 중 하나. */
-  app.get("/audit", async (req) =>
-    withActor(deps, req, async (tx, actor) => {
-      requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE", "RIGHTS_EDITOR", "ONBOARDING", "COMPLIANCE", "TENANT_ADMIN"]);
-      const q = req.query as Record<string, unknown>;
-      const page = parsePage(q);
-      const after = cursorKey(page, ["n"]);
-      const p: unknown[] = [];
-      const w: string[] = [];
-      for (const [name, col] of [["entityType", "entity_type"], ["entityId", "entity_id"], ["actor", "actor_user_id"]] as const) {
-        const v = optFilter(q, name);
-        if (v !== undefined) { p.push(v); w.push(`${col} = $${p.length}`); }
-      }
-      if (after) { p.push(after[0]); w.push(`audit_id < $${p.length}::bigint`); }
-      p.push(page.limit + 1);
-      const rows = (await tx.query(`SELECT * FROM audit_log ${w.length ? "WHERE " + w.join(" AND ") : ""} ORDER BY audit_id DESC LIMIT $${p.length}`, p)).rows;
-      return pageOf(rows.map((r) => ({
-        auditId: Number(r.audit_id), occurredAt: ts(r.occurred_at)!, actor: r.actor_user_id as string, action: r.action_name as string,
-        entityType: r.entity_type as string, entityId: r.entity_id as string, after: r.after_json as unknown,
-      })), page, (r) => [r.auditId]);
-    }));
 }
