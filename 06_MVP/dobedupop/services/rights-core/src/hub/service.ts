@@ -79,7 +79,7 @@ async function applyRecord(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: HubHooks
       }
       input = { ...base, eventType: "REFUND", relatedEventId: original };
     } else {
-      const asset = (await tx.query("SELECT vc_id FROM partner_asset WHERE tenant_id = $1 AND external_id = $2", [tenantId, r.assetId])).rows[0];
+      const asset = (await tx.query("SELECT vc_id FROM partner_asset WHERE tenant_id = $1 AND external_id = $2 AND status = 'CONFIRMED'", [tenantId, r.assetId])).rows[0];
       if (asset === undefined) return { status: "REJECTED", code: "UNKNOWN_ASSET", message: `asset ${r.assetId} is not mapped to a combination` };
       const seal = (await tx.query(
         "SELECT i.policy_digest FROM rights_snapshot s JOIN issue_seal i ON i.snapshot_id = s.snapshot_id WHERE s.vc_id = $1", [asset.vc_id],

@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
-import { applyActorScope, type Actor } from "../platform/actor.ts";
+import { applyActorScope, withSystemScope, type Actor } from "../platform/actor.ts";
+import { getTenant } from "../platform/tenants.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
 import { DomainError } from "../platform/errors.ts";
@@ -28,6 +29,7 @@ import type { DocumentStore } from "../documents/store.ts";
 import { documentRoutes } from "../documents/routes.ts";
 import { validationRoutes } from "../validation/routes.ts";
 import { contractRoutes, devEsignRoutes } from "../contracts/routes.ts";
+import { linkRoutes, participantRoutes } from "../participants/routes.ts";
 import { readCookie, resolveSession, SESSION_COOKIE } from "../platform/auth.ts";
 import { assertCsrf, authRoutes, userAdminRoutes } from "../platform/auth-routes.ts";
 import type { SignatureProvider } from "../contracts/esign.ts";
@@ -129,13 +131,20 @@ export function buildServer(deps: Deps): FastifyInstance {
       register(sub);
     }, { prefix: `/${ch}` });
   const hubHooks = { onRefund: refundHook(deps.jobs), onRevision: revisionHook(deps.jobs) };
-  channel("ops", (sub) => { all(sub); authRoutes(sub, deps); userAdminRoutes(sub, deps); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); });
+  channel("ops", (sub) => { all(sub); authRoutes(sub, deps); userAdminRoutes(sub, deps); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); linkRoutes(sub, deps); });
   channel("portal", (sub) => {
-    authRoutes(sub, deps); userAdminRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps);
+    authRoutes(sub, deps); userAdminRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); linkRoutes(sub, deps);
   });
   channel("performer", (sub) => { authRoutes(sub, deps); performerRoutes(sub, deps); });
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });
-  channel("partner", (sub) => { authRoutes(sub, deps); userAdminRoutes(sub, deps); partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); });
+  // 참여 기관(결정 TD12): 신탁단체·유통 파트너. 자기 당사자 명세(portalRoutes의 /my/parties·명세)와 연결·신탁 작품·상품 대응, 파트너 리포트.
+  channel("partner", (sub) => {
+    authRoutes(sub, deps); userAdminRoutes(sub, deps); partnerRoutes(sub, deps); partnerHubRoutes(sub, deps, hubHooks); portalRoutes(sub, deps); linkRoutes(sub, deps); participantRoutes(sub, deps);
+    sub.get("/tenants/:id", async (req) => withActor(deps, req, async (tx, actor) => {
+      if (actor.tenantId !== (req.params as { id: string }).id) throw new DomainError("NOT_FOUND", 404, "tenant not found");
+      return withSystemScope(tx, () => getTenant(tx, actor.tenantId));
+    }));
+  });
   // 루트에는 채널이 아닌 경로만 둔다: 외부 연동(PSP 결과 통지)과 개발 도구(/dev, RC_DEV).
   pspWebhookRoutes(app, deps);
   if (deps.dev !== undefined) { devRoutes(app, { ...deps, dev: deps.dev }); devEsignRoutes(app, deps); }

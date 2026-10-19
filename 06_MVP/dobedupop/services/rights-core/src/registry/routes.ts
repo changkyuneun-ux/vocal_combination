@@ -11,6 +11,7 @@ import { parseRefs } from "../documents/service.ts";
 import { rightsSummary } from "./summary.ts";
 import { linkClause } from "./evidence-links.ts";
 import { revalidate } from "../validation/service.ts";
+import { applyTrustOnClaim } from "../participants/links.ts";
 import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
@@ -61,6 +62,8 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   const recordWithConfirmation = async (tx: any, actor: Actor, type: "CLAIM" | "MANDATE", b: any, write: () => Promise<reg.Recorded>) => {
     await assertMayRecordVerified(tx, actor, type, b);
     const rec = await write();
+    // 신탁 연결(결정 TD11): 신탁한 작가의 작품 몫 주장이 새 곡에 생기면 그 곡에도 신탁단체 수령 위임을 단다.
+    if (type === "CLAIM" && b.edge === "WRITTEN_BY") await applyTrustOnClaim(tx, deps.clock, b.factsScopeId, b.targetId, actor.userId);
     if (b.status === "ASSERTED" && needsConfirmation(type, b.edge)) {
       const cp = await counterpartyOf(tx, type, b);
       if (!(actor.partyId === cp)) await requestConfirmation(tx, deps.clock, actor, type, rec.id);

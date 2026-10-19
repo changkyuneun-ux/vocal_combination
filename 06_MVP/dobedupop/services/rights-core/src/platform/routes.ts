@@ -6,9 +6,10 @@ import { DomainError } from "./errors.ts";
 import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
 import { getTenant, registerTenant, setCheck, setTenantStatus, updateTenantInfo } from "./tenants.ts";
 import type { Tx } from "./db.ts";
+import type { Clock } from "./clock.ts";
 
 /** 해지 때 함께 끝낼 것(연결 모듈이 등록한다 — 순환 import를 피한다). */
-export const tenantTerminateHooks: ((tx: Tx, tenantId: string) => Promise<void>)[] = [];
+export const tenantTerminateHooks: ((tx: Tx, clock: Clock, tenantId: string) => Promise<void>)[] = [];
 
 /** 조회(로그인한 누구나): 내 신원, 사용자 목록, 감사 로그(역할 필요). */
 export function platformRoutes(app: FastifyInstance, deps: Deps): void {
@@ -56,7 +57,7 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
     withActor(deps, req, (tx, actor) => setCheck(tx, deps.clock, actor, req.params.id, req.params.item, (req.body ?? {}) as Record<string, unknown>)));
   app.post<{ Params: { id: string } }>("/tenants/:id/status", async (req) =>
     withActor(deps, req, (tx, actor) => setTenantStatus(tx, deps.clock, actor, req.params.id, (req.body ?? {}) as Record<string, unknown>, {
-      onTerminate: async (t, id) => { for (const h of tenantTerminateHooks) await h(t, id); },
+      onTerminate: async (t, id) => { for (const h of tenantTerminateHooks) await h(t, deps.clock, id); },
     })));
 
   /**

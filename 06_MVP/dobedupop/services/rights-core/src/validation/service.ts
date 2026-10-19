@@ -1,4 +1,5 @@
 import { factsDiagnostics } from "../engine-bridge/facts-check.ts";
+import { textToForm } from "../engine-bridge/policy-form.ts";
 import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -30,7 +31,7 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
     out.push({ rule: d.code, severity: "BLOCK", subjectType: "SCOPE", subjectId: d.path, message: `권리 사실 검증 실패: ${d.message}`, hint: "권리 주장·위임의 지분·대상을 고친다" });
   }
   const claims = await q("SELECT claim_id, version, source_id, edge, target_id, status FROM right_claim WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
-  const mandates = await q("SELECT mandate_id, version, from_party_id, to_party_id, right_kind, share_bps, status FROM mandate WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
+  const mandates = await q("SELECT mandate_id, version, from_party_id, to_party_id, right_kind, share_bps, status, source_ref, recorded_at FROM mandate WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
   const evidence = await q(
     `SELECT e.record_type, e.record_id, e.record_version, d.document_id, d.version, d.title, d.parties, d.status, d.effective_to
        FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id AND d.version = e.document_version
@@ -139,6 +140,23 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
   const profiled = new Set((await q("SELECT party_id FROM party_payout_profile WHERE party_id = ANY($1)", [payees])).map((r) => r.party_id as string));
   for (const p of payees.filter((x) => !profiled.has(x))) {
     out.push({ rule: "DOC_PAYOUT_PROFILE_MISSING", severity: "WARN", subjectType: "PARTY", subjectId: p, message: `권리자 ${p}의 지급 정보(계좌·세무 유형)가 없다`, hint: "지급 프로필을 등록하게 한다(없으면 지급이 보류된다)" });
+  }
+  // 7. 신탁 수령(테넌트 정책 결정 TD11): 신탁 연결로 단 작품 몫 위임이 있는데, 활성 정책이 작품 몫을 위임대로 보내지 않거나(via mandate 없음)
+  // 그 위임보다 이전 사실에 고정돼 있으면 신탁단체가 받지 못한다 — 정책을 고치거나 재고정하라고 알린다.
+  const trust = mandates.filter((m) => m.right_kind === "WORK" && typeof m.source_ref === "string" && m.source_ref.startsWith("link:"));
+  if (trust.length > 0) {
+    const pols = await q(
+      "SELECT p.policy_id, p.version, p.source_text, p.facts_known_at FROM policy_version p JOIN vocal_pack k ON k.pack_id = p.pack_id WHERE k.facts_scope_id = $1 AND p.status = 'ACTIVE'", [scopeId]);
+    for (const p of pols) {
+      const f = textToForm(p.source_text as string);
+      const routed = f.form === null || f.form.work.bps === 0 || f.form.work.viaMandate;
+      const stale = trust.some((m) => (m.recorded_at as Date).getTime() > (p.facts_known_at as Date).getTime());
+      if (!routed || stale) {
+        out.push({ rule: "TRUST_NOT_ROUTED", severity: "WARN", subjectType: "SCOPE", subjectId: `${p.policy_id}@${p.version}`,
+          message: !routed ? `작품 몫이 신탁단체 수령 위임대로 가지 않는다(정책 ${p.policy_id}의 작품 몫에 위임 라우팅이 없다)` : `정책 ${p.policy_id}@${p.version}이 신탁 연결 이전의 권리 사실에 고정돼 있다`,
+          hint: !routed ? "분배 규칙의 작품 몫을 \"위임받은 곳이 받는다\"로 바꿔 다시 승인한다" : "정책을 재고정(rebind)해 신탁 위임을 반영한다" });
+      }
+    }
   }
   return out.sort((a, b) => (a.rule + a.subjectId < b.rule + b.subjectId ? -1 : 1));
 }
