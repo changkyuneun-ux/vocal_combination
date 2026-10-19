@@ -184,7 +184,7 @@ export function PeoplePage() {
       </Section>
       <Section title="개인 계정 만들기"><AccountForm orgClass="INDIVIDUAL" tenantId={PERSONAL} onDone={() => void users.refetch()} /></Section>
       <Section title="독립 아티스트 1인 온보딩">
-        <p className="muted">본인 인증을 마친 개인 계정이 자기 곡을 등록하려면 1인 권리 테넌트가 필요하다. 테넌트를 신청 상태로 만들고, 본인 확인 항목을 채우고, 그 계정에 관리자·권리 편집 소속을 더하고, 본인 당사자의 관리를 새 테넌트로 옮긴다. 실연자 앱은 그대로 쓴다.</p>
+        <p className="muted">본인 인증을 마친 개인 계정이 자기 곡을 등록하려면 1인 권리 테넌트가 필요하다. 테넌트를 신청 상태로 만들고, 본인 확인 항목을 채우고, 그 계정에 관리자·권리 편집·정책(편집·승인·활성화) 소속을 더하고, 본인 당사자의 관리를 새 테넌트로 옮긴다. 정책은 법무 승인 표준 템플릿을 그대로 쓸 때만 혼자 승인·활성화할 수 있다(결정 TD13). 실연자 앱은 그대로 쓴다.</p>
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void onboard(); }}>
           <div className="form-grid">
             <label className="field"><span>개인 계정 id</span>

@@ -203,7 +203,7 @@ export function managerKind(orgClass: string): "TENANT" | "SELF" | "PARTICIPANT"
 
 /**
  * 독립 아티스트 1인 온보딩(TN12): 본인 인증을 마친 개인 계정으로 1인 권리 테넌트를 신청 상태로 만들고, 본인 확인 항목을 채우고,
- * 그 계정에 관리자·권리 편집 소속을 더하고, 본인 당사자의 관리 주체를 새 테넌트로 옮긴다. 플랫폼 계약 확인 뒤 확인됨으로 올린다.
+ * 그 계정에 관리자·권리 편집·정책(편집·승인·활성화) 소속을 더하고, 본인 당사자의 관리 주체를 새 테넌트로 옮긴다. 플랫폼 계약 확인 뒤 확인됨으로 올린다.
  * 같은 사람의 실연자 자격(실연자 앱)은 기본 소속 그대로다.
  */
 export async function onboardIndependentArtist(tx: Tx, clock: Clock, actor: Actor, b: Record<string, unknown>) {
@@ -218,7 +218,8 @@ export async function onboardIndependentArtist(tx: Tx, clock: Clock, actor: Acto
   const t = await registerTenant(tx, clock, actor, { ...b, tenantType: "INDEPENDENT_ARTIST" });
   await setCheck(tx, clock, actor, t.tenantId, "IDENTITY", { checked: true, note: `본인 인증(${u.identity_method ?? "IDP"}) ${iso(u.identity_verified_at)}` });
   const { addMembership } = await import("./auth.ts");
-  const m = await addMembership(tx, clock, actor, b.userId, { tenantId: t.tenantId, roles: ["TENANT_ADMIN", "RIGHTS_EDITOR"] });
+  // 1인 테넌트는 혼자 모든 일을 한다. 정책은 표준 템플릿을 값 그대로 쓸 때만 혼자 승인·활성화할 수 있다(결정 TD13).
+  const m = await addMembership(tx, clock, actor, b.userId, { tenantId: t.tenantId, roles: ["TENANT_ADMIN", "RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", "ACTIVATOR"] });
   const moved = await transferParty(tx, clock, actor, u.party_id as string, { tenantId: t.tenantId, reason: "독립 아티스트 1인 테넌트 온보딩" });
   return { tenant: await getTenant(tx, t.tenantId), membership: m, party: moved };
 }

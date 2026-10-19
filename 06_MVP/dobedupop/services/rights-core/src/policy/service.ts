@@ -11,6 +11,7 @@ import { attest, signersOf } from "../engine-bridge/attest.ts";
 import { checkPackActivation, claimantSet } from "../engine-bridge/activation.ts";
 import { declaredClaimants, openDisputeInScope, packRow } from "../issuance/service.ts";
 import { assertActivationAllowed } from "../validation/service.ts";
+import { getTemplate, templateExemption, templateText } from "./templates.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
 type Row = { policyId: string; version: number; status: string; policyDigest: string; factsDigest: string; factsKnownAt: string; packId: string };
@@ -23,15 +24,33 @@ async function versionRow(tx: Tx, ref: PolicyVersionRef, lock = true): Promise<R
   return { policyId: r.policy_id, version: r.version, status: r.status, policyDigest: r.policy_digest, factsDigest: r.facts_digest, factsKnownAt: iso(r.facts_known_at)!, packId: r.pack_id };
 }
 
-/** 이미 이 정책 digest에 서명한 사람은 다른 역할로 다시 서명할 수 없다(통합 설계 6.5). */
-async function requireNotSigned(tx: Tx, digest: string, actor: Actor): Promise<void> {
-  if ((await signersOf(tx, digest)).some((s) => s.signerId === actor.userId)) {
-    throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} already signed ${digest}`);
-  }
+/**
+ * 이미 이 정책 digest에 서명한 사람은 다른 역할로 다시 서명할 수 없다(통합 설계 6.5).
+ * 예외(테넌트 정책 결정 TD13): 1인 테넌트(독립 아티스트)가 법무 승인 템플릿을 값 그대로 쓴 정책이면 같은 사람이 승인·활성화한다 — 감사에 남긴다.
+ */
+async function requireNotSigned(tx: Tx, clock: Clock, row: Row, actor: Actor, step: "APPROVE" | "ACTIVATE"): Promise<void> {
+  if (!(await signersOf(tx, row.policyDigest)).some((s) => s.signerId === actor.userId)) return;
+  const ex = await templateExemption(tx, actor, row);
+  if (ex === null) throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} already signed ${row.policyDigest}`);
+  await audit(tx, clock, { actor: actor.userId, action: "SOD_TEMPLATE_EXEMPTION", entityType: "policy_version", entityId: `${row.policyId}@${row.version}`,
+    after: { step, template: `${ex.templateId}@${ex.version}`, tenantType: actor.tenantType } });
+}
+
+/** 표준 템플릿으로 정책 만들기(TD13): 템플릿 값 그대로 이 팩의 정책을 컴파일하고 템플릿을 기록한다. */
+export async function compileFromTemplate(
+  ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; templateId: string; templateVersion?: number },
+) {
+  const t = await getTemplate(tx, input.templateId, input.templateVersion);
+  if (t.status !== "APPROVED") throw conflict("TEMPLATE_NOT_APPROVED", `${t.templateId}@${t.version} is ${t.status}`);
+  const next = ((await tx.query("SELECT COALESCE(MAX(version), 0) AS v FROM policy_version WHERE policy_id = $1", [input.policyId])).rows[0].v as number) + 1;
+  const out = await compilePolicy(ctx, tx, clock, actor, {
+    policyId: input.policyId, packId: input.packId, sourceText: templateText(t, input.packId, input.policyId, next), template: { templateId: t.templateId, version: t.version },
+  });
+  return { ...out, templateId: t.templateId, templateVersion: t.version };
 }
 
 export async function compilePolicy(
-  ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; sourceText: string },
+  ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; sourceText: string; template?: { templateId: string; version: number } },
 ): Promise<PolicyVersionRef & { policyDigest: string; factsDigest: string; canonicalText: string }> {
   requireRole(actor, "EDITOR");
   // 잠금 순서는 팩 → 범위(openDispute·rebind와 같다). 팩을 먼저 잡지 않으면 봉인의 범위 FOR UPDATE와 분쟁 개시의 팩 FOR UPDATE가 교착한다.
@@ -41,9 +60,9 @@ export async function compilePolicy(
   const version = ((await tx.query("SELECT COALESCE(MAX(version), 0) AS v FROM policy_version WHERE policy_id = $1", [input.policyId])).rows[0].v as number) + 1;
   const { sealed, canonicalText } = await compilePolicyText(ctx, tx, { ...input, version, facts });
   await tx.query(
-    `INSERT INTO policy_version (policy_id, version, source_text, policy_digest, facts_digest, facts_known_at, status, pack_id, created_by, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,'COMPILED',$7,$8,$9)`,
-    [input.policyId, version, canonicalText, sealed.digest, facts.digest, knownAt, input.packId, actor.userId, clock.now()],
+    `INSERT INTO policy_version (policy_id, version, source_text, policy_digest, facts_digest, facts_known_at, status, pack_id, created_by, created_at, template_id, template_version)
+     VALUES ($1,$2,$3,$4,$5,$6,'COMPILED',$7,$8,$9,$10,$11)`,
+    [input.policyId, version, canonicalText, sealed.digest, facts.digest, knownAt, input.packId, actor.userId, clock.now(), input.template?.templateId ?? null, input.template?.version ?? null],
   );
   await attest(ctx, tx, clock, { userId: actor.userId, role: "EDITOR", digest: sealed.digest });
   await audit(tx, clock, { actor: actor.userId, action: "POLICY_COMPILED", entityType: "policy_version", entityId: `${input.policyId}@${version}`, after: { policyDigest: sealed.digest, factsDigest: facts.digest } });
@@ -54,7 +73,7 @@ export async function approvePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor:
   requireRole(actor, "WORK_APPROVER");
   const row = await versionRow(tx, ref);
   if (row.status !== "COMPILED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
-  await requireNotSigned(tx, row.policyDigest, actor);
+  await requireNotSigned(tx, clock, row, actor, "APPROVE");
   await attest(ctx, tx, clock, { userId: actor.userId, role: "WORK_APPROVER", digest: row.policyDigest });
   await tx.query("UPDATE policy_version SET status = 'APPROVED' WHERE policy_id = $1 AND version = $2", [ref.policyId, ref.version]);
   await audit(tx, clock, { actor: actor.userId, action: "POLICY_APPROVED", entityType: "policy_version", entityId: `${ref.policyId}@${ref.version}` });
@@ -74,7 +93,7 @@ export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor
   requireRole(actor, "ACTIVATOR");
   const row = await versionRow(tx, ref);
   if (row.status !== "APPROVED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
-  await requireNotSigned(tx, row.policyDigest, actor);
+  await requireNotSigned(tx, clock, row, actor, "ACTIVATE");
   const pack = await packRow(tx, row.packId, "SHARE"); // 판정과 활성화 사이에 청구권자 교체를 막는다
   // checkActivation은 조합 지분 경로 위의 분쟁만 본다. 범위에 열린 분쟁이 하나라도 있으면 경로와 무관하게 거부한다.
   if (await openDisputeInScope(tx, pack.factsScopeId)) throw conflict("FACTS_DISPUTE_OPEN", `facts scope ${pack.factsScopeId} has an open dispute`);
@@ -118,8 +137,9 @@ export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   const version = ((await tx.query("SELECT MAX(version) AS v FROM policy_version WHERE policy_id = $1", [policyId])).rows[0].v as number) + 1;
   const { sealed, canonicalText } = await repinPolicy(ctx, tx, { policyDigest: row.policyDigest, version, facts });
   await tx.query(
-    `INSERT INTO policy_version (policy_id, version, source_text, policy_digest, facts_digest, facts_known_at, status, rebind_of_version, pack_id, created_by, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,'APPROVED',$7,$8,$9,$10)`,
+    `INSERT INTO policy_version (policy_id, version, source_text, policy_digest, facts_digest, facts_known_at, status, rebind_of_version, pack_id, created_by, created_at, template_id, template_version)
+     SELECT $1::text, $2::int, $3::text, $4::text, $5::text, $6::timestamptz, 'APPROVED', $7::int, $8::text, $9::text, $10::timestamptz, template_id, template_version
+       FROM policy_version WHERE policy_id = $1::text AND version = $7::int`,
     [policyId, version, canonicalText, sealed.digest, facts.digest, now, row.version, row.packId, actor.userId, clock.now()],
   );
   await attest(ctx, tx, clock, { userId: actor.userId, role: "ACTIVATOR", digest: sealed.digest });

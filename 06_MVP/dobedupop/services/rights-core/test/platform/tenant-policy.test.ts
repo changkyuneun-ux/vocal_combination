@@ -185,7 +185,7 @@ test("independent artist (TN12) and party transfer (TN2): a verified performer b
   const r = await ok("ops", "usr_onb", "POST", "/onboarding/independent-artists", body);
   assert.equal(r.tenant.status, "APPLIED");
   assert.deepEqual(r.tenant.checks.map((c: any) => c.item), ["IDENTITY"]);
-  assert.deepEqual(r.membership.roles, ["RIGHTS_EDITOR", "TENANT_ADMIN"]);
+  assert.deepEqual(r.membership.roles, ["ACTIVATOR", "EDITOR", "RIGHTS_EDITOR", "TENANT_ADMIN", "WORK_APPROVER"]);
   assert.deepEqual([r.party.from, r.party.to, r.party.managerKind], ["tnt_platform_default", "tnt_suga", "TENANT"]);
   // 실연자 앱은 그대로(개인 소속, 본인 당사자).
   assert.equal((await ok("performer", "usr_suga", "GET", "/me")).partyId, "pty_suga");

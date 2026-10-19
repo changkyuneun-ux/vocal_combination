@@ -11,7 +11,7 @@ export function assertDevDbName(name: string, allowed: string = DEV_DB_NAME): vo
 
 /**
  * 마이그레이션이 넣는 시드 행(migrations/*.sql의 INSERT INTO 전부). 초기화가 TRUNCATE 뒤에 같은 값으로 다시 넣는다.
- * 목록: 0014_holds_payout.sql의 payout_policy 'default', 0017·0018의 플랫폼·개인 기본 테넌트(0030의 validation_enforced 값 포함), 0032의 표준 계약 템플릿. migrations-dev의 dev_clock은 아래에서 따로 넣는다.
+ * 목록: 0014_holds_payout.sql의 payout_policy 'default', 0017·0018의 플랫폼·개인 기본 테넌트(0030의 validation_enforced 값 포함), 0032의 표준 계약 템플릿, 0038의 표준 분배 규칙 템플릿. migrations-dev의 dev_clock은 아래에서 따로 넣는다.
  */
 export const MIGRATION_SEED_SQL: readonly string[] = [
   `INSERT INTO payout_policy VALUES ('default', 10000, 30, '{"DOMESTIC_INDIVIDUAL":330,"DOMESTIC_CORP":0,"FOREIGN":2200,"EXEMPT":0}')`,
@@ -20,6 +20,8 @@ export const MIGRATION_SEED_SQL: readonly string[] = [
   `INSERT INTO tenant VALUES ('tnt_platform_default', 'PLATFORM_DEFAULT', '개인(소속 없음)', 'ACTIVE', '2026-01-01T00:00:00Z')`,
   // 0032: 표준 계약 템플릿 v1 5종(법무 초안 시드). 문안이 길어 마이그레이션 파일의 문장을 그대로 읽는다.
   /INSERT INTO contract_template \(template_id[\s\S]*?\);\n/.exec(readFileSync(new URL("../../migrations/0032_contracts.sql", import.meta.url), "utf8"))![0],
+  // 0038: 표준 분배 규칙 템플릿 2종(법무 초안 시드).
+  /INSERT INTO policy_template \(template_id[\s\S]*?\);\n/.exec(readFileSync(new URL("../../migrations/0038_policy_templates.sql", import.meta.url), "utf8"))![0],
 ];
 
 async function resetWith(c: pg.Client): Promise<{ truncated: string[] }> {

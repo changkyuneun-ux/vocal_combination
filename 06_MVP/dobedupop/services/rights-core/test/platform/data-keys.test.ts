@@ -18,7 +18,7 @@ const KEYS: Record<string, "OWNER" | "PARTY" | "SELF" | "LINK" | "ORG" | "PUBLIC
   notification: "SELF", push_subscription: "SELF", identity_challenge: "SELF", play_event: "SELF",
   participant_link: "LINK", partner_asset: "LINK",
   inbound_file: "ORG", inbound_record: "ORG", tenant_check: "ORG",
-  contract_template: "PUBLIC",
+  contract_template: "PUBLIC", policy_template: "PUBLIC",
   revenue_event: "PLATFORM", revenue_supersede: "PLATFORM", settlement_batch: "PLATFORM", settlement_batch_skip: "PLATFORM", settlement_run: "PLATFORM",
   settlement_run_event: "PLATFORM", settlement_run_event_refund: "PLATFORM", pool_line: "PLATFORM", unallocated_holding: "PLATFORM", reversal_run: "PLATFORM",
   hold_release: "PLATFORM", hold_release_reversal: "PLATFORM", quarantine: "PLATFORM", psp_webhook_inbox: "PLATFORM", audit_log: "PLATFORM", outbox: "PLATFORM",

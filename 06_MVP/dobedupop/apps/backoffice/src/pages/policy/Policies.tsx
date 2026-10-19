@@ -6,6 +6,7 @@ import { Pager } from "../../components/Pager.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { useList } from "../../api/hooks.ts";
 import type { PolicyRow } from "../../api/types.ts";
+import { PolicyTemplates } from "./Templates.tsx";
 
 export function Policies() {
   const [pack, setPack] = useState("");
@@ -14,6 +15,7 @@ export function Policies() {
   const nav = useNavigate();
   const list = useList<PolicyRow>("policies", "/policies", { pack });
   return (
+    <>
     <Section title="정책 목록" actions={<button type="button" className="btn primary" onClick={() => setCreating((v) => !v)}>새 정책</button>}>
       {creating && (
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (newId.trim()) nav(`/policy/${encodeURIComponent(newId.trim())}`); }}>
@@ -31,5 +33,7 @@ export function Policies() {
         ]} />
       <Pager next={list.next} loadMore={list.loadMore} />
     </Section>
+    <PolicyTemplates />
+    </>
   );
 }

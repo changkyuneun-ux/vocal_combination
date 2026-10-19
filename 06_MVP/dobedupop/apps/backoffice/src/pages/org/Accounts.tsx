@@ -111,7 +111,7 @@ export function AccountForm({ orgClass, tenantType, tenantId, firstAdmin = false
       setCreated(r); setErr(null); setUserId(""); setName(""); setPartyId(""); setRoles(initial); onDone(r);
     } catch (e) { setErr(e as ApiError); setCreated(null); }
   };
-  const only = firstAdmin ? (tenantType === "INDEPENDENT_ARTIST" ? ["TENANT_ADMIN", "RIGHTS_EDITOR"] : ["TENANT_ADMIN"]) : undefined;
+  const only = firstAdmin ? (tenantType === "INDEPENDENT_ARTIST" ? ["TENANT_ADMIN", "RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", "ACTIVATOR"] : ["TENANT_ADMIN"]) : undefined;
   return (
     <form className="stack" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <div className="form-grid">
