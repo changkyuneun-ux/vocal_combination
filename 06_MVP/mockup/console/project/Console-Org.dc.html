@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>조직 상세 빅히트 뮤직</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #d1d5db">작업 소속
+<select style="font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #4b5563; background: #1f2937; color: #f9fafb"><option>플랫폼 운영</option><option>빅히트 뮤직</option><option>가상 신탁단체</option></select></label>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-01 09:00</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569"><a href="Console-Platform.dc.html">⑦ 온보딩</a> › <a href="#">권리 테넌트</a> › 빅히트 뮤직</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">빅히트 뮤직</h1>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #dbeafe; color: #1e3a8a; font-weight: 600">권리 테넌트 · 레이블</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">확인됨</span>
+<span style="font-size: 14px; color: #475569; font-family: 'IBM Plex Mono', monospace">tnt_bighit · BRN-DEMO-BIGHIT · KR</span>
+</div>
+<ol aria-label="수명주기" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; font-size: 14px">
+<li style="padding: 10px 12px; border-radius: 8px; background: #e2e8f0">1 신청 · E01</li>
+<li style="padding: 10px 12px; border-radius: 8px; background: #fde68a; font-weight: 600">2 확인됨 · E03</li>
+<li style="padding: 10px 12px; border-radius: 8px; background: #ffffff; border: 1px dashed #94a3b8">3 활성 · E32</li>
+<li style="padding: 10px 12px; border-radius: 8px; background: #ffffff; border: 1px dashed #94a3b8">정지</li>
+<li style="padding: 10px 12px; border-radius: 8px; background: #ffffff; border: 1px dashed #94a3b8">해지</li>
+</ol>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px">확인 항목(KYB)</h2>
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px"><input type="checkbox" checked> 사업자 확인</label>
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px"><input type="checkbox" checked> 대표자</label>
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px"><input type="checkbox" checked> 플랫폼 이용 계약</label>
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px"><input type="checkbox"> 권리 보유 증빙 — 원천 문서 연결: <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">doc_master_dynamite</span></label>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0">
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 0; background: #111827; color: #ffffff">활성으로 올리기</button>
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">정지(사유)</button>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">확인됨: 권리 등록은 되지만 팩·정책 활성화와 판매는 안 된다. 활성은 권리 보유 증빙 확인 뒤.</p>
+</section>
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 2px solid #1d4ed8; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px"><h2 style="margin: 0; font-size: 18px">계정·소속</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-weight: 600">새 기능 G2 · E04</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; background: #eff6ff">
+<div style="flex: 1 1 260px"><strong>총괄을 이 조직의 관리자로 소속</strong><br><span style="font-size: 13px; color: #334155">총괄 계정(usr_admin)에 빅히트 뮤직 소속을 더하고 RIGHTS_ALL(권리 편집·정책 편집·승인·활성화·조직 관리)을 준다. 머리글 소속 목록에 나타난다.</span></div>
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff">총괄 소속 추가</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; border: 1px dashed #94a3b8">
+<div style="flex: 1 1 260px"><strong>고객 관리자 초대(지금 경로)</strong><br><span style="font-size: 13px; color: #475569">실제 고객 조직일 때: 첫 관리자 발급 → 초대 링크. 역할을 나누는 단계에서 다시 쓴다.</span></div>
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">첫 관리자 발급</button>
+</div>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">계정</th><th style="padding: 8px 10px">역할</th><th style="padding: 8px 10px">상태</th></tr></thead>
+<tbody><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">총괄 · usr_admin</td><td style="padding: 8px 10px">RIGHTS_ALL</td><td style="padding: 8px 10px">소속됨</td></tr></tbody>
+</table>
+</section>
+</div>
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 18px">당사자 · 연결 · 위임 대행</h2>
+<p style="margin: 0; font-size: 14px; color: #334155">당사자: 빅히트 뮤직(레이블) · 빅히트 뮤직 매니지먼트(소속사) — P2 E09에서 빅히트 소속으로 등록 · 연결: 없음 · 위임 대행: 없음</p>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

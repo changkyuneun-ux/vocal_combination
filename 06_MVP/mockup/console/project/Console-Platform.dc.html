@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>플랫폼 파이프라인 홈</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #d1d5db">작업 소속
+<select style="font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #4b5563; background: #1f2937; color: #f9fafb"><option>플랫폼 운영</option><option>빅히트 뮤직</option><option>가상 신탁단체</option></select></label>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<button style="font: inherit; font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 0; background: #6b21a8; color: #ffffff">실연자로 들어가기 ▾</button>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-02-15 09:00</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<div style="display: flex; flex-wrap: wrap">
+<nav aria-label="플랫폼 메뉴" style="flex: 1 1 220px; max-width: 260px; padding: 20px 16px; border-right: 1px solid #e2e8f0; background: #ffffff; font-size: 14px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #475569; font-size: 12px">⑧ 관제</strong><a href="#" style="padding: 6px 10px; border-radius: 6px; background: #e5e7eb; color: #111827; text-decoration: none; font-weight: 600">파이프라인 홈</a><a href="#" style="padding: 6px 10px; text-decoration: none">한 건 추적</a><a href="#" style="padding: 6px 10px; text-decoration: none">검증 체크리스트</a></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #475569; font-size: 12px">⑦ 온보딩</strong><a href="Console-Org.dc.html" style="padding: 6px 10px; text-decoration: none">권리 테넌트</a><a href="#" style="padding: 6px 10px; text-decoration: none">참여 기관</a><a href="#" style="padding: 6px 10px; text-decoration: none">개인 계정</a><a href="#" style="padding: 6px 10px; text-decoration: none">연결</a></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #475569; font-size: 12px">⑤ 무결성</strong><a href="#" style="padding: 6px 10px; text-decoration: none">정합성 큐</a><a href="#" style="padding: 6px 10px; text-decoration: none">확인 요청</a><a href="#" style="padding: 6px 10px; text-decoration: none">분쟁</a></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #475569; font-size: 12px">⑥ 정산·재무</strong><a href="#" style="padding: 6px 10px; text-decoration: none">매출·이상거래</a><a href="Console-Settlement.dc.html" style="padding: 6px 10px; text-decoration: none">정산 배치</a><a href="#" style="padding: 6px 10px; text-decoration: none">원장</a><a href="Console-Payout.dc.html" style="padding: 6px 10px; text-decoration: none">지급</a></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #475569; font-size: 12px">⑩ 관리</strong><a href="Console-RBAC.dc.html" style="padding: 6px 10px; text-decoration: none">역할·권한</a><a href="#" style="padding: 6px 10px; text-decoration: none">감사 로그</a></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><strong style="color: #b45309; font-size: 12px">데모</strong><a href="Console-Demo.dc.html" style="padding: 6px 10px; text-decoration: none; color: #92400e">진행 단계</a></div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px"><h1 style="margin: 0; font-size: 26px">⑧ 권리 파이프라인 관제</h1><span style="font-size: 14px; color: #475569">권리 생성부터 지급까지 단계별 신호 · 플랫폼은 결정하지 않고 관제·개입한다</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<div style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 13px; color: #475569">권리 등록</div><div style="font-size: 24px; font-weight: 700">0</div><div style="font-size: 13px; color: #475569">증빙 미확인 주장</div></div>
+<div style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 13px; color: #475569">정책·팩</div><div style="font-size: 24px; font-weight: 700">활성 1</div><div style="font-size: 13px; color: #475569">DYNAMITE-FAN · 재고정 대기 0</div></div>
+<div style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #fdba74"><div style="font-size: 13px; color: #475569">조합 발행</div><div style="font-size: 24px; font-weight: 700">4 · 거부 1</div><div style="font-size: 13px; color: #9a3412">ISSUE_NOT_SETTLEABLE 1(솔로 조합)</div></div>
+<div style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 13px; color: #475569">수익·정산·지급</div><div style="font-size: 24px; font-weight: 700">대기</div><div style="font-size: 13px; color: #475569">3월 매출 수집 전</div></div>
+</div>
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 18px">단계별 신호</h2>
+<div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="background: #f1f5f9; text-align: left"><th style="padding: 10px 14px">단계</th><th style="padding: 10px 14px">신호</th><th style="padding: 10px 14px">1차 대응</th><th style="padding: 10px 14px">최종 결정</th><th style="padding: 10px 14px">열기</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">권리 등록</td><td style="padding: 10px 14px">확인 요청 OPEN 0 · 작가 지분 원문 대조 완료</td><td style="padding: 10px 14px">권리자에게 보완 요청</td><td style="padding: 10px 14px">권리자</td><td style="padding: 10px 14px"><a href="#">확인 요청</a></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">정책·팩</td><td style="padding: 10px 14px">pol_dynamite_fan v1 ACTIVE</td><td style="padding: 10px 14px">—</td><td style="padding: 10px 14px">권리자</td><td style="padding: 10px 14px"><a href="#">팩</a></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">조합 발행</td><td style="padding: 10px 14px">게이트 거부율 20% (1/5)</td><td style="padding: 10px 14px">거부 사유 집계</td><td style="padding: 10px 14px">권리자</td><td style="padding: 10px 14px"><a href="#">발행</a></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">수익 유입</td><td style="padding: 10px 14px">미확정 매출 0</td><td style="padding: 10px 14px">거부 큐 처리</td><td style="padding: 10px 14px">플랫폼</td><td style="padding: 10px 14px"><a href="#">매출</a></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">정산·지급</td><td style="padding: 10px 14px">재계산 불일치 0 · 보류 0</td><td style="padding: 10px 14px">run VOID · 재실행</td><td style="padding: 10px 14px">플랫폼</td><td style="padding: 10px 14px"><a href="Console-Settlement.dc.html">정산 배치</a></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">권한</td><td style="padding: 10px 14px">직무 분리 규칙 7개 꺼짐(결정 RD6)</td><td style="padding: 10px 14px">—</td><td style="padding: 10px 14px">—</td><td style="padding: 10px 14px"><a href="Console-RBAC.dc.html">규칙</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0">
+<label for="trace" style="font-weight: 600; font-size: 14px">한 건 추적</label>
+<input id="trace" value="vc_bts_orig" style="font: inherit; font-family: 'IBM Plex Mono', monospace; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px; flex: 1 1 240px">
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 0; background: #111827; color: #ffffff">원곡 → 지급까지 보기</button>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

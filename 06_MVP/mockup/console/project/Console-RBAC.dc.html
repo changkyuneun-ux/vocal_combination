@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>역할과 권한</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #d1d5db">작업 소속 <strong style="color: #f9fafb">플랫폼 운영 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569"><a href="Console-Platform.dc.html">⑩ 관리</a> › 역할·권한</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px"><h1 style="margin: 0; font-size: 26px">역할·권한</h1><span style="font-size: 14px; color: #475569">기능 → 권한(49) → 역할 · 역할과 매핑은 DB가 원본 · 범위(RLS)는 바꾸지 않는다</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="flex: 1 1 300px; max-width: 380px; padding: 16px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<h2 style="margin: 0 0 4px; font-size: 16px">역할</h2>
+<div style="padding: 10px 12px; border-radius: 8px; background: #e5e7eb; display: flex; justify-content: space-between; gap: 8px"><strong>PLATFORM_ALL</strong><span style="color: #334155">플랫폼 · 시스템 · 배정 1</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; border: 1px solid #e2e8f0"><strong>RIGHTS_ALL</strong><span style="color: #475569">권리 테넌트 · 시스템 · 배정 1</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; border: 1px solid #e2e8f0"><strong>PARTICIPANT_ALL</strong><span style="color: #475569">참여 기관 · 시스템 · 배정 1</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; border: 1px solid #e2e8f0"><strong>PERFORMER</strong><span style="color: #475569">개인 · 배정 7</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; border: 1px solid #e2e8f0"><strong>SYSTEM</strong><span style="color: #475569">시스템 신원 3 · 사람 배정 불가</span></div>
+<strong style="color: #475569; font-size: 12px; padding-top: 6px">역할 템플릿(배정 없음) — 나눌 때 출발점</strong>
+<div style="color: #475569; line-height: 1.7">RIGHTS_EDITOR · EDITOR · WORK_APPROVER · ACTIVATOR · TENANT_ADMIN · SPACE_OPS · SPACE_SETTLE · ONBOARDING · COMPLIANCE · LEGAL · TRUST_OFFICER · PARTNER_INTEGRATION · ISSUER</div>
+<button style="font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">새 역할(참여 구분 선택)</button>
+</section>
+<section style="flex: 999 1 560px; min-width: 0; padding: 16px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 16px">PLATFORM_ALL의 권한</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #f1f5f9">시스템 역할 · 수정 불가</span></div>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">영역</th><th style="padding: 8px 10px">권한</th><th style="padding: 8px 10px">종류</th><th style="padding: 8px 10px">참여 구분</th><th style="padding: 8px 10px">포함</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">⑥</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">settlement.confirm</td><td style="padding: 8px 10px">개입</td><td style="padding: 8px 10px">플랫폼</td><td style="padding: 8px 10px"><input type="checkbox" checked disabled aria-label="settlement.confirm 포함"></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">⑥</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">payout.run</td><td style="padding: 8px 10px">개입</td><td style="padding: 8px 10px">플랫폼</td><td style="padding: 8px 10px"><input type="checkbox" checked disabled aria-label="payout.run 포함"></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">⑦</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">tenant.onboard</td><td style="padding: 8px 10px">관리</td><td style="padding: 8px 10px">플랫폼</td><td style="padding: 8px 10px"><input type="checkbox" checked disabled aria-label="tenant.onboard 포함"></td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">⑦</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">audit.view</td><td style="padding: 8px 10px">조회</td><td style="padding: 8px 10px">플랫폼·권리·참여</td><td style="padding: 8px 10px"><input type="checkbox" checked disabled aria-label="audit.view 포함"></td></tr>
+<tr style="border-top: 1px solid #e2e8f0; background: #fef2f2"><td style="padding: 8px 10px">②</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">policy.approve</td><td style="padding: 8px 10px">결정</td><td style="padding: 8px 10px">권리 테넌트만</td><td style="padding: 8px 10px; color: #991b1b">넣을 수 없음(TR5)</td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">권리 결정 권한은 PLATFORM 역할에 넣으면 DB가 거부한다(ROLE_CLASS_MISMATCH). 총괄은 빅히트 소속으로 결정한다.</p>
+</section>
+</div>
+<section style="padding: 16px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 16px">직무 분리 규칙</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #ffedd5; color: #9a3412; font-weight: 600">현 단계 모두 꺼짐 · 결정 RD6 · 읽기 전용</span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 14px">
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">정책 편집 ≠ 승인 ≠ 활성화 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">정산 실행 ≠ 확정 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">계좌 변경 ≠ 지급 실행 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">계약 템플릿 작성 ≠ 승인 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">분배 템플릿 작성 ≠ 승인 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">위험 수용 요청 ≠ 승인 · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0">연결 제안 ≠ 확인(사람) · <strong>꺼짐</strong></div>
+<div style="padding: 10px 12px; border-radius: 8px; border: 1px dashed #94a3b8; color: #475569">관제 ≠ 감사 · 미구현</div>
+<div style="padding: 10px 12px; border-radius: 8px; background: #ecfdf5; border: 1px solid #6ee7b7">독립 검증(실행 ≠ 검증 워커) · <strong>항상 적용</strong></div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

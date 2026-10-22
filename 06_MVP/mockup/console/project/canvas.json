@@ -1,0 +1,26 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-22T09:00:00Z" },
+  "title": "dobedupop 총괄 콘솔 UI 구조 시안",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1560, "title": "구조 지도 — 콘솔 셸·소속별 메뉴·E2E 흐름", "expand": "fill" },
+    "Console-Platform.dc.html": { "x": 0, "y": 1900, "w": 1440, "h": 1000, "title": "[플랫폼] ⑧ 파이프라인 홈", "expand": "fill" },
+    "Console-Org.dc.html": { "x": 1520, "y": 1900, "w": 1440, "h": 1000, "title": "[플랫폼] 조직 상세 — 확인 항목·상태·총괄 소속", "expand": "fill" },
+    "Console-Demo.dc.html": { "x": 3040, "y": 1900, "w": 1440, "h": 1000, "title": "[데모] 진행 단계 P0~P10", "expand": "fill" },
+    "Console-Rights.dc.html": { "x": 0, "y": 3300, "w": 1440, "h": 1000, "title": "[빅히트] ① 권리 요약·카탈로그", "expand": "fill" },
+    "Console-Policy.dc.html": { "x": 1520, "y": 3300, "w": 1440, "h": 1000, "title": "[빅히트] ② 분배 규칙 — 편집·승인·활성화", "expand": "fill" },
+    "Artist-Consent.dc.html": { "x": 3040, "y": 3300, "w": 390, "h": 844, "title": "[실연자: 정국] 본인 전환 — 확인·동의" },
+    "Console-Settlement.dc.html": { "x": 0, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 정산 배치 상세 — 재계산·확정", "expand": "fill" },
+    "Console-Payout.dc.html": { "x": 1520, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 지급·명세 — 정산 확인", "expand": "fill" },
+    "Console-RBAC.dc.html": { "x": 3040, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑩ 역할·권한·직무 분리 규칙", "expand": "fill" }
+  },
+  "order": ["Main.dc.html", "Console-Platform.dc.html", "Console-Org.dc.html", "Console-Demo.dc.html", "Console-Rights.dc.html", "Console-Policy.dc.html", "Artist-Consent.dc.html", "Console-Settlement.dc.html", "Console-Payout.dc.html", "Console-RBAC.dc.html"],
+  "notes": {
+    "t_row2": { "x": 0, "y": 1640, "text": "P1·P5 온보딩과 운영 확인 — 플랫폼 소속", "kind": "title1", "maxW": 4480 },
+    "t_row3": { "x": 0, "y": 3040, "text": "P2~P7 권리 등록·실연자·정책 — 빅히트 소속과 본인 전환", "kind": "title1", "maxW": 4480 },
+    "t_row4": { "x": 0, "y": 4440, "text": "P9~P10 정산·지급·명세, 권한 구조", "kind": "title1", "maxW": 4480 }
+  },
+  "designSystems": []
+}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>지급과 명세 정산 확인</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #d1d5db">작업 소속 <strong style="color: #f9fafb">플랫폼 운영 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-05-01 09:01</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569"><a href="Console-Platform.dc.html">⑥ 정산·재무</a> › 지급 › pay-2026-05</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">지급 run · 2026-05-01</h1>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 600">PAID 4 · 가상 PSP 통지 완료</span>
+</div>
+<div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff">
+<table style="width: 100%; border-collapse: collapse; font-size: 15px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 12px 14px">받는 당사자</th><th style="padding: 12px 14px">관리 주체</th><th style="padding: 12px 14px">세금</th><th style="padding: 12px 14px; text-align: right">지급(원)</th><th style="padding: 12px 14px">계좌</th><th style="padding: 12px 14px">상태</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 12px 14px">빅히트 뮤직 매니지먼트(소속사)</td><td style="padding: 12px 14px">빅히트 뮤직</td><td style="padding: 12px 14px">국내 법인</td><td style="padding: 12px 14px; text-align: right; font-weight: 700">2,285,920</td><td style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace">••••ency</td><td style="padding: 12px 14px">PAID</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 12px 14px">빅히트 뮤직(레이블)</td><td style="padding: 12px 14px">빅히트 뮤직</td><td style="padding: 12px 14px">국내 법인</td><td style="padding: 12px 14px; text-align: right; font-weight: 700">2,030,952</td><td style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace">••••abel</td><td style="padding: 12px 14px">PAID</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 12px 14px">David Stewart(작가)</td><td style="padding: 12px 14px">플랫폼 위탁</td><td style="padding: 12px 14px">해외 · 원천징수</td><td style="padding: 12px 14px; text-align: right; font-weight: 700">296,604</td><td style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace">••••_ds</td><td style="padding: 12px 14px">PAID</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 12px 14px">Jessica Agombar(작가)</td><td style="padding: 12px 14px">플랫폼 위탁</td><td style="padding: 12px 14px">해외 · 원천징수</td><td style="padding: 12px 14px; text-align: right; font-weight: 700">296,604</td><td style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace">••••_ja</td><td style="padding: 12px 14px">PAID</td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 14px; color: #334155">원천징수 합계 83,650원 · 계좌 토큰은 끝 4자만(마스킹 해제는 사유 기록) · E55~E57</p>
+<h2 style="margin: 0; font-size: 18px">정산 확인 — 소속을 바꿔 같은 금액을 본다</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<section style="border-radius: 12px; overflow: hidden; border: 1px solid #93c5fd; background: #ffffff">
+<div style="padding: 10px 14px; background: #1d4ed8; color: #ffffff; font-weight: 600; font-size: 14px">빅히트 소속 › 명세·지급 · E58</div>
+<div style="padding: 14px; font-size: 14px; line-height: 1.8">레이블 2,030,952<br>소속사 2,285,920<br><span style="color: #475569">작가 명세는 보이지 않는다(다른 관리 주체)</span></div>
+</section>
+<section style="border-radius: 12px; overflow: hidden; border: 1px solid #d8b4fe; background: #ffffff">
+<div style="padding: 10px 14px; background: #7e22ce; color: #ffffff; font-weight: 600; font-size: 14px">정국 본인 전환 › 수익 · E59</div>
+<div style="padding: 14px; font-size: 14px; line-height: 1.8">위임 전 내 기여분(참고값) 546,708<br><span style="color: #475569">직접 받는 금액 0 — 소속사 수령 위임</span></div>
+</section>
+<section style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #111827; color: #ffffff; font-weight: 600; font-size: 14px">플랫폼 › ⑧ 한 건 추적 · E60</div>
+<div style="padding: 14px; font-size: 14px; line-height: 1.8">vc_bts_orig: 원곡 → 녹음 → 스템 8 → 조합 → 매출 1,200 → 정산 라인 → 지급<br><span style="color: #475569">단계마다 봉인 digest·정책 버전</span></div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

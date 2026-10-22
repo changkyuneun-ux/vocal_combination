@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>빅히트 분배 규칙</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #dbeafe">작업 소속 <strong style="color: #ffffff">빅히트 뮤직 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">RIGHTS_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-02-01 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569"><a href="Console-Rights.dc.html">빅히트 뮤직</a> › ② 정책·상품 › 분배 규칙 › pol_dynamite_fan</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">분배 규칙 · Dynamite 팬앱</h1>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 600">정합성 점검 차단 0</span>
+</div>
+<ol aria-label="정책 단계" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<li style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #86efac; display: flex; flex-direction: column; gap: 6px"><strong>1 작성·컴파일 · E37</strong><span style="font-size: 13px; color: #475569">policy.edit · 서명 EDITOR</span><span style="font-size: 13px; color: #166534">v1 COMPILED · usr_admin</span></li>
+<li style="padding: 16px; border-radius: 10px; background: #ffffff; border: 2px solid #1d4ed8; display: flex; flex-direction: column; gap: 6px"><strong>2 승인 · E38</strong><span style="font-size: 13px; color: #475569">policy.approve · 서명 WORK_APPROVER</span><button style="font: inherit; padding: 8px 14px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff">승인</button></li>
+<li style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px dashed #94a3b8; display: flex; flex-direction: column; gap: 6px"><strong>3 활성화 · E39</strong><span style="font-size: 13px; color: #475569">policy.activate · 서명 ACTIVATOR</span><span style="font-size: 13px; color: #475569">승인 뒤</span></li>
+<li style="padding: 16px; border-radius: 10px; background: #ffffff; border: 1px dashed #94a3b8; display: flex; flex-direction: column; gap: 6px"><strong>4 팩 활성화 · E40</strong><span style="font-size: 13px; color: #475569">pack.activate</span><span style="font-size: 13px; color: #475569">DYNAMITE-FAN</span></li>
+</ol>
+<div role="note" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 16px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74; font-size: 14px">
+<strong>직무 분리 꺼짐</strong>
+<span>같은 사람(usr_admin)이 편집·승인·활성화한다 — 규칙 policy.edit-approve-activate 꺼짐(결정 RD6). 서명은 단계별 역할로 각각 남는다.</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.7">
+<h2 style="margin: 0; font-size: 18px">규칙 폼</h2>
+<div>권리자 몫 <strong>70%</strong> (팬앱 구매·감상)</div>
+<div>녹음 40% → 빅히트 뮤직(레이블)</div>
+<div>실연 45% → 참여 멤버 고정 40% + 부른 시간 60%, <strong>위임대로</strong>(소속사)</div>
+<div>작품 15% → 작가 지분대로(위임대로)</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #475569">policy digest mdrl:sha256:2e77…</div>
+</section>
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<h2 style="margin: 0; font-size: 18px">예시 계산 · 구매 1건 3,300원</h2>
+<table style="width: 100%; border-collapse: collapse">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">받는 쪽</th><th style="padding: 8px 10px; text-align: right">원</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">빅히트 뮤직(레이블) · 녹음</td><td style="padding: 8px 10px; text-align: right">[예시 값]</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">빅히트 뮤직 매니지먼트 · 실연(위임)</td><td style="padding: 8px 10px; text-align: right">[예시 값]</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">작가 2명 · 작품</td><td style="padding: 8px 10px; text-align: right">[예시 값]</td></tr>
+</tbody>
+</table>
+<p style="margin: 0; font-size: 13px; color: #475569">화면은 정책 미리보기(/policies/preview) 결과를 그대로 보여 준다.</p>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

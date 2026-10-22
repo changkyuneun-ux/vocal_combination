@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>총괄 콘솔 구조 지도</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; box-sizing: border-box; padding: 48px 40px">
+<div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #475569; letter-spacing: 0.04em">MVP M5a · 총괄 운영과 권한 구조 · 2026-10-22</p>
+<h1 style="margin: 0; font-size: 40px; font-weight: 700">총괄 콘솔 UI 구조 시안</h1>
+<p style="margin: 0; font-size: 17px; color: #334155; max-width: 900px; line-height: 1.6">총괄 한 사람이 한 계정·한 콘솔로 테넌트 등록부터 정산 확인까지 처리한다. 머리글에서 <strong>작업 소속</strong>을 바꾸면 메뉴 묶음이 바뀌고, 권리 결정은 권리 테넌트 소속에서만 보인다. 실연자 본인 행위는 데모 환경에서 그 멤버로 들어가서 한다.</p>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">1. 콘솔 셸</h2>
+<div style="border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #ffffff">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 20px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #4b5563; border-radius: 8px; font-size: 14px"><span style="color: #d1d5db">작업 소속</span><strong>플랫폼 운영 ▾</strong></div>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #6b21a8">실연자로 들어가기 ▾</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">데모 시계 2026-04-01 09:00</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; min-height: 160px">
+<div style="flex: 0 0 240px; padding: 16px 20px; border-right: 1px solid #e2e8f0; background: #f1f5f9; font-size: 14px; display: flex; flex-direction: column; gap: 8px">
+<strong>사이드 메뉴</strong>
+<span style="color: #475569">현재 소속의 참여 구분에 맞는 메뉴 묶음, 그 안에서 권한으로 거른 항목</span>
+</div>
+<div style="flex: 999 1 560px; padding: 16px 20px; font-size: 14px; display: flex; flex-direction: column; gap: 8px">
+<strong>본문</strong>
+<span style="color: #475569">지금 백오피스 화면을 그대로 쓴다(경로 동일). 코어가 요청마다 "채널 ↔ 현재 소속"을 다시 검사한다.</span>
+</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; font-size: 14px">
+<div style="padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px"><strong>작업 소속 전환</strong><span style="color: #475569">플랫폼 운영 · 빅히트 뮤직 · 가상 신탁단체. 머리글 색이 소속을 알린다(운영 어두운 회색 · 권리 파랑 · 참여 기관 청록).</span></div>
+<div style="padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px"><strong>실연자로 들어가기</strong><span style="color: #475569">데모 환경 전용. 멤버를 고르면 artist. 실연자 앱이 그 멤버 본인 세션으로 새 탭에 열린다.</span></div>
+<div style="padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px"><strong>데모 시계·데모 메뉴</strong><span style="color: #475569">데모 빌드에만 있다. 가상 시계, 진행 단계, 가상 팬·매출, 전자서명 공급자, PSP.</span></div>
+<div style="padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px"><strong>보호</strong><span style="color: #475569">운영 백오피스와 같다: 접근 IP 제한 + 비밀번호 + TOTP + Secure 쿠키(결정 RD7).</span></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">2. 소속별 메뉴</h2>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; font-size: 14px; line-height: 1.6">
+<div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #111827; color: #f9fafb; font-weight: 600">플랫폼 운영 · PLATFORM_ALL</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div><strong>⑧ 관제</strong><br>파이프라인 홈 · 한 건 추적 · 검증 체크리스트</div>
+<div><strong>⑦ 온보딩</strong><br>권리 테넌트 · 참여 기관 · 조직 상세 · 개인 계정 · 연결</div>
+<div><strong>⑤ 무결성</strong><br>정합성 큐 · 확인 요청 · 분쟁 · 스템 검수·렌더</div>
+<div><strong>⑥ 정산·재무</strong><br>매출·이상거래 · 연동 허브 · 감상 수익 풀 · 정산 배치 · 격리 · 보류 · 원장 · 지급 정보 · 지급 · 명세</div>
+<div><strong>권리 조회</strong><br>카탈로그 · 권리 요약 · 당사자 · 표준 계약 · 정책·팩·발행(조회만)</div>
+<div><strong>⑩ 관리</strong><br>역할·권한 · 직무 분리 규칙 · 운영 인력 · 조회 통제·break-glass · 감사 로그</div>
+</div>
+</div>
+<div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #1d4ed8; color: #ffffff; font-weight: 600">빅히트 뮤직 · RIGHTS_ALL</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div><strong>홈</strong><br>내 조직(상태·확인 항목·당사자)</div>
+<div><strong>① 권리 등록</strong><br>카탈로그 · 권리 요약 · 원천 문서 · 권리 주장 · 위임 · 표준 계약 · 당사자 · 확인 요청 · 스템 오디오 · 분쟁</div>
+<div><strong>② 정책·상품</strong><br>분배 규칙 · 팩</div>
+<div><strong>③ 발행</strong><br>발행 조합</div>
+<div><strong>점검·정산</strong><br>정합성 점검 · 명세·지급</div>
+<div><strong>연결 · 설정</strong><br>신탁·유통 연결 · 담당자 계정 · 위임 대행 · 조회 투명성</div>
+</div>
+</div>
+<div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #0f766e; color: #ffffff; font-weight: 600">가상 신탁단체 · PARTICIPANT_ALL</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div><strong>홈</strong><br>내 조직</div>
+<div><strong>① 연결</strong><br>연결·상품 대응 · 신탁 작품</div>
+<div><strong>② 정산</strong><br>명세서</div>
+<div><strong>설정</strong><br>담당자 계정</div>
+</div>
+</div>
+<div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #7e22ce; color: #ffffff; font-weight: 600">실연자 앱(본인 전환) · artist.</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div><strong>본인 인증</strong><br>코드 받기 · 입력</div>
+<div><strong>동의</strong><br>확인 요청 · 이용 동의 · 계약 서명 · 철회</div>
+<div><strong>사용</strong><br>내 스템이 쓰인 조합 · 이의제기</div>
+<div><strong>수익</strong><br>명세 · 위임 전 내 기여분</div>
+<div><strong>알림</strong><br>알림함 · 웹 푸시</div>
+</div>
+</div>
+<div style="border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; background: #ffffff">
+<div style="padding: 10px 14px; background: #b45309; color: #ffffff; font-weight: 600">데모 메뉴(데모 빌드만)</div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div><strong>진행 단계</strong><br>P0~P10 · 화면으로 하기 / 도구로 채우기 · 처음부터</div>
+<div><strong>가상 팬</strong><br>조합 발행 · 솔로 조합 거부</div>
+<div><strong>가상 매출</strong><br>구매 2,201건 · 환불</div>
+<div><strong>전자서명 공급자</strong><br>해외 작가 서명</div>
+<div><strong>PSP · 시계</strong><br>지급 완료 통지 · 가상 시각</div>
+</div>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">3. E2E 흐름(E00~E61)과 소속</h2>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; font-size: 13px; line-height: 1.5">
+<div style="padding: 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74"><strong>P0 준비</strong><br>데모 · 처음부터, 시계 1/1</div>
+<div style="padding: 12px; border-radius: 10px; background: #f1f5f9; border: 1px solid #94a3b8"><strong>P1 온보딩 · 1/1</strong><br>플랫폼 · 빅히트 신청→확인됨, 신탁단체 활성, 멤버·작가 당사자, 총괄 소속 추가</div>
+<div style="padding: 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>P2 권리 등록 · 1/2</strong><br>빅히트 · 곡·녹음·슬롯 8·스템 50·보이스 7, 계약서 원문 2, 권리 주장 59</div>
+<div style="padding: 12px; border-radius: 10px; background: #faf5ff; border: 1px solid #d8b4fe"><strong>P3 실연자 · 1/5</strong><br>실연자 본인 · 인증, 확인 56, 이용 동의 7</div>
+<div style="padding: 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>P4 표준 계약 · 1/5</strong><br>빅히트·플랫폼·실연자 · 계약 11건 서명·반영</div>
+<div style="padding: 12px; border-radius: 10px; background: #f1f5f9; border: 1px solid #94a3b8"><strong>P5 운영 확인 · 1/20</strong><br>플랫폼 · 지급 정보 4, 작가 지분 원문 대조, 빅히트 활성</div>
+<div style="padding: 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>P6 정책·팩 · 2/1</strong><br>빅히트 · 정합성 차단 0, 분배 규칙 편집·승인·활성화, 팩 활성</div>
+<div style="padding: 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74"><strong>P7 발행 · 2/15</strong><br>데모(가상 팬) · 조합 4 봉인, 솔로 조합 거부</div>
+<div style="padding: 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74"><strong>P8 매출 · 4/1</strong><br>데모→플랫폼 · 구매 2,201건 7,260,000원, 이상거래 1건 보류</div>
+<div style="padding: 12px; border-radius: 10px; background: #f1f5f9; border: 1px solid #94a3b8"><strong>P9 정산 · 4/1</strong><br>플랫폼 · 배치 → 독립 재계산 VERIFIED → 확정 → 원장, 4/10 환불 역분개</div>
+<div style="padding: 12px; border-radius: 10px; background: #f1f5f9; border: 1px solid #94a3b8"><strong>P10 지급·명세 · 5/1</strong><br>플랫폼·빅히트·실연자 · 지급 PAID, 명세 대조, 한 건 추적</div>
+<div style="padding: 12px; border-radius: 10px; background: #ffffff; border: 1px dashed #94a3b8"><strong>부록</strong><br>동의 철회 → 노출 중지·영향 분석, 4월 감상 수익 풀</div>
+</div>
+<p style="margin: 0; font-size: 14px; color: #334155">확인 금액: 소속사 2,285,920 · 레이블 2,030,952 · 작가 각 296,604(원천징수 83,650) · 정국 기여분 546,708. 단계별 화면·API는 <span style="font-family: 'IBM Plex Mono', monospace">00_프로젝트_개요/MVP_E2E_흐름과_화면_매핑_20261022.md</span>.</p>
+</section>
+
+<section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">4. 주소</h2>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-family: 'IBM Plex Mono', monospace">
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">console.dobedupop.localhost — 켜짐 · 총괄 콘솔(/api/ops·portal·partner)</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">artist.dobedupop.localhost — 켜짐 · 실연자 앱</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #f1f5f9; border: 1px dashed #94a3b8; color: #475569">portal. · ops. · partner. · demo. — 꺼짐(ENABLED_HOSTS), 빌드 코드는 유지</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">5. 화면 상태 표기</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 14px">
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">● 화면 있음 — 지금 화면 그대로</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">◐ 불편 — 한 건씩(대량 입력 ED1)</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">○ 데모 도구 — 팬·매출·서명·PSP·시계</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1">✕ 공백 — 소속 전환·총괄 소속 추가·본인 전환</div>
+</div>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

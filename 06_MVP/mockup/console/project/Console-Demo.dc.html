@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>데모 진행 단계</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#92400e}a:hover{color:#78350f}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #fffbeb; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #d1d5db">작업 소속 <strong style="color: #f9fafb">플랫폼 운영</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #b45309">데모 환경</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-02-01 09:00</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">데모 · 진행 단계</h1>
+<span style="font-size: 14px; color: #475569">Dynamite 2차 이용(가상) · 실명 크레딧, 지분·계약·가격·판매량은 가정</span>
+<div style="flex: 1 1 40px"></div>
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid #b45309; background: #ffffff; color: #92400e">처음부터 다시</button>
+<button style="font: inherit; padding: 9px 16px; border-radius: 8px; border: 0; background: #b45309; color: #ffffff">남은 단계 도구로 채우기</button>
+</div>
+<p style="margin: 0; font-size: 14px; color: #334155">단계마다 <strong>화면으로 하기</strong>(그 단계의 첫 화면을 그 소속으로 연다) 또는 <strong>도구로 채우기</strong>(같은 공개 API로 넣는다)를 고른다. 한 단계 안에서도 시연할 한 건만 화면으로 하고 나머지는 채울 수 있다(결정 ED1).</p>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7"><strong style="flex: 0 0 120px">P1 온보딩</strong><span style="flex: 1 1 360px; font-size: 14px">빅히트 신청 → 확인됨, 신탁단체 활성, 멤버·작가 당사자, 총괄 소속 추가 · 1/1</span><span style="font-size: 13px; font-weight: 600; color: #047857">완료</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7"><strong style="flex: 0 0 120px">P2 권리 등록</strong><span style="flex: 1 1 360px; font-size: 14px">곡·녹음 화면으로, 슬롯·스템 65건과 권리 주장 56건은 도구로 · 1/2</span><span style="font-size: 13px; font-weight: 600; color: #047857">완료</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7"><strong style="flex: 0 0 120px">P3 실연자</strong><span style="flex: 1 1 360px; font-size: 14px">정국은 실연자 앱 화면으로, 나머지 6명은 도구로 · 1/5</span><span style="font-size: 13px; font-weight: 600; color: #047857">완료</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7"><strong style="flex: 0 0 120px">P4 표준 계약</strong><span style="flex: 1 1 360px; font-size: 14px">플랫폼 계약·녹음 이용허락 화면으로, 작가 서명(공급자)·위임 6건 도구로 · 1/5</span><span style="font-size: 13px; font-weight: 600; color: #047857">완료</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7"><strong style="flex: 0 0 120px">P5 운영 확인</strong><span style="flex: 1 1 360px; font-size: 14px">지급 정보 4, 작가 지분 원문 대조, 빅히트 활성 · 1/20</span><span style="font-size: 13px; font-weight: 600; color: #047857">완료</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; border-radius: 10px; background: #ffffff; border: 2px solid #b45309">
+<strong style="flex: 0 0 120px">P6 정책·팩</strong>
+<span style="flex: 1 1 360px; font-size: 14px">정합성 점검 → 분배 규칙 편집·승인·활성화 → 팩 활성 · 2/1 · <strong>빅히트 소속</strong></span>
+<a href="Console-Policy.dc.html" style="padding: 9px 14px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-size: 14px">화면으로 하기 · 빅히트 › 분배 규칙</a>
+<button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #b45309; background: #ffffff; color: #92400e">도구로 채우기</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong style="flex: 0 0 120px">P7 발행</strong><span style="flex: 1 1 360px; font-size: 14px">가상 팬 4명 조합 4개 발행, 솔로 조합 거부 · 2/15 · 도구만(팬 앱 없음)</span><button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #b45309; background: #ffffff; color: #92400e">가상 팬 실행</button></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong style="flex: 0 0 120px">P8 매출</strong><span style="flex: 1 1 360px; font-size: 14px">3월 구매 2,201건(1건 이상거래 의심) · 시계 4/1 · 도구 → 플랫폼 › 매출에서 확인</span><button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #b45309; background: #ffffff; color: #92400e">가상 매출 넣기</button></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong style="flex: 0 0 120px">P9 정산</strong><span style="flex: 1 1 360px; font-size: 14px">배치 → 독립 재계산 → 확정 → 원장, 4/10 환불 역분개 · 플랫폼 소속</span><a href="Console-Settlement.dc.html" style="padding: 9px 14px; border-radius: 8px; background: #111827; color: #ffffff; text-decoration: none; font-size: 14px">화면으로 하기 · 정산 배치</a></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong style="flex: 0 0 120px">P10 지급·명세</strong><span style="flex: 1 1 360px; font-size: 14px">지급 run → PSP 완료 → 명세 대조, 정국 기여분, 한 건 추적 · 5/1</span><a href="Console-Payout.dc.html" style="padding: 9px 14px; border-radius: 8px; background: #111827; color: #ffffff; text-decoration: none; font-size: 14px">화면으로 하기 · 지급</a></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fcd34d"><strong>가상 시계</strong><br><span style="font-family: 'IBM Plex Mono', monospace">2026-02-01 09:00</span> · 단계가 시계를 앞으로 민다</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fcd34d"><strong>전자서명 공급자</strong><br>해외 작가 서명 대기 0</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fcd34d"><strong>PSP</strong><br>통지 대기 0 · 실패 주입</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fcd34d"><strong>실연자로 들어가기</strong><br>정국 · 진 · 슈가 · RM · 지민 · 뷔 · 제이홉</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

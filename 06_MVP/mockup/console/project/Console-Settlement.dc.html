@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>정산 배치 상세</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #d1d5db">작업 소속 <strong style="color: #f9fafb">플랫폼 운영 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-04-01 09:00</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569"><a href="Console-Platform.dc.html">⑥ 정산·재무</a> › 정산 배치 › bat_bts_2026_03</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">정산 배치 · 2026년 3월</h1>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">OPEN · 확정 대기</span>
+<span style="font-size: 14px; color: #475569; font-family: 'IBM Plex Mono', monospace">2026-03-01 ~ 2026-04-01</span>
+</div>
+<ol aria-label="정산 단계" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<li style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #86efac"><strong>1 배치 만들기 · E48</strong><br><span style="color: #475569">settlement.batch_create · usr_admin</span></li>
+<li style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #86efac"><strong>2 실행 · E49</strong><br><span style="color: #475569">워커 sys_settler</span></li>
+<li style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #86efac"><strong>3 독립 재계산 · E49</strong><br><span style="color: #475569">검증 워커 sys_verifier(다른 신원, 항상 분리)</span></li>
+<li style="padding: 14px; border-radius: 10px; background: #ffffff; border: 2px solid #111827"><strong>4 확정 · E51</strong><br><span style="color: #475569">settlement.confirm · 매니페스트 서명</span></li>
+</ol>
+<div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 10px 14px">조합</th><th style="padding: 10px 14px; text-align: right">구매</th><th style="padding: 10px 14px; text-align: right">매출(원)</th><th style="padding: 10px 14px">run</th><th style="padding: 10px 14px">재계산</th><th style="padding: 10px 14px">결과 digest</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">원곡 배치 · vc_bts_orig</td><td style="padding: 10px 14px; text-align: right">1,200</td><td style="padding: 10px 14px; text-align: right">3,960,000</td><td style="padding: 10px 14px">VERIFIED</td><td style="padding: 10px 14px; color: #166534">일치</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">[digest]</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">정국·지민 맞바꾸기 · vc_bts_swap</td><td style="padding: 10px 14px; text-align: right">500</td><td style="padding: 10px 14px; text-align: right">1,650,000</td><td style="padding: 10px 14px">VERIFIED</td><td style="padding: 10px 14px; color: #166534">일치</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">[digest]</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">랩 파트를 보컬 멤버가 · vc_bts_vocal</td><td style="padding: 10px 14px; text-align: right">300</td><td style="padding: 10px 14px; text-align: right">990,000</td><td style="padding: 10px 14px">VERIFIED</td><td style="padding: 10px 14px; color: #166534">일치</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">[digest]</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">진이 정국·지민 파트까지 · vc_bts_jin</td><td style="padding: 10px 14px; text-align: right">200</td><td style="padding: 10px 14px; text-align: right">660,000</td><td style="padding: 10px 14px">VERIFIED</td><td style="padding: 10px 14px; color: #166534">일치 · 이상거래 1건 보류 2,310</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">[digest]</td></tr>
+</tbody>
+</table>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0">
+<div style="flex: 1 1 420px; font-size: 14px; color: #334155">합계 7,260,000원 · 불일치 0 · 격리 0 · 보류 1건. 확정하면 원장에 반영되고 run이 CONFIRMED가 된다. 직무 분리(실행 ≠ 확정)는 꺼짐 — 배치를 만든 총괄이 확정한다(결정 RD6).</div>
+<a href="#" style="font-size: 14px">격리 · 보류 보기</a>
+<button style="font: inherit; padding: 10px 18px; border-radius: 8px; border: 0; background: #111827; color: #ffffff">배치 확정</button>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
