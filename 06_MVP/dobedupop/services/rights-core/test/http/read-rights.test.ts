@@ -42,7 +42,7 @@ test("/me and /users", async () => {
   const seededName = (await w.db.pool.query("SELECT display_name FROM user_account WHERE user_id = 'usr_issuer'")).rows[0].display_name as string;
   const me = await ok("/me", "usr_issuer");
   assert.deepEqual(me, {
-    userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"], tenantId: "tnt_platform", tenantType: "PLATFORM_OPS", orgClass: "PLATFORM", tenantStatus: "ACTIVE", scope: "platform",
+    userId: "usr_issuer", displayName: seededName, roles: ["ISSUER"], permissions: ["issuance.issue"], tenantId: "tnt_platform", tenantType: "PLATFORM_OPS", orgClass: "PLATFORM", tenantStatus: "ACTIVE", scope: "platform",
     memberships: [{ tenantId: "tnt_platform", name: me.memberships[0].name, tenantType: "PLATFORM_OPS", orgClass: "PLATFORM", status: "ACTIVE", home: true, roles: ["ISSUER"] }],
   });
   const users = await ok("/users");
