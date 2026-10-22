@@ -3,7 +3,7 @@ import type { FactsDocument } from "mdrl/facts";
 export type PartyRow = { partyId: string; partyType: string; isni?: string; ipiNo?: string; createdAt: string };
 export type WorkRow = { workId: string; iswc?: string; createdAt: string };
 export type RecordingRow = { recordingId: string; workId: string; isrc?: string; createdAt: string };
-export type StemRow = { stemId: string; recordingId: string; slotId: string; rightsBearing: boolean; createdAt: string };
+export type StemRow = { stemId: string; recordingId: string; slotId: string; partNo?: number; rightsBearing: boolean; createdAt: string };
 export type VoiceRow = { voiceId: string; kind: "HUMAN" | "AI"; createdAt: string };
 type Recorded = { version: number; status: string; validFrom: string; validTo?: string; recordedAt: string; supersededAt?: string; visibility?: string };
 export type ClaimRow = Recorded & {
@@ -70,7 +70,7 @@ export function buildFactsDocument(rows: FactsRows, knownAt: string): FactsDocum
       works: [{ id: rows.work.workId, ...ids([["iswc", rows.work.iswc]]) }],
       recordings: [...rows.recordings].sort(byId((r) => r.recordingId)).map((r) => ({ id: r.recordingId, of: r.workId, ...ids([["isrc", r.isrc]]) })),
       voices: [...rows.voices].sort(byId((v) => v.voiceId)).map((v) => ({ id: v.voiceId, kind: v.kind })),
-      stems: [...rows.stems].sort(byId((s) => s.stemId)).map((s) => ({ id: s.stemId, of: s.recordingId, slot: s.slotId, rights_bearing: s.rightsBearing })),
+      stems: [...rows.stems].sort(byId((s) => s.stemId)).map((s) => ({ id: s.stemId, of: s.recordingId, slot: s.slotId, ...(s.partNo === undefined ? {} : { part: String(s.partNo) }), rights_bearing: s.rightsBearing })),
       claims: rows.claims.map((c) => ({
         id: recordId(c.claimId, c.version), source: c.sourceId, edge: c.edge as never, target: c.targetId, share: String(c.shareBps),
         ...(c.performerRole !== undefined && { performer_role: c.performerRole as never }),

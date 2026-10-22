@@ -18,7 +18,7 @@ async function seed() {
     await reg.registerWork(tx, c, { workId: "wrk_1", title: "Song" });
     await reg.createScope(tx, c, { factsScopeId: "fsc_1", workId: "wrk_1" });
     await reg.registerRecording(tx, c, { recordingId: "rcd_1", workId: "wrk_1", masterOwnerPartyId: "pty_label", versionTitle: "Main" });
-    await reg.registerSlot(tx, { slotId: "slt_1", recordingId: "rcd_1", startMs: 0, endMs: 30000, sortOrder: 1 });
+    await reg.registerSlot(tx, c, { slotId: "slt_1", recordingId: "rcd_1", startMs: 0, endMs: 30000, sortOrder: 1 });
     await reg.registerStem(tx, c, { stemId: "stm_1", slotId: "slt_1", recordingId: "rcd_1", performerPartyId: "pty_m1", rightsBearing: true });
     await reg.registerVoice(tx, c, { voiceId: "vo_1", factsScopeId: "fsc_1", kind: "HUMAN" });
   });

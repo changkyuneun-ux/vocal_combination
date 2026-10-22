@@ -126,8 +126,8 @@ async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   await reg.createScope(tx, clock, { factsScopeId: SCOPE, workId: "wrk_dynamite" });
   await reg.registerRecording(tx, clock, { recordingId: RECORDING, workId: "wrk_dynamite", masterOwnerPartyId: "pty_bighit_label", versionTitle: "Vocal Recombination" });
   let sort = 1;
-  for (const s of SLOTS) await reg.registerSlot(tx, { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
-  await reg.registerSlot(tx, { slotId: "slt_mr", recordingId: RECORDING, startMs: 0, endMs: 199000, sortOrder: sort });
+  for (const s of SLOTS) await reg.registerSlot(tx, clock, { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
+  await reg.registerSlot(tx, clock, { slotId: "slt_mr", recordingId: RECORDING, startMs: 0, endMs: 199000, sortOrder: sort });
   await reg.registerStem(tx, clock, { stemId: "stm_mr", slotId: "slt_mr", recordingId: RECORDING, rightsBearing: false });
   const base = { factsScopeId: SCOPE, status: "VERIFIED" as const, validFrom: T0 };
   for (const m of MEMBERS) {

@@ -42,9 +42,9 @@ export async function seedSong(tx: Tx, clock: Clock): Promise<void> {
   await reg.registerWork(tx, clock, { workId: "wrk_nova", title: "Nova" });
   await reg.createScope(tx, clock, { factsScopeId: SCOPE, workId: "wrk_nova" });
   await reg.registerRecording(tx, clock, { recordingId: "rcd_nova", workId: "wrk_nova", masterOwnerPartyId: "pty_label", versionTitle: "Main" });
-  await reg.registerSlot(tx, { slotId: "slt_1", recordingId: "rcd_nova", startMs: 0, endMs: 30000, sortOrder: 1 });
-  await reg.registerSlot(tx, { slotId: "slt_2", recordingId: "rcd_nova", startMs: 30000, endMs: 90000, sortOrder: 2 });
-  await reg.registerSlot(tx, { slotId: "slt_mr", recordingId: "rcd_nova", startMs: 0, endMs: 90000, sortOrder: 3 });
+  await reg.registerSlot(tx, clock, { slotId: "slt_1", recordingId: "rcd_nova", startMs: 0, endMs: 30000, sortOrder: 1 });
+  await reg.registerSlot(tx, clock, { slotId: "slt_2", recordingId: "rcd_nova", startMs: 30000, endMs: 90000, sortOrder: 2 });
+  await reg.registerSlot(tx, clock, { slotId: "slt_mr", recordingId: "rcd_nova", startMs: 0, endMs: 90000, sortOrder: 3 });
   for (const m of ["a", "b"]) for (const s of ["1", "2"]) {
     await reg.registerStem(tx, clock, { stemId: `stm_${m}${s}`, slotId: `slt_${s}`, recordingId: "rcd_nova", performerPartyId: `pty_member_${m}`, rightsBearing: true });
   }

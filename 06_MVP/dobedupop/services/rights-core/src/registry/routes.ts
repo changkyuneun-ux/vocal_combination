@@ -50,7 +50,8 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   created<any>("/works", (tx, b) => reg.registerWork(tx, deps.clock, b));
   created<any>("/scopes", (tx, b) => reg.createScope(tx, deps.clock, b));
   created<any>("/recordings", (tx, b) => reg.registerRecording(tx, deps.clock, b));
-  created<any>("/slots", (tx, b) => reg.registerSlot(tx, b));
+  created<any>("/slots", (tx, b) => reg.registerSlot(tx, deps.clock, b));
+  created<any>("/slot-parts", (tx, b) => reg.registerSlotPart(tx, deps.clock, b.slotId, b), ["slotId", "partNo", "kind", "startMs", "endMs"]);
   created<any>("/stems", (tx, b) => reg.registerStem(tx, deps.clock, b));
   created<any>("/voices", (tx, b) => reg.registerVoice(tx, deps.clock, b));
   // 근거 문서(원천 문서 설계 S1): evidenceDocuments를 주면 증빙 digest를 시스템이 채우고, 연결한 사람은 요청자다.
