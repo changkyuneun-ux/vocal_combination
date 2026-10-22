@@ -5,6 +5,7 @@ import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { checkForm, explainForm, formToText, textToForm, type PolicyForm } from "../engine-bridge/policy-form.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /**
  * 표준 분배 규칙 템플릿(테넌트 정책 결정 TD13). 법무가 작성·승인(작성자 ≠ 승인자)한 폼이다. 권리 테넌트는 템플릿을 값 그대로 써서 정책을 만들 수 있고,
@@ -69,7 +70,7 @@ export async function approveTemplate(tx: Tx, clock: Clock, actor: Actor, templa
   const t = (await tx.query("SELECT status, authored_by FROM policy_template WHERE template_id = $1 AND version = $2 FOR UPDATE", [templateId, version])).rows[0];
   if (t === undefined) throw notFound("policy template", `${templateId}@${version}`);
   if (t.status !== "DRAFT") throw conflict("INVALID_STATE", `${templateId}@${version} is ${t.status}`);
-  if (t.authored_by === actor.userId) throw new DomainError("SOD_VIOLATION", 403, "the author cannot approve the template");
+  if (t.authored_by === actor.userId && (await sodEnabled(tx, "policy-template.author-approve"))) throw new DomainError("SOD_VIOLATION", 403, "the author cannot approve the template");
   await tx.query("UPDATE policy_template SET status = 'APPROVED', approved_by = $3, approved_at = $4 WHERE template_id = $1 AND version = $2", [templateId, version, actor.userId, clock.now()]);
   await audit(tx, clock, { actor: actor.userId, action: "POLICY_TEMPLATE_APPROVED", entityType: "policy_template", entityId: `${templateId}@${version}` });
   return getTemplate(tx, templateId, version);

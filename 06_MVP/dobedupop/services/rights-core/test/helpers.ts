@@ -14,3 +14,18 @@ export async function freshDb(): Promise<{ db: Db; adminUrl: string; drop(): Pro
     },
   };
 }
+
+import pg from "pg";
+import type { SodRule } from "../src/platform/sod.ts";
+
+/** 직무 분리 규칙 켜기·끄기(시험 전용, 관리자 연결). 규칙은 기본 꺼짐이라(결정 RD6) 거부를 확인하는 시험만 켠다. */
+export async function setSodRules(adminUrl: string, rules: readonly SodRule[] | "all", enabled = true): Promise<void> {
+  const c = new pg.Client({ connectionString: adminUrl });
+  await c.connect();
+  try {
+    if (rules === "all") await c.query("UPDATE sod_rule SET enabled = $1", [enabled]);
+    else await c.query("UPDATE sod_rule SET enabled = $1 WHERE rule_id = ANY($2)", [enabled, [...rules]]);
+  } finally {
+    await c.end();
+  }
+}

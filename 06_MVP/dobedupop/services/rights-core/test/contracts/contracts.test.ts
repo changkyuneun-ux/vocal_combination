@@ -15,9 +15,11 @@ import { providerSigned } from "../../src/contracts/service.ts";
 import { viaChannel } from "../http/channel-app.ts";
 import { settlementWorld } from "../settlement-fixtures.ts";
 import { SCOPE } from "../fixtures.ts";
+import { setSodRules } from "../helpers.ts";
 
 // 최초 작성(원천 문서 설계 S4, 결정 D6·D1): 표준 계약 템플릿 → 마법사 답 → 계약서 → 전자서명(개발용 공급자) → 서명본 원천 문서 + VERIFIED 기록.
 const w = await settlementWorld({ consents: false });
+await setSodRules(w.adminUrl, ["contract-template.author-approve"]); // 이 파일은 직무 분리 거부를 확인한다(규칙 기본 꺼짐, 결정 RD6)
 const dir = mkdtempSync(join(tmpdir(), "rc-ctr-"));
 const documents = createFsDocumentStore(dir, Buffer.alloc(32, 7));
 const clock = fixedClock("2026-02-10T00:00:00.000Z", 1000);
@@ -136,4 +138,15 @@ test("a performer's in-app consent leaves a consent original as its source docum
   assert.match(file.body, /실연 이용 동의서/);
   assert.match(file.body, /플랫폼 자체 서명/);
   assert.match(file.body, /test-device/);
+});
+
+test("with contract-template.author-approve disabled the author may approve their own template version (MVP 총괄 운영, 결정 RD6)", async () => {
+  await setSodRules(w.adminUrl, ["contract-template.author-approve"], false);
+  try {
+    const v = await json("POST", "/contract-templates/tpl_work_license/versions", "usr_legal", 201, { title: "작품 이용허락 표준계약(본인 승인 시험)" });
+    await json("POST", `/contract-templates/tpl_work_license/versions/${v.version}/approve`, "usr_legal", 200);
+    assert.equal((await json("GET", "/contract-templates/tpl_work_license", "usr_rights", 200)).version, v.version);
+  } finally {
+    await setSodRules(w.adminUrl, ["contract-template.author-approve"], true);
+  }
 });

@@ -6,6 +6,7 @@ import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /** WARN 기본 기한(결정 D8): 14일. 위험 수용은 한 번에 최대 30일, 연장은 한 번만. 만료 임박은 30일 전부터 알린다. */
 export const WARN_DAYS = 14;
@@ -272,7 +273,7 @@ export async function acceptIssue(tx: Tx, clock: Clock, actor: Actor, id: number
   requirePermission(actor, "validation.accept");
   const r = await liveIssue(tx, id);
   if (r.accept_requested_by === null) throw conflict("NOT_REQUESTED", `issue ${id} has no acceptance request`);
-  if (r.accept_requested_by === actor.userId) throw new DomainError("SOD_VIOLATION", 403, "the requester cannot approve the acceptance");
+  if (r.accept_requested_by === actor.userId && (await sodEnabled(tx, "validation.request-approve"))) throw new DomainError("SOD_VIOLATION", 403, "the requester cannot approve the acceptance");
   if (r.severity !== "WARN") throw conflict("NOT_ACCEPTABLE", `issue ${id} is ${r.severity}`);
   const until = new Date(Date.parse(clock.now()) + ACCEPT_DAYS * DAY).toISOString();
   await withSystemScope(tx, () => tx.query("UPDATE validation_issue SET status = 'ACCEPTED', accepted_by = $2, accept_until = $3, accept_count = accept_count + 1 WHERE issue_id = $1", [id, actor.userId, until]));

@@ -37,11 +37,11 @@ export type ProfileView = {
 /**
  * 지급 판정(통합 설계 11.2-6): 보류 사유가 있으면 HELD, 총액이 최소 지급액 미만(0 이하 포함)이면 CARRIED, 아니면 PENDING.
  * 보류 사유 순서: NO_PROFILE → NO_ACCOUNT → KYC_REQUIRED → ACCOUNT_COOLING(계좌 토큰 변경 뒤 account_cooling_hours가 asOf까지 지나지 않음 —
- * asOf보다 뒤의 변경 포함) → ACCOUNT_SOD(지급 실행자 = 그 권리자의 계좌 토큰을 마지막으로 바꾼 사용자) → INITIAL_HOLD.
+ * asOf보다 뒤의 변경 포함) → ACCOUNT_SOD(규칙 payout.account-run이 켜졌을 때, 지급 실행자 = 그 권리자의 계좌 토큰을 마지막으로 바꾼 사용자) → INITIAL_HOLD.
  * 프로필 상태(존재·계좌·KYC·세금 유형)는 asOf 시점이 아니라 실행 시점의 현재 값으로 판정한다(프로필은 이력을 두지 않는다).
  * 초기 보류와 냉각 기간만 asOf와 비교한다.
  */
-export function decide(policy: PayoutPolicy, asOf: string, gross: bigint, prof: ProfileView | undefined, runBy: string):
+export function decide(policy: PayoutPolicy, asOf: string, gross: bigint, prof: ProfileView | undefined, runBy: string, sodAccountRun: boolean):
   { status: "HELD"; reason: HoldReason } | { status: "CARRIED" } | { status: "PENDING"; withholding: bigint } {
   if (prof === undefined) return { status: "HELD", reason: "NO_PROFILE" };
   if (prof.payoutAccountRef === null || prof.payoutAccountRef === "") return { status: "HELD", reason: "NO_ACCOUNT" };
@@ -50,7 +50,7 @@ export function decide(policy: PayoutPolicy, asOf: string, gross: bigint, prof: 
   if (prof.accountChangedAt === null || Date.parse(asOf) < Date.parse(prof.accountChangedAt) + policy.accountCoolingHours * HOUR_MS) {
     return { status: "HELD", reason: "ACCOUNT_COOLING" };
   }
-  if (prof.accountChangedBy === runBy) return { status: "HELD", reason: "ACCOUNT_SOD" };
+  if (sodAccountRun && prof.accountChangedBy === runBy) return { status: "HELD", reason: "ACCOUNT_SOD" };
   if (Date.parse(asOf) < Date.parse(prof.firstPayableAt) + policy.initialHoldDays * DAY_MS) return { status: "HELD", reason: "INITIAL_HOLD" };
   if (gross < policy.minPayoutKrw) return { status: "CARRIED" };
   return { status: "PENDING", withholding: computeWithholding(gross, policy.taxBps[prof.taxType]) };

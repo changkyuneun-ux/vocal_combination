@@ -12,6 +12,7 @@ import { isIdentityVerified } from "../performer/identity.ts";
 import { revalidate } from "../validation/service.ts";
 import type { SignatureProvider } from "./esign.ts";
 import { hasPermission, requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /**
  * 최초 작성(원천 문서 설계 S4, 결정 D6): 표준 계약 템플릿 → 마법사 답 → 사람이 읽는 계약서 → 전자서명 → 서명본 원천 문서 + 기록.
@@ -97,7 +98,7 @@ export async function approveTemplateVersion(tx: Tx, clock: Clock, actor: Actor,
   requireLegal(actor);
   const t = await getTemplate(tx, templateId, version);
   if (t.status !== "DRAFT") throw conflict("TEMPLATE_NOT_DRAFT", `${templateId}@${version} is ${t.status}`);
-  if (t.authoredBy === actor.userId) throw new DomainError("SAME_PERSON", 403, "the author cannot approve their own template version");
+  if (t.authoredBy === actor.userId && (await sodEnabled(tx, "contract-template.author-approve"))) throw new DomainError("SAME_PERSON", 403, "the author cannot approve their own template version");
   await tx.query("UPDATE contract_template SET status = 'RETIRED' WHERE template_id = $1 AND status = 'APPROVED'", [templateId]);
   await tx.query("UPDATE contract_template SET status = 'APPROVED', approved_by = $3, approved_at = $4 WHERE template_id = $1 AND version = $2", [templateId, version, actor.userId, clock.now()]);
   await audit(tx, clock, { actor: actor.userId, action: "TEMPLATE_APPROVED", entityType: "contract_template", entityId: `${templateId}@${version}` });

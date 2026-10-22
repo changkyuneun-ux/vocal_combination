@@ -13,6 +13,7 @@ import { declaredClaimants, openDisputeInScope, packRow } from "../issuance/serv
 import { assertActivationAllowed } from "../validation/service.ts";
 import { getTemplate, templateExemption, templateText } from "./templates.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
 type Row = { policyId: string; version: number; status: string; policyDigest: string; factsDigest: string; factsKnownAt: string; packId: string };
@@ -30,6 +31,7 @@ async function versionRow(tx: Tx, ref: PolicyVersionRef, lock = true): Promise<R
  * 예외(테넌트 정책 결정 TD13): 1인 테넌트(독립 아티스트)가 법무 승인 템플릿을 값 그대로 쓴 정책이면 같은 사람이 승인·활성화한다 — 감사에 남긴다.
  */
 async function requireNotSigned(tx: Tx, clock: Clock, row: Row, actor: Actor, step: "APPROVE" | "ACTIVATE"): Promise<void> {
+  if (!(await sodEnabled(tx, "policy.edit-approve-activate"))) return;
   if (!(await signersOf(tx, row.policyDigest)).some((s) => s.signerId === actor.userId)) return;
   const ex = await templateExemption(tx, actor, row);
   if (ex === null) throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} already signed ${row.policyDigest}`);

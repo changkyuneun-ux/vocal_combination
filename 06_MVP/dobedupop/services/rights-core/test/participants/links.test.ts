@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { freshDb } from "../helpers.ts";
+import { freshDb, setSodRules } from "../helpers.ts";
 import { createUser, ensureSystemIdentities } from "../../src/platform/actor.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
@@ -8,7 +8,7 @@ import { createBridgeCtx } from "../../src/engine-bridge/context.ts";
 import { createFsBlobStore } from "../../src/engine-bridge/blob-fs.ts";
 
 // 참여 기관의 연결 열쇠(테넌트 정책 4절, 결정 TD10·TD11·TD12): 양쪽 확인으로만 성립, 신탁 수령 자동 위임, 필요한 항목만 보인다.
-const { db, drop } = await freshDb();
+const { db, adminUrl, drop } = await freshDb();
 let tick = 0;
 const clock = { now: () => new Date(Date.parse("2026-03-01T00:00:00.000Z") + 1000 * tick++).toISOString() };
 const app = buildServer({ db, ctx: createBridgeCtx(createFsBlobStore("/tmp/rc-links-test-blobs")), clock, jobs: recordingJobs() });
@@ -119,4 +119,26 @@ test("distribution: the label and the partner confirm a distribution contract; p
   assert.equal(await code("partner", "usr_cmo", "POST", "/asset-mappings", { externalId: "SKU-1", vcId: "vc_missing" }), "PARTNER_ONLY");
   await ok("ops", "usr_ops", "POST", "/tenants/tnt_dist/status", { status: "TERMINATED", reason: "계약 종료" });
   assert.equal((await ok("portal", "usr_lbl", "GET", "/links/lnk_d1")).status, "ENDED");
+});
+
+test("link.propose-confirm: when enabled the proposer cannot confirm from another membership; disabled (MVP 총괄 운영, 결정 RD6) the same person may", async () => {
+  // 한 사람이 레이블(권리 편집)과 신탁단체(신탁 담당) 양쪽 소속이다(총괄 계정과 같은 모양).
+  await db.tx(async (tx) => {
+    await createUser(tx, clock, { userId: "usr_both_sides", displayName: "both sides", roles: ["RIGHTS_EDITOR"], tenantId: "tnt_lbl" });
+    await tx.query("INSERT INTO user_membership (user_id, tenant_id, added_by, added_at) VALUES ('usr_both_sides', 'tnt_cmo', 'usr_both_sides', $1)", [clock.now()]);
+    await tx.query("INSERT INTO portal_role (user_id, tenant_id, role) VALUES ('usr_both_sides', 'tnt_cmo', 'TRUST_OFFICER')");
+    await tx.query("INSERT INTO party (party_id, party_type, display_name, created_at, tenant_id) VALUES ('pty_author3', 'AUTHOR', '레이블 작가 3', $1, 'tnt_lbl')", [T0]);
+  });
+  await song("sod", "pty_author3");
+  await ok("portal", "usr_both_sides", "POST", "/links", { linkId: "lnk_sod", linkType: "TRUST", participantTenantId: "tnt_cmo", authorPartyId: "pty_author3", memberRef: "IPI-0003", validFrom: T0 });
+  const confirm = () => app.inject({ method: "POST", url: "/partner/links/lnk_sod/confirm", headers: { "x-actor": "usr_both_sides", "x-tenant": "tnt_cmo" } });
+  await setSodRules(adminUrl, ["link.propose-confirm"]);
+  try {
+    assert.equal((await confirm()).json().code, "SAME_PERSON");
+  } finally {
+    await setSodRules(adminUrl, ["link.propose-confirm"], false);
+  }
+  const r = await confirm();
+  assert.equal(r.statusCode, 200, r.body);
+  assert.equal(r.json().status, "ACTIVE");
 });

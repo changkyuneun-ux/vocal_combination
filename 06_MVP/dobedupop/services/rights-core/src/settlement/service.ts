@@ -11,6 +11,7 @@ import { sealDocument } from "../engine-bridge/seal-store.ts";
 import { openDisputeInScope } from "../issuance/service.ts";
 import type { RefundHook, RevisionHook } from "../revenue/service.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 export type SettleDeps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
 export type BatchView = {
@@ -147,7 +148,7 @@ export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string)
     const b = (await tx.query("SELECT status, executed_by FROM settlement_batch WHERE batch_id = $1 FOR UPDATE", [batchId])).rows[0];
     if (b === undefined) throw notFound("batch", batchId);
     if (b.status !== "OPEN") throw conflict("INVALID_STATE", `batch ${batchId} is ${b.status}`);
-    if (b.executed_by === actor.userId) throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} created batch ${batchId}`);
+    if (b.executed_by === actor.userId && (await sodEnabled(tx, "settlement.run-confirm"))) throw new DomainError("SOD_VIOLATION", 403, `${actor.userId} created batch ${batchId}`);
     const runs = (await tx.query(
       "SELECT run_id, status, result_digest FROM settlement_run WHERE batch_id = $1 AND status NOT IN ('FAILED','VOIDED') ORDER BY run_id FOR UPDATE", [batchId],
     )).rows;

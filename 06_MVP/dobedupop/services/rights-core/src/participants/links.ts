@@ -6,6 +6,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import { recordMandate } from "../registry/service.ts";
 import { revalidate } from "../validation/service.ts";
 import { hasPermission, requirePermission, type Permission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /**
  * 참여 기관의 연결(테넌트 정책 4절, 결정 TD10·TD11, 진행 TN9·TN10).
@@ -153,7 +154,7 @@ export async function decideLink(tx: Tx, clock: Clock, actor: Actor, linkId: str
     // 플랫폼은 위탁 당사자(플랫폼 관리 작가)의 관리 주체로서만 권리 쪽을 대신한다.
     const platformAsRights = side === "PLATFORM" && deciderSide === "RIGHTS" && l.link_type === "TRUST" && (await managerOf(tx, l.author_party_id!)).org_class === "PLATFORM";
     if (side !== deciderSide && !platformAsRights) throw new DomainError("NOT_THE_COUNTERPARTY", 403, `link ${linkId} is decided by the ${deciderSide.toLowerCase()} side`);
-    if (actor.userId === l.proposed_by) throw new DomainError("SAME_PERSON", 403, "the proposer cannot confirm the link");
+    if (actor.userId === l.proposed_by && (await sodEnabled(tx, "link.propose-confirm"))) throw new DomainError("SAME_PERSON", 403, "the proposer cannot confirm the link");
     const now = clock.now();
     if (accept) {
       const pt = await tenantOf(tx, l.participant_tenant_id);

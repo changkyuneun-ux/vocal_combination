@@ -11,8 +11,10 @@ import { fixedClock } from "../../src/platform/clock.ts";
 import { openDispute, closeDispute } from "../../src/registry/disputes.ts";
 import { ingestRevenue, noRefundHook, noRevisionHook } from "../../src/revenue/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
+import { setSodRules } from "../helpers.ts";
 
 const w = await settlementWorld();
+await setSodRules(w.adminUrl, ["settlement.run-confirm"]); // 이 파일은 직무 분리 거부를 확인한다(규칙 기본 꺼짐, 결정 RD6)
 after(() => w.drop());
 const jobs = recordingJobs();
 const d: SettleDeps = { db: w.db, ctx: w.ctx, clock: w.clock, jobs };
@@ -167,4 +169,23 @@ test("a user holding both SPACE_OPS and SPACE_SETTLE cannot confirm a batch they
   assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod"))).progress, "READY");
   await assert.rejects(confirmBatch(d, both, "bat_sod"), { code: "SOD_VIOLATION", status: 403 });
   assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod"))).status, "OPEN");
+});
+
+test("with settlement.run-confirm disabled the executor may confirm (MVP 총괄 운영, 결정 RD6)", async () => {
+  await setSodRules(w.adminUrl, ["settlement.run-confirm"], false);
+  try {
+    const both = await w.db.tx(async (tx) => {
+      await createUser(tx, fixedClock("2026-01-01T00:00:00.000Z", 0), { userId: "usr_both_off", displayName: "usr_both_off", roles: ["SPACE_OPS", "SPACE_SETTLE"] });
+      return loadActor(tx, "usr_both_off");
+    });
+    await purchase(w, "ev_1k", "vc_1", "1500", "2026-08-02T00:00:00.000Z");
+    const b = await createBatch(d, both, { batchId: "bat_sod_off", periodStart: "2026-08-01T00:00:00.000Z", periodEnd: "2026-09-01T00:00:00.000Z" });
+    assert.equal(b.runs.length, 1);
+    await jobs.drain(jobHandlers(d));
+    assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod_off"))).progress, "READY");
+    assert.ok((await confirmBatch(d, both, "bat_sod_off")).manifestDigest);
+    assert.equal((await w.db.tx((tx) => batchView(tx, "bat_sod_off"))).status, "CONFIRMED");
+  } finally {
+    await setSodRules(w.adminUrl, ["settlement.run-confirm"], true);
+  }
 });

@@ -8,6 +8,7 @@ import { postEntry } from "../ledger/journal.ts";
 import { PAYOUT_KEY_PREFIX } from "./provider.ts";
 import { decide, loadPayoutPolicy, TAX_TYPES, type HoldReason, type ProfileView, type TaxType } from "./policy.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 export type PayoutDeps = { db: Db; clock: Clock; jobs: Jobs };
 export type InstructionStatus = "PENDING" | "CARRIED" | "HELD";
@@ -131,11 +132,12 @@ export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payo
     const suspended = new Set((await tx.query(
       "SELECT p.party_id FROM party p JOIN tenant t ON t.tenant_id = p.tenant_id WHERE p.party_id = ANY($1) AND t.status = 'SUSPENDED'", [parties])).rows.map((r) => r.party_id as string));
     const rows: { instructionId: string; partyId: string; gross: bigint; withholding: bigint; status: InstructionStatus; holdReason: HoldReason | null; entryId: string | null; decidedAccountRef: string | null }[] = [];
+    const sodAccountRun = await sodEnabled(tx, "payout.account-run");
     for (const b of balances) {
       const partyId = b.party_id as string;
       const gross = -BigInt(b.s);
       const instructionId = `po_${input.payoutRunId}_${partyId}`;
-      const v = suspended.has(partyId) && gross > 0n ? { status: "HELD" as const, reason: "TENANT_SUSPENDED" as const } : decide(policy, input.asOf, gross, profiles.get(partyId), actor.userId);
+      const v = suspended.has(partyId) && gross > 0n ? { status: "HELD" as const, reason: "TENANT_SUSPENDED" as const } : decide(policy, input.asOf, gross, profiles.get(partyId), actor.userId, sodAccountRun);
       if (v.status !== "PENDING") {
         rows.push({ instructionId, partyId, gross, withholding: 0n, status: v.status, holdReason: v.status === "HELD" ? v.reason : null, entryId: null, decidedAccountRef: null });
         continue;

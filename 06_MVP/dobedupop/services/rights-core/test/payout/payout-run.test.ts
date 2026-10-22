@@ -10,8 +10,10 @@ import { balance, postEntry, trialBalance } from "../../src/ledger/journal.ts";
 import { computeWithholding, loadPayoutPolicy } from "../../src/payout/policy.ts";
 import { createPayoutRun, setPayoutProfile, type PayoutDeps } from "../../src/payout/service.ts";
 import { issueCombo, purchase, settlementWorld } from "../settlement-fixtures.ts";
+import { setSodRules } from "../helpers.ts";
 
 const w = await settlementWorld();
+await setSodRules(w.adminUrl, ["payout.account-run"]); // 이 파일은 직무 분리 거부를 확인한다(규칙 기본 꺼짐, 결정 RD6)
 after(() => w.drop());
 const jobs = recordingJobs();
 const d: SettleDeps = { db: w.db, ctx: w.ctx, clock: w.clock, jobs };
@@ -335,4 +337,21 @@ test("account change control: a new token cools for 72 hours, and the user who c
   assert.deepEqual(await status("cool-4"), ["PENDING", null]);
   assert.equal(await payable("pty_author_b"), 0n);
   assert.equal(await trialSum(), 0n);
+});
+
+test("with payout.account-run disabled the user who changed the token may run the payout (MVP 총괄 운영, 결정 RD6)", async () => {
+  await setSodRules(w.adminUrl, ["payout.account-run"], false);
+  try {
+    // 이전 시험과 같은 준비: usr_settle2가 토큰을 바꾸고 냉각이 끝난 뒤 같은 사람이 실행한다 → 보류 없이 지급.
+    nowIso = "2026-10-01T00:00:00.000Z";
+    await profile("pty_author_b", "EXEMPT", "psp_tok_ab_off", true);
+    await adjust("adj:sod-off", "pty_author_b", 50_000n);
+    nowIso = "2026-10-05T00:00:00.000Z";
+    await createPayoutRun(p, w.users.settle2, { payoutRunId: "sod-off", asOf: "2026-10-04T00:00:00.000Z" });
+    const i = (await instructions("sod-off")).pty_author_b;
+    assert.deepEqual([i.status, i.hold_reason], ["PENDING", null]);
+    assert.equal(await payable("pty_author_b"), 0n);
+  } finally {
+    await setSodRules(w.adminUrl, ["payout.account-run"], true);
+  }
 });

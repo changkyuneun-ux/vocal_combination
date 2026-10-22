@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { freshDb } from "../helpers.ts";
+import { freshDb, setSodRules } from "../helpers.ts";
 import { DECLARED, PACK, POLICY_TEXT, SCOPE, T0, seedSong, seedUsers, tempBridge } from "../fixtures.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import * as policy from "../../src/policy/service.ts";
@@ -9,7 +9,8 @@ import { signersOf, verifyAttestations } from "../../src/engine-bridge/attest.ts
 import { openDispute } from "../../src/registry/disputes.ts";
 import * as reg from "../../src/registry/service.ts";
 
-const { db, drop } = await freshDb();
+const { db, adminUrl, drop } = await freshDb();
+await setSodRules(adminUrl, ["policy.edit-approve-activate"]); // 이 파일은 직무 분리 거부를 확인한다(규칙 기본 꺼짐, 결정 RD6)
 const { ctx, cleanup } = tempBridge();
 after(async () => { await drop(); cleanup(); });
 
@@ -52,6 +53,23 @@ test("the same person cannot sign two roles on one policy", async () => {
   });
   const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, both, { policyId: "pol_sod", packId: PACK, sourceText: POLICY_TEXT }));
   await assert.rejects(db.tx((tx) => policy.approvePolicy(ctx, tx, clock, both, r)), { code: "SOD_VIOLATION", status: 403 });
+});
+
+test("with policy.edit-approve-activate disabled the editor may approve their own policy (MVP 총괄 운영, 결정 RD6)", async () => {
+  await setSodRules(adminUrl, ["policy.edit-approve-activate"], false);
+  try {
+    const both = await db.tx(async (tx) => {
+      const { createUser, loadActor } = await import("../../src/platform/actor.ts");
+      await createUser(tx, clock, { userId: "usr_both_off", displayName: "both", roles: ["EDITOR", "WORK_APPROVER"] });
+      return loadActor(tx, "usr_both_off");
+    });
+    const r = await db.tx((tx) => policy.compilePolicy(ctx, tx, clock, both, { policyId: "pol_sod_off", packId: PACK, sourceText: POLICY_TEXT }));
+    await db.tx((tx) => policy.approvePolicy(ctx, tx, clock, both, r));
+    const s = await db.tx((tx) => signersOf(tx, r.policyDigest));
+    assert.deepEqual(s.map((x) => `${x.signerId}:${x.role}`).sort(), ["usr_both_off:EDITOR", "usr_both_off:WORK_APPROVER"]);
+  } finally {
+    await setSodRules(adminUrl, ["policy.edit-approve-activate"], true);
+  }
 });
 
 test("compile rejects a policy whose scope.pack differs from the target pack, with MDRL diagnostics for bad text", async () => {

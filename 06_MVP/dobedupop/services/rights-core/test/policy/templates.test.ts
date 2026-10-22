@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { freshDb } from "../helpers.ts";
+import { freshDb, setSodRules } from "../helpers.ts";
 import { DECLARED, PACK, T0, seedSong, seedUsers, tempBridge } from "../fixtures.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { createUser, loadActor } from "../../src/platform/actor.ts";
@@ -10,7 +10,8 @@ import { approveTemplate, draftTemplate, getTemplate, listTemplates, templateTex
 import { signersOf } from "../../src/engine-bridge/attest.ts";
 
 // 표준 분배 규칙 템플릿(테넌트 정책 결정 TD13): 1인 테넌트는 법무 승인 템플릿을 값 그대로 쓴 정책만 혼자 편집·승인·활성화한다.
-const { db, drop } = await freshDb();
+const { db, adminUrl, drop } = await freshDb();
+await setSodRules(adminUrl, ["policy.edit-approve-activate", "policy-template.author-approve"]); // 이 파일은 직무 분리 거부를 확인한다(규칙 기본 꺼짐, 결정 RD6)
 const { ctx, cleanup } = tempBridge();
 after(async () => { await drop(); cleanup(); });
 const clock = fixedClock("2026-02-01T00:00:00.000Z", 1000);
@@ -38,6 +39,17 @@ test("seeded templates are approved legal drafts; new templates need a second la
   assert.equal(d.status, "DRAFT");
   await assert.rejects(db.tx((tx) => approveTemplate(tx, clock, legal, "ptpl_custom", 1)), { code: "SOD_VIOLATION" });
   assert.equal((await db.tx((tx) => approveTemplate(tx, clock, legal2, "ptpl_custom", 1))).approvedBy, "usr_legal_b");
+});
+
+test("with policy-template.author-approve disabled the author may approve their own template (MVP 총괄 운영, 결정 RD6)", async () => {
+  await setSodRules(adminUrl, ["policy-template.author-approve"], false);
+  try {
+    const form = { ...(await db.tx((tx) => getTemplate(tx, "ptpl_indie_standard"))).form };
+    await db.tx((tx) => draftTemplate(tx, clock, legal, { templateId: "ptpl_self", title: "본인 승인", description: "시험", form }));
+    assert.equal((await db.tx((tx) => approveTemplate(tx, clock, legal, "ptpl_self", 1))).approvedBy, "usr_legal_a");
+  } finally {
+    await setSodRules(adminUrl, ["policy-template.author-approve"], true);
+  }
 });
 
 test("a one-person tenant edits, approves and activates a template policy alone; the exemption is audited", async () => {
