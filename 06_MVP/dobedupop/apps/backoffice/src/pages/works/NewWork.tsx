@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { api } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
 import { post } from "../../api/registry.ts";
 import { postRecording, type DocumentRow, type PartyRow } from "../../api/works.ts";
@@ -35,11 +36,20 @@ export function NewWork() {
   const [s1, setS1] = useState({ title: "", version: "Original", owner: "", doc: "" });
   const [authors, setAuthors] = useState<Author[]>([{ partyId: "", roleDetail: "LYRICS_COMPOSITION", share: "100", doc: "" }]);
   const [members, setMembers] = useState<string[]>([]);
+  const [found, setFound] = useState<PartyRow[]>([]);
+  const [lookup, setLookup] = useState("");
   const total = authors.reduce((a, x) => a + Math.round(Number(x.share) * 100), 0);
   const docRef = (id: string) => { const d = (docs.data ?? []).find((x) => x.documentId === id); return d ? [{ documentId: d.documentId, version: d.version }] : undefined; };
   const labels = parties.items.filter((p) => own.has(p.partyId) && ["LABEL", "AGENCY", "ARTIST", "PUBLISHER"].includes(p.partyType));
   const authorChoices = parties.items.filter((p) => ["AUTHOR", "PUBLISHER", "ARTIST"].includes(p.partyType));
-  const memberChoices = parties.items.filter((p) => p.partyType === "MEMBER" || (p.partyType === "ARTIST" && own.has(p.partyId)));
+  // 공용 명부의 멤버는 이 테넌트 곡에 아직 닿지 않았으면 목록에 보이지 않는다 — 당사자 id로 찾아 더한다.
+  const memberChoices = [...parties.items.filter((p) => p.partyType === "MEMBER" || (p.partyType === "ARTIST" && own.has(p.partyId))),
+    ...found.filter((x) => !parties.items.some((p) => p.partyId === x.partyId))];
+  const find = () => void w.run(async () => {
+    const r = await api<{ items: PartyRow[] }>("GET", `/parties?id=${encodeURIComponent(lookup.trim())}`);
+    if (r.items.length === 0) throw new Error(`당사자 ${lookup.trim()}를 찾을 수 없습니다`);
+    setFound([...found, ...r.items]); setMembers([...members, ...r.items.map((p) => p.partyId)]); setLookup("");
+  }, "명부에서 찾아 더했습니다");
   const f = facts.data;
   const claims = f ? currentClaims(f.claims) : [];
 
@@ -134,6 +144,10 @@ export function NewWork() {
                   <label key={p.partyId} className="check"><input type="checkbox" checked={members.includes(p.partyId)} onChange={(e) => setMembers(e.target.checked ? [...members, p.partyId] : members.filter((x) => x !== p.partyId))} />{p.displayName}</label>
                 ))}
               </fieldset>
+              <div className="inline-form">
+                <label className="field"><span>명부에서 당사자 id로 찾기</span><input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="pty_…" /></label>
+                <button type="button" className="btn" disabled={lookup.trim() === ""} onClick={find}>찾아 더하기</button>
+              </div>
               <p className="muted small">고른 멤버마다 이 곡의 보이스와 소유 주장을 만들고 멤버에게 확인 요청을 보낸다. 수령 위임은 문서·계약 탭에서 표준 계약으로.</p>
             </Section>
           )}
