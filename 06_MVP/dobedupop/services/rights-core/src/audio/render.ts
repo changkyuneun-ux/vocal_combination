@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { RenderPart } from "audio-service";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Db, type Tx } from "../platform/db.ts";
@@ -8,6 +8,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import type { Jobs } from "../platform/jobs.ts";
 import type { AudioDeps, Renderer } from "./deps.ts";
 import { assertExposed } from "../exposure/service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /**
  * 조합 렌더링(다음 작업 10). 렌더 입력은 발행 봉인과 같은 트랜잭션에 동결된 스템 배정(snapshot_stem_assignment)이다.
@@ -75,7 +76,7 @@ export async function renderMaster(d: { db: Db; clock: Clock; audio: AudioDeps }
  * 결과는 MATCH · MISMATCH(입력이나 결과가 다름) · WATERMARK_MISSING.
  */
 export async function verifyRender(tx: Tx, clock: Clock, audio: AudioDeps | undefined, actor: Actor, snapshotId: string) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "audio.review");
   const { renderer } = rendererOf(audio);
   const row = (await tx.query("SELECT * FROM combination_render WHERE snapshot_id = $1 FOR UPDATE", [snapshotId])).rows[0];
   if (row === undefined) throw notFound("render", snapshotId);

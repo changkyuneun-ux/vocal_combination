@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { FORMATS, translate, type Format, type Normalized } from "integration-hub";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -8,6 +8,7 @@ import { DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { policyEventTypes } from "../engine-bridge/settle.ts";
 import { ingestRevenue, type RefundHook, type RevenueInput, type RevisionHook } from "../revenue/service.ts";
+import { withPermissions, requirePermission } from "../platform/permissions.ts";
 
 /** 한 번에 받는 파일 크기 한도(요청 본문 한도와 같다). 더 큰 리포트는 나눠 보낸다. */
 export const MAX_FILE_BYTES = 1024 * 1024 - 4096;
@@ -91,7 +92,7 @@ async function applyRecord(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: HubHooks
       input = { ...base, eventType: r.kind === "SALE" ? "PURCHASE" : "TRAFFIC", vcId: asset.vc_id as string };
     }
     // 매출 수집은 수집 신원(SYSTEM)의 일이다. 파일을 보낸 파트너 사용자가 감사 행위자로 남는다.
-    const ingester: Actor = { ...actor, roles: new Set([...actor.roles, "SYSTEM"]) };
+    const ingester: Actor = { ...withPermissions(actor, ["revenue.ingest"]), roles: new Set([...actor.roles, "SYSTEM"]) };
     await tx.query("SAVEPOINT hub_record");
     try {
       const out = await ingestRevenue(tx, clock, ingester, input, hooks.onRefund, hooks.onRevision);
@@ -110,7 +111,7 @@ async function applyRecord(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: HubHooks
  * 원본 파일은 바뀌지 않는다. 줄마다 시도 횟수를 센다.
  */
 export async function retryFile(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: HubHooks, actor: Actor, fileId: string) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "hub.operate");
   const file = (await tx.query("SELECT tenant_id, status FROM inbound_file WHERE file_id = $1", [fileId])).rows[0];
   if (file === undefined) throw notFound("inbound file", fileId);
   const rows = (await tx.query(
@@ -132,7 +133,7 @@ export async function retryFile(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: Hub
 
 /** 자산 대응 등록(운영): 파트너의 자산 id → 조합. 발행된 조합만. */
 export async function mapAsset(tx: Tx, clock: Clock, actor: Actor, input: { tenantId?: unknown; externalId?: unknown; vcId?: unknown }) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "hub.operate");
   if (typeof input.tenantId !== "string" || typeof input.externalId !== "string" || input.externalId.trim() === "" || typeof input.vcId !== "string") {
     throw new DomainError("BAD_REQUEST", 400, "tenantId, externalId and vcId are required");
   }

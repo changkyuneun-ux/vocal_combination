@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
-import { requireAnyRole } from "../platform/actor.ts";
 import { DomainError } from "../platform/errors.ts";
 import { optFilter, parsePage } from "../platform/paging.ts";
 import { listRevenueEvents } from "./queries.ts";
 import { ingestRevenue, type RefundHook, type RevenueInput, type RevisionHook } from "./service.ts";
 import { allocatePool, createPool, getPool, listPools, type PoolInput } from "./traffic.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /** 환불·대체 후속 처리(onRefund·onRevision)는 조립하는 쪽(http/server.ts)이 넘긴다 — revenue는 settlement를 import하지 않는다. */
 export function revenueRoutes(app: FastifyInstance, deps: Deps, onRefund: RefundHook, onRevision: RevisionHook): void {
@@ -15,9 +15,9 @@ export function revenueRoutes(app: FastifyInstance, deps: Deps, onRefund: Refund
     const r = await withActor(deps, req, (tx, actor) => ingestRevenue(tx, deps.clock, actor, req.body, onRefund, onRevision));
     return reply.status(r.created ? 201 : 200).send(r);
   });
-  // 매출 조회: 운영·정산 담당과 수집 담당(SYSTEM)이 본다.
+  // 매출 조회(revenue.view): 운영·정산 담당과 수집 담당이 본다.
   app.get("/revenue-events", async (req) => withActor(deps, req, async (tx, actor) => {
-    requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE", "SYSTEM"]);
+    requirePermission(actor, "revenue.view");
     const q = req.query as Record<string, unknown>;
     return listRevenueEvents(tx, { type: optFilter(q, "type"), vc: optFilter(q, "vc") }, parsePage(q));
   }));
@@ -26,7 +26,7 @@ export function revenueRoutes(app: FastifyInstance, deps: Deps, onRefund: Refund
     reply.status(201).send(await withActor(deps, req, (tx, actor) => createPool(tx, deps.clock, actor, req.body ?? {}))));
   app.post<{ Params: { id: string } }>("/traffic-pools/:id/allocate", async (req) =>
     withActor(deps, req, (tx, actor) => allocatePool(deps.ctx, tx, deps.clock, actor, req.params.id, onRefund, onRevision)));
-  app.get("/traffic-pools", async (req) => withActor(deps, req, async (tx, actor) => { requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE"]); return listPools(tx); }));
+  app.get("/traffic-pools", async (req) => withActor(deps, req, async (tx, actor) => { requirePermission(actor, "traffic.view"); return listPools(tx); }));
   app.get<{ Params: { id: string } }>("/traffic-pools/:id", async (req) =>
-    withActor(deps, req, async (tx, actor) => { requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE"]); return getPool(tx, req.params.id); }));
+    withActor(deps, req, async (tx, actor) => { requirePermission(actor, "traffic.view"); return getPool(tx, req.params.id); }));
 }

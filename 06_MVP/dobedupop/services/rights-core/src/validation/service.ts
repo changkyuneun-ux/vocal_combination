@@ -1,10 +1,12 @@
 import { factsDiagnostics } from "../engine-bridge/facts-check.ts";
 import { textToForm } from "../engine-bridge/policy-form.ts";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
+import { requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /** WARN 기본 기한(결정 D8): 14일. 위험 수용은 한 번에 최대 30일, 연장은 한 번만. 만료 임박은 30일 전부터 알린다. */
 export const WARN_DAYS = 14;
@@ -255,7 +257,7 @@ const reasonOf = (v: unknown) => { if (typeof v !== "string" || v.trim() === "")
 
 /** 위험 수용 요청(운영, D8): WARN만, 연장 포함 두 번까지. */
 export async function requestAcceptance(tx: Tx, clock: Clock, actor: Actor, id: number, reason: unknown) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "validation.request_accept");
   const why = reasonOf(reason);
   const r = await liveIssue(tx, id);
   if (r.severity !== "WARN") throw conflict("NOT_ACCEPTABLE", `only WARN issues can be accepted; issue ${id} is ${r.severity}`);
@@ -268,10 +270,10 @@ export async function requestAcceptance(tx: Tx, clock: Clock, actor: Actor, id: 
 
 /** 위험 수용 승인(컴플라이언스, 요청자 ≠ 승인자): 최대 30일. */
 export async function acceptIssue(tx: Tx, clock: Clock, actor: Actor, id: number) {
-  requireRole(actor, "COMPLIANCE");
+  requirePermission(actor, "validation.accept");
   const r = await liveIssue(tx, id);
   if (r.accept_requested_by === null) throw conflict("NOT_REQUESTED", `issue ${id} has no acceptance request`);
-  if (r.accept_requested_by === actor.userId) throw new DomainError("SOD_VIOLATION", 403, "the requester cannot approve the acceptance");
+  if (r.accept_requested_by === actor.userId && (await sodEnabled(tx, "validation.request-approve"))) throw new DomainError("SOD_VIOLATION", 403, "the requester cannot approve the acceptance");
   if (r.severity !== "WARN") throw conflict("NOT_ACCEPTABLE", `issue ${id} is ${r.severity}`);
   const until = new Date(Date.parse(clock.now()) + ACCEPT_DAYS * DAY).toISOString();
   await withSystemScope(tx, () => tx.query("UPDATE validation_issue SET status = 'ACCEPTED', accepted_by = $2, accept_until = $3, accept_count = accept_count + 1 WHERE issue_id = $1", [id, actor.userId, until]));
@@ -281,7 +283,7 @@ export async function acceptIssue(tx: Tx, clock: Clock, actor: Actor, id: number
 
 /** 오탐 표시(컴플라이언스, 사유 필수). 내용이 같은 위반은 다시 열지 않는다. */
 export async function dismissIssue(tx: Tx, clock: Clock, actor: Actor, id: number, reason: unknown) {
-  requireRole(actor, "COMPLIANCE");
+  requirePermission(actor, "validation.accept");
   const why = reasonOf(reason);
   const r = await liveIssue(tx, id);
   if (r.status !== "OPEN" && r.status !== "ACCEPTED") throw conflict("ISSUE_CLOSED", `issue ${id} is ${r.status}`);
@@ -292,7 +294,7 @@ export async function dismissIssue(tx: Tx, clock: Clock, actor: Actor, id: numbe
 
 /** 적용 범위 설정(운영): 테넌트의 BLOCK 이슈가 활성화를 막을지. */
 export async function setEnforcement(tx: Tx, clock: Clock, actor: Actor, tenantId: string, enforced: unknown) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "validation.operate");
   if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform operators change validation enforcement");
   if (typeof enforced !== "boolean") throw new DomainError("BAD_REQUEST", 400, "enforced must be true or false");
   const r = await tx.query("UPDATE tenant SET validation_enforced = $2 WHERE tenant_id = $1", [tenantId, enforced]);

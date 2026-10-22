@@ -16,12 +16,13 @@ import { recordPlay } from "../revenue/traffic.ts";
 import { withActor, type Deps } from "./server.ts";
 import { performerConsentOriginal } from "../contracts/service.ts";
 import { signerRoutes } from "../contracts/routes.ts";
+import { withPermissions } from "../platform/permissions.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
 function me(actor: Actor) {
   return {
     userId: actor.userId, tenantId: actor.tenantId, tenantType: actor.tenantType, orgClass: actor.orgClass, tenantStatus: actor.tenantStatus, scope: actor.scope,
-    roles: [...actor.roles].sort(), ...(actor.partyId && { partyId: actor.partyId }), ...(actor.readOnly && { readOnly: true }),
+    roles: [...actor.roles].sort(), permissions: [...actor.permissions].sort(), ...(actor.partyId && { partyId: actor.partyId }), ...(actor.readOnly && { readOnly: true }),
   };
 }
 
@@ -195,7 +196,7 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
     const seal = await withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => {
       let members = b.members;
       members ??= await defaultMembers(tx, b.assignments!);
-      const onBehalf: Actor = { ...actor, roles: new Set([...actor.roles, "ISSUER"]) };
+      const onBehalf: Actor = { ...withPermissions(actor, ["issuance.issue"]), roles: new Set([...actor.roles, "ISSUER"]) };
       const s = await issuance.issue(deps.ctx, tx, deps.clock, onBehalf, { packId: b.packId!, vcId: b.vcId!, assignments: b.assignments!, members, ...(b.usage && { usage: b.usage }) });
       if (deps.audio?.renderer !== undefined) await queueRender(tx, deps.clock, deps.jobs, s.snapshotId);
       return s;

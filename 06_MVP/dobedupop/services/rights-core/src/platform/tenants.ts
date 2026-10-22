@@ -1,8 +1,9 @@
-import { requireAnyRole, withSystemScope, type Actor, type OrgClass, type TenantStatus } from "./actor.ts";
+import { withSystemScope, type Actor, type OrgClass, type TenantStatus } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
 import { conflict, DomainError, invalid, notFound } from "./errors.ts";
+import { requirePermission } from "./permissions.ts";
 
 /**
  * 권리 테넌트·참여 기관의 등록과 수명주기(테넌트 정책 7절, 결정 TD5·TD7, 진행 TN1·TN3).
@@ -33,7 +34,7 @@ function assertPlatform(actor: Actor): void {
 }
 
 export async function registerTenant(tx: Tx, clock: Clock, actor: Actor, b: Record<string, unknown>) {
-  requireAnyRole(actor, ["SPACE_OPS", "ONBOARDING"]);
+  requirePermission(actor, "tenant.onboard");
   assertPlatform(actor);
   const { tenantId, tenantType, name } = b;
   if (typeof tenantId !== "string" || typeof tenantType !== "string" || typeof name !== "string" || name.trim() === "") {
@@ -55,7 +56,7 @@ export async function registerTenant(tx: Tx, clock: Clock, actor: Actor, b: Reco
 /** 조직 정보 고치기(이름·사업자번호·국가·대표자): 운영만. */
 export async function updateTenantInfo(tx: Tx, clock: Clock, actor: Actor, tenantId: string, b: Record<string, unknown>) {
   assertPlatform(actor);
-  requireAnyRole(actor, ["SPACE_OPS", "ONBOARDING"]);
+  requirePermission(actor, "tenant.onboard");
   const t = await tenantRow(tx, tenantId);
   if (t.org_class === "PLATFORM" || t.org_class === "INDIVIDUAL") throw invalid("BAD_REQUEST", "internal organizations have no organization info");
   const fields: [string, string][] = [["name", "name"], ["businessNo", "business_no"], ["country", "country"], ["representative", "representative"]];
@@ -83,7 +84,7 @@ async function tenantRow(tx: Tx, tenantId: string) {
 /** 확인 항목 체크·해제(운영 ONBOARDING·SPACE_OPS). 근거 원천 문서를 함께 적을 수 있다. */
 export async function setCheck(tx: Tx, clock: Clock, actor: Actor, tenantId: string, item: string, b: { checked?: unknown; note?: unknown; documentId?: unknown }) {
   assertPlatform(actor);
-  requireAnyRole(actor, ["SPACE_OPS", "ONBOARDING"]);
+  requirePermission(actor, "tenant.onboard");
   if (!CHECK_ITEMS.includes(item as CheckItem)) throw invalid("BAD_REQUEST", `item must be one of ${CHECK_ITEMS.join(", ")}`);
   if (typeof b.checked !== "boolean") throw invalid("BAD_REQUEST", "checked must be true or false");
   const t = await tenantRow(tx, tenantId);
@@ -116,12 +117,12 @@ export async function setTenantStatus(tx: Tx, clock: Clock, actor: Actor, tenant
   const reason = typeof b.reason === "string" && b.reason.trim() !== "" ? b.reason.trim() : null;
   const enabling = (to === "VERIFIED" || to === "ACTIVE") && from !== "SUSPENDED";
   if (enabling) {
-    requireAnyRole(actor, ["SPACE_OPS", "ONBOARDING"]);
+    requirePermission(actor, "tenant.onboard");
     const have = new Set((await tx.query("SELECT item FROM tenant_check WHERE tenant_id = $1", [tenantId])).rows.map((r) => r.item as string));
     const missing = requiredChecks(t.tenant_type, to as "VERIFIED" | "ACTIVE").filter((i) => !have.has(i));
     if (missing.length > 0) throw invalid("CHECKS_MISSING", `${tenantId} → ${to} needs checks: ${missing.join(", ")}`, missing.map((m) => ({ code: "CHECK_MISSING", path: m, message: m })));
   } else {
-    requireAnyRole(actor, ["SPACE_OPS", "COMPLIANCE"]);
+    requirePermission(actor, "tenant.suspend");
     if (reason === null) throw invalid("REASON_REQUIRED", `a reason is required to move ${tenantId} to ${to}`);
   }
   await tx.query("UPDATE tenant SET status = $2, status_changed_at = $3, status_reason = $4 WHERE tenant_id = $1", [tenantId, to, clock.now(), reason]);
@@ -174,7 +175,7 @@ export async function assertOwnerTenantActive(tx: Tx, factsScopeId: string, what
  * 위탁 당사자가 가입하거나 권리 테넌트·신탁단체가 맡을 때, 해지한 테넌트의 당사자를 옮길 때 쓴다.
  */
 export async function transferParty(tx: Tx, clock: Clock, actor: Actor, partyId: string, b: { tenantId?: unknown; reason?: unknown }) {
-  requireAnyRole(actor, ["ONBOARDING", "SPACE_OPS"]);
+  requirePermission(actor, "tenant.onboard");
   assertPlatform(actor);
   if (typeof b.tenantId !== "string") throw invalid("BAD_REQUEST", "tenantId is required");
   if (typeof b.reason !== "string" || b.reason.trim() === "") throw invalid("REASON_REQUIRED", "a reason is required to change a party's manager");
@@ -207,7 +208,7 @@ export function managerKind(orgClass: string): "TENANT" | "SELF" | "PARTICIPANT"
  * 같은 사람의 실연자 자격(실연자 앱)은 기본 소속 그대로다.
  */
 export async function onboardIndependentArtist(tx: Tx, clock: Clock, actor: Actor, b: Record<string, unknown>) {
-  requireAnyRole(actor, ["ONBOARDING", "SPACE_OPS"]);
+  requirePermission(actor, "tenant.onboard");
   assertPlatform(actor);
   if (typeof b.userId !== "string") throw invalid("BAD_REQUEST", "userId is required");
   const u = await withSystemScope(tx, async () => (await tx.query(

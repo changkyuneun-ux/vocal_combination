@@ -1,9 +1,10 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import type { JobName } from "../platform/jobs.ts";
 import { releaseRunEvents, type SettleDeps } from "./service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /** 무효화 사유의 최대 길이(진단·감사에 그대로 들어간다). */
 export const MAX_VOID_REASON = 500;
@@ -17,12 +18,12 @@ async function lockRun(tx: Tx, runId: string): Promise<string> {
 }
 
 /**
- * 운영자 run 무효화(통합 설계 11.2-9, SPACE_SETTLE): 확정 전(PENDING·CALCULATED·VERIFIED) run을 VOIDED로 바꾸고 이벤트를 푼다.
+ * 운영자 run 무효화(통합 설계 11.2-9, settlement.operate): 확정 전(PENDING·CALCULATED·VERIFIED) run을 VOIDED로 바꾸고 이벤트를 푼다.
  * run을 잠가 settle-run·verify-run·confirmBatch와 직렬화한다. 이미 쌓인 작업은 상태를 보고 아무것도 하지 않는다.
  * 0011 가드 순서: run을 먼저 VOIDED로 바꾼 뒤 이벤트를 푼다. 풀린 이벤트는 다음 배치의 후보가 된다.
  */
 export async function voidRun(d: SettleDeps, actor: Actor, runId: string, reason: string) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "settlement.operate");
   if (typeof reason !== "string" || reason.trim().length === 0 || reason.length > MAX_VOID_REASON) {
     throw invalid("INVALID_REASON", `reason must be a non-empty string of at most ${MAX_VOID_REASON} characters`);
   }
@@ -37,9 +38,9 @@ export async function voidRun(d: SettleDeps, actor: Actor, runId: string, reason
   });
 }
 
-/** 운영자 run 재큐잉(통합 설계 11.2-9, SPACE_SETTLE): PENDING → settle-run, CALCULATED → verify-run을 다시 보낸다. 처리기는 상태를 보고 멱등이다. */
+/** 운영자 run 재큐잉(통합 설계 11.2-9, settlement.operate): PENDING → settle-run, CALCULATED → verify-run을 다시 보낸다. 처리기는 상태를 보고 멱등이다. */
 export async function requeueRun(d: SettleDeps, actor: Actor, runId: string) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "settlement.operate");
   return d.db.tx(async (tx) => {
     const status = await lockRun(tx, runId);
     const job = REQUEUE_JOB[status];

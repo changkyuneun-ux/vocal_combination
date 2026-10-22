@@ -28,6 +28,7 @@ const KEYS: Record<string, "OWNER" | "PARTY" | "SELF" | "LINK" | "ORG" | "PUBLIC
   // 불변 봉인·서명(sealed_document·attestation·dev_signing_key), 설정(payout_policy), 분개 머리(journal_entry — 금액은 posting에), 지급 실행(payout_run), 마이그레이션.
   user_account: "REFERENCE", user_membership: "REFERENCE", portal_role: "REFERENCE", tenant: "REFERENCE", party: "REFERENCE", sealed_document: "REFERENCE",
   attestation: "REFERENCE", dev_signing_key: "REFERENCE", payout_policy: "REFERENCE", journal_entry: "REFERENCE", payout_run: "REFERENCE", schema_migrations: "REFERENCE",
+  permission: "REFERENCE", role: "REFERENCE", role_permission: "REFERENCE", delegable_task_permission: "REFERENCE", sod_rule: "REFERENCE",
 };
 
 const { db, drop } = await freshDb();

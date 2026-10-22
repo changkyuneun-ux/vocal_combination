@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Tx } from "../platform/db.ts";
@@ -9,6 +9,7 @@ import { postEntry } from "../ledger/journal.ts";
 import type { PayoutProvider, ProviderResult } from "./provider.ts";
 import type { PayoutDeps as RunDeps } from "./service.ts";
 import { notifyParty } from "../performer/notifications.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /**
  * 지급 작업 의존성: 지급 실행과 같은 db·clock·jobs에 PSP 어댑터. (SettleDeps도 그대로 넘길 수 있다.)
@@ -95,12 +96,12 @@ export async function submitPayout(d: PayoutDeps, data: { instructionId: string 
 }
 
 /**
- * 운영자 재전송(SPACE_SETTLE): 멈춘 지시(PENDING·SUBMITTED이고 submit_attempted_at이 있다 — PSP에 보냈거나 보냈을 수 있다)를
+ * 운영자 재전송(payout.run): 멈춘 지시(PENDING·SUBMITTED이고 submit_attempted_at이 있다 — PSP에 보냈거나 보냈을 수 있다)를
  * 같은 멱등 키로 provider.submit에 다시 보내고 결과를 보통 경로(applyProviderResult)로 반영한다. 트랜잭션 밖에서 부르며 감사 PAYOUT_RESUBMITTED를 남긴다.
  * provider가 예외를 던지면 UNKNOWN으로 보고 poll-payout을 다시 건다. 같은 키라 PSP는 한 번만 지급한다.
  */
 export async function resubmitPayout(d: PayoutDeps, actor: Actor, instructionId: string): Promise<{ instructionId: string; providerStatus: ProviderResult["status"]; status: string }> {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "payout.run");
   const plan = await d.db.tx(async (tx) => {
     const i = await loadInstruction(tx, instructionId, true);
     if (i === undefined) throw notFound("payout instruction", instructionId);

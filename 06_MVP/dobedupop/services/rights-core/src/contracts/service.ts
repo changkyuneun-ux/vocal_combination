@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -11,6 +11,8 @@ import { recordMandate } from "../registry/service.ts";
 import { isIdentityVerified } from "../performer/identity.ts";
 import { revalidate } from "../validation/service.ts";
 import type { SignatureProvider } from "./esign.ts";
+import { hasPermission, requirePermission } from "../platform/permissions.ts";
+import { sodEnabled } from "../platform/sod.ts";
 
 /**
  * 최초 작성(원천 문서 설계 S4, 결정 D6): 표준 계약 템플릿 → 마법사 답 → 사람이 읽는 계약서 → 전자서명 → 서명본 원천 문서 + 기록.
@@ -59,7 +61,7 @@ export async function getTemplate(tx: Tx, templateId: string, version?: number):
 }
 
 function requireLegal(actor: Actor): void {
-  requireRole(actor, "LEGAL");
+  requirePermission(actor, "legal.template");
   if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform legal staff manage contract templates");
 }
 
@@ -96,7 +98,7 @@ export async function approveTemplateVersion(tx: Tx, clock: Clock, actor: Actor,
   requireLegal(actor);
   const t = await getTemplate(tx, templateId, version);
   if (t.status !== "DRAFT") throw conflict("TEMPLATE_NOT_DRAFT", `${templateId}@${version} is ${t.status}`);
-  if (t.authoredBy === actor.userId) throw new DomainError("SAME_PERSON", 403, "the author cannot approve their own template version");
+  if (t.authoredBy === actor.userId && (await sodEnabled(tx, "contract-template.author-approve"))) throw new DomainError("SAME_PERSON", 403, "the author cannot approve their own template version");
   await tx.query("UPDATE contract_template SET status = 'RETIRED' WHERE template_id = $1 AND status = 'APPROVED'", [templateId]);
   await tx.query("UPDATE contract_template SET status = 'APPROVED', approved_by = $3, approved_at = $4 WHERE template_id = $1 AND version = $2", [templateId, version, actor.userId, clock.now()]);
   await audit(tx, clock, { actor: actor.userId, action: "TEMPLATE_APPROVED", entityType: "contract_template", entityId: `${templateId}@${version}` });
@@ -185,7 +187,7 @@ async function apply(tx: Tx, clock: Clock, actor: Actor, scopeId: string, record
 }
 
 function requireDrafter(actor: Actor): void {
-  if (actor.scope !== "platform") requireRole(actor, "RIGHTS_EDITOR");
+  if (actor.scope !== "platform") requirePermission(actor, "contract.draft");
 }
 
 async function prepare(tx: Tx, b: { contractId?: unknown; templateId?: unknown; templateVersion?: unknown; factsScopeId?: unknown; answers?: unknown }) {
@@ -283,17 +285,17 @@ async function markSigned(tx: Tx, clock: Clock, contractId: string, partyId: str
 }
 
 /**
- * 당사자 서명(플랫폼 사용자): 실연자는 본인 파티(본인 인증 필수), 권리자는 그 파티가 속한 테넌트의 RIGHTS_EDITOR가 서명한다.
+ * 당사자 서명(플랫폼 사용자): 실연자는 본인 파티(본인 인증 필수), 권리자는 그 파티가 속한 테넌트의 contract.sign_org 권한자가 서명한다.
  * 공급자가 본인 확인을 맡는 운영 환경에서는 공급자 화면에서 서명하고 통지(providerSigned)로 들어온다.
  */
 export async function signContract(tx: Tx, clock: Clock, actor: Actor, provider: SignatureProvider, contractId: string, partyId?: unknown) {
   const pending = (await tx.query("SELECT party_id FROM contract_signature WHERE contract_id = $1 AND signed_at IS NULL", [contractId])).rows.map((r) => r.party_id as string);
   let mine: string[];
-  if (actor.partyId !== undefined && actor.roles.has("PERFORMER")) {
+  if (actor.partyId !== undefined && hasPermission(actor, "performer.self")) {
     mine = pending.filter((p) => p === actor.partyId);
     if (mine.length > 0 && !(await isIdentityVerified(tx, actor.userId))) throw new DomainError("IDENTITY_REQUIRED", 403, `${actor.userId} must complete identity verification before signing`);
   } else {
-    requireRole(actor, "RIGHTS_EDITOR");
+    requirePermission(actor, "contract.sign_org");
     const owned = (await withSystemScope(tx, async () => (await tx.query("SELECT party_id FROM party WHERE party_id = ANY($1) AND tenant_id = $2", [pending, actor.tenantId])).rows))
       .map((r) => r.party_id as string);
     mine = pending.filter((p) => owned.includes(p));

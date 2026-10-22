@@ -1,8 +1,9 @@
-import { requireAnyRole, type Actor, type Role } from "./actor.ts";
+import type { Actor } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
 import { DomainError, invalid, notFound } from "./errors.ts";
+import { hasPermission, requirePermission, type Permission } from "./permissions.ts";
 
 /**
  * 위임 대행(테넌트 정책 TR5·TN6, 데이터모델 v2.8 tenant.ops_delegation·audit_log.acting_on_behalf_of).
@@ -12,20 +13,21 @@ import { DomainError, invalid, notFound } from "./errors.ts";
  */
 export const DELEGABLE = ["RIGHTS_ENTRY"] as const;
 export type DelegableTask = (typeof DELEGABLE)[number];
-const TASK_ROLES: Record<DelegableTask, Role[]> = { RIGHTS_ENTRY: ["RIGHTS_EDITOR"] };
 
 /** 플랫폼 행위자를 그 테넌트의 대행자로 바꾼다. 위임이 없거나 활성·확인됨이 아니면 거부한다. */
 export async function delegatedActor(tx: Tx, actor: Actor, tenantId: string): Promise<Actor> {
   if (actor.scope !== "platform") throw new DomainError("DELEGATION_FORBIDDEN", 403, "only platform operators act on behalf of a tenant");
-  requireAnyRole(actor, ["ONBOARDING"]);
+  requirePermission(actor, "delegation.act");
   const t = (await tx.query("SELECT tenant_type, org_class, status, ops_delegation FROM tenant WHERE tenant_id = $1", [tenantId])).rows[0];
   if (t === undefined) throw notFound("tenant", tenantId);
   if (t.org_class !== "RIGHTS") throw invalid("BAD_REQUEST", "delegation is for rights tenants");
   if (t.status !== "ACTIVE" && t.status !== "VERIFIED") throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tenantId} is ${t.status}`);
   const tasks = (t.ops_delegation as string[]).filter((x): x is DelegableTask => (DELEGABLE as readonly string[]).includes(x));
   if (tasks.length === 0) throw new DomainError("NOT_DELEGATED", 403, `${tenantId} has not delegated any work to the platform`);
+  const perms = new Set((await tx.query("SELECT perm_id FROM delegable_task_permission WHERE task = ANY($1)", [tasks])).rows.map((r) => r.perm_id as Permission));
+  // roles는 화면 표시용(위임 업무 RIGHTS_ENTRY = 권리 편집). 검사는 permissions로 한다.
   return {
-    userId: actor.userId, roles: new Set(tasks.flatMap((x) => TASK_ROLES[x])), tenantId, tenantType: t.tenant_type, orgClass: "RIGHTS", tenantStatus: t.status,
+    userId: actor.userId, roles: new Set(["RIGHTS_EDITOR"]), permissions: perms, tenantId, tenantType: t.tenant_type, orgClass: "RIGHTS", tenantStatus: t.status,
     scope: "tenant", actingOnBehalfOf: tenantId,
   };
 }
@@ -33,7 +35,7 @@ export async function delegatedActor(tx: Tx, actor: Actor, tenantId: string): Pr
 /** 위임 업무 정하기: 그 테넌트의 조직 관리자만(자기 조직). 빈 목록이면 위임을 거둔다. */
 export async function setDelegation(tx: Tx, clock: Clock, actor: Actor, tenantId: string, tasks: unknown) {
   if (actor.actingOnBehalfOf !== undefined) throw new DomainError("DELEGATION_FORBIDDEN", 403, "a delegate cannot change the delegation");
-  if (actor.scope === "platform" || actor.tenantId !== tenantId || !actor.roles.has("TENANT_ADMIN")) {
+  if (actor.scope === "platform" || actor.tenantId !== tenantId || !hasPermission(actor, "delegation.set")) {
     throw new DomainError("ROLE_REQUIRED", 403, "only the tenant's administrator delegates work to the platform");
   }
   if (!Array.isArray(tasks) || !tasks.every((x) => (DELEGABLE as readonly string[]).includes(x))) throw invalid("BAD_REQUEST", `tasks must be among ${DELEGABLE.join(", ")}`);

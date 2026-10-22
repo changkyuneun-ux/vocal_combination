@@ -1,6 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { requireRole } from "../platform/actor.ts";
 import { maskRef, unmaskRequested } from "../platform/inspection.ts";
 import { DomainError } from "../platform/errors.ts";
 import { withActor, type Deps } from "../http/server.ts";
@@ -9,6 +8,7 @@ import type { Tx } from "../platform/db.ts";
 import * as q from "./queries.ts";
 import { recordWebhook, resubmitPayout } from "./handlers.ts";
 import { createPayoutRun, setPayoutProfile } from "./service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 const str = (b: any, k: string): string => {
   if (typeof b?.[k] !== "string") throw new DomainError("BAD_REQUEST", 400, `${k} must be a string`);
@@ -29,7 +29,7 @@ function secretMatches(given: unknown, expected: string): boolean {
 }
 
 /**
- * 지급 API(통합 설계 11.2-14). 운영 라우트는 SPACE_SETTLE(서비스가 검사). 신원(401)이 본문 검증(400)보다 먼저다.
+ * 지급 API(통합 설계 11.2-14). 운영 라우트는 payout.run(서비스가 검사). 신원(401)이 본문 검증(400)보다 먼저다.
  * POST /psp/webhook은 신원이 없다: 공유 비밀 헤더 x-psp-secret를 deps.pspSecret(env RC_PSP_SECRET)과 비교한다 — 설정이 없으면 503, 다르면 401.
  * 본문: providerEventId·providerRef는 1~200자 문자열, status는 PAID|FAILED(아니면 400).
  */
@@ -45,27 +45,27 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
   });
   app.post("/payout-runs", async (req, reply) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
-    requireRole(actor, "SPACE_SETTLE");
+    requirePermission(actor, "payout.run");
     const b: any = req.body;
     return reply.status(201).send(await createPayoutRun(d(), actor, { payoutRunId: str(b, "payoutRunId"), asOf: str(b, "asOf") }));
   });
   app.post<{ Params: { id: string } }>("/payouts/:id/resubmit", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
-    requireRole(actor, "SPACE_SETTLE");
+    requirePermission(actor, "payout.run");
     if (deps.provider === undefined) throw new DomainError("PSP_NOT_CONFIGURED", 503, "no payout provider is configured");
     return resubmitPayout({ ...d(), provider: deps.provider }, actor, req.params.id);
   });
-  // 조회(SPACE_SETTLE). 역할 검사가 필터·커서 검증보다 먼저다.
+  // 조회(payout.view). 권한 검사가 필터·커서 검증보다 먼저다.
   const read = <T>(path: string, fn: (tx: Tx, req: any) => Promise<T>) =>
     app.get(path, async (req) => withActor(deps, req, async (tx, actor) => {
-      requireRole(actor, "SPACE_SETTLE");
+      requirePermission(actor, "payout.view");
       return fn(tx, req);
     }));
   const qs = (req: { query: unknown }) => req.query as Record<string, unknown>;
   read("/payout-policy", (tx) => q.getPayoutPolicy(tx));
   // 계좌 토큰은 기본 마스킹(조회 통제 2단계). unmask=1&reason=…이면 열람을 기록하고 원문을 준다.
   app.get<{ Params: { id: string } }>("/parties/:id/payout-profile", async (req) => withActor(deps, req, async (tx, actor) => {
-    requireRole(actor, "SPACE_SETTLE");
+    requirePermission(actor, "payout.view");
     const p = await q.getPayoutProfile(tx, req.params.id);
     const open = await unmaskRequested(tx, deps.clock, actor, qs(req), { partyId: req.params.id, nodeType: "party_payout_profile", nodeId: req.params.id, ip: req.ip });
     return open ? p : { ...p, payoutAccountRef: maskRef(p.payoutAccountRef) };
@@ -76,7 +76,7 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
     return { ...page, items: page.items.map((i) => ({ ...i, submittedAccountRef: maskRef(i.submittedAccountRef), decidedAccountRef: maskRef(i.decidedAccountRef) })) };
   });
   app.get<{ Params: { id: string } }>("/payouts/:id", async (req) => withActor(deps, req, async (tx, actor) => {
-    requireRole(actor, "SPACE_SETTLE");
+    requirePermission(actor, "payout.view");
     const d = await q.getPayout(tx, req.params.id);
     const open = await unmaskRequested(tx, deps.clock, actor, qs(req), { partyId: d.partyId, nodeType: "payout_instruction", nodeId: req.params.id, ip: req.ip });
     // 판정·전송 토큰이 같은지는 원문으로 비교해 알려 준다(마스킹된 값끼리는 비교할 수 없다).

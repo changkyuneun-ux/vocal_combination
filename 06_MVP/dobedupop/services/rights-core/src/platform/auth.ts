@@ -1,12 +1,13 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { actorForChannel, type Channel } from "../http/channels.ts";
-import { createUser, withSystemScope, type Actor, type OrgClass, type Role } from "./actor.ts";
+import { createUser, PLATFORM_TENANT, withSystemScope, type Actor, type OrgClass, type Role } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { conflict, DomainError, invalid, notFound } from "./errors.ts";
 import { confirmVerification, startVerification, type IdentityProvider } from "../performer/identity.ts";
 import { delegatedActor } from "./delegation.ts";
+import { requirePermission } from "./permissions.ts";
 
 /**
  * 인증·세션(MVP 진행계획 M3, 결정 MD3). 코어가 세션을 발급하고, 세션은 발급한 채널(서브도메인)에서만 쓴다.
@@ -237,7 +238,10 @@ export async function devLogin(tx: Tx, clock: Clock, channel: Channel, userId: u
 // ── 계정 발급·역할·잠금(테넌트 정책 8절, 결정 TD3·TD4) ─────────────────────────────────────────
 const ID = /^[A-Za-z0-9._-]+$/;
 const ALL_ROLES: readonly Role[] = ["RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", "ACTIVATOR", "ISSUER", "SPACE_OPS", "SPACE_SETTLE", "PERFORMER", "COMPLIANCE", "LEGAL",
-  "TENANT_ADMIN", "ONBOARDING", "TRUST_OFFICER", "PARTNER_INTEGRATION"];
+  "TENANT_ADMIN", "ONBOARDING", "TRUST_OFFICER", "PARTNER_INTEGRATION", "PLATFORM_ALL", "RIGHTS_ALL", "PARTICIPANT_ALL"];
+
+/** 참여 구분마다 그 구분의 총괄 역할(0041). 조직 관리 권한(account.manage)을 포함하므로 첫 관리자 역할로도 줄 수 있다. */
+const SUPER_ROLE: Partial<Record<OrgClass, Role>> = { PLATFORM: "PLATFORM_ALL", RIGHTS: "RIGHTS_ALL", PARTICIPANT: "PARTICIPANT_ALL" };
 
 /**
  * 조직 종류마다 줄 수 있는 역할(6절 표). 운영 계정에는 권리 결정 역할(편집·승인·활성화·발행)을 주지 않는다(TD3).
@@ -245,10 +249,10 @@ const ALL_ROLES: readonly Role[] = ["RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", 
  */
 export function assignableRoles(orgClass: OrgClass, tenantType: string): readonly Role[] {
   switch (orgClass) {
-    case "RIGHTS": return ["TENANT_ADMIN", "RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", "ACTIVATOR"];
-    case "PARTICIPANT": return tenantType === "CMO" ? ["TENANT_ADMIN", "TRUST_OFFICER"] : ["TENANT_ADMIN", "PARTNER_INTEGRATION"];
+    case "RIGHTS": return ["TENANT_ADMIN", "RIGHTS_EDITOR", "EDITOR", "WORK_APPROVER", "ACTIVATOR", "RIGHTS_ALL"];
+    case "PARTICIPANT": return tenantType === "CMO" ? ["TENANT_ADMIN", "TRUST_OFFICER", "PARTICIPANT_ALL"] : ["TENANT_ADMIN", "PARTNER_INTEGRATION", "PARTICIPANT_ALL"];
     case "INDIVIDUAL": return ["PERFORMER"];
-    case "PLATFORM": return ["SPACE_OPS", "SPACE_SETTLE", "ONBOARDING", "COMPLIANCE", "LEGAL"];
+    case "PLATFORM": return ["SPACE_OPS", "SPACE_SETTLE", "ONBOARDING", "COMPLIANCE", "LEGAL", "PLATFORM_ALL"];
   }
 }
 
@@ -258,9 +262,11 @@ async function tenantInfo(tx: Tx, tenantId: string): Promise<TenantInfo> {
   if (t === undefined) throw notFound("tenant", tenantId);
   return { tenantId, tenantType: t.tenant_type, orgClass: t.org_class, status: t.status };
 }
+/** 조직 관리자가 있는지: 역할 이름 대신 조직 관리 권한(account.manage)으로 본다(총괄 역할 포함). */
 async function hasAdmin(tx: Tx, tenantId: string): Promise<boolean> {
   return (await tx.query(
-    "SELECT 1 FROM portal_role r JOIN user_account u ON u.user_id = r.user_id WHERE r.tenant_id = $1 AND r.role = 'TENANT_ADMIN' AND u.disabled_at IS NULL LIMIT 1", [tenantId])).rowCount !== 0;
+    `SELECT 1 FROM portal_role r JOIN role_permission rp ON rp.role_id = r.role AND rp.perm_id = 'account.manage'
+       JOIN user_account u ON u.user_id = r.user_id WHERE r.tenant_id = $1 AND u.disabled_at IS NULL LIMIT 1`, [tenantId])).rowCount !== 0;
 }
 
 /**
@@ -272,15 +278,15 @@ async function hasAdmin(tx: Tx, tenantId: string): Promise<boolean> {
 async function adminScope(tx: Tx, actor: Actor, t: TenantInfo): Promise<{ firstAdmin: boolean }> {
   if (actor.scope === "platform") {
     if (t.orgClass === "PLATFORM") {
-      if (!actor.roles.has("SPACE_OPS")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS manages platform staff");
+      requirePermission(actor, "staff.manage");
       return { firstAdmin: false };
     }
-    if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
+    requirePermission(actor, "account.onboard");
     if (t.orgClass === "INDIVIDUAL") return { firstAdmin: false };
     if (await hasAdmin(tx, t.tenantId)) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} has an administrator; its administrator manages its accounts`);
     return { firstAdmin: true };
   }
-  if (!actor.roles.has("TENANT_ADMIN")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role TENANT_ADMIN`);
+  requirePermission(actor, "account.manage");
   if (actor.tenantId !== t.tenantId) throw new DomainError("TENANT_FORBIDDEN", 403, `${actor.userId} administers ${actor.tenantId}, not ${t.tenantId}`);
   return { firstAdmin: false };
 }
@@ -291,7 +297,8 @@ function checkRoles(t: TenantInfo, roles: unknown, firstAdmin: boolean): Role[] 
   const bad = roles.filter((r) => !allowed.includes(r as Role));
   if (bad.length > 0) throw invalid("ROLE_NOT_ASSIGNABLE", `${bad.join(", ")} cannot be given in ${t.tenantId} (${t.orgClass}); allowed: ${allowed.join(", ")}`);
   // 1인 테넌트(독립 아티스트)는 관리자가 곧 담당자라, 첫 관리자에게 권리 역할을 함께 준다(자기 역할은 스스로 못 바꾸므로).
-  if (firstAdmin && t.tenantType !== "INDEPENDENT_ARTIST" && roles.some((r) => r !== "TENANT_ADMIN")) {
+  const adminRoles: readonly Role[] = ["TENANT_ADMIN", ...(SUPER_ROLE[t.orgClass] ? [SUPER_ROLE[t.orgClass]!] : [])];
+  if (firstAdmin && t.tenantType !== "INDEPENDENT_ARTIST" && roles.some((r) => !adminRoles.includes(r as Role))) {
     throw invalid("FIRST_ADMIN_ONLY", "operators issue only the first administrator; the administrator adds the other accounts");
   }
   return [...new Set(roles as Role[])];
@@ -306,7 +313,7 @@ async function targetMembership(tx: Tx, actor: Actor, userId: string, tenantId?:
   const t = await tenantInfo(tx, tid);
   if (actor.scope === "platform" && (t.orgClass === "RIGHTS" || t.orgClass === "PARTICIPANT")) {
     // 운영은 조직 계정의 역할을 바꾸지 않는다. 관리자가 없는(잠긴) 조직이면 관리자를 다시 세우는 것만 한다.
-    if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
+    requirePermission(actor, "account.onboard");
     if (await hasAdmin(tx, t.tenantId)) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} has an administrator; its administrator manages its accounts`);
     return { t, firstAdmin: true };
   }
@@ -327,7 +334,7 @@ export async function createAccount(tx: Tx, clock: Clock, actor: Actor, b: { use
     if (t.status === "TERMINATED") throw conflict("TENANT_INACTIVE", `${tenantId} is TERMINATED`);
     const { firstAdmin } = await adminScope(tx, actor, t);
     const roles = checkRoles(t, Array.isArray(b.roles) ? b.roles : [], firstAdmin);
-    if (firstAdmin && !roles.includes("TENANT_ADMIN")) throw invalid("FIRST_ADMIN_ONLY", "the first account of an organization is its administrator (TENANT_ADMIN)");
+    if (firstAdmin && !roles.some((r) => r === "TENANT_ADMIN" || r === SUPER_ROLE[t.orgClass])) throw invalid("FIRST_ADMIN_ONLY", "the first account of an organization is its administrator (TENANT_ADMIN)");
     if ((await tx.query("SELECT 1 FROM user_account WHERE user_id = $1", [b.userId])).rowCount !== 0) throw conflict("USER_EXISTS", `user ${b.userId} exists`);
     await createUser(tx, clock, { userId: b.userId as string, displayName: (b.displayName as string).trim(), roles, tenantId, ...(typeof b.partyId === "string" && { partyId: b.partyId }) });
     await audit(tx, clock, { actor: actor.userId, action: "USER_CREATE", entityType: "user_account", entityId: b.userId as string, after: { tenantId, roles } });
@@ -358,6 +365,14 @@ export async function addMembership(tx: Tx, clock: Clock, actor: Actor, userId: 
   });
 }
 
+/** 이 계정이 잠기지 않은 마지막 플랫폼 총괄(PLATFORM_ALL)이면 409 LAST_SUPER_ADMIN(총괄 운영과 권한 구조 3절). */
+async function assertNotLastSuperAdmin(tx: Tx, userId: string): Promise<void> {
+  const holders = (await tx.query(
+    `SELECT r.user_id FROM portal_role r JOIN user_account u ON u.user_id = r.user_id
+      WHERE r.role = 'PLATFORM_ALL' AND r.tenant_id = $1 AND u.disabled_at IS NULL`, [PLATFORM_TENANT])).rows.map((x) => x.user_id as string);
+  if (holders.length === 1 && holders[0] === userId) throw conflict("LAST_SUPER_ADMIN", `${userId} is the last platform super administrator`);
+}
+
 /** 역할 바꾸기: 소속(tenantId, 기본값은 관리자의 조직)마다. 자기 역할은 바꾸지 못한다. */
 export async function setRoles(tx: Tx, clock: Clock, actor: Actor, userId: string, roles: unknown, tenantId?: unknown) {
   if (userId === actor.userId) throw new DomainError("SAME_PERSON", 403, "you cannot change your own roles");
@@ -365,6 +380,7 @@ export async function setRoles(tx: Tx, clock: Clock, actor: Actor, userId: strin
     const { t, firstAdmin } = await targetMembership(tx, actor, userId, tenantId);
     const next = checkRoles(t, roles, firstAdmin);
     const before = (await tx.query("SELECT role FROM portal_role WHERE user_id = $1 AND tenant_id = $2 ORDER BY role", [userId, t.tenantId])).rows.map((r) => r.role);
+    if (before.includes("PLATFORM_ALL") && !next.includes("PLATFORM_ALL")) await assertNotLastSuperAdmin(tx, userId);
     await tx.query("DELETE FROM portal_role WHERE user_id = $1 AND tenant_id = $2", [userId, t.tenantId]);
     for (const r of next) await tx.query("INSERT INTO portal_role (user_id, tenant_id, role) VALUES ($1,$2,$3)", [userId, t.tenantId, r]);
     await audit(tx, clock, { actor: actor.userId, action: "USER_ROLES", entityType: "user_account", entityId: userId, after: { tenantId: t.tenantId, before, roles: next } });
@@ -378,14 +394,15 @@ export async function setDisabled(tx: Tx, clock: Clock, actor: Actor, userId: st
   if (userId === actor.userId) throw new DomainError("SAME_PERSON", 403, "you cannot lock your own account");
   return withSystemScope(tx, async () => {
     if (actor.scope === "platform") {
-      if (!actor.roles.has("SPACE_OPS")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role SPACE_OPS`);
+      requirePermission(actor, "staff.manage");
     } else {
-      if (!actor.roles.has("TENANT_ADMIN")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role TENANT_ADMIN`);
+      requirePermission(actor, "account.manage");
       // 다른 조직에도 소속된 사람의 계정은 그 사람 전체를 잠그므로, 기본 소속 조직의 관리자만 잠근다.
       const u = (await tx.query("SELECT tenant_id FROM user_account WHERE user_id = $1", [userId])).rows[0];
       if (u === undefined) throw notFound("user", userId);
       if (u.tenant_id !== actor.tenantId) throw new DomainError("TENANT_FORBIDDEN", 403, `${userId} belongs to ${u.tenant_id}`);
     }
+    if (disabled) await assertNotLastSuperAdmin(tx, userId);
     const r = await tx.query("UPDATE user_account SET disabled_at = $2 WHERE user_id = $1", [userId, disabled ? clock.now() : null]);
     if (r.rowCount === 0) throw notFound("user", userId);
     if (disabled) await tx.query("UPDATE user_session SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL", [userId, clock.now()]);
@@ -401,8 +418,9 @@ export async function reinvite(tx: Tx, clock: Clock, actor: Actor, userId: strin
     if (u === undefined) throw notFound("user", userId);
     const t = await tenantInfo(tx, u.tenant_id);
     if (actor.scope === "platform" && (t.orgClass === "RIGHTS" || t.orgClass === "PARTICIPANT")) {
-      if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
-      const isAdmin = (await tx.query("SELECT 1 FROM portal_role WHERE user_id = $1 AND tenant_id = $2 AND role = 'TENANT_ADMIN'", [userId, t.tenantId])).rowCount !== 0;
+      requirePermission(actor, "account.onboard");
+      const isAdmin = (await tx.query(
+        "SELECT 1 FROM portal_role r JOIN role_permission rp ON rp.role_id = r.role AND rp.perm_id = 'account.manage' WHERE r.user_id = $1 AND r.tenant_id = $2", [userId, t.tenantId])).rowCount !== 0;
       if (!isAdmin) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} accounts are managed by its administrator`);
     } else {
       await adminScope(tx, actor, t);

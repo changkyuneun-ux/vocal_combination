@@ -1,7 +1,7 @@
 import { invalidateDecisions } from "../decisions/cache.ts";
 import { releaseExposureOnConsent } from "../exposure/service.ts";
 import { consentToRule, validateConsentRule, type ConsentRow } from "../engine-bridge/grant.ts";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -10,6 +10,7 @@ import { enqueue } from "../platform/outbox.ts";
 import { notifyParty } from "../performer/notifications.ts";
 import { isIdentityVerified } from "../performer/identity.ts";
 import { evidenceDigest, linkEvidence, parseRefs, type DocumentRef } from "../documents/service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type RightType = "PERFORMER" | "MASTER" | "WORK";
 export type ConsentDraft = {
@@ -27,8 +28,8 @@ export type Consent = {
 };
 
 /**
- * 누가 서명할 수 있나. 실연 동의는 실연자 본인(PERFORMER, 자기 파티)만 한다. 권리자 포털·대리 서명은 받지 않는다.
- * 녹음·작품 허락은 그 파티가 소속된 테넌트의 RIGHTS_EDITOR가 한다(파티 소속은 RLS가 확인한다).
+ * 누가 서명할 수 있나. 실연 동의는 실연자 본인(performer.self, 자기 파티)만 한다. 권리자 포털·대리 서명은 받지 않는다.
+ * 녹음·작품 허락은 그 파티가 소속된 테넌트의 consent.record 권한자가 한다(파티 소속은 RLS가 확인한다).
  * 플랫폼은 종이 계약을 옮겨 적을 때만 서명을 대신 기록하며, 그때는 계약 원문 URI가 있어야 한다.
  */
 function authorize(actor: Actor, partyId: string, rightType: string, contractUri?: string): void {
@@ -37,11 +38,11 @@ function authorize(actor: Actor, partyId: string, rightType: string, contractUri
     return;
   }
   if (rightType === "PERFORMER") {
-    requireRole(actor, "PERFORMER");
+    requirePermission(actor, "performer.self");
     if (actor.partyId !== partyId) throw new DomainError("NOT_SELF", 403, `${actor.userId} can only sign consents for its own party`);
     return;
   }
-  requireRole(actor, "RIGHTS_EDITOR");
+  requirePermission(actor, "consent.record");
 }
 
 /** 대상 자산 확인(곡 전체를 봐야 하므로 system 범위): 실연은 그 파티 소유 보이스, 녹음은 범위의 녹음, 작품은 범위의 작품. */
@@ -108,10 +109,10 @@ export async function revokeConsent(tx: Tx, clock: Clock, actor: Actor, consentI
   const cur = (await tx.query("SELECT party_id, right_type, asset_id, facts_scope_id, revoked_at FROM consent_agreement WHERE consent_id = $1 FOR UPDATE", [consentId])).rows[0];
   if (cur === undefined) throw notFound("consent", consentId);
   if (cur.right_type === "PERFORMER" && actor.scope !== "platform") {
-    requireRole(actor, "PERFORMER");
+    requirePermission(actor, "performer.self");
     if (actor.partyId !== cur.party_id) throw new DomainError("NOT_SELF", 403, `${actor.userId} can only revoke its own consents`);
   } else if (actor.scope !== "platform") {
-    requireRole(actor, "RIGHTS_EDITOR");
+    requirePermission(actor, "consent.record");
   }
   if (cur.revoked_at !== null) throw conflict("CONSENT_ALREADY_REVOKED", `consent ${consentId} was revoked at ${iso(cur.revoked_at)}`);
   const at = clock.now();

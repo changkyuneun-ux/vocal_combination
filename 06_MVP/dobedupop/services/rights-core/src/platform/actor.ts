@@ -2,9 +2,10 @@ import { generateKeyPairSync } from "node:crypto";
 import type { Clock } from "./clock.ts";
 import type { Tx } from "./db.ts";
 import { DomainError } from "./errors.ts";
+import type { Permission } from "./permissions.ts";
 
 export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER" | "COMPLIANCE" | "LEGAL"
-  | "TENANT_ADMIN" | "ONBOARDING" | "TRUST_OFFICER" | "PARTNER_INTEGRATION";
+  | "TENANT_ADMIN" | "ONBOARDING" | "TRUST_OFFICER" | "PARTNER_INTEGRATION" | "PLATFORM_ALL" | "RIGHTS_ALL" | "PARTICIPANT_ALL";
 /** 참여 구분(테넌트 정책 2절, 결정 TD1): 권리 테넌트·참여 기관·개인·플랫폼 운영. */
 export type OrgClass = "RIGHTS" | "PARTICIPANT" | "INDIVIDUAL" | "PLATFORM";
 export type TenantStatus = "APPLIED" | "VERIFIED" | "ACTIVE" | "SUSPENDED" | "TERMINATED";
@@ -14,9 +15,10 @@ export type TenantStatus = "APPLIED" | "VERIFIED" | "ACTIVE" | "SUSPENDED" | "TE
  * 범위는 요청 트랜잭션에 설정되고 RLS가 적용한다(migrations/0017_tenancy.sql, 0018_consent.sql).
  * tenantId는 지금 일하는 소속이고(결정 TD9 — 한 계정 여러 소속), roles는 그 소속에서의 역할이다. readOnly는 신청·정지 상태 조직의
  * 관리자 로그인(열람만, 결정 TD7)이다.
+ * roles는 화면 표시용이고 검사는 permissions(소속 역할들의 권한 합)로 한다(총괄 운영과 권한 구조 RS2).
  */
 export type Actor = {
-  userId: string; roles: ReadonlySet<Role>; tenantId: string; tenantType: string; orgClass: OrgClass; tenantStatus: TenantStatus;
+  userId: string; roles: ReadonlySet<Role>; permissions: ReadonlySet<Permission>; tenantId: string; tenantType: string; orgClass: OrgClass; tenantStatus: TenantStatus;
   scope: "platform" | "tenant" | "party"; partyId?: string; partyType?: string; readOnly?: boolean;
   /** 위임 대행(TN6): 플랫폼 온보딩이 이 테넌트 권한으로 일하는 중. tenantId도 이 테넌트다. */
   actingOnBehalfOf?: string;
@@ -64,15 +66,18 @@ export async function loadActor(tx: Tx, userId: string, tenantId?: string): Prom
   )).rows[0];
   if (t === undefined) throw new DomainError("MEMBERSHIP_REQUIRED", 403, `${userId} is not a member of ${tid}`);
   const roles = new Set((await tx.query("SELECT role FROM portal_role WHERE user_id = $1 AND tenant_id = $2", [userId, tid])).rows.map((r) => r.role as Role));
+  const permissions = new Set((await tx.query(
+    "SELECT DISTINCT rp.perm_id FROM portal_role r JOIN role_permission rp ON rp.role_id = r.role WHERE r.user_id = $1 AND r.tenant_id = $2", [userId, tid],
+  )).rows.map((r) => r.perm_id as Permission));
   const status = t.status as TenantStatus;
   if (status === "TERMINATED") throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tid} is TERMINATED`);
   const readOnly = status === "APPLIED" || status === "SUSPENDED";
-  if (readOnly && !roles.has("TENANT_ADMIN")) throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tid} is ${status}; only its administrator can sign in`);
+  if (readOnly && !permissions.has("org.view_while_inactive")) throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tid} is ${status}; only its administrator can sign in`);
   const orgClass = t.org_class as OrgClass;
   const scope = orgClass === "PLATFORM" ? "platform" : orgClass === "INDIVIDUAL" ? "party" : "tenant";
   if (scope === "party" && u.party_id === null) throw new DomainError("PARTY_REQUIRED", 403, `${userId} has no party in the individual tenant`);
   return {
-    userId, roles, tenantId: tid, tenantType: t.tenant_type as string, orgClass, tenantStatus: status, scope,
+    userId, roles, permissions, tenantId: tid, tenantType: t.tenant_type as string, orgClass, tenantStatus: status, scope,
     ...(u.party_id === null ? {} : { partyId: u.party_id as string, partyType: u.party_type as string }),
     ...(readOnly && { readOnly: true }),
   };
@@ -107,13 +112,4 @@ export async function withSystemScope<T>(tx: Tx, fn: () => Promise<T>): Promise<
   } finally {
     await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true)", [prev.s ?? "", prev.t ?? ""]);
   }
-}
-
-export function requireRole(actor: Actor, role: Role): void {
-  if (!actor.roles.has(role)) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role ${role}`);
-}
-
-/** 역할 중 하나라도 있으면 통과한다. 하나도 없으면 403 ROLE_REQUIRED. */
-export function requireAnyRole(actor: Actor, roles: readonly Role[]): void {
-  if (!roles.some((r) => actor.roles.has(r))) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks any of roles ${roles.join(", ")}`);
 }

@@ -1,10 +1,11 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Tx } from "../platform/db.ts";
 import { conflict, invalid, notFound } from "../platform/errors.ts";
 import { postEntry, type PostingInput } from "../ledger/journal.ts";
 import { postConfirmedRun } from "./posting.ts";
 import type { SettleDeps } from "./service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 const AMOUNT = /^[1-9]\d{0,17}$/;
 
@@ -17,12 +18,12 @@ export async function remainingHold(tx: Tx, h: { runId: string; eventId: string;
 }
 
 /**
- * 보류 해제(통합 설계 11.2-5, SPACE_SETTLE): 확정 run의 원 보류를 운영자가 지정한 권리자별 배분으로 미지급금에 옮긴다.
+ * 보류 해제(통합 설계 11.2-5, settlement.operate): 확정 run의 원 보류를 운영자가 지정한 권리자별 배분으로 미지급금에 옮긴다.
  * 배분 합 = 남은 보류액(원 보류액 + 그 보류의 역분개 합). 분개 HOLD_RELEASE(source_ref = hold:<holding_id>).
  * 원 이벤트의 run_event 행을 잠가 같은 이벤트의 역분개(reverse-event도 이 행을 잠근다)와 직렬화한다.
  */
 export async function releaseHold(d: SettleDeps, actor: Actor, input: { holdingId: string; allocation: Record<string, string> }) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "settlement.operate");
   const entries = Object.entries(input.allocation).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   for (const [party, amt] of entries) {
     if (typeof amt !== "string" || !AMOUNT.test(amt)) throw invalid("INVALID_AMOUNT", `allocation for ${party} must be a positive integer string`);
