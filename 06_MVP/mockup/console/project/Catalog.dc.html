@@ -83,19 +83,41 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <h2 style="margin: 4px 0 0; font-size: 24px">{{sel.title}}</h2>
 <div style="font-size: 13px; color: #475569">{{sel.artist}} · 녹음 {{sel.recording}}</div>
 </div>
-<div style="display: flex; gap: 6px; flex-wrap: wrap"><a href="{{sel.href}}" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">워크스페이스 열기</a><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">수정</button><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">삭제</button></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">수정</button><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">삭제</button></div>
 </div>
-<div role="tablist" aria-label="작품 상세" style="display: flex; gap: 2px; padding: 10px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px">
-<span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">기본정보</span><span style="padding: 8px 14px; color: #475569">원곡 권리</span><span style="padding: 8px 14px; color: #475569">스템</span><span style="padding: 8px 14px; color: #475569">문서·계약</span><span style="padding: 8px 14px; color: #475569">확인·동의</span><span style="padding: 8px 14px; color: #475569">정산</span><span style="padding: 8px 14px; color: #475569">변경 이력</span>
+<div role="tablist" aria-label="작품 상세" style="display: flex; gap: 2px; padding: 10px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
+<sc-for list="{{ptabs}}" as="t" hint-placeholder-count="7"><button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 11px; color: #64748b">{{t.count}}</span></button></sc-for>
 </div>
-<div style="padding: 18px 24px 22px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
-<div style="flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px 24px; font-size: 14px">
+<div style="padding: 16px 24px 22px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+<span style="font-size: 13px; color: #475569; flex: 1 1 400px">{{pane.hint}}</span>
+<sc-if value="{{pane.manage}}" hint-placeholder-val="{{false}}"><a href="{{pane.href}}" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">{{pane.manageLabel}}</a></sc-if>
+</div>
+<sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<div style="flex: 999 1 520px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px 24px; font-size: 14px">
 <sc-for list="{{sel.info}}" as="f" hint-placeholder-count="10"><div><div style="font-size: 12px; color: #475569">{{f.label}}</div><div style="font-weight: 500">{{f.value}}</div></div></sc-for>
 </div>
-<div style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 8px">
+<div style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 8px">
 <strong style="font-size: 15px">진행</strong>
 <sc-for list="{{sel.timeline}}" as="t" hint-placeholder-count="5"><div style="{{t.style}}"><b>{{t.label}}</b><span>{{t.note}}</span></div></sc-for>
 </div>
+<div style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<strong style="font-size: 15px">IR 생성 준비</strong>
+<sc-for list="{{sel.ready}}" as="r" hint-placeholder-count="5"><div style="display: flex; gap: 8px"><span style="{{r.markStyle}}">{{r.mark}}</span><span>{{r.text}}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{notOverview}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px">
+<sc-for list="{{pane.cards}}" as="c" hint-placeholder-count="4"><div style="padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff"><div style="font-size: 12px; color: #475569">{{c.label}}</div><div style="font-size: 17px; font-weight: 600">{{c.value}}</div><div style="{{c.noteStyle}}">{{c.note}}</div></div></sc-for>
+</div>
+<sc-if value="{{pane.hasLines}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; font-size: 14px">
+<sc-for list="{{pane.lines}}" as="l" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 150px 130px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #475569">{{l.at}}</span><span>{{l.who}}</span><span>{{l.what}}</span></div></sc-for>
+</div>
+</sc-if>
+</sc-if>
 </div>
 </section>
 </div>
@@ -118,7 +140,7 @@ class Component extends DCLogic {
       stage: plan[i][0], status: plan[i][1], real: false, recording: t + ' (Original)', iswc: '—', isrc: '—', reg: '2026-0' + (i % 9 + 1) + '-1' + i, members: A[i],
     })));
     this.works = works;
-    this.state = { selected: works[0].id, tab: 'all' };
+    this.state = { selected: works[0].id, tab: 'all', ptab: 'overview' };
   }
   renderVals() {
     const STAGES = ['권리 입력', '확인', 'IR 생성', '팩 활성', '판매'];
@@ -131,7 +153,7 @@ class Component extends DCLogic {
     const rows = list.map((w) => {
       const on = w.id === this.state.selected;
       return {
-        ...w, statusStyle: pill(w.status), href: w.real ? 'Song-Home.dc.html' : '#',
+        ...w, statusStyle: pill(w.status), href: w.real ? 'Song-Rights.dc.html' : '#',
         rowStyle: 'cursor: pointer; border-top: 1px solid #e2e8f0; ' + (on ? 'background: #eff6ff; box-shadow: inset 3px 0 0 #1d4ed8' : ''),
         steps: STAGES.map((_, i) => 'flex: 1 1 0; height: 6px; border-radius: 3px; background: ' + (i < w.stage ? '#1d4ed8' : i === w.stage ? '#93c5fd' : '#e2e8f0')),
         stepLabel: STAGES[Math.min(w.stage, 4)] + (w.stage >= 4 ? '' : ' 단계'),
@@ -140,7 +162,7 @@ class Component extends DCLogic {
     });
     const w = this.works.find((x) => x.id === this.state.selected) || this.works[0];
     const sel = {
-      ...w, statusStyle: pill(w.status), sample: w.real ? '데모 데이터' : '예시 데이터', href: w.real ? 'Song-Home.dc.html' : '#',
+      ...w, statusStyle: pill(w.status), sample: w.real ? '데모 데이터' : '예시 데이터',
       info: [['곡명', w.title], ['아티스트', w.artist], ['작사·작곡', w.credit], ['녹음', w.recording], ['마스터', '빅히트 뮤직(레이블)'], ['실연자', w.members], ['원곡 권리', w.rights], ['멤버 스템', w.stems], ['ISWC · ISRC', w.iswc + ' · ' + w.isrc], ['등록', w.reg]].map(([label, value]) => ({ label, value })),
       timeline: STAGES.map((label, i) => ({
         label,
@@ -148,6 +170,39 @@ class Component extends DCLogic {
         style: 'display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; ' + (i < w.stage ? 'background: #eff6ff; color: #1e3a8a' : i === w.stage ? 'background: #ffffff; border: 2px solid #1d4ed8' : 'background: #f8fafc; color: #475569'),
       })),
     };
+    const ok = (t) => ({ mark: '✓', text: t, markStyle: 'color: #166534; font-weight: 700' });
+    const warn = (t) => ({ mark: '!', text: t, markStyle: 'color: #92400e; font-weight: 700' });
+    const todo = (t) => ({ mark: '·', text: t, markStyle: 'color: #475569; font-weight: 700' });
+    sel.ready = w.real ? [ok('원곡 권리 합계 100%'), ok('근거 문서 연결'), ok('스템 50 등록·검수'), warn('확인 50 남음(멤버 48 · 작가 2)'), todo('수령 위임 서명 1/7')]
+      : w.stage >= 2 ? [ok('IR 생성됨 — 수정은 새 버전으로')] : [w.stage === 1 ? warn('확인 ' + w.pending + ' 남음') : todo('원곡 권리 입력 중'), todo('예시 데이터')];
+    const note = (t, tone) => ({ note: t, noteStyle: 'font-size: 12px; color: ' + (tone === 'ok' ? '#166534' : tone === 'warn' ? '#92400e' : '#475569') });
+    const card = (label, value, t, tone) => ({ label, value, ...note(t, tone) });
+    const D = {
+      rights: [card('작품 · 작사·작곡', 'David Stewart 50 · Jessica Agombar 50', '확인 대기 2 · 퍼블리싱 계약서', 'warn'), card('녹음 · 마스터', '빅히트 뮤직(레이블) 100', '확정 · 녹음 계약서', 'ok'), card('실연 · 멤버', '7명 · 보이스 7', '본인 확인 1/7', 'warn'), card('수령 위임', '소속사 100%', '서명 1/7', 'warn')],
+      stems: [card('파트', '8', '멤버 7 + MR', ''), card('원곡 배치 스템', '8', '', ''), card('멤버 추가 녹음 스템', '42', '', ''), card('실연 확인', '7 / 49', '대기 42', 'warn'), card('오디오 검수', '50 / 50', '통과', 'ok')],
+      docs: [card('원천 문서', '2', '녹음 계약서 · 퍼블리싱 계약서', ''), card('표준 계약', '11', '플랫폼 · 녹음 이용허락 · 작품 이용허락 2 · 수령 위임 7', '')],
+      confirm: [card('확인 요청', '58', '확인 8 · 대기 50', 'warn'), card('이용 동의', '1 / 7', '멤버 본인(실연자 앱)', 'warn')],
+      money: [card('발행 조합', '0', '팩 활성 뒤', ''), card('매출', '0원', '', ''), card('지급', '0원', '', '')],
+    };
+    const S = {
+      rights: [card('원곡 권리', w.rights, '예시 데이터', '')], stems: [card('멤버 스템', w.stems, '예시 데이터', '')], docs: [card('문서·계약', '—', '예시 데이터', '')],
+      confirm: [card('확인 대기', String(w.pending), '예시 데이터', '')], money: [card('정산', w.stage >= 4 ? '판매 중' : '—', '예시 데이터', '')],
+    };
+    const PT = [['overview', '개요', ''], ['rights', '원곡 권리', w.real ? 10 : ''], ['stems', '스템', w.real ? 50 : ''], ['docs', '문서·계약', w.real ? 13 : ''], ['confirm', '확인·동의', w.real ? 58 : ''], ['money', '정산', ''], ['history', '변경 이력', '']];
+    const ptab = this.state.ptab;
+    const ptabs = PT.map(([k, label, c]) => ({ label, count: c, style: tabStyle(ptab === k), pick: () => this.setState({ ptab: k }) }));
+    const manageHref = { rights: 'Song-Rights.dc.html', stems: 'Song-Stems.dc.html' };
+    const label = PT.find((x) => x[0] === ptab)[1];
+    const pane = ptab === 'overview'
+      ? { hint: '조회 전용 요약 — 관리할 탭을 고르면 그 탭의 워크스페이스로 들어간다', manage: false }
+      : {
+          hint: label + ' 요약(조회 전용). 등록·수정·삭제는 워크스페이스에서' + (w.stage >= 2 ? ' — IR 생성 뒤라 새 버전으로만' : ' — IR 생성 전까지 가능'),
+          manage: true, manageLabel: label + ' 관리 →', href: w.real ? (manageHref[ptab] ?? '#') : '#',
+          cards: ptab === 'history' ? [] : (w.real ? D[ptab] : S[ptab]),
+          hasLines: ptab === 'history',
+          lines: w.real ? [{ at: '2026-01-02 09:00', who: '총괄(빅히트)', what: '곡·녹음 등록, 녹음 마스터 100% 확정' }, { at: '2026-01-02 09:10', who: '총괄(빅히트)', what: '작가 지분 2건 → 확인 요청' }, { at: '2026-01-05 09:00', who: '정국(본인)', what: '확인 8건, 이용 동의' }]
+            : [{ at: w.reg, who: '예시', what: '최초 등록' }],
+        };
     const count = (s) => this.works.filter((x) => x.status === s).length;
     const kpis = [
       { label: '전체 곡', value: this.works.length, note: '빅히트 뮤직 등록' },
@@ -157,7 +212,7 @@ class Component extends DCLogic {
       { label: '판매 중', value: count('판매 중'), note: '팩 활성' },
       { label: '분쟁·보류', value: count('분쟁·보류'), note: '처리 필요' },
     ];
-    return { kpis, tabs, rows, total: list.length, sel };
+    return { kpis, tabs, rows, total: list.length, sel, ptabs, pane, isOverview: ptab === 'overview', notOverview: ptab !== 'overview' };
   }
 }
 </script>

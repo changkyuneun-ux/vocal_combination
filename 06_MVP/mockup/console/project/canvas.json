@@ -129,44 +129,36 @@
       "x": 0,
       "y": 8000
     },
-    "Song-Home.dc.html": {
+    "Song-Rights.dc.html": {
       "x": 1520,
       "y": 9900,
       "w": 1440,
-      "h": 1200,
-      "title": "v2 ② Dynamite 워크스페이스 — 개요(IR 생성 준비)",
-      "expand": "fill"
-    },
-    "Song-Rights.dc.html": {
-      "x": 3040,
-      "y": 9900,
-      "w": 1440,
       "h": 1300,
-      "title": "v2 ③ Dynamite 원곡 권리 — 작품·녹음·실연·수령 위임",
+      "title": "v2 ② Dynamite 원곡 권리 관리 — 작품·녹음·실연·수령 위임",
       "expand": "fill"
     },
     "Song-Stems.dc.html": {
-      "x": 4560,
+      "x": 3040,
       "y": 9900,
       "w": 1440,
       "h": 1400,
-      "title": "v2 ④ Dynamite 스템 — 원곡 배치·멤버 추가 녹음과 스템 권리",
+      "title": "v2 ③ Dynamite 스템 관리 — 원곡 배치·멤버 추가 녹음과 스템 권리",
       "expand": "fill"
     },
     "Song-Create.dc.html": {
+      "x": 4560,
+      "y": 9900,
+      "w": 1440,
+      "h": 1100,
+      "title": "v2 ④ 새 곡 워크스페이스 만들기",
+      "expand": "fill"
+    },
+    "Song-Locked.dc.html": {
       "x": 6080,
       "y": 9900,
       "w": 1440,
       "h": 1100,
-      "title": "v2 ⑤ 새 곡 워크스페이스 만들기",
-      "expand": "fill"
-    },
-    "Song-Locked.dc.html": {
-      "x": 7600,
-      "y": 9900,
-      "w": 1440,
-      "h": 1100,
-      "title": "v2 ⑥ IR 생성 뒤 — 읽기 전용, 새 버전으로 바로잡기",
+      "title": "v2 ⑤ IR 생성 뒤 — 읽기 전용, 새 버전으로 바로잡기",
       "expand": "fill"
     },
     "Catalog.dc.html": {
@@ -174,7 +166,7 @@
       "y": 9900,
       "w": 1440,
       "h": 1500,
-      "title": "v2 ① 빅히트 뮤직 작품 목록 — 전체 곡 권리·진행 현황(시작점)",
+      "title": "v2 ① 빅히트 뮤직 작품 목록 — 전체 현황 + 하단 요약(조회) · 탭별 '관리 →'로 워크스페이스",
       "expand": "fill",
       "is_interactive": true
     }
@@ -238,9 +230,9 @@
     "t_row7": {
       "x": 0,
       "y": 9640,
-      "text": "빅히트 뮤직 기준 — 작품 목록(전체 곡 권리·진행) → 새 곡 워크스페이스 / Dynamite 워크스페이스 세부",
+      "text": "빅히트 뮤직 기준 — 작품 목록·하단 요약(조회) → 탭별 워크스페이스(관리)",
       "kind": "title1",
-      "maxW": 9040
+      "maxW": 7520
     },
     "n_superseded": {
       "x": 3040,
@@ -268,7 +260,6 @@
     "Work-Workspace.dc.html",
     "Work-Edit.dc.html",
     "Catalog.dc.html",
-    "Song-Home.dc.html",
     "Song-Rights.dc.html",
     "Song-Stems.dc.html",
     "Song-Create.dc.html",
