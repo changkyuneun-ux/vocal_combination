@@ -50,10 +50,16 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   });
   created<any>("/works", (tx, b) => reg.registerWork(tx, deps.clock, b));
   created<any>("/scopes", (tx, b) => reg.createScope(tx, deps.clock, b));
-  created<any>("/recordings", (tx, b) => reg.registerRecording(tx, deps.clock, b));
+  created<any>("/recordings", async (tx, b, actor) => {
+    await reg.registerRecording(tx, deps.clock, b);
+    if (b.masterClaim !== undefined) await recordMasterClaim(tx, actor, b);
+  });
   created<any>("/slots", (tx, b) => reg.registerSlot(tx, deps.clock, b));
   created<any>("/slot-parts", (tx, b) => reg.registerSlotPart(tx, deps.clock, b.slotId, b), ["slotId", "partNo", "kind", "startMs", "endMs"]);
-  created<any>("/stems", (tx, b) => reg.registerStem(tx, deps.clock, b));
+  created<any>("/stems", async (tx, b, actor) => {
+    await reg.registerStem(tx, deps.clock, b);
+    if (b.withClaims === true && b.rightsBearing === true && typeof b.performerPartyId === "string") await recordPerformerClaims(tx, actor, b);
+  });
   created<any>("/voices", (tx, b) => reg.registerVoice(tx, deps.clock, b));
   // IR 생성 전 수정·삭제(결정 ID1): 봉인된 적이 있으면 409 CATALOG_SEALED, 다른 행이 가리키면 409 CATALOG_IN_USE.
   const catalogPaths: [CatalogKind, string][] = [
@@ -96,6 +102,38 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     }
     await revalidate(tx, deps.clock, b.factsScopeId); // 정합성 검증(원천 문서 설계 S3a): 기록이 바뀌면 곡을 다시 검사한다
     return rec;
+  };
+  // 녹음·스템 등록 때 권리 주장 함께 만들기(결정 ID2·ID3, SL3). 확인 요청·신탁·정합성 재검사는 /claims와 같은 경로를 탄다.
+  const scopeOfWork = async (tx: any, workId: string): Promise<string> => {
+    const s = (await tx.query("SELECT facts_scope_id FROM facts_scope WHERE work_id = $1", [workId])).rows[0];
+    if (s === undefined) throw new DomainError("INVALID_REFERENCE", 422, `work ${workId} has no facts scope; create the scope before recording claims`);
+    return s.facts_scope_id as string;
+  };
+  /** 녹음 권리: 녹음 → 마스터 보유 당사자 100%. 요청자가 바로 VERIFIED로 쓸 수 있으면 VERIFIED, 아니면 ASSERTED(상대 확인 요청). */
+  const recordMasterClaim = async (tx: any, actor: Actor, b: any) => {
+    const draft: any = {
+      claimId: `c_master_${b.recordingId}`, factsScopeId: await scopeOfWork(tx, b.workId), sourceId: b.recordingId, edge: "CONTROLLED_BY",
+      targetId: b.masterOwnerPartyId, shareBps: 10000, status: "VERIFIED", validFrom: deps.clock.now(),
+      ...(b.masterClaim?.evidenceDocuments !== undefined && { evidenceDocuments: b.masterClaim.evidenceDocuments }),
+    };
+    try { await assertMayRecordVerified(tx, actor, "CLAIM", draft); } catch (e) {
+      if (!(e instanceof DomainError && e.code === "CONFIRMATION_REQUIRED")) throw e;
+      draft.status = "ASSERTED";
+    }
+    return recordWithConfirmation(tx, actor, "CLAIM", draft, () => reg.recordClaim(tx, deps.clock, withEvidence(draft, actor)));
+  };
+  /** 실연: 실연자의 범위 보이스(없으면 보이스 + 소유 주장)와 스템 → 보이스 실연 주장. 둘 다 ASSERTED(본인 확인 요청). */
+  const recordPerformerClaims = async (tx: any, actor: Actor, b: any) => {
+    const scopeId = await scopeOfWork(tx, (await tx.query("SELECT work_id FROM recording_version WHERE recording_id = $1", [b.recordingId])).rows[0].work_id);
+    const voiceId = reg.voiceIdFor(b.performerPartyId);
+    const validFrom = deps.clock.now();
+    if ((await tx.query("SELECT 1 FROM voice WHERE voice_id = $1", [voiceId])).rows.length === 0) {
+      await reg.registerVoice(tx, deps.clock, { voiceId, factsScopeId: scopeId, kind: "HUMAN" });
+      const own = { claimId: `c_own_${voiceId}`, factsScopeId: scopeId, sourceId: voiceId, edge: "OWNED_BY", targetId: b.performerPartyId, shareBps: 10000, status: "ASSERTED", validFrom };
+      await recordWithConfirmation(tx, actor, "CLAIM", own, () => reg.recordClaim(tx, deps.clock, own as reg.ClaimDraft));
+    }
+    const perf = { claimId: `c_perf_${b.stemId}`, factsScopeId: scopeId, sourceId: b.stemId, edge: "PERFORMED_BY", targetId: voiceId, shareBps: 10000, performerRole: "FEATURED", status: "ASSERTED", validFrom };
+    await recordWithConfirmation(tx, actor, "CLAIM", perf, () => reg.recordClaim(tx, deps.clock, perf as reg.ClaimDraft));
   };
   created<reg.ClaimDraft>("/claims", (tx, b, actor) => recordWithConfirmation(tx, actor, "CLAIM", b, () => reg.recordClaim(tx, deps.clock, withEvidence(b, actor))), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
   created<reg.MandateDraft>("/mandates", (tx, b, actor) => recordWithConfirmation(tx, actor, "MANDATE", b, () => reg.recordMandate(tx, deps.clock, withEvidence(b, actor))), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);

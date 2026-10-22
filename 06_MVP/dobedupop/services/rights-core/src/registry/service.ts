@@ -118,6 +118,9 @@ export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; sl
     [s.stemId, s.slotId, s.partNo ?? 1, s.recordingId, s.performerPartyId ?? null, s.rightsBearing, at]);
 }
 
+/** 실연자 보이스 id 규칙(결정 ID3): pty_ 접두어를 떼고 voc_를 붙인다(pty_jimin → voc_jimin, pb → voc_pb). */
+export const voiceIdFor = (partyId: string): string => `voc_${partyId.replace(/^pty_/, "")}`;
+
 export async function registerVoice(tx: Tx, clock: Clock, v: { voiceId: string; factsScopeId: string; kind: "HUMAN" | "AI" }): Promise<void> {
   const at = clock.now();
   await fenceScope(tx, v.factsScopeId, at);
