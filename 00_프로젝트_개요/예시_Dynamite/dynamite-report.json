@@ -3,53 +3,460 @@
     "price": "3300",
     "slots": [
       {
-        "id": "slt_part_jungkook",
-        "owner": "jungkook",
-        "label": "정국 파트",
+        "no": 1,
+        "id": "slt_s01",
+        "label": "Intro",
         "startMs": 0,
-        "endMs": 71890
+        "endMs": 4000,
+        "parts": [
+          {
+            "slotId": "slt_s01",
+            "slotNo": 1,
+            "partNo": 1,
+            "kind": "INSTRUMENT",
+            "startMs": 0,
+            "endMs": 4000,
+            "label": "반주"
+          }
+        ]
       },
       {
-        "id": "slt_part_jimin",
-        "owner": "jimin",
-        "label": "지민 파트",
-        "startMs": 71890,
-        "endMs": 112710
+        "no": 2,
+        "id": "slt_s02",
+        "label": "Intro Chorus",
+        "startMs": 4000,
+        "endMs": 13000,
+        "parts": [
+          {
+            "slotId": "slt_s02",
+            "slotNo": 2,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 4000,
+            "endMs": 13000,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s02",
+            "slotNo": 2,
+            "partNo": 2,
+            "kind": "INSTRUMENT",
+            "startMs": 4000,
+            "endMs": 13000,
+            "label": "반주"
+          }
+        ]
       },
       {
-        "id": "slt_part_v",
-        "owner": "v",
-        "label": "뷔 파트",
-        "startMs": 112710,
-        "endMs": 138950
+        "no": 3,
+        "id": "slt_s03",
+        "label": "Verse 1",
+        "startMs": 13000,
+        "endMs": 30000,
+        "parts": [
+          {
+            "slotId": "slt_s03",
+            "slotNo": 3,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 13000,
+            "endMs": 30000,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s03",
+            "slotNo": 3,
+            "partNo": 2,
+            "kind": "INSTRUMENT",
+            "startMs": 13000,
+            "endMs": 30000,
+            "label": "반주"
+          }
+        ]
       },
       {
-        "id": "slt_part_jin",
-        "owner": "jin",
-        "label": "진 파트",
-        "startMs": 138950,
-        "endMs": 161920
+        "no": 4,
+        "id": "slt_s04",
+        "label": "Pre-Chorus 1",
+        "startMs": 30000,
+        "endMs": 39000,
+        "parts": [
+          {
+            "slotId": "slt_s04",
+            "slotNo": 4,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 30000,
+            "endMs": 34500,
+            "owner": "jimin",
+            "label": "지민"
+          },
+          {
+            "slotId": "slt_s04",
+            "slotNo": 4,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 34500,
+            "endMs": 39000,
+            "owner": "v",
+            "label": "뷔"
+          },
+          {
+            "slotId": "slt_s04",
+            "slotNo": 4,
+            "partNo": 3,
+            "kind": "INSTRUMENT",
+            "startMs": 30000,
+            "endMs": 39000,
+            "label": "반주"
+          }
+        ]
       },
       {
-        "id": "slt_part_rm",
-        "owner": "rm",
-        "label": "RM 파트",
-        "startMs": 161920,
-        "endMs": 180000
+        "no": 5,
+        "id": "slt_s05",
+        "label": "Chorus 1",
+        "startMs": 39000,
+        "endMs": 57000,
+        "parts": [
+          {
+            "slotId": "slt_s05",
+            "slotNo": 5,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 39000,
+            "endMs": 48000,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s05",
+            "slotNo": 5,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 48000,
+            "endMs": 57000,
+            "owner": "jimin",
+            "label": "지민"
+          },
+          {
+            "slotId": "slt_s05",
+            "slotNo": 5,
+            "partNo": 3,
+            "kind": "INSTRUMENT",
+            "startMs": 39000,
+            "endMs": 57000,
+            "label": "반주"
+          }
+        ]
       },
       {
-        "id": "slt_part_jhope",
-        "owner": "jhope",
-        "label": "제이홉 파트",
+        "no": 6,
+        "id": "slt_s06",
+        "label": "Verse 2 (Rap)",
+        "startMs": 57000,
+        "endMs": 83000,
+        "parts": [
+          {
+            "slotId": "slt_s06",
+            "slotNo": 6,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "RAP",
+            "startMs": 57000,
+            "endMs": 65666,
+            "owner": "rm",
+            "label": "RM"
+          },
+          {
+            "slotId": "slt_s06",
+            "slotNo": 6,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "RAP",
+            "startMs": 65666,
+            "endMs": 74333,
+            "owner": "jhope",
+            "label": "제이홉"
+          },
+          {
+            "slotId": "slt_s06",
+            "slotNo": 6,
+            "partNo": 3,
+            "kind": "VOCAL",
+            "role": "RAP",
+            "startMs": 74333,
+            "endMs": 83000,
+            "owner": "suga",
+            "label": "슈가"
+          },
+          {
+            "slotId": "slt_s06",
+            "slotNo": 6,
+            "partNo": 4,
+            "kind": "INSTRUMENT",
+            "startMs": 57000,
+            "endMs": 83000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 7,
+        "id": "slt_s07",
+        "label": "Pre-Chorus 2",
+        "startMs": 83000,
+        "endMs": 91000,
+        "parts": [
+          {
+            "slotId": "slt_s07",
+            "slotNo": 7,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 83000,
+            "endMs": 87000,
+            "owner": "jin",
+            "label": "진"
+          },
+          {
+            "slotId": "slt_s07",
+            "slotNo": 7,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 87000,
+            "endMs": 91000,
+            "owner": "v",
+            "label": "뷔"
+          },
+          {
+            "slotId": "slt_s07",
+            "slotNo": 7,
+            "partNo": 3,
+            "kind": "INSTRUMENT",
+            "startMs": 83000,
+            "endMs": 91000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 8,
+        "id": "slt_s08",
+        "label": "Chorus 2",
+        "startMs": 91000,
+        "endMs": 109000,
+        "parts": [
+          {
+            "slotId": "slt_s08",
+            "slotNo": 8,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 91000,
+            "endMs": 100000,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s08",
+            "slotNo": 8,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 100000,
+            "endMs": 109000,
+            "owner": "jimin",
+            "label": "지민"
+          },
+          {
+            "slotId": "slt_s08",
+            "slotNo": 8,
+            "partNo": 3,
+            "kind": "INSTRUMENT",
+            "startMs": 91000,
+            "endMs": 109000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 9,
+        "id": "slt_s09",
+        "label": "Dance Break",
+        "startMs": 109000,
+        "endMs": 127000,
+        "parts": [
+          {
+            "slotId": "slt_s09",
+            "slotNo": 9,
+            "partNo": 1,
+            "kind": "INSTRUMENT",
+            "startMs": 109000,
+            "endMs": 127000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 10,
+        "id": "slt_s10",
+        "label": "Chorus 3 (전조)",
+        "startMs": 127000,
+        "endMs": 145000,
+        "parts": [
+          {
+            "slotId": "slt_s10",
+            "slotNo": 10,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 127000,
+            "endMs": 133000,
+            "owner": "jimin",
+            "label": "지민"
+          },
+          {
+            "slotId": "slt_s10",
+            "slotNo": 10,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 133000,
+            "endMs": 139000,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s10",
+            "slotNo": 10,
+            "partNo": 3,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 139000,
+            "endMs": 145000,
+            "owner": "jin",
+            "label": "진"
+          },
+          {
+            "slotId": "slt_s10",
+            "slotNo": 10,
+            "partNo": 4,
+            "kind": "INSTRUMENT",
+            "startMs": 127000,
+            "endMs": 145000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 11,
+        "id": "slt_s11",
+        "label": "Chorus 4 & Outro",
+        "startMs": 145000,
+        "endMs": 180000,
+        "parts": [
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 1,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 145000,
+            "endMs": 153750,
+            "owner": "jungkook",
+            "label": "정국"
+          },
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 2,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 153750,
+            "endMs": 162500,
+            "owner": "jimin",
+            "label": "지민"
+          },
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 3,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 162500,
+            "endMs": 171250,
+            "owner": "v",
+            "label": "뷔"
+          },
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 4,
+            "kind": "VOCAL",
+            "role": "LEAD",
+            "startMs": 171250,
+            "endMs": 180000,
+            "owner": "jin",
+            "label": "진"
+          },
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 5,
+            "kind": "GROUP",
+            "role": "UNISON",
+            "startMs": 145000,
+            "endMs": 180000,
+            "label": "전원 제창"
+          },
+          {
+            "slotId": "slt_s11",
+            "slotNo": 11,
+            "partNo": 6,
+            "kind": "INSTRUMENT",
+            "startMs": 145000,
+            "endMs": 180000,
+            "label": "반주"
+          }
+        ]
+      },
+      {
+        "no": 12,
+        "id": "slt_s12",
+        "label": "Outro Fade-out",
         "startMs": 180000,
-        "endMs": 186550
-      },
-      {
-        "id": "slt_part_suga",
-        "owner": "suga",
-        "label": "슈가 파트",
-        "startMs": 186550,
-        "endMs": 192790
+        "endMs": 198000,
+        "parts": [
+          {
+            "slotId": "slt_s12",
+            "slotNo": 12,
+            "partNo": 1,
+            "kind": "GROUP",
+            "role": "ADLIB",
+            "startMs": 180000,
+            "endMs": 198000,
+            "label": "전원 애드리브"
+          },
+          {
+            "slotId": "slt_s12",
+            "slotNo": 12,
+            "partNo": 2,
+            "kind": "INSTRUMENT",
+            "startMs": 180000,
+            "endMs": 198000,
+            "label": "반주"
+          }
+        ]
       }
     ],
     "names": {
@@ -110,8 +517,8 @@
   "policy": {
     "policyId": "pol_dynamite_fan",
     "version": 1,
-    "factsDigest": "mdrl:sha256:2e77bb42dcb9910a452abe7231f5746e4321a2738aa280c11afcfaa5ecff9258",
-    "policyDigest": "mdrl:sha256:1cbc37c4fa849f3cdae269c7afa93232274f120c4227c7875e35f20b23057828"
+    "factsDigest": "mdrl:sha256:9f04458eda2b031b9d1278a3612ab3e1b0b3a8fda6df3a80d32aeddf10897f1e",
+    "policyDigest": "mdrl:sha256:42f80780876c1f5fa184ecafc776928ee0d0345316e95f054397704ffb686d2d"
   },
   "grants": [
     {
@@ -193,17 +600,17 @@
         "suga": "suga"
       },
       "members": {
-        "pty_jungkook": 1429,
-        "pty_jimin": 1429,
-        "pty_v": 1428,
-        "pty_jin": 1429,
-        "pty_rm": 1428,
-        "pty_jhope": 1429,
-        "pty_suga": 1428
+        "pty_jungkook": 3000,
+        "pty_jimin": 2500,
+        "pty_v": 1500,
+        "pty_rm": 500,
+        "pty_jhope": 500,
+        "pty_suga": 500,
+        "pty_jin": 1500
       },
       "snapshotId": "snp_vc_bts_orig",
-      "projectionDigest": "mdrl:sha256:fe70064c3be1726aca16e1492aa7c139e6541e153da86e411443b74fc198b859",
-      "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
+      "projectionDigest": "mdrl:sha256:c1854c7cc4e093f72f62b995408adb4415c57e00ba949ab36ba20e1875239da8",
+      "membersDigest": "mdrl:sha256:bf705dca95460700590b59e057efc312931efe9b8850670609ecffedd9d1041a"
     },
     {
       "vcId": "vc_bts_swap",
@@ -219,17 +626,17 @@
         "suga": "suga"
       },
       "members": {
-        "pty_jimin": 1429,
-        "pty_jungkook": 1429,
-        "pty_v": 1428,
-        "pty_jin": 1429,
-        "pty_rm": 1428,
-        "pty_jhope": 1429,
-        "pty_suga": 1428
+        "pty_jimin": 3000,
+        "pty_jungkook": 2500,
+        "pty_v": 1500,
+        "pty_rm": 500,
+        "pty_jhope": 500,
+        "pty_suga": 500,
+        "pty_jin": 1500
       },
       "snapshotId": "snp_vc_bts_swap",
-      "projectionDigest": "mdrl:sha256:e1e3bc9cb105257d8b2daf0f78c583f330d024af49ec051540676f8284f7d608",
-      "membersDigest": "mdrl:sha256:e19c2b4c3651fe7995aa6ed1ef94cb69622ac28a6d894515b454160bb6d1c3ce"
+      "projectionDigest": "mdrl:sha256:ec9190753cf44de5038ae0dc7165b91bb1195d28274622bb03b5ed78361cb704",
+      "membersDigest": "mdrl:sha256:035e52a74287ee68c7f4c5c8a29268ea78ff5f4338adbe35eed5f510cd3efc99"
     },
     {
       "vcId": "vc_bts_vocal",
@@ -245,14 +652,14 @@
         "suga": "v"
       },
       "members": {
-        "pty_jungkook": 1429,
-        "pty_jimin": 2857,
-        "pty_v": 2857,
-        "pty_jin": 2857
+        "pty_jungkook": 3000,
+        "pty_jimin": 3000,
+        "pty_v": 2000,
+        "pty_jin": 2000
       },
       "snapshotId": "snp_vc_bts_vocal",
-      "projectionDigest": "mdrl:sha256:52f585f7f0832e8c6d5bc91ad849c8f3291184d32d818058efff50ebebc578cf",
-      "membersDigest": "mdrl:sha256:475db79842ec531d431f49d12aa9a294318b82cdcb10650ea35b248edafa95f8"
+      "projectionDigest": "mdrl:sha256:8d65d6f573f71c1cdc846ce2fe4b78b892e60305bf2175be03d078550ac0fc82",
+      "membersDigest": "mdrl:sha256:ca3217723993f672540137cfdac8089e40154d2ff4012012f6e1c8df76c1123b"
     },
     {
       "vcId": "vc_bts_jin",
@@ -268,15 +675,15 @@
         "suga": "suga"
       },
       "members": {
-        "pty_jin": 4286,
-        "pty_v": 1428,
-        "pty_rm": 1429,
-        "pty_jhope": 1429,
-        "pty_suga": 1428
+        "pty_jin": 7000,
+        "pty_v": 1500,
+        "pty_rm": 500,
+        "pty_jhope": 500,
+        "pty_suga": 500
       },
       "snapshotId": "snp_vc_bts_jin",
-      "projectionDigest": "mdrl:sha256:a773b1ed14d60fbb207f301c3ac92c60c5593b7373121f30f10d71ae788af361",
-      "membersDigest": "mdrl:sha256:d2b281080c579201906e8108c8047a373b8ba29a5443022b36b7d67aad07d8eb"
+      "projectionDigest": "mdrl:sha256:d63a2be154ae1116f4ffcf3caf3009a861eab6e2cd4c9d4259fcc938f0be5cae",
+      "membersDigest": "mdrl:sha256:6189e9cebb36839f012ddf1d70bad35667b8459ca33deced0902aa1792f485f9"
     }
   ],
   "rejectedSolo": "ISSUE_NOT_SETTLEABLE",
@@ -335,25 +742,25 @@
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_jin",
       "vc_id": "vc_bts_jin",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:c24bdd599241937b4aa9a855433ed7207e764789990f5cda6c0e827ac4b99e64"
+      "result_digest": "mdrl:sha256:a9e1faba7b82c42860d617f8da2ad5737473b7d3c0a43cf55aa4c992d419f79b"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
       "vc_id": "vc_bts_orig",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:3f3306e59ea46650ea7656666aaf583245c6283ad031af28bfec5f397915fc1d"
+      "result_digest": "mdrl:sha256:b5d26331d106c75ef80a5b5d6a43c957a5292206c3e8dbb72014eb00ac9d5750"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_swap",
       "vc_id": "vc_bts_swap",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:1b00b8446716e8143b5c2f0c4945b6ff32485764d5b725c8e01781164bc112a1"
+      "result_digest": "mdrl:sha256:66d1e3acbe97a8f500b4e60e4cddda1523015d52c8fd2418723481de0c4fb157"
     },
     {
       "run_id": "run_bat_bts_2026_03_snp_vc_bts_vocal",
       "vc_id": "vc_bts_vocal",
       "status": "CONFIRMED",
-      "result_digest": "mdrl:sha256:ec6c1f76c3d7ecd2be88c072e8341cb2025c4dc8616711bddbbd9171dbf487af"
+      "result_digest": "mdrl:sha256:cc2b4124e0721f5e842e12755e216dced65451e4889a54c6170dc5970db9452f"
     }
   ],
   "firstEvent": {
@@ -403,85 +810,85 @@
     "vc_bts_orig": [
       {
         "party": "pty_jhope",
-        "amount": "81"
+        "amount": "94"
       },
       {
         "party": "pty_jimin",
-        "amount": "191"
+        "amount": "206"
       },
       {
         "party": "pty_jin",
-        "amount": "134"
+        "amount": "133"
       },
       {
         "party": "pty_jungkook",
-        "amount": "292"
+        "amount": "291"
       },
       {
         "party": "pty_rm",
-        "amount": "118"
+        "amount": "94"
       },
       {
         "party": "pty_suga",
-        "amount": "80"
+        "amount": "94"
       },
       {
         "party": "pty_v",
-        "amount": "144"
+        "amount": "128"
       }
     ],
     "vc_bts_swap": [
       {
         "party": "pty_jhope",
-        "amount": "81"
+        "amount": "94"
       },
       {
         "party": "pty_jimin",
-        "amount": "292"
+        "amount": "291"
       },
       {
         "party": "pty_jin",
-        "amount": "134"
+        "amount": "133"
       },
       {
         "party": "pty_jungkook",
-        "amount": "191"
+        "amount": "206"
       },
       {
         "party": "pty_rm",
-        "amount": "118"
+        "amount": "94"
       },
       {
         "party": "pty_suga",
-        "amount": "80"
+        "amount": "94"
       },
       {
         "party": "pty_v",
-        "amount": "144"
+        "amount": "128"
       }
     ],
     "vc_bts_vocal": [
       {
         "party": "pty_jimin",
-        "amount": "257"
+        "amount": "285"
       },
       {
         "party": "pty_jin",
-        "amount": "237"
+        "amount": "212"
       },
       {
         "party": "pty_jungkook",
-        "amount": "337"
+        "amount": "336"
       },
       {
         "party": "pty_v",
-        "amount": "209"
+        "amount": "207"
       }
     ],
     "vc_bts_jin": [
       {
         "party": "pty_jhope",
-        "amount": "105"
+        "amount": "121"
       },
       {
         "party": "pty_jin",
@@ -489,15 +896,15 @@
       },
       {
         "party": "pty_rm",
-        "amount": "142"
+        "amount": "121"
       },
       {
         "party": "pty_suga",
-        "amount": "104"
+        "amount": "121"
       },
       {
         "party": "pty_v",
-        "amount": "169"
+        "amount": "157"
       }
     ]
   },
@@ -555,7 +962,7 @@
       "original_run_id": "run_bat_bts_2026_03_snp_vc_bts_orig",
       "event_id": "ev_orig_0001",
       "refund_event_id": "ev_rf_0001",
-      "result_digest": "mdrl:sha256:f98b398760243ae875ff5cbe9e1ce8af0b83512c79b6fbee645239329032693c"
+      "result_digest": "mdrl:sha256:ed68c01d18dcbe887564b2300774a726434c3feefdc294c4dba208e9b1f709f2"
     }
   ],
   "journal": [
@@ -741,7 +1148,7 @@
       }
     ],
     "holdings": [],
-    "resultDigest": "mdrl:sha256:ad79bd5a85d874246a14e58ffcb96d8e6092d50922f24d76f3c56d5603585d21"
+    "resultDigest": "mdrl:sha256:9ecfafced282f9a71e64febf7178a013af808def6675600269310cde22b7d3ae"
   },
   "notifications": [
     {
@@ -860,25 +1267,25 @@
         "run_id": "run_bat_bts_2026_04_snp_vc_bts_jin",
         "vc_id": "vc_bts_jin",
         "status": "CONFIRMED",
-        "result_digest": "mdrl:sha256:8cb6cf1cd42860aa7d62215b4d63b6be64556c4c4cf5b4bc124ed36a47bcc0ee"
+        "result_digest": "mdrl:sha256:e94e85de7ae06c8eedbac64de752524fbf402a5af6d7f7a29cf478c77a86f7ee"
       },
       {
         "run_id": "run_bat_bts_2026_04_snp_vc_bts_orig",
         "vc_id": "vc_bts_orig",
         "status": "CONFIRMED",
-        "result_digest": "mdrl:sha256:907a589e1606e85baaf1e166593109806089aa7c736cac2424340c318150c2f3"
+        "result_digest": "mdrl:sha256:51e257101228f54aaff5bdaabe46ab165c2ff574f1ce4f5a93ed7418339fc455"
       },
       {
         "run_id": "run_bat_bts_2026_04_snp_vc_bts_swap",
         "vc_id": "vc_bts_swap",
         "status": "CONFIRMED",
-        "result_digest": "mdrl:sha256:d023e343835c69a2dec659af0c965d03821790ec5d893826a7e1612ac75e9c9c"
+        "result_digest": "mdrl:sha256:7006c13f2a0a3f7bffe36ef8420f81d18bd6f6dea93c1c94055d8e7b23844d1d"
       },
       {
         "run_id": "run_bat_bts_2026_04_snp_vc_bts_vocal",
         "vc_id": "vc_bts_vocal",
         "status": "CONFIRMED",
-        "result_digest": "mdrl:sha256:50e2bef40c6b0206b615edcc3a5f88d0938de7c203ff49eb959dbbef589f6a17"
+        "result_digest": "mdrl:sha256:aa8383c2bc6a788c914a84e49ad3f18187817957c9ce6b9da404d5337c1d0b25"
       }
     ],
     "pools": [

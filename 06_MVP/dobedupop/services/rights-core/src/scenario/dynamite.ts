@@ -30,9 +30,9 @@ import { allocatePool, createPool, getPool, recordPlay } from "../revenue/traffi
 
 /**
  * 가상 시나리오: BTS "Dynamite"(2020)의 보컬 재배치 2차 이용(팬앱 전용)을 권리 등록부터 지급·명세까지 실제 코어로 돌린다.
- * 설명용 가상 사례다. 실제 정보로 쓴 것은 곡 크레딧(작사·작곡 David Stewart·Jessica Agombar), 재생 시간 3:19, 멤버 7명과
- * 멤버별 총 가창 시간(팬 집계 근사치)뿐이다. 지분·분배율·가격·판매량·계약 관계, 멤버 전원이 모든 파트를 녹음했다는 설정,
- * 파트를 멤버별 묶음으로 나눈 슬롯 구성은 모두 가정이며 실제 권리관계·계약·정산과 무관하다.
+ * 설명용 가상 사례다. 실제 정보로 쓴 것은 곡 크레딧(작사·작곡 David Stewart·Jessica Agombar), 멤버 7명, 뮤직비디오 분석으로 정한
+ * 흐름 구간(슬롯 12개)과 구간 안의 부른 순서뿐이다. 파트 경계(균등 분할)·지분·분배율·가격·판매량·계약 관계, 멤버 전원이 모든 보컬 파트를
+ * 녹음했다는 설정은 모두 가정이며 실제 권리관계·계약·정산과 무관하다.
  *
  *   npm run scenario:dynamite -w rights-core -- --out <디렉터리>   (docker compose up -d 필요)
  */
@@ -44,25 +44,58 @@ const RECORDING = "rcd_dynamite";
 const PRICE = 3300n;
 const BATCH = "bat_bts_2026_03";
 
-/** 멤버와 원곡 총 가창 시간(ms, 팬 집계 근사치). 슬롯 하나 = 그 멤버가 원곡에서 부른 파트 묶음(연속 구간이 아니다). */
+/** 멤버 7명. 원곡 담당·추가 녹음은 아래 슬롯·파트로 정한다. */
 export const MEMBERS = [
-  { key: "jungkook", name: "정국", ms: 71890 },
-  { key: "jimin", name: "지민", ms: 40820 },
-  { key: "v", name: "뷔", ms: 26240 },
-  { key: "jin", name: "진", ms: 22970 },
-  { key: "rm", name: "RM", ms: 18080 },
-  { key: "jhope", name: "제이홉", ms: 6550 },
-  { key: "suga", name: "슈가", ms: 6240 },
+  { key: "jungkook", name: "정국" },
+  { key: "jimin", name: "지민" },
+  { key: "v", name: "뷔" },
+  { key: "jin", name: "진" },
+  { key: "rm", name: "RM" },
+  { key: "jhope", name: "제이홉" },
+  { key: "suga", name: "슈가" },
 ] as const;
-type MemberKey = (typeof MEMBERS)[number]["key"];
-export const SLOTS = (() => {
-  let at = 0;
-  return MEMBERS.map((m) => {
-    const s = { id: `slt_part_${m.key}`, owner: m.key, label: `${m.name} 파트`, startMs: at, endMs: at + m.ms };
-    at += m.ms;
-    return s;
-  });
-})();
+export type MemberKey = (typeof MEMBERS)[number]["key"];
+
+/**
+ * 슬롯(원곡 흐름 구간)과 파트(그 구간의 원곡 트랙) — 결정 SL1·SL5·SL6·SL7·SL8, 진행 SL-S4.
+ * 슬롯 시각은 뮤직비디오 분석(MV 시각 = 음원 시각), 보컬 파트는 슬롯 안 순서대로 균등 분할(정수 ms, 마지막 파트는 슬롯 끝에서 끝난다).
+ * 모든 슬롯에 반주 파트 하나(권리 부담 없는 스템), 전원 제창·애드리브는 그룹 파트(교체 불가·사용 시간 제외).
+ * 실제 파트 경계·담당은 빅히트 원본 자료로 바꿔야 하는 가정 데이터다.
+ */
+export type PartSpec = { slotId: string; slotNo: number; partNo: number; kind: "VOCAL" | "GROUP" | "INSTRUMENT"; role?: "LEAD" | "RAP" | "UNISON" | "ADLIB"; startMs: number; endMs: number; owner?: MemberKey; label: string };
+export type SlotSpec = { no: number; id: string; label: string; startMs: number; endMs: number; parts: PartSpec[] };
+const SLOT_TABLE: { label: string; startMs: number; endMs: number; vocals?: MemberKey[]; role?: "LEAD" | "RAP"; group?: { role: "UNISON" | "ADLIB"; label: string } }[] = [
+  { label: "Intro", startMs: 0, endMs: 4000 },
+  { label: "Intro Chorus", startMs: 4000, endMs: 13000, vocals: ["jungkook"] },
+  { label: "Verse 1", startMs: 13000, endMs: 30000, vocals: ["jungkook"] },
+  { label: "Pre-Chorus 1", startMs: 30000, endMs: 39000, vocals: ["jimin", "v"] },
+  { label: "Chorus 1", startMs: 39000, endMs: 57000, vocals: ["jungkook", "jimin"] },
+  { label: "Verse 2 (Rap)", startMs: 57000, endMs: 83000, vocals: ["rm", "jhope", "suga"], role: "RAP" },
+  { label: "Pre-Chorus 2", startMs: 83000, endMs: 91000, vocals: ["jin", "v"] },
+  { label: "Chorus 2", startMs: 91000, endMs: 109000, vocals: ["jungkook", "jimin"] },
+  { label: "Dance Break", startMs: 109000, endMs: 127000 },
+  { label: "Chorus 3 (전조)", startMs: 127000, endMs: 145000, vocals: ["jimin", "jungkook", "jin"] },
+  { label: "Chorus 4 & Outro", startMs: 145000, endMs: 180000, vocals: ["jungkook", "jimin", "v", "jin"], group: { role: "UNISON", label: "전원 제창" } },
+  { label: "Outro Fade-out", startMs: 180000, endMs: 198000, group: { role: "ADLIB", label: "전원 애드리브" } },
+];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const nameOf = (k: MemberKey) => MEMBERS.find((m) => m.key === k)!.name;
+export const SLOTS: SlotSpec[] = SLOT_TABLE.map((t, i) => {
+  const no = i + 1, id = `slt_s${pad2(no)}`, len = t.endMs - t.startMs;
+  const vocals = t.vocals ?? [];
+  const at = (k: number) => (k === vocals.length ? t.endMs : t.startMs + Math.floor((k * len) / vocals.length));
+  const parts: PartSpec[] = vocals.map((owner, k) => ({ slotId: id, slotNo: no, partNo: k + 1, kind: "VOCAL" as const, role: t.role ?? "LEAD" as const, startMs: at(k), endMs: at(k + 1), owner, label: nameOf(owner) }));
+  if (t.group !== undefined) parts.push({ slotId: id, slotNo: no, partNo: parts.length + 1, kind: "GROUP", role: t.group.role, startMs: t.startMs, endMs: t.endMs, label: t.group.label });
+  parts.push({ slotId: id, slotNo: no, partNo: parts.length + 1, kind: "INSTRUMENT", startMs: t.startMs, endMs: t.endMs, label: "반주" });
+  return { no, id, label: t.label, startMs: t.startMs, endMs: t.endMs, parts };
+});
+/** 모든 파트(슬롯 순서 → 파트 번호 순). */
+export const PARTS: PartSpec[] = SLOTS.flatMap((s) => s.parts);
+/** 개인 보컬 파트 20개: 멤버 7명이 모두 녹음했다(원곡 스템 1 + 추가 녹음 6, 가정). */
+export const VOCAL_PARTS = PARTS.filter((p) => p.kind === "VOCAL");
+/** 스템 id: 보컬 stm_s05_p1_jimin, 그룹 stm_s11_p5_group, 반주 stm_s05_p3_inst. */
+export const stemId = (p: PartSpec, singer?: MemberKey): string =>
+  `stm_s${pad2(p.slotNo)}_p${p.partNo}_${p.kind === "VOCAL" ? singer! : p.kind === "GROUP" ? "group" : "inst"}`;
 
 export const NAMES: Record<string, string> = {
   pty_bighit_label: "빅히트 뮤직 — 레이블(마스터 보유, 가정)",
@@ -93,16 +126,24 @@ export const POLICY_TEXT = `allocation "pol_dynamite_fan" version 1 {
 }
 `;
 
-/** 팬 조합 4개: 파트(슬롯)마다 부를 멤버를 고른다. 적지 않은 파트는 원곡 멤버가 부른다. */
+/** 팬 조합 4개: 보컬 파트마다 부를 멤버를 고른다(원곡 담당 → 부를 멤버). 적지 않은 파트와 그룹·반주 파트는 원곡 그대로다. */
 export const COMBINATIONS: { vcId: string; fan: string; title: string; swap: Partial<Record<MemberKey, MemberKey>>; purchases: number }[] = [
   { vcId: "vc_bts_orig", fan: "팬 F1", title: "원곡 배치", swap: {}, purchases: 1200 },
   { vcId: "vc_bts_swap", fan: "팬 F2", title: "정국·지민 파트 맞바꾸기", swap: { jungkook: "jimin", jimin: "jungkook" }, purchases: 500 },
   { vcId: "vc_bts_vocal", fan: "팬 F3", title: "랩 파트를 보컬 멤버가", swap: { rm: "jin", suga: "v", jhope: "jimin" }, purchases: 300 },
   { vcId: "vc_bts_jin", fan: "팬 F4", title: "진이 정국·지민 파트까지", swap: { jungkook: "jin", jimin: "jin" }, purchases: 200 },
 ];
-export const singerOf = (c: (typeof COMBINATIONS)[number], slotOwner: MemberKey): MemberKey => c.swap[slotOwner] ?? slotOwner;
+export const singerOf = (c: (typeof COMBINATIONS)[number], partOwner: MemberKey): MemberKey => c.swap[partOwner] ?? partOwner;
+/** 조합의 보컬 파트별 부르는 멤버(VOCAL_PARTS 순서). */
+export const singersFor = (c: (typeof COMBINATIONS)[number]): MemberKey[] => VOCAL_PARTS.map((p) => singerOf(c, p.owner!));
+/** 조합의 발행 배정: 모든 슬롯의 모든 파트. 보컬은 고른 멤버의 스템, 그룹·반주는 원곡 스템. */
+export const assignmentsFor = (pick: (p: PartSpec) => MemberKey): { slotId: string; partNo: number; stemId: string }[] =>
+  PARTS.map((p) => ({ slotId: p.slotId, partNo: p.partNo, stemId: stemId(p, p.kind === "VOCAL" ? pick(p) : undefined) }));
+export const combinationAssignments = (c: (typeof COMBINATIONS)[number]) => assignmentsFor((p) => singerOf(c, p.owner!));
+/** 정국 혼자 모든 보컬 파트를 부르는 조합(거부 사례). */
+export const SOLO_ASSIGNMENTS = assignmentsFor(() => "jungkook");
 
-/** 멤버 비율(bps): 맡은 파트 수 비례, 합 10000이 되도록 최대잉여법. */
+/** 멤버 비율(bps): 맡은 보컬 파트 수 비례, 합 10000이 되도록 최대잉여법. */
 export function memberBps(singers: MemberKey[]): Record<string, number> {
   const counts = new Map<MemberKey, number>();
   for (const s of singers) counts.set(s, (counts.get(s) ?? 0) + 1);
@@ -116,6 +157,11 @@ export function memberBps(singers: MemberKey[]): Record<string, number> {
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [`pty_${k}`, v]));
 }
 
+/** 슬롯 등록 본문의 파트(POST /slots의 parts와 같은 모양). */
+export const slotPartInput = (p: PartSpec): reg.SlotPartInput => ({
+  partNo: p.partNo, kind: p.kind, ...(p.role !== undefined && { role: p.role }), startMs: p.startMs, endMs: p.endMs, ...(p.owner !== undefined && { originalPartyId: `pty_${p.owner}` }),
+});
+
 async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   const parties: [string, reg.PartyType][] = [
     ["pty_bighit_label", "LABEL"], ["pty_bighit_agency", "AGENCY"], ["pty_david_stewart", "AUTHOR"], ["pty_jessica_agombar", "AUTHOR"],
@@ -125,19 +171,20 @@ async function seed(tx: Tx, clock: Clock, rights: Actor): Promise<void> {
   await reg.registerWork(tx, clock, { workId: "wrk_dynamite", title: "Dynamite" });
   await reg.createScope(tx, clock, { factsScopeId: SCOPE, workId: "wrk_dynamite" });
   await reg.registerRecording(tx, clock, { recordingId: RECORDING, workId: "wrk_dynamite", masterOwnerPartyId: "pty_bighit_label", versionTitle: "Vocal Recombination" });
-  let sort = 1;
-  for (const s of SLOTS) await reg.registerSlot(tx, clock, { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
-  await reg.registerSlot(tx, clock, { slotId: "slt_mr", recordingId: RECORDING, startMs: 0, endMs: 199000, sortOrder: sort });
-  await reg.registerStem(tx, clock, { stemId: "stm_mr", slotId: "slt_mr", recordingId: RECORDING, rightsBearing: false });
+  for (const s of SLOTS) {
+    await reg.registerSlot(tx, clock, { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: s.no, sectionLabel: s.label, parts: s.parts.map(slotPartInput) });
+    // 그룹·반주 파트는 원곡 스템 하나. 권리 부담 없음 — 사용 시간에 넣지 않고(SL6·SL7), 그룹 실연 몫은 정책의 참여 멤버 고정 몫으로 받는다.
+    for (const p of s.parts.filter((x) => x.kind !== "VOCAL")) await reg.registerStem(tx, clock, { stemId: stemId(p), slotId: s.id, partNo: p.partNo, recordingId: RECORDING, rightsBearing: false });
+  }
   const base = { factsScopeId: SCOPE, status: "VERIFIED" as const, validFrom: T0 };
   for (const m of MEMBERS) {
     await reg.registerVoice(tx, clock, { voiceId: `voc_${m.key}`, factsScopeId: SCOPE, kind: "HUMAN" });
-    for (const s of SLOTS) {
-      const stemId = `stm_${m.key}_${s.owner}`;
-      await reg.registerStem(tx, clock, { stemId, slotId: s.id, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true });
-      await reg.recordClaim(tx, clock, { ...base, claimId: `c_perf_${m.key}_${s.owner}`, sourceId: stemId, edge: "PERFORMED_BY", targetId: `voc_${m.key}`, shareBps: 10000, performerRole: "FEATURED" });
+    for (const p of VOCAL_PARTS) {
+      const id = stemId(p, m.key);
+      await reg.registerStem(tx, clock, { stemId: id, slotId: p.slotId, partNo: p.partNo, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true });
+      await reg.recordClaim(tx, clock, { ...base, claimId: `c_perf_${id}`, sourceId: id, edge: "PERFORMED_BY", targetId: `voc_${m.key}`, shareBps: 10000, performerRole: "FEATURED" });
     }
-    await reg.recordClaim(tx, clock, { ...base, claimId: `c_own_${m.key}`, sourceId: `voc_${m.key}`, edge: "OWNED_BY", targetId: `pty_${m.key}`, shareBps: 10000 });
+    await reg.recordClaim(tx, clock, { ...base, claimId: `c_own_voc_${m.key}`, sourceId: `voc_${m.key}`, edge: "OWNED_BY", targetId: `pty_${m.key}`, shareBps: 10000 });
     await reg.recordMandate(tx, clock, { ...base, mandateId: `m_agency_${m.key}`, fromPartyId: `pty_${m.key}`, toPartyId: "pty_bighit_agency", rightKind: "PERFORMER", shareBps: 10000 });
   }
   await reg.recordClaim(tx, clock, { ...base, claimId: "c_master", sourceId: RECORDING, edge: "CONTROLLED_BY", targetId: "pty_bighit_label", shareBps: 10000 });
@@ -181,7 +228,7 @@ function grantDemo(grants: GrantRule[]) {
   const reqs = (c: (typeof COMBINATIONS)[number], s: ReturnType<typeof scope>): Requirement[] => [
     { id: "r_master", asset: RECORDING, right_type: "MASTER", scope: s },
     { id: "r_work", asset: "wrk_dynamite", right_type: "WORK", scope: s },
-    ...[...new Set(SLOTS.map((sl) => singerOf(c, sl.owner)))].map((k) => ({ id: `r_vocal_${k}`, asset: `voc_${k}`, right_type: "PERFORMER", scope: s })),
+    ...[...new Set(singersFor(c))].map((k) => ({ id: `r_vocal_${k}`, asset: `voc_${k}`, right_type: "PERFORMER", scope: s })),
   ];
   const at = { as_of: "2026-03-10T00:00:00.000Z", known_at: "2026-03-10T00:00:00.000Z" };
   const listen = scope(["PREVIEW", "COMBINE"], ["FAN_APP"], ["FAN_COMMUNITY"]);
@@ -243,7 +290,7 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
     return out;
   });
 
-  // 1. 권리 생성: 곡·녹음·파트 슬롯 7개·보컬 스템 49개·권리 주장·멤버→소속사 실연 위임, 팬앱 전용 팩.
+  // 1. 권리 생성: 곡·녹음·슬롯 12개(파트 34: 보컬 20·그룹 2·반주 12)·스템 154개·권리 주장·멤버→소속사 실연 위임, 팬앱 전용 팩.
   await db.tx((tx) => seed(tx, c0, u.rights!));
   // 2. 권리자 승인: 정책 작성(EDITOR) → 승인(WORK_APPROVER) → 활성화(ACTIVATOR), 팩 활성화.
   const c1 = fixedClock("2026-02-01T00:00:00.000Z", 1);
@@ -261,12 +308,10 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   // 같은 배치를 다시 물으면 캐시에서 답한다. 발행 봉인 digest가 바뀌지 않도록 발행과 다른 시계를 쓴다.
   await db.tx((tx) => seedFans(tx, c0));
   const cCheck = fixedClock("2026-02-14T00:00:00.000Z", 1);
-  const soloAssignments = [...SLOTS.map((s) => ({ slotId: s.id, stemId: `stm_jungkook_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }];
+  const soloAssignments = SOLO_ASSIGNMENTS;
   const checks: { vcId: string; fan: string; issuable: boolean; code: string | null; cached: boolean }[] = [];
   for (const [k, cb] of COMBINATIONS.entries()) {
-    const singers = SLOTS.map((s) => singerOf(cb, s.owner));
-    const assignments = [...SLOTS.map((s, i) => ({ slotId: s.id, stemId: `stm_${singers[i]}_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }];
-    const r = await db.tx(async (tx) => checkCombination(ctx, tx, cCheck, await loadActor(tx, `usr_fan_${FANS[k]}`), { packId: PACK, assignments, members: memberBps(singers) }));
+    const r = await db.tx(async (tx) => checkCombination(ctx, tx, cCheck, await loadActor(tx, `usr_fan_${FANS[k]}`), { packId: PACK, assignments: combinationAssignments(cb), members: memberBps(singersFor(cb)) }));
     checks.push({ vcId: cb.vcId, fan: cb.fan, issuable: r.issuable, code: r.code ?? null, cached: r.cached });
   }
   for (const attempt of [1, 2]) {
@@ -278,14 +323,10 @@ export async function runDynamite(db: Db, appUrl: string, blobRoot: string) {
   const c2 = fixedClock("2026-02-15T00:00:00.000Z", 1);
   const seals: { vcId: string; fan: string; title: string; singers: Record<string, string>; members: Record<string, number>; snapshotId: string; projectionDigest: string; membersDigest: string }[] = [];
   for (const cb of COMBINATIONS) {
-    const singers = SLOTS.map((s) => singerOf(cb, s.owner));
-    const members = memberBps(singers);
-    const seal = await db.tx((tx) => issuance.issue(ctx, tx, c2, u.issuer!, {
-      packId: PACK, vcId: cb.vcId, members,
-      assignments: [...SLOTS.map((s, k) => ({ slotId: s.id, stemId: `stm_${singers[k]}_${s.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }],
-    }));
+    const members = memberBps(singersFor(cb));
+    const seal = await db.tx((tx) => issuance.issue(ctx, tx, c2, u.issuer!, { packId: PACK, vcId: cb.vcId, members, assignments: combinationAssignments(cb) }));
     seals.push({
-      vcId: cb.vcId, fan: cb.fan, title: cb.title, singers: Object.fromEntries(SLOTS.map((s, k) => [s.owner, singers[k]!])), members,
+      vcId: cb.vcId, fan: cb.fan, title: cb.title, singers: Object.fromEntries(MEMBERS.map((m) => [m.key, singerOf(cb, m.key)])), members,
       snapshotId: seal.snapshotId, projectionDigest: seal.projectionDigest, membersDigest: seal.membersDigest,
     });
   }

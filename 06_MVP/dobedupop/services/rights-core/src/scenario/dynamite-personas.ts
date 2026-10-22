@@ -1,4 +1,4 @@
-import { COMBINATIONS, FAN_ONLY, MEMBERS, NAMES, POLICY_TEXT, SLOTS, memberBps, singerOf } from "./dynamite.ts";
+import { COMBINATIONS, FAN_ONLY, MEMBERS, NAMES, POLICY_TEXT, SLOTS, SOLO_ASSIGNMENTS, VOCAL_PARTS, combinationAssignments, memberBps, singersFor, slotPartInput, stemId } from "./dynamite.ts";
 
 /**
  * Dynamite 2차 이용을 페르소나별 로그인으로 끝까지 돌리는 시나리오(MVP 진행계획 M4 시드의 바탕, 2026-10-16 점검).
@@ -94,8 +94,8 @@ export const STEPS: Step[] = [
     },
   },
   {
-    id: "register", title: "권리 등록: 곡·녹음·슬롯·스템·보이스, 계약서 원문", persona: "빅히트 권리 편집(usr_bh_rights)", app: "portal",
-    detail: "빅히트가 레이블·소속사 파티, Dynamite 작품·녹음, 멤버별 파트 슬롯 7개와 MR, 멤버×파트 스템 49개, 보이스 7개를 등록하고 녹음·퍼블리싱 계약서 원문을 올린다.",
+    id: "register", title: "권리 등록: 곡·녹음·슬롯·파트·스템(실연 주장 함께), 계약서 원문", persona: "빅히트 권리 편집(usr_bh_rights)", app: "portal",
+    detail: "빅히트가 레이블·소속사 파티, Dynamite 작품·녹음, 원곡 흐름 슬롯 12개(보컬 파트 20·그룹 파트 2·반주 파트 12), 스템 154개(보컬 파트 × 멤버 7 = 140, 그룹·반주 원곡 14)를 등록하고 녹음·퍼블리싱 계약서 원문을 올린다. 보컬 스템은 권리 주장을 함께 만들어 멤버 보이스·소유 주장과 실연 주장이 확인 요청으로 간다.",
     async run(d) {
       const { portal, must } = helpers(d);
       await d.setClock("2026-01-02T09:00:00.000Z");
@@ -104,13 +104,18 @@ export const STEPS: Step[] = [
       await portal(P.rights, "POST", "/works", { workId: WORK, title: "Dynamite" });
       await portal(P.rights, "POST", "/scopes", { factsScopeId: SCOPE, workId: WORK });
       await portal(P.rights, "POST", "/recordings", { recordingId: RECORDING, workId: WORK, masterOwnerPartyId: "pty_bighit_label", versionTitle: "Vocal Recombination" });
-      let sort = 1;
-      for (const s of SLOTS) await portal(P.rights, "POST", "/slots", { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
-      await portal(P.rights, "POST", "/slots", { slotId: "slt_mr", recordingId: RECORDING, startMs: 0, endMs: 199000, sortOrder: sort });
-      await portal(P.rights, "POST", "/stems", { stemId: "stm_mr", slotId: "slt_mr", recordingId: RECORDING, rightsBearing: false });
+      for (const s of SLOTS) {
+        await portal(P.rights, "POST", "/slots", { slotId: s.id, recordingId: RECORDING, startMs: s.startMs, endMs: s.endMs, sortOrder: s.no, sectionLabel: s.label, parts: s.parts.map(slotPartInput) });
+        // 그룹·반주 파트는 원곡 스템 하나, 권리 부담 없음(SL6·SL7).
+        for (const p of s.parts.filter((x) => x.kind !== "VOCAL")) {
+          await portal(P.rights, "POST", "/stems", { stemId: stemId(p), slotId: s.id, partNo: p.partNo, recordingId: RECORDING, rightsBearing: false });
+        }
+      }
+      // 보컬 파트 × 멤버 7: 권리 주장 함께 만들기(결정 ID3) — 멤버의 첫 스템에서 보이스와 소유 주장, 스템마다 실연 주장(모두 확인 요청).
       for (const m of MEMBERS) {
-        await portal(P.rights, "POST", "/voices", { voiceId: `voc_${m.key}`, factsScopeId: SCOPE, kind: "HUMAN" });
-        for (const s of SLOTS) await portal(P.rights, "POST", "/stems", { stemId: `stm_${m.key}_${s.owner}`, slotId: s.id, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true });
+        for (const p of VOCAL_PARTS) {
+          await portal(P.rights, "POST", "/stems", { stemId: stemId(p, m.key), slotId: p.slotId, partNo: p.partNo, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true, withClaims: true });
+        }
       }
       for (const [id, title, kind, parties] of [[MASTER_DOC, "Dynamite 녹음 계약서", "MASTER_CONTRACT", ["pty_bighit_label"]], [PUBLISHING_DOC, "Dynamite 작품 퍼블리싱 계약서", "PUBLISHING", [...AUTHORS]]] as const) {
         const q = new URLSearchParams({ documentId: id, kind, title, parties: parties.join(","), effectiveFrom: T0 });
@@ -119,8 +124,8 @@ export const STEPS: Step[] = [
     },
   },
   {
-    id: "claims", title: "권리 주장: 녹음 확정, 작가 지분·보이스·실연은 상대 확인 요청", persona: "빅히트 권리 편집(usr_bh_rights)", app: "portal",
-    detail: "녹음 권리는 빅히트 자신이라 바로 확정한다. 작가 지분은 플랫폼 밖 작가라 기한 뒤 운영 원문 대조로, 보이스 소유·스템 실연 56건은 멤버가 실연자 앱에서 확인한다.",
+    id: "claims", title: "권리 주장: 녹음 확정, 작가 지분은 상대 확인 요청", persona: "빅히트 권리 편집(usr_bh_rights)", app: "portal",
+    detail: "녹음 권리는 빅히트 자신이라 바로 확정한다. 작가 지분은 플랫폼 밖 작가라 기한 뒤 운영 원문 대조로 확인한다. 보이스 소유·스템 실연 147건(스템 등록 때 함께 만든 주장)은 멤버가 실연자 앱에서 확인한다.",
     async run(d) {
       const { portal } = helpers(d);
       await portal(P.rights, "POST", "/claims", { claimId: "c_master", factsScopeId: SCOPE, sourceId: RECORDING, edge: "CONTROLLED_BY", targetId: "pty_bighit_label", shareBps: 10000,
@@ -129,18 +134,11 @@ export const STEPS: Step[] = [
         await portal(P.rights, "POST", "/claims", { claimId: id, factsScopeId: SCOPE, sourceId: WORK, edge: "WRITTEN_BY", targetId: a, shareBps: 5000, roleDetail: "LYRICS_COMPOSITION",
           status: "ASSERTED", validFrom: T0, evidenceDocuments: [{ documentId: PUBLISHING_DOC, version: 1 }] });
       }
-      for (const m of MEMBERS) {
-        await portal(P.rights, "POST", "/claims", { claimId: `c_own_${m.key}`, factsScopeId: SCOPE, sourceId: `voc_${m.key}`, edge: "OWNED_BY", targetId: `pty_${m.key}`, shareBps: 10000, status: "ASSERTED", validFrom: T0 });
-        for (const s of SLOTS) {
-          await portal(P.rights, "POST", "/claims", { claimId: `c_perf_${m.key}_${s.owner}`, factsScopeId: SCOPE, sourceId: `stm_${m.key}_${s.owner}`, edge: "PERFORMED_BY",
-            targetId: `voc_${m.key}`, shareBps: 10000, performerRole: "FEATURED", status: "ASSERTED", validFrom: T0 });
-        }
-      }
     },
   },
   {
     id: "members", title: "멤버: 본인 인증, 권리 확인, 이용 동의", persona: "멤버 7명(usr_member_*)", app: "artist",
-    detail: "멤버마다 실연자 앱에서 본인 인증을 하고, 빅히트가 보낸 확인 요청(보이스 소유·내 파트 실연)을 확인하고, 팬앱 이용에 동의한다(동의서 원문이 남는다).",
+    detail: "멤버마다 실연자 앱에서 본인 인증을 하고, 빅히트가 보낸 확인 요청(보이스 소유·내가 부른 파트 스템 20건의 실연)을 모두 확인하고, 팬앱 이용에 동의한다(동의서 원문이 남는다).",
     async run(d) {
       const { performer } = helpers(d);
       await d.setClock("2026-01-05T09:00:00.000Z");
@@ -226,19 +224,17 @@ export const STEPS: Step[] = [
   },
   {
     id: "fans", title: "가상 팬: 조합 발행(게이트 통과 즉시 봉인), 솔로 조합 거부", persona: "가상 팬 F1~F4", app: "fan",
-    detail: "팬 4명이 원곡 배치·정국↔지민 맞바꾸기·랩 파트를 보컬 멤버가·진이 정국·지민 파트까지 조합을 발행한다. 정국 혼자 모든 파트를 부르는 조합은 정산 사전 검사에서 거부된다.",
+    detail: "팬 4명이 원곡 배치·정국↔지민 맞바꾸기·랩 파트를 보컬 멤버가·진이 정국·지민 파트까지 조합을 발행한다. 정국 혼자 모든 보컬 파트를 부르는 조합은 정산 사전 검사에서 거부된다.",
     async run(d, s) {
       const { must } = helpers(d);
       await d.setClock("2026-02-15T09:00:00.000Z");
       s.issued = [];
       for (const [k, cb] of COMBINATIONS.entries()) {
-        const singers = SLOTS.map((sl) => singerOf(cb, sl.owner));
-        const assignments = [...SLOTS.map((sl, i) => ({ slotId: sl.id, stemId: `stm_${singers[i]}_${sl.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }];
-        await must(`fan issue ${cb.vcId}`, d.call("fan", P.fan(FANS[k]!), "POST", "/combinations", { packId: PACK, vcId: cb.vcId, assignments, members: memberBps(singers) }));
+        await must(`fan issue ${cb.vcId}`, d.call("fan", P.fan(FANS[k]!), "POST", "/combinations", { packId: PACK, vcId: cb.vcId, assignments: combinationAssignments(cb), members: memberBps(singersFor(cb)) }));
         s.issued.push(cb.vcId);
       }
       const solo = await d.call("fan", P.fan("f1"), "POST", "/combinations", { packId: PACK, vcId: "vc_bts_solo",
-        assignments: [...SLOTS.map((sl) => ({ slotId: sl.id, stemId: `stm_jungkook_${sl.owner}` })), { slotId: "slt_mr", stemId: "stm_mr" }], members: { pty_jungkook: 10000 } });
+        assignments: SOLO_ASSIGNMENTS, members: { pty_jungkook: 10000 } });
       s.solo = { status: solo.status, code: solo.body?.code };
     },
   },

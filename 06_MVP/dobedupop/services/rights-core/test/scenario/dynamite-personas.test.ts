@@ -54,6 +54,13 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
   // 참여 기관(가상 신탁단체)은 활성이고, 신탁 연결은 제안 상태다(확인 전에는 위임이 없어 금액이 그대로다).
   const link = (await db.pool.query("SELECT status, proposed_side FROM participant_link WHERE link_id = 'lnk_trust_demo'")).rows[0];
   assert.deepEqual(link, { status: "PROPOSED", proposed_side: "RIGHTS" });
+  // 슬롯 12·파트 34(보컬 20·그룹 2·반주 12)·스템 154(SL-S4). 보컬 스템과 함께 만든 보이스·실연 주장 147건은 멤버가 모두 확인했다.
+  const count = async (sql: string) => (await db.pool.query(sql)).rows[0].n as number;
+  assert.equal(await count("SELECT count(*)::int AS n FROM part_slot WHERE recording_id = 'rcd_dynamite'"), 12);
+  assert.deepEqual((await db.pool.query("SELECT p.kind, count(*)::int AS n FROM slot_part p JOIN part_slot s USING (slot_id) WHERE s.recording_id = 'rcd_dynamite' GROUP BY 1 ORDER BY 1")).rows,
+    [{ kind: "GROUP", n: 2 }, { kind: "INSTRUMENT", n: 12 }, { kind: "VOCAL", n: 20 }]);
+  assert.equal(await count("SELECT count(*)::int AS n FROM stem WHERE recording_id = 'rcd_dynamite'"), 154);
+  assert.equal(await count("SELECT count(*)::int AS n FROM confirmation_request r JOIN party p ON p.party_id = r.counterparty_id WHERE p.party_type = 'MEMBER' AND r.status = 'CONFIRMED'"), 147);
   assert.deepEqual(r.issued, ["vc_bts_orig", "vc_bts_swap", "vc_bts_vocal", "vc_bts_jin"]);
   assert.equal(r.soloRejected.code, "ISSUE_NOT_SETTLEABLE");
   // 정산: 조합마다 run, 독립 재계산 통과 뒤 확정.
