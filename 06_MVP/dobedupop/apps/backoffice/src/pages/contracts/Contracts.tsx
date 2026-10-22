@@ -1,35 +1,13 @@
 import { useState } from "react";
 import { api, devApi, type ApiError } from "../../api/client.ts";
-import { CONTRACT_STATUS, toAnswers, usableTemplates, type Contract, type FormValue, type Template, type TemplateVar } from "../../api/contracts.ts";
+import { CONTRACT_STATUS, type Contract, type Template } from "../../api/contracts.ts";
+import { ContractWizard } from "./ContractWizard.tsx";
 import { useGet } from "../../api/hooks.ts";
 import { currentApp } from "../../app/apps.ts";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
 import { Section } from "../../components/Section.tsx";
-
-function Field({ v, value, onChange }: { v: TemplateVar; value: FormValue | undefined; onChange: (x: FormValue) => void }) {
-  if (v.type === "multi") {
-    const cur = (value as string[] | undefined) ?? [];
-    return (
-      <fieldset className="field"><legend>{v.label}</legend>
-        {(v.options ?? []).map(([code, label]) => (
-          <label key={code} className="check"><input type="checkbox" checked={cur.includes(code)}
-            onChange={(e) => onChange(e.target.checked ? [...cur, code] : cur.filter((c) => c !== code))} />{label}</label>
-        ))}
-      </fieldset>
-    );
-  }
-  const hint = v.type === "party" ? "파티 id" : v.type === "recording" ? "녹음 id" : v.type === "voice" ? "보이스 id" : v.type === "bps" ? "%" : "";
-  return (
-    <label className="field"><span>{v.label}</span>
-      <input aria-label={v.label} type={v.type === "date" ? "date" : v.type === "bps" ? "number" : "text"} placeholder={hint}
-        value={(value as string | undefined) ?? ""} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
-}
-
-type Preview = { html: string; signers: string[]; records: Record<string, unknown>[] };
 
 /**
  * 표준 계약 작성(원천 문서 설계 S4): 템플릿을 고르고 질문에 답하면 사람이 읽는 계약서가 만들어진다. 서명을 요청하고, 모두 서명하면
@@ -38,16 +16,8 @@ type Preview = { html: string; signers: string[]; records: Record<string, unknow
 export function ContractsPage() {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const list = useGet<Contract[]>(["contracts"], "/contracts");
-  const usable = usableTemplates(templates.data ?? []);
-  const [tid, setTid] = useState("");
-  const t = usable.find((x) => x.templateId === tid);
-  const [scope, setScope] = useState("");
-  const [contractId, setContractId] = useState("");
-  const [form, setForm] = useState<Record<string, FormValue>>({});
-  const [preview, setPreview] = useState<Preview | null>(null);
   const [err, setErr] = useState<ApiError | null>(null);
   const [notice, setNotice] = useState("");
-  const draft = () => ({ templateId: tid, factsScopeId: scope, answers: toAnswers(t?.variables ?? [], form) });
   const act = async (fn: () => Promise<unknown>, msg: string) => {
     try { await fn(); setErr(null); setNotice(msg); void list.refetch(); } catch (e) { setErr(e as ApiError); setNotice(""); }
   };
@@ -55,28 +25,9 @@ export function ContractsPage() {
     <>
       <Section title="표준 계약 작성">
         <p className="muted">자체 계약서가 없으면 표준 계약으로 시작한다. 조항과 값이 템플릿에서 이미 대응되므로 서명이 끝나면 기록이 바로 확정된다.</p>
-        <div className="inline-form">
-          <select aria-label="계약 종류" value={tid} onChange={(e) => { setTid(e.target.value); setForm({}); setPreview(null); }}>
-            <option value="">계약 종류 선택</option>
-            {usable.map((x) => <option key={x.templateId} value={x.templateId}>{x.title} (v{x.version})</option>)}
-          </select>
-          <input aria-label="곡(facts scope)" placeholder="fsc_…" value={scope} onChange={(e) => setScope(e.target.value)} />
-          <input aria-label="계약 id" placeholder="ctr_…" value={contractId} onChange={(e) => setContractId(e.target.value)} />
-        </div>
-        {t && <div className="form-grid">{t.variables.map((v) => <Field key={v.name} v={v} value={form[v.name]} onChange={(x) => setForm({ ...form, [v.name]: x })} />)}</div>}
-        <div className="inline-form">
-          <button type="button" className="btn" disabled={!t || scope === ""} onClick={() => void (async () => {
-            try { setPreview(await api<Preview>("POST", "/contracts/preview", draft())); setErr(null); } catch (e) { setErr(e as ApiError); setPreview(null); }
-          })()}>미리보기</button>
-          <button type="button" className="btn primary" disabled={!preview || contractId === ""}
-            onClick={() => void act(() => api("POST", "/contracts", { ...draft(), contractId }), "서명을 요청했습니다")}>서명 요청</button>
-        </div>
-        <ErrorPanel error={templates.error ?? err} />
+        <ContractWizard onDone={() => void list.refetch()} />
+        <ErrorPanel error={err} />
         {notice && <p role="status">{notice}</p>}
-        {preview && <>
-          <p aria-label="서명할 당사자">서명할 당사자: {preview.signers.join(", ")} · 서명하면 만들어질 기록: {preview.records.length === 0 ? "없음(문서만)" : preview.records.map((r) => `${r.type} ${r.rightType ?? r.rightKind ?? ""}`).join(", ")}</p>
-          <iframe title="계약서 미리보기" sandbox="" srcDoc={preview.html} style={{ width: "100%", height: 480, border: "1px solid var(--line)", borderRadius: 8, background: "#fff" }} />
-        </>}
       </Section>
       <Section title="계약">
         <ErrorPanel error={list.error} />
