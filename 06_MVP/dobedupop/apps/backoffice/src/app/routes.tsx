@@ -40,6 +40,7 @@ import { Section } from "../components/Section.tsx";
 import { Pipeline } from "../pages/monitor/Pipeline.tsx";
 import { StemAudioPage } from "../pages/audio/Audio.tsx";
 import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
+import { WorksCatalog } from "../pages/works/Catalog.tsx";
 import type { AppKind } from "./apps.ts";
 
 export function Placeholder({ title }: { title: string }) {
@@ -47,8 +48,11 @@ export function Placeholder({ title }: { title: string }) {
 }
 
 export type RouteDef = { path: string; title: string; element: ReactNode };
-/** roles: 로그인 세션에서 이 역할 중 하나가 있어야 메뉴에 보인다(화면은 코어가 다시 검사한다). */
-export type MenuItem = { to: string; label: string; roles?: string[] };
+/**
+ * roles: 로그인 세션에서 이 역할 중 하나가 있어야 메뉴에 보인다. perm: 이 권한(1부 RBAC, /me의 permissions)이 있어야 보인다 — 포털 메뉴는 perm을 쓴다.
+ * 화면은 코어가 다시 검사한다.
+ */
+export type MenuItem = { to: string; label: string; roles?: string[]; perm?: string };
 export type MenuGroup = { title: string; items: MenuItem[] };
 
 
@@ -72,6 +76,11 @@ const rightsRoutes: RouteDef[] = [
   { path: "/issues", title: "발행", element: <Issues /> },
   { path: "/issues/:snapshotId", title: "발행 상세", element: <IssueDetail /> },
   { path: "/statements", title: "명세서", element: <Statements /> },
+];
+
+/** 포털 작품 목록·곡 워크스페이스(2부-B, 결정 ED3). */
+const worksRoutes: RouteDef[] = [
+  { path: "/works", title: "작품 관리", element: <WorksCatalog /> },
 ];
 
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
@@ -126,7 +135,7 @@ const orgRoutes: RouteDef[] = [
 
 export function routesFor(kind: AppKind): RouteDef[] {
   if (kind === "portal") {
-    return [...orgRoutes, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }, { path: "/delegation", title: "위임 대행", element: <DelegationPage /> }];
+    return [...orgRoutes, ...worksRoutes, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }, { path: "/delegation", title: "위임 대행", element: <DelegationPage /> }];
   }
   if (kind === "partner") {
     // 참여 기관 화면(결정 TD12): 권리 등록·정책·발행 화면이 없다.
@@ -157,9 +166,13 @@ export function menuFor(kind: AppKind): MenuGroup[] {
   if (kind === "portal") {
     return [
       { title: "홈", items: [{ to: "/", label: "내 조직" }] },
-      { title: "① 권리 등록", items: [...catalog, { to: "/confirmations", label: "확인 요청" }, { to: "/audio", label: "스템 오디오·검수" }, { to: "/registry/disputes", label: "분쟁" }] },
-      { title: "② 정책·상품", items: [{ to: "/policy", label: "분배 규칙" }, { to: "/packs", label: "팩" }] },
-      { title: "③ 발행·심사", items: [{ to: "/issues", label: "발행 조합" }] },
+      // 작품 목록이 시작점이다(시안 Catalog). 곡 하나의 권리·스템·계약·분배 규칙·출시는 워크스페이스 탭에서 한다.
+      { title: "작품", items: [{ to: "/works", label: "작품 목록" }, { to: "/works/new", label: "새 곡", perm: "rights.edit" }] },
+      // 기존 화면은 지우지 않고 테넌트 전체를 가로질러 보는 "모아 보기"로 둔다.
+      { title: "모아 보기", items: [
+        ...catalog, { to: "/confirmations", label: "확인 요청" }, { to: "/audio", label: "스템 오디오·검수" }, { to: "/registry/disputes", label: "분쟁" },
+        { to: "/policy", label: "분배 규칙" }, { to: "/packs", label: "팩" }, { to: "/issues", label: "발행 조합" },
+      ] },
       { title: "점검·정산", items: [{ to: "/validation", label: "정합성 점검" }, { to: "/statements", label: "명세·지급" }] },
       { title: "연결", items: [{ to: "/links", label: "신탁·유통 연결" }] },
       { title: "설정", items: [
