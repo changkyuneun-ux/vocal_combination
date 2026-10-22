@@ -7,6 +7,7 @@ import type { Tx } from "../platform/db.ts";
 import { DomainError, type Diagnostic } from "../platform/errors.ts";
 import { activePolicyForPack } from "../policy/service.ts";
 import * as issuance from "../issuance/service.ts";
+import { withPermissions } from "../platform/permissions.ts";
 
 /** 캐시 항목 수명. 동의 유효기간처럼 시각에 따라 바뀌는 판정이 있어 짧게 둔다. */
 export const DECISION_TTL_MS = 5 * 60_000;
@@ -70,7 +71,7 @@ export async function checkCombination(ctx: BridgeCtx, tx: Tx, clock: Clock, act
 
 /** 실제 발행을 SAVEPOINT 안에서 돌리고 되돌린다. 게이트 거부(DomainError)는 판정 결과가 되고, 그 밖의 오류는 그대로 던진다. */
 async function dryRunIssue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: Omit<issuance.IssueInput, "vcId">): Promise<Decision> {
-  const onBehalf: Actor = { ...actor, roles: new Set([...actor.roles, "ISSUER"]) };
+  const onBehalf: Actor = { ...withPermissions(actor, ["issuance.issue"]), roles: new Set([...actor.roles, "ISSUER"]) };
   // 동시에 도는 판정끼리 같은 스냅샷 id로 서로 기다리지 않게 무작위 id를 쓴다(되돌리므로 남지 않는다).
   const vcId = `vc_check_${randomBytes(8).toString("hex")}`;
   await tx.query("SAVEPOINT fan_check");

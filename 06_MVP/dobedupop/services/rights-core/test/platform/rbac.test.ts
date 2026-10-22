@@ -42,3 +42,25 @@ test("a role of one org class cannot take a permission of another, nor be given 
     await c.end();
   }
 });
+
+import { loadActor } from "../../src/platform/actor.ts";
+import { hasPermission, requirePermission, requireAnyPermission, withPermissions } from "../../src/platform/permissions.ts";
+
+test("loadActor reads the permissions of the current membership's roles", async () => {
+  const settle = await db.tx((tx) => loadActor(tx, "usr_settle"));
+  assert.ok(hasPermission(settle, "settlement.confirm"));
+  assert.ok(hasPermission(settle, "ledger.view"));
+  assert.ok(!hasPermission(settle, "settlement.batch_create"), "batch creation is SPACE_OPS");
+  const label = await db.tx((tx) => loadActor(tx, "usr_label"));
+  assert.ok(hasPermission(label, "rights.edit") && hasPermission(label, "policy.edit"));
+  assert.ok(!hasPermission(label, "policy.approve"));
+});
+
+test("requirePermission answers 403 ROLE_REQUIRED naming the permission", async () => {
+  const label = await db.tx((tx) => loadActor(tx, "usr_label"));
+  assert.throws(() => requirePermission(label, "settlement.confirm"), (e: any) => e.code === "ROLE_REQUIRED" && e.status === 403 && /settlement\.confirm/.test(e.message));
+  assert.doesNotThrow(() => requireAnyPermission(label, ["settlement.confirm", "rights.edit"]));
+  assert.throws(() => requireAnyPermission(label, ["settlement.confirm", "payout.run"]), /ROLE_REQUIRED|lacks/);
+  const boosted = withPermissions(label, ["issuance.issue"]);
+  assert.ok(hasPermission(boosted, "issuance.issue") && !hasPermission(label, "issuance.issue"), "withPermissions copies");
+});

@@ -1,4 +1,5 @@
-import type { OrgClass, Role } from "./actor.ts";
+import type { Actor, OrgClass, Role } from "./actor.ts";
+import { DomainError } from "./errors.ts";
 
 /**
  * 기능 단위 권한(총괄 운영과 권한 구조, 결정 RD4). 코어의 검사 한 곳 = (모듈, 행위) 하나 = 권한 하나.
@@ -74,3 +75,22 @@ export const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS;
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
+
+export function hasPermission(actor: Actor, perm: Permission): boolean {
+  return actor.permissions.has(perm);
+}
+
+/** 권한이 없으면 403 ROLE_REQUIRED(코드는 역할 검사 때와 같다 — 화면·시험이 이 코드를 본다). */
+export function requirePermission(actor: Actor, perm: Permission): void {
+  if (!actor.permissions.has(perm)) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks permission ${perm}`);
+}
+
+/** 권한 중 하나라도 있으면 통과한다. */
+export function requireAnyPermission(actor: Actor, perms: readonly Permission[]): void {
+  if (!perms.some((p) => actor.permissions.has(p))) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks any of permissions ${perms.join(", ")}`);
+}
+
+/** 권한을 더한 행위자 사본. 시스템 대행(팬 대신 발행, 수집 시스템 대신 매출 기록)에만 쓴다. */
+export function withPermissions(actor: Actor, extra: readonly Permission[]): Actor {
+  return { ...actor, permissions: new Set([...actor.permissions, ...extra]) };
+}

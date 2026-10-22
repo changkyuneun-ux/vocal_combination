@@ -7,6 +7,7 @@ import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { policyEventTypes } from "../engine-bridge/settle.ts";
 import { ingestRevenue, type RefundHook, type RevisionHook } from "./service.ts";
 import { assertExposed } from "../exposure/service.ts";
+import { withPermissions } from "../platform/permissions.ts";
 
 /** 유효 재생 기준: 30초 이상 들었으면 한 번으로 센다. */
 export const COUNTED_MS = 30_000;
@@ -126,7 +127,7 @@ export async function allocatePool(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   const shares = splitByPlays(BigInt(pool.amount_krw), eligible);
   const occurredAt = new Date(Date.parse(end) - 1).toISOString();
   // 매출 수집은 수집 신원(SYSTEM)의 일이다. 배정을 실행한 정산 담당이 감사 행위자로 남는다.
-  const ingester: Actor = { ...actor, roles: new Set([...actor.roles, "SYSTEM"]) };
+  const ingester: Actor = { ...withPermissions(actor, ["revenue.ingest"]), roles: new Set([...actor.roles, "SYSTEM"]) };
   for (const e of eligible) {
     const amount = shares.get(e.vcId)!;
     let eventId: string | null = null;

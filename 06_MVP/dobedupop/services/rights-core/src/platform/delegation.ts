@@ -1,8 +1,9 @@
-import { requireAnyRole, type Actor, type Role } from "./actor.ts";
+import { requireAnyRole, type Actor } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
 import { DomainError, invalid, notFound } from "./errors.ts";
+import type { Permission } from "./permissions.ts";
 
 /**
  * 위임 대행(테넌트 정책 TR5·TN6, 데이터모델 v2.8 tenant.ops_delegation·audit_log.acting_on_behalf_of).
@@ -12,7 +13,6 @@ import { DomainError, invalid, notFound } from "./errors.ts";
  */
 export const DELEGABLE = ["RIGHTS_ENTRY"] as const;
 export type DelegableTask = (typeof DELEGABLE)[number];
-const TASK_ROLES: Record<DelegableTask, Role[]> = { RIGHTS_ENTRY: ["RIGHTS_EDITOR"] };
 
 /** 플랫폼 행위자를 그 테넌트의 대행자로 바꾼다. 위임이 없거나 활성·확인됨이 아니면 거부한다. */
 export async function delegatedActor(tx: Tx, actor: Actor, tenantId: string): Promise<Actor> {
@@ -24,8 +24,10 @@ export async function delegatedActor(tx: Tx, actor: Actor, tenantId: string): Pr
   if (t.status !== "ACTIVE" && t.status !== "VERIFIED") throw new DomainError("TENANT_INACTIVE", 403, `tenant ${tenantId} is ${t.status}`);
   const tasks = (t.ops_delegation as string[]).filter((x): x is DelegableTask => (DELEGABLE as readonly string[]).includes(x));
   if (tasks.length === 0) throw new DomainError("NOT_DELEGATED", 403, `${tenantId} has not delegated any work to the platform`);
+  const perms = new Set((await tx.query("SELECT perm_id FROM delegable_task_permission WHERE task = ANY($1)", [tasks])).rows.map((r) => r.perm_id as Permission));
+  // roles는 화면 표시용(위임 업무 RIGHTS_ENTRY = 권리 편집). 검사는 permissions로 한다.
   return {
-    userId: actor.userId, roles: new Set(tasks.flatMap((x) => TASK_ROLES[x])), tenantId, tenantType: t.tenant_type, orgClass: "RIGHTS", tenantStatus: t.status,
+    userId: actor.userId, roles: new Set(["RIGHTS_EDITOR"]), permissions: perms, tenantId, tenantType: t.tenant_type, orgClass: "RIGHTS", tenantStatus: t.status,
     scope: "tenant", actingOnBehalfOf: tenantId,
   };
 }

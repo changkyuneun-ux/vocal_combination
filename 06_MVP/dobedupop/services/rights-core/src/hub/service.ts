@@ -8,6 +8,7 @@ import { DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { policyEventTypes } from "../engine-bridge/settle.ts";
 import { ingestRevenue, type RefundHook, type RevenueInput, type RevisionHook } from "../revenue/service.ts";
+import { withPermissions } from "../platform/permissions.ts";
 
 /** 한 번에 받는 파일 크기 한도(요청 본문 한도와 같다). 더 큰 리포트는 나눠 보낸다. */
 export const MAX_FILE_BYTES = 1024 * 1024 - 4096;
@@ -91,7 +92,7 @@ async function applyRecord(ctx: BridgeCtx, tx: Tx, clock: Clock, hooks: HubHooks
       input = { ...base, eventType: r.kind === "SALE" ? "PURCHASE" : "TRAFFIC", vcId: asset.vc_id as string };
     }
     // 매출 수집은 수집 신원(SYSTEM)의 일이다. 파일을 보낸 파트너 사용자가 감사 행위자로 남는다.
-    const ingester: Actor = { ...actor, roles: new Set([...actor.roles, "SYSTEM"]) };
+    const ingester: Actor = { ...withPermissions(actor, ["revenue.ingest"]), roles: new Set([...actor.roles, "SYSTEM"]) };
     await tx.query("SAVEPOINT hub_record");
     try {
       const out = await ingestRevenue(tx, clock, ingester, input, hooks.onRefund, hooks.onRevision);
