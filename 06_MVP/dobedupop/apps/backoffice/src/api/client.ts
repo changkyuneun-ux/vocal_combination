@@ -15,7 +15,7 @@ export class ApiError extends Error {
 }
 
 export type Paged<T> = { items: T[]; next: string | null };
-export type Method = "GET" | "POST" | "PUT";
+export type Method = "GET" | "POST" | "PUT" | "DELETE";
 export type ApiOptions = { actorOverride?: string; fetchImpl?: typeof fetch; channel?: string };
 
 /**
