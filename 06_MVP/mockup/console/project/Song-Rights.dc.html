@@ -61,11 +61,11 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 </section>
 
 <section aria-labelledby="b-perf" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden">
-<div style="padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #e2e8f0"><h2 id="b-perf" style="margin: 0; font-size: 17px">실연 · 슬롯(원곡 흐름)별 파트와 담당</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">가정 데이터 — 빅히트 원본 배분으로 입력(SL5)</span><button style="margin-left: auto; font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">+ 슬롯 추가</button></div>
+<div style="padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #e2e8f0"><h2 id="b-perf" style="margin: 0; font-size: 17px">실연 · 슬롯(원곡 흐름)별 파트와 담당</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600">MV 분석 시각 · 파트 경계는 추정(음원에서 확정)</span><button style="margin-left: auto; font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">+ 슬롯 추가</button></div>
 <div style="padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; border-bottom: 1px solid #e2e8f0">
 <span style="color: #475569">멤버·보이스 7:</span>
 <sc-for list="{{members}}" as="m" hint-placeholder-count="7"><span style="{{m.chip}}">{{m.name}} · {{m.voice}}</span></sc-for>
-<span style="color: #475569; margin-left: auto">슬롯 10 · 보컬 파트 19 · 반주 파트 10</span>
+<span style="color: #475569; margin-left: auto">슬롯 12 · 보컬 파트 20 · 그룹 파트 2 · 반주 파트 12</span>
 </div>
 <div style="overflow-x: auto"><table style="width: 100%; min-width: 860px; border-collapse: collapse; font-size: 14px">
 <thead><tr style="text-align: left; background: #f8fafc; color: #475569; font-size: 13px"><th style="padding: 8px 16px">#</th><th style="padding: 8px 16px">슬롯</th><th style="padding: 8px 16px">시간</th><th style="padding: 8px 16px">파트</th><th style="padding: 8px 16px">원곡 담당</th><th style="padding: 8px 16px">역할</th><th style="padding: 8px 16px">확인</th><th style="padding: 8px 16px; text-align: right">관리</th></tr></thead>
@@ -113,21 +113,25 @@ class Component extends DCLogic {
     const M = [['정국', 'jungkook'], ['지민', 'jimin'], ['뷔', 'v'], ['진', 'jin'], ['RM', 'rm'], ['제이홉', 'jhope'], ['슈가', 'suga']];
     const members = M.map(([name, key], i) => ({ name, voice: 'voc_' + key,
       chip: 'padding: 3px 8px; border-radius: 999px; ' + (i === 0 ? 'background: #dbeafe; color: #1e3a8a' : 'background: #f1f5f9; border: 1px solid #cbd5e1') }));
-    const SLOTS = [['Intro', []], ['Verse 1', ['정국', '지민']], ['Pre-Chorus', ['진', '뷔']], ['Chorus', ['정국', '지민']], ['Verse 2 (Rap)', ['RM', '슈가', '제이홉']],
-      ['Pre-Chorus', ['뷔', '진']], ['Chorus', ['정국', '지민']], ['Break (Dance)', []], ['Chorus (전조)', ['정국', '지민', '뷔', '진']], ['Outro', ['정국', '지민']]];
+    const SLOTS = [['Intro', 0, 4, [], ''], ['Intro Chorus', 4, 13, ['정국'], ''], ['Verse 1', 13, 30, ['정국'], ''], ['Pre-Chorus 1', 30, 39, ['지민', '뷔'], ''],
+      ['Chorus 1', 39, 57, ['정국', '지민'], ''], ['Verse 2 (Rap)', 57, 83, ['RM', '제이홉', '슈가'], ''], ['Pre-Chorus 2', 83, 91, ['진', '뷔'], ''], ['Chorus 2', 91, 109, ['정국', '지민'], ''],
+      ['Dance Break', 109, 127, [], ''], ['Chorus 3 (전조)', 127, 145, ['지민', '정국', '진'], ''], ['Chorus 4 & Outro', 145, 180, ['정국', '지민', '뷔', '진'], '전원 제창'], ['Outro Fade-out', 180, 198, [], '전원 애드리브']];
+    const mmss = (t) => Math.floor(t / 60) + ':' + String(Math.round(t % 60)).padStart(2, '0');
     const laneRows = [];
-    SLOTS.forEach(([slot, who], si) => {
-      const parts = who.map((m, i) => ({ m, role: slot.indexOf('Rap') >= 0 ? '랩' : i === 0 ? '리드' : i === 1 ? '리드(이어서)' : '화음' })).concat([{ m: null, role: '반주' }]);
+    SLOTS.forEach(([slot, a, b, who, group], si) => {
+      const step = who.length ? (b - a) / who.length : 0;
+      const parts = who.map((m, i) => ({ m, role: slot.indexOf('Rap') >= 0 ? '랩' : '리드', t: mmss(a + i * step) + '~' + mmss(a + (i + 1) * step) + ' 추정', kind: 'v' }));
+      if (group) parts.push({ m: '전원(그룹)', role: group, t: mmss(a) + '~' + mmss(b), kind: 'g' });
+      parts.push({ m: '반주(원곡 녹음)', role: '반주', t: mmss(a) + '~' + mmss(b), kind: 'i' });
       parts.forEach((pt, pi) => {
         const first = pi === 0;
-        const inst = pt.m === null;
         laneRows.push({
-          no: first ? si + 1 : '', section: first ? slot + (who.length === 0 ? ' · 연주만' : who.length > 1 ? ' · ' + who.length + '명' : '') : '', time: first ? '[시작~끝]' : '',
-          lane: '파트 ' + (pi + 1) + (inst ? '' : ' [구간 안 시간]'), member: inst ? '반주(원곡 녹음)' : pt.m, role: pt.role,
-          state: inst ? '—' : pt.m === '정국' ? '확인됨' : '확인 대기',
-          stateStyle: 'padding: 8px 16px; color: ' + (inst ? '#475569' : pt.m === '정국' ? '#166534' : '#92400e'),
+          no: first ? si + 1 : '', section: first ? slot + (who.length === 0 && !group ? ' · 연주만' : '') : '', time: first ? mmss(a) + '~' + mmss(b) : '',
+          lane: '파트 ' + (pi + 1) + ' · ' + pt.t, member: pt.m, role: pt.role,
+          state: pt.kind === 'i' ? '—' : pt.kind === 'g' ? '그룹 · 교체 불가' : pt.m === '정국' ? '확인됨' : '확인 대기',
+          stateStyle: 'padding: 8px 16px; color: ' + (pt.kind !== 'v' ? '#475569' : pt.m === '정국' ? '#166534' : '#92400e'),
           actions: first ? '수정 · 파트 추가 · 삭제' : '수정 · 삭제',
-          rowStyle: (first ? 'border-top: 1px solid #e2e8f0' : 'border-top: 1px dashed #e2e8f0') + (inst ? '; color: #475569' : ''),
+          rowStyle: (first ? 'border-top: 1px solid #e2e8f0' : 'border-top: 1px dashed #e2e8f0') + (pt.kind !== 'v' ? '; color: #475569' : ''),
         });
       });
     });
