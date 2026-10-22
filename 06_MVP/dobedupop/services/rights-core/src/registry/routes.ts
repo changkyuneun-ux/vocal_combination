@@ -14,6 +14,7 @@ import { revalidate } from "../validation/service.ts";
 import { applyTrustOnClaim } from "../participants/links.ts";
 import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
 import { requirePermission } from "../platform/permissions.ts";
+import { deleteCatalogRow, updateCatalogRow, type CatalogKind } from "./catalog.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   /** 기록이 속한 곡을 다시 검사한다(조항 연결 뒤). */
@@ -54,6 +55,29 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   created<any>("/slot-parts", (tx, b) => reg.registerSlotPart(tx, deps.clock, b.slotId, b), ["slotId", "partNo", "kind", "startMs", "endMs"]);
   created<any>("/stems", (tx, b) => reg.registerStem(tx, deps.clock, b));
   created<any>("/voices", (tx, b) => reg.registerVoice(tx, deps.clock, b));
+  // IR 생성 전 수정·삭제(결정 ID1): 봉인된 적이 있으면 409 CATALOG_SEALED, 다른 행이 가리키면 409 CATALOG_IN_USE.
+  const catalogPaths: [CatalogKind, string][] = [
+    ["work", "/works/:id"], ["recording", "/recordings/:id"], ["slot", "/slots/:id"], ["slot-part", "/slot-parts/:id/:partNo"], ["stem", "/stems/:id"], ["voice", "/voices/:id"],
+  ];
+  const catalogKey = (p: { id: string; partNo?: string }) => (p.partNo === undefined ? [p.id] : [p.id, p.partNo]);
+  for (const [kind, path] of catalogPaths) {
+    if (kind !== "voice") {
+      app.put<{ Params: { id: string; partNo?: string } }>(path, async (req) => withActor(deps, req, async (tx, actor) => {
+        requirePermission(actor, "rights.edit");
+        const out = await updateCatalogRow(tx, deps.clock, actor, kind, catalogKey(req.params), (req.body ?? {}) as Record<string, unknown>);
+        if (out.scopeId !== undefined) await revalidate(tx, deps.clock, out.scopeId);
+        return out.row;
+      }));
+    }
+    app.delete<{ Params: { id: string; partNo?: string } }>(path, async (req, reply) => {
+      await withActor(deps, req, async (tx, actor) => {
+        requirePermission(actor, "rights.edit");
+        const out = await deleteCatalogRow(tx, deps.clock, actor, kind, catalogKey(req.params));
+        if (out.scopeId !== undefined) await revalidate(tx, deps.clock, out.scopeId);
+      });
+      return reply.status(204).send();
+    });
+  }
   // 근거 문서(원천 문서 설계 S1): evidenceDocuments를 주면 증빙 digest를 시스템이 채우고, 연결한 사람은 요청자다.
   const withEvidence = <T extends { evidenceDocuments?: unknown; linkedBy?: string }>(b: T, actor: Actor): T => {
     const { linkedBy: _ignored, ...rest } = b;
