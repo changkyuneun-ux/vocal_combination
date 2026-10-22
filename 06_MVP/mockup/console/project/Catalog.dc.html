@@ -183,15 +183,16 @@ class Component extends DCLogic {
       docs: [card('원천 문서', '2', '녹음 계약서 · 퍼블리싱 계약서', ''), card('표준 계약', '11', '플랫폼 · 녹음 이용허락 · 작품 이용허락 2 · 수령 위임 7', '')],
       confirm: [card('확인 요청', '58', '확인 8 · 대기 50', 'warn'), card('이용 동의', '1 / 7', '멤버 본인(실연자 앱)', 'warn')],
       money: [card('발행 조합', '0', '팩 활성 뒤', ''), card('매출', '0원', '', ''), card('지급', '0원', '', '')],
+      policy: [card('팩', 'DYNAMITE-FAN', '초안', ''), card('분배 규칙', '권리자 70 · 녹음 40 · 실연 45 · 작품 15', '컴파일 전 — 컴파일하면 IR 생성', 'warn'), card('출시', '대기', '승인 → 활성화 → 팩 활성화', '')],
     };
     const S = {
       rights: [card('원곡 권리', w.rights, '예시 데이터', '')], stems: [card('멤버 스템', w.stems, '예시 데이터', '')], docs: [card('문서·계약', '—', '예시 데이터', '')],
-      confirm: [card('확인 대기', String(w.pending), '예시 데이터', '')], money: [card('정산', w.stage >= 4 ? '판매 중' : '—', '예시 데이터', '')],
+      confirm: [card('확인 대기', String(w.pending), '예시 데이터', '')], money: [card('정산', w.stage >= 4 ? '판매 중' : '—', '예시 데이터', '')], policy: [card('정책·팩', w.stage >= 3 ? '활성' : '—', '예시 데이터', '')],
     };
-    const PT = [['overview', '개요', ''], ['rights', '원곡 권리', w.real ? 10 : ''], ['stems', '스템', w.real ? 8 : ''], ['docs', '문서·계약', w.real ? 13 : ''], ['confirm', '확인·동의', w.real ? 58 : ''], ['money', '정산', ''], ['history', '변경 이력', '']];
+    const PT = [['overview', '개요', ''], ['rights', '원곡 권리', w.real ? 10 : ''], ['stems', '스템', w.real ? 8 : ''], ['docs', '문서·계약', w.real ? 13 : ''], ['confirm', '확인·동의', w.real ? 58 : ''], ['policy', '분배 규칙·팩', ''], ['money', '정산', ''], ['history', '변경 이력', '']];
     const ptab = this.state.ptab;
     const ptabs = PT.map(([k, label, c]) => ({ label, count: c, style: tabStyle(ptab === k), pick: () => this.setState({ ptab: k }) }));
-    const manageHref = { rights: 'Song-Rights.dc.html', stems: 'Song-Stems.dc.html' };
+    const manageHref = { rights: 'Song-Rights.dc.html', stems: 'Song-Stems.dc.html', confirm: 'Song-Confirm.dc.html', docs: 'Song-Contracts.dc.html', policy: 'Song-Policy.dc.html' };
     const label = PT.find((x) => x[0] === ptab)[1];
     const pane = ptab === 'overview'
       ? { hint: '조회 전용 요약 — 관리할 탭을 고르면 그 탭의 워크스페이스로 들어간다', manage: false }

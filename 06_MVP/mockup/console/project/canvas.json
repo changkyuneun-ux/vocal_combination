@@ -9,6 +9,15 @@
       "x": 3040,
       "y": 3300
     },
+    "Catalog.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "is_interactive": true,
+      "title": "v2 ① 빅히트 뮤직 작품 목록 — 전체 현황 + 하단 요약(조회) · 탭별 '관리 →'로 워크스페이스",
+      "w": 1440,
+      "x": 0,
+      "y": 9900
+    },
     "Console-Demo.dc.html": {
       "expand": "fill",
       "h": 1000,
@@ -112,6 +121,38 @@
       "x": 0,
       "y": 0
     },
+    "Song-Create.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "v2 ④ 새 곡 워크스페이스 만들기",
+      "w": 1440,
+      "x": 4560,
+      "y": 9900
+    },
+    "Song-Locked.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "v2 ⑤ IR 생성 뒤 — 읽기 전용, 새 버전으로 바로잡기",
+      "w": 1440,
+      "x": 6080,
+      "y": 9900
+    },
+    "Song-Rights.dc.html": {
+      "expand": "fill",
+      "h": 1600,
+      "title": "v2 ② Dynamite 원곡 권리 관리 — 작품·녹음·실연(슬롯·파트별 담당)·수령 위임",
+      "w": 1440,
+      "x": 1520,
+      "y": 9900
+    },
+    "Song-Stems.dc.html": {
+      "expand": "fill",
+      "h": 1700,
+      "title": "v2 ③ Dynamite 스템 관리 — 슬롯 흐름 + 파트 × 부른 멤버(그룹·반주 파트)",
+      "w": 1440,
+      "x": 3040,
+      "y": 9900
+    },
     "Work-Edit.dc.html": {
       "expand": "fill",
       "h": 1100,
@@ -129,46 +170,37 @@
       "x": 0,
       "y": 8000
     },
-    "Song-Rights.dc.html": {
-      "x": 1520,
-      "y": 9900,
-      "w": 1440,
-      "h": 1600,
-      "title": "v2 ② Dynamite 원곡 권리 관리 — 작품·녹음·실연(구간·라인별 담당)·수령 위임",
-      "expand": "fill"
-    },
-    "Song-Stems.dc.html": {
-      "x": 3040,
-      "y": 9900,
-      "w": 1440,
-      "h": 1700,
-      "title": "v2 ③ Dynamite 스템 관리 — 보컬 라인 × 부른 멤버(여러 명 구간 포함)",
-      "expand": "fill"
-    },
-    "Song-Create.dc.html": {
-      "x": 4560,
-      "y": 9900,
-      "w": 1440,
-      "h": 1100,
-      "title": "v2 ④ 새 곡 워크스페이스 만들기",
-      "expand": "fill"
-    },
-    "Song-Locked.dc.html": {
-      "x": 6080,
-      "y": 9900,
-      "w": 1440,
-      "h": 1100,
-      "title": "v2 ⑤ IR 생성 뒤 — 읽기 전용, 새 버전으로 바로잡기",
-      "expand": "fill"
-    },
-    "Catalog.dc.html": {
+    "Song-Confirm.dc.html": {
       "x": 0,
-      "y": 9900,
+      "y": 12000,
       "w": 1440,
-      "h": 1500,
-      "title": "v2 ① 빅히트 뮤직 작품 목록 — 전체 현황 + 하단 요약(조회) · 탭별 '관리 →'로 워크스페이스",
-      "expand": "fill",
-      "is_interactive": true
+      "h": 1200,
+      "title": "P3 확인·동의 — 멤버별 확인 진행, 작가 지분 대조",
+      "expand": "fill"
+    },
+    "Song-Contracts.dc.html": {
+      "x": 1520,
+      "y": 12000,
+      "w": 1440,
+      "h": 1200,
+      "title": "P4 문서·계약 — 표준 계약 작성·서명·반영, 원천 문서",
+      "expand": "fill"
+    },
+    "Song-Policy.dc.html": {
+      "x": 3040,
+      "y": 12000,
+      "w": 1440,
+      "h": 1300,
+      "title": "P6 분배 규칙·팩 — 정합성 점검, 팩, 규칙 폼, 미리보기, 컴파일(IR 생성)",
+      "expand": "fill"
+    },
+    "Song-Release.dc.html": {
+      "x": 4560,
+      "y": 12000,
+      "w": 1440,
+      "h": 1200,
+      "title": "P6 승인·출시 — 승인 → 활성화 → 팩 활성화(출시), 출시 조건",
+      "expand": "fill"
     }
   },
   "createdOnFiles": {
@@ -180,13 +212,26 @@
     "view": "canvas"
   },
   "notes": {
+    "n_lanes": {
+      "text": "슬롯(원곡 흐름 12)·파트 구조와 DB·MDRL 변경: 00_프로젝트_개요/보컬_슬롯과_라인_구조_20261022.md. 슬롯 시각은 MV 분석, 파트 경계는 추정(SL5·SL8).",
+      "w": 400,
+      "x": 7600,
+      "y": 9900
+    },
+    "n_superseded": {
+      "fill": "orange",
+      "text": "대체됨: E09~E11 단독 시안과 곡 중심 관리(variant A) 줄은 아래 '곡 워크스페이스 v2'로 대체했다. 비교용으로 남겨 둔다.",
+      "w": 400,
+      "x": 3040,
+      "y": 8000
+    },
     "t_row2": {
       "kind": "title1",
       "maxW": 4480,
       "text": "P1·P5 온보딩과 운영 확인 — 플랫폼 소속",
       "w": 240,
       "x": 0,
-      "y": 1640
+      "y": 1597
     },
     "t_row3": {
       "kind": "title1",
@@ -228,25 +273,19 @@
       "y": 7740
     },
     "t_row7": {
-      "x": 0,
-      "y": 9640,
-      "text": "빅히트 뮤직 기준 — 작품 목록·하단 요약(조회) → 탭별 워크스페이스(관리)",
       "kind": "title1",
-      "maxW": 7520
+      "maxW": 7520,
+      "text": "빅히트 뮤직 기준 — 작품 목록·하단 요약(조회) → 탭별 워크스페이스(관리)",
+      "w": 240,
+      "x": 0,
+      "y": 9640
     },
-    "n_superseded": {
-      "x": 3040,
-      "y": 8000,
-      "w": 400,
-      "text": "대체됨: E09~E11 단독 시안과 곡 중심 관리(variant A) 줄은 아래 '곡 워크스페이스 v2'로 대체했다. 비교용으로 남겨 둔다.",
-      "fill": "orange"
-    },
-    "n_lanes": {
-      "x": 7600,
-      "y": 9900,
-      "w": 400,
-      "text": "보컬 구간·라인 구조와 DB·MDRL 변경: 00_프로젝트_개요/보컬_슬롯과_라인_구조_20261022.md. 구간별 담당은 가정 데이터(빅히트 원본으로 입력, SL5).",
-      "fill": "yellow"
+    "t_row8": {
+      "x": 0,
+      "y": 11740,
+      "text": "빅히트 기준 P3·P4·P6 — 확인·동의 → 계약 → 분배 규칙·팩 → 승인·출시(퍼블리싱)",
+      "kind": "title1",
+      "maxW": 5920
     }
   },
   "order": [
@@ -270,7 +309,11 @@
     "Song-Rights.dc.html",
     "Song-Stems.dc.html",
     "Song-Create.dc.html",
-    "Song-Locked.dc.html"
+    "Song-Locked.dc.html",
+    "Song-Confirm.dc.html",
+    "Song-Contracts.dc.html",
+    "Song-Policy.dc.html",
+    "Song-Release.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"
