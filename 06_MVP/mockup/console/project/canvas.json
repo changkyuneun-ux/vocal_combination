@@ -1,32 +1,209 @@
 {
   "v": 3,
-  "createdOnFiles": { "v": 1, "at": "2026-10-22T09:00:00Z" },
-  "title": "dobedupop 총괄 콘솔 UI 구조 시안",
-  "launch": { "view": "canvas" },
-  "pages": [],
+  "attachments": {},
   "boards": {
-    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1560, "title": "구조 지도 — 콘솔 셸·소속별 메뉴·E2E 흐름", "expand": "fill" },
-    "Console-Platform.dc.html": { "x": 0, "y": 1900, "w": 1440, "h": 1000, "title": "[플랫폼] ⑧ 파이프라인 홈", "expand": "fill" },
-    "Console-Org.dc.html": { "x": 1520, "y": 1900, "w": 1440, "h": 1000, "title": "[플랫폼] 조직 상세 — 확인 항목·상태·총괄 소속", "expand": "fill" },
-    "Console-Demo.dc.html": { "x": 3040, "y": 1900, "w": 1440, "h": 1000, "title": "[데모] 진행 단계 P0~P10", "expand": "fill" },
-    "Console-Rights.dc.html": { "x": 0, "y": 3300, "w": 1440, "h": 1000, "title": "[빅히트] ① 권리 요약·카탈로그", "expand": "fill" },
-    "Console-Policy.dc.html": { "x": 1520, "y": 3300, "w": 1440, "h": 1000, "title": "[빅히트] ② 분배 규칙 — 편집·승인·활성화", "expand": "fill" },
-    "Artist-Consent.dc.html": { "x": 3040, "y": 3300, "w": 390, "h": 844, "title": "[실연자: 정국] 본인 전환 — 확인·동의" },
-    "Console-Settlement.dc.html": { "x": 0, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 정산 배치 상세 — 재계산·확정", "expand": "fill" },
-    "Console-Payout.dc.html": { "x": 1520, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 지급·명세 — 정산 확인", "expand": "fill" },
-    "Console-RBAC.dc.html": { "x": 3040, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑩ 역할·권한·직무 분리 규칙", "expand": "fill" },
-    "Detail-E09-Parties.dc.html": { "x": 0, "y": 6100, "w": 1440, "h": 1200, "title": "E09 [빅히트] 당사자 등록 — 레이블·소속사", "expand": "fill" },
-    "Detail-E10-Work.dc.html": { "x": 1520, "y": 6100, "w": 1440, "h": 1200, "title": "E10 [빅히트] 새 곡 — 곡·권리 범위·녹음", "expand": "fill" },
-    "Detail-E11-Parts.dc.html": { "x": 3040, "y": 6100, "w": 1440, "h": 1500, "title": "E11 [빅히트] 파트 구성 — 슬롯·스템·보이스", "expand": "fill" },
-    "IR-Map.dc.html": { "x": 4560, "y": 6100, "w": 1440, "h": 1260, "title": "E10~E11 입력과 IR 연계 지도 — facts·정책·조합 지분·멤버" }
+    "Artist-Consent.dc.html": {
+      "h": 844,
+      "title": "[실연자: 정국] 본인 전환 — 확인·동의",
+      "w": 390,
+      "x": 3040,
+      "y": 3300
+    },
+    "Console-Demo.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[데모] 진행 단계 P0~P10",
+      "w": 1440,
+      "x": 3040,
+      "y": 1900
+    },
+    "Console-Org.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[플랫폼] 조직 상세 — 확인 항목·상태·총괄 소속",
+      "w": 1440,
+      "x": 1520,
+      "y": 1900
+    },
+    "Console-Payout.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[플랫폼] ⑥ 지급·명세 — 정산 확인",
+      "w": 1440,
+      "x": 1520,
+      "y": 4700
+    },
+    "Console-Platform.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[플랫폼] ⑧ 파이프라인 홈",
+      "w": 1440,
+      "x": 0,
+      "y": 1900
+    },
+    "Console-Policy.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[빅히트] ② 분배 규칙 — 편집·승인·활성화",
+      "w": 1440,
+      "x": 1520,
+      "y": 3300
+    },
+    "Console-RBAC.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[플랫폼] ⑩ 역할·권한·직무 분리 규칙",
+      "w": 1440,
+      "x": 3040,
+      "y": 4700
+    },
+    "Console-Rights.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[빅히트] ① 권리 요약·카탈로그",
+      "w": 1440,
+      "x": 0,
+      "y": 3300
+    },
+    "Console-Settlement.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "[플랫폼] ⑥ 정산 배치 상세 — 재계산·확정",
+      "w": 1440,
+      "x": 0,
+      "y": 4700
+    },
+    "Detail-E09-Parties.dc.html": {
+      "expand": "fill",
+      "h": 1200,
+      "title": "E09 [빅히트] 당사자 등록 — 레이블·소속사",
+      "w": 1440,
+      "x": 0,
+      "y": 6100
+    },
+    "Detail-E10-Work.dc.html": {
+      "expand": "fill",
+      "h": 1200,
+      "title": "E10 [빅히트] 새 곡 — 곡·권리 범위·녹음",
+      "w": 1440,
+      "x": 1520,
+      "y": 6100
+    },
+    "Detail-E11-Parts.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "title": "E11 [빅히트] 파트 구성 — 슬롯·스템·보이스",
+      "w": 1440,
+      "x": 3040,
+      "y": 6100
+    },
+    "IR-Map.dc.html": {
+      "h": 1260,
+      "title": "E10~E11 입력과 IR 연계 지도 — facts·정책·조합 지분·멤버",
+      "w": 1440,
+      "x": 4546,
+      "y": 6133
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1560,
+      "title": "구조 지도 — 콘솔 셸·소속별 메뉴·E2E 흐름",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Work-Workspace.dc.html": {
+      "x": 0,
+      "y": 8000,
+      "w": 1440,
+      "h": 1400,
+      "title": "곡 워크스페이스 — 목록 + 상세(권리자·지분·파트·문서·확인·정책·정산·IR)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Work-Edit.dc.html": {
+      "x": 1520,
+      "y": 8000,
+      "w": 1440,
+      "h": 1100,
+      "title": "곡 등록·수정 — 기본·권리자·지분·근거 문서·수령 위임",
+      "expand": "fill"
+    }
   },
-  "order": ["Main.dc.html", "Console-Platform.dc.html", "Console-Org.dc.html", "Console-Demo.dc.html", "Console-Rights.dc.html", "Console-Policy.dc.html", "Artist-Consent.dc.html", "Console-Settlement.dc.html", "Console-Payout.dc.html", "Console-RBAC.dc.html", "Detail-E09-Parties.dc.html", "Detail-E10-Work.dc.html", "Detail-E11-Parts.dc.html", "IR-Map.dc.html"],
+  "createdOnFiles": {
+    "at": "2026-10-22T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
   "notes": {
-    "t_row2": { "x": 0, "y": 1640, "text": "P1·P5 온보딩과 운영 확인 — 플랫폼 소속", "kind": "title1", "maxW": 4480 },
-    "t_row3": { "x": 0, "y": 3040, "text": "P2~P7 권리 등록·실연자·정책 — 빅히트 소속과 본인 전환", "kind": "title1", "maxW": 4480 },
-    "t_row4": { "x": 0, "y": 4440, "text": "P9~P10 정산·지급·명세, 권한 구조", "kind": "title1", "maxW": 4480 },
-    "t_row5_ir": { "x": 6080, "y": 6100, "w": 400, "text": "IR은 봉인되면 고치거나 지울 수 없다(C·R만). 수정은 새 버전으로 대체. 자세한 표: 00_프로젝트_개요/E10_E11_IR_연계와_CRUD_20261022.md", "fill": "blue" },
-    "t_row5": { "x": 0, "y": 5840, "text": "E09~E11 상세 — 당사자·곡·녹음·파트 구성(시연 한 건 + 도구로 채우기, ED1)", "kind": "title1", "maxW": 4480 }
+    "t_row2": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "P1·P5 온보딩과 운영 확인 — 플랫폼 소속",
+      "w": 240,
+      "x": 0,
+      "y": 1640
+    },
+    "t_row3": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "P2~P7 권리 등록·실연자·정책 — 빅히트 소속과 본인 전환",
+      "w": 240,
+      "x": 0,
+      "y": 3040
+    },
+    "t_row4": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "P9~P10 정산·지급·명세, 권한 구조",
+      "w": 240,
+      "x": 0,
+      "y": 4440
+    },
+    "t_row5": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "E09~E11 상세 — 당사자·곡·녹음·파트 구성(시연 한 건 + 도구로 채우기, ED1)",
+      "w": 240,
+      "x": 0,
+      "y": 5840
+    },
+    "t_row5_ir": {
+      "fill": "blue",
+      "text": "IR은 봉인되면 고치거나 지울 수 없다(C·R만). 수정은 새 버전으로 대체. 자세한 표: 00_프로젝트_개요/E10_E11_IR_연계와_CRUD_20261022.md",
+      "w": 400,
+      "x": 6080,
+      "y": 6100
+    },
+    "t_row6": {
+      "x": 0,
+      "y": 7740,
+      "text": "곡 중심 관리 — 참조 디자인 variant A(목록 + 하단 상세 패널 + 탭 편집 창)",
+      "kind": "title1",
+      "maxW": 2960
+    }
   },
-  "designSystems": []
+  "order": [
+    "Main.dc.html",
+    "Console-Platform.dc.html",
+    "Console-Org.dc.html",
+    "Console-Demo.dc.html",
+    "Console-Rights.dc.html",
+    "Console-Policy.dc.html",
+    "Artist-Consent.dc.html",
+    "Console-Settlement.dc.html",
+    "Console-Payout.dc.html",
+    "Console-RBAC.dc.html",
+    "Detail-E09-Parties.dc.html",
+    "Detail-E10-Work.dc.html",
+    "Detail-E11-Parts.dc.html",
+    "IR-Map.dc.html",
+    "Work-Workspace.dc.html",
+    "Work-Edit.dc.html"
+  ],
+  "pages": [],
+  "title": "dobedupop 총괄 콘솔 UI 구조 시안"
 }

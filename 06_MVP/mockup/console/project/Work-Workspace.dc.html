@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>곡 워크스페이스</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #dbeafe">작업 소속 <strong style="color: #ffffff">빅히트 뮤직 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">RIGHTS_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색 · <b>N</b> 새 곡 · <b>Esc</b> 닫기</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-05 09:00</span>
+</header>
+
+<div style="padding: 18px 24px 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div><div style="font-size: 13px; color: #475569">빅히트 뮤직 › ① 권리 등록</div><h1 style="margin: 2px 0 0; font-size: 26px">곡</h1></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button disabled title="상용 단계(결정 ED1)" style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px dashed #94a3b8; background: #f8fafc; color: #64748b">CSV 일괄 등록 · 상용</button>
+<button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button>
+<a href="Work-Edit.dc.html" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">+ 새 곡</a>
+</div>
+</div>
+<div role="tablist" aria-label="곡 상태" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
+<sc-for list="{{statusTabs}}" as="t" hint-placeholder-count="6">
+<button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 12px; color: #64748b">{{t.count}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label style="flex: 1 1 320px; display: flex"><span style="position: absolute; left: -9999px">곡 검색</span><input placeholder="곡명, 작사·작곡가, 실연자, ISRC, ISWC" style="font: inherit; font-size: 14px; flex: 1 1 auto; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<select aria-label="정렬" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>최근 등록순</option><option>곡명순</option></select>
+<span style="margin-left: auto; font-size: 13px; color: #475569">검색 결과 <b style="color: #0f172a">1</b>곡 · 데모 데이터</span>
+</div>
+</div>
+
+<div style="padding: 10px 24px 0; overflow-x: auto">
+<table style="width: 100%; min-width: 1000px; border-collapse: collapse; font-size: 14px; background: #ffffff; border: 1px solid #e2e8f0">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 10px 12px; width: 36px"><input type="checkbox" aria-label="전체 선택"></th><th style="padding: 10px 12px">곡 · 녹음</th><th style="padding: 10px 12px">작사·작곡</th><th style="padding: 10px 12px">실연</th><th style="padding: 10px 12px">권리 갖춤</th><th style="padding: 10px 12px">IR</th><th style="padding: 10px 12px">상태</th><th style="padding: 10px 12px; text-align: right">관리</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0; background: #eff6ff; box-shadow: inset 3px 0 0 #1d4ed8">
+<td style="padding: 10px 12px"><input type="checkbox" aria-label="Dynamite 선택"></td>
+<td style="padding: 10px 12px"><div style="font-weight: 600">Dynamite</div><div style="font-size: 12px; color: #475569">Vocal Recombination · 슬롯 8 · 스템 50</div></td>
+<td style="padding: 10px 12px">David Stewart · Jessica Agombar</td>
+<td style="padding: 10px 12px">BTS 멤버 7</td>
+<td style="padding: 10px 12px"><div style="display: flex; align-items: center; gap: 8px"><div style="flex: 0 0 90px; height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 15%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div><span style="font-size: 12px">확정 9 / 59 · 확인 50 남음</span></div></td>
+<td style="padding: 10px 12px; font-size: 13px">봉인 전</td>
+<td style="padding: 10px 12px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">확인 대기</span></td>
+<td style="padding: 10px 12px; text-align: right; white-space: nowrap"><a href="Work-Edit.dc.html">수정</a> · <a href="#">삭제</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<section aria-label="Dynamite 상세" style="flex: 1 1 auto; margin: 14px 24px 24px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; flex-direction: column; min-height: 640px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px 24px 0">
+<div>
+<div style="display: flex; gap: 8px; align-items: center; font-size: 12px; color: #475569"><span style="font-family: 'IBM Plex Mono', monospace">wrk_dynamite · fsc_dynamite</span><span style="padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">확인 대기</span><span style="padding: 2px 8px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 600">봉인 전 — 편집 가능</span></div>
+<h2 style="margin: 4px 0 0; font-size: 24px">Dynamite</h2>
+<div style="font-size: 13px; color: #475569">녹음 Vocal Recombination · 마스터 빅히트 뮤직(레이블)</div>
+</div>
+<div style="display: flex; gap: 6px"><a href="Work-Edit.dc.html" style="font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; text-decoration: none; color: #0f172a">수정</a><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">삭제</button></div>
+</div>
+<div role="tablist" aria-label="곡 상세 탭" style="display: flex; gap: 2px; padding: 10px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="8">
+<button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 11px; color: #64748b">{{t.count}}</span></button>
+</sc-for>
+</div>
+<div style="padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 16px">
+
+<sc-if value="{{tBasic}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px 24px; font-size: 14px">
+<div><div style="font-size: 12px; color: #475569">곡명</div><div style="font-weight: 600">Dynamite</div></div>
+<div><div style="font-size: 12px; color: #475569">ISWC</div><div>—</div></div>
+<div><div style="font-size: 12px; color: #475569">녹음 · 버전</div><div>rcd_dynamite · Vocal Recombination</div></div>
+<div><div style="font-size: 12px; color: #475569">ISRC</div><div>—</div></div>
+<div><div style="font-size: 12px; color: #475569">권리 범위</div><div style="font-family: 'IBM Plex Mono', monospace">fsc_dynamite</div></div>
+<div><div style="font-size: 12px; color: #475569">원천 문서</div><div>녹음 계약서 · 퍼블리싱 계약서</div></div>
+<div><div style="font-size: 12px; color: #475569">등록</div><div>2026-01-02 · 총괄(빅히트)</div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{tHolders}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; color: #334155">
+<span>원곡의 권리를 세 갈래로 본다. 갈래 안의 지분은 여기서, 갈래 사이 비율(녹음 40 · 실연 45 · 작품 15)은 <a href="Console-Policy.dc.html">분배 규칙</a>에서 정한다.</span>
+<a href="Work-Edit.dc.html" style="margin-left: auto; font-size: 14px; padding: 7px 12px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none">권리자·지분 수정</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; justify-content: space-between"><strong>작품 · 작사·작곡</strong><span style="font-size: 12px; color: #475569">WRITTEN_BY</span></div>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px"><tbody>
+<tr><td style="padding: 10px 14px">David Stewart<div style="font-size: 12px; color: #475569">플랫폼 위탁 · 확인 대기(원문 대조)</div></td><td style="padding: 10px 14px; width: 40%"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">Jessica Agombar<div style="font-size: 12px; color: #475569">플랫폼 위탁 · 확인 대기(원문 대조)</div></td><td style="padding: 10px 14px"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
+</tbody></table>
+<div style="padding: 8px 14px; border-top: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between"><span style="color: #475569">근거: 퍼블리싱 계약서 v1</span><b>합계 100%</b></div>
+</div>
+<div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; justify-content: space-between"><strong>녹음 · 마스터</strong><span style="font-size: 12px; color: #475569">CONTROLLED_BY</span></div>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px"><tbody>
+<tr><td style="padding: 10px 14px">빅히트 뮤직(레이블)<div style="font-size: 12px; color: #166534">확정 · 자기 당사자</div></td><td style="padding: 10px 14px; width: 40%"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 100%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">100%</td></tr>
+</tbody></table>
+<div style="padding: 8px 14px; border-top: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between"><span style="color: #475569">근거: 녹음 계약서 v1 · 녹음 등록 때 함께 생성(ID2)</span><b>합계 100%</b></div>
+</div>
+<div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; justify-content: space-between"><strong>실연 · 멤버</strong><span style="font-size: 12px; color: #475569">OWNED_BY · PERFORMED_BY</span></div>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px"><tbody>
+<sc-for list="{{members}}" as="m" hint-placeholder-count="7">
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 7px 14px">{{m.name}}<div style="font-size: 12px; color: #475569">{{m.state}}</div></td><td style="padding: 7px 14px; width: 36%"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="{{m.bar}}"></div></div></td><td style="padding: 7px 14px; text-align: right; font-variant-numeric: tabular-nums">{{m.pct}}</td></tr>
+</sc-for>
+</tbody></table>
+<div style="padding: 8px 14px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #475569">비율은 원곡 배치의 가창 시간 참고값. 실제 몫은 조합마다 고른 스템의 슬롯 길이로 정해진다(조합 지분 IR).</div>
+</div>
+</div>
+<div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px"><strong>수령 위임 — 몫을 대신 받는 쪽</strong><span style="font-size: 12px; color: #475569">mandate · 지분이 아니라 실연 몫을 받는 경로</span></div>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px"><tbody>
+<tr><td style="padding: 10px 14px">멤버 7명 → <b>빅히트 뮤직 매니지먼트(소속사)</b></td><td style="padding: 10px 14px">실연 몫 100%</td><td style="padding: 10px 14px">표준 계약 수령 위임 ×7 · 멤버 서명 1/7</td><td style="padding: 10px 14px; text-align: right"><a href="#">계약 탭</a></td></tr>
+</tbody></table>
+</div>
+</sc-if>
+
+<sc-if value="{{tParts}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 14px"><span>슬롯 8 · 스템 50 · 보이스 7 — 스템을 등록하면 실연 주장이 함께 생긴다(ID3).</span><a href="Detail-E11-Parts.dc.html" style="margin-left: auto; padding: 7px 12px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none">파트 구성 열기</a></div>
+</sc-if>
+
+<sc-if value="{{tOther}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 14px; color: #334155">{{otherText}}</p>
+</sc-if>
+
+<sc-if value="{{tIr}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<div style="padding: 12px; border-radius: 10px; background: #dbeafe"><b>facts IR</b><br>봉인 전 · 분배 규칙 컴파일 때 v1</div>
+<div style="padding: 12px; border-radius: 10px; background: #e0e7ff"><b>정책 IR</b><br>없음</div>
+<div style="padding: 12px; border-radius: 10px; background: #ffedd5"><b>조합 지분 IR</b><br>발행 0</div>
+<div style="padding: 12px; border-radius: 10px; background: #fce7f3"><b>멤버 IR</b><br>발행 0</div>
+</div>
+<div style="display: flex; flex-direction: column; font-size: 14px">
+<div style="display: grid; grid-template-columns: 160px 120px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #475569">2026-01-02 09:00</span><span>총괄(빅히트)</span><span>곡·범위·녹음 등록, 녹음 권리 주장 확정</span></div>
+<div style="display: grid; grid-template-columns: 160px 120px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #475569">2026-01-02 09:10</span><span>총괄(빅히트)</span><span>작가 지분 2건 주장 → 확인 요청</span></div>
+<div style="display: grid; grid-template-columns: 160px 120px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #475569">2026-01-05 09:00</span><span>정국(본인)</span><span>확인 요청 8건 확인, 이용 동의</span></div>
+</div>
+<a href="IR-Map.dc.html" style="font-size: 14px">IR 연계 지도 보기</a>
+</sc-if>
+
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  state = { tab: 'holders', status: 'all' };
+  renderVals() {
+    const tabStyle = (on) => 'padding: 8px 14px; margin-bottom: -1px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14px; white-space: nowrap; color: ' + (on ? '#0f172a; font-weight: 600' : '#475569') + '; border-bottom: 2px solid ' + (on ? '#1d4ed8' : 'transparent');
+    const st = [['all', '전체', 1], ['draft', '등록 중', 0], ['confirm', '확인 대기', 1], ['ready', '정책 활성', 0], ['selling', '판매 중', 0], ['dispute', '분쟁·보류', 0]];
+    const statusTabs = st.map(([k, label, count]) => ({ label, count, style: tabStyle(this.state.status === k), pick: () => this.setState({ status: k }) }));
+    const defs = [['basic', '기본정보', ''], ['holders', '권리자·지분', 10], ['parts', '파트·스템', 50], ['docs', '문서·계약', 13], ['confirm', '확인·동의', 58], ['policy', '정책·팩', 0], ['money', '발행·정산', 0], ['ir', 'IR·변경이력', 3]];
+    const tab = this.state.tab;
+    const tabs = defs.map(([k, label, count]) => ({ label, count, style: tabStyle(tab === k), pick: () => this.setState({ tab: k }) }));
+    const other = {
+      docs: '원천 문서 2(녹음 계약서·퍼블리싱 계약서)와 표준 계약 11(플랫폼 계약·녹음 이용허락·작품 이용허락 2·수령 위임 7). 서명본은 반영하면 원천 문서가 된다.',
+      confirm: '확인 요청 58(멤버 56 · 작가 지분 2) · 이용 동의 1/7. 멤버 확인은 실연자 앱에서 본인이, 작가 지분은 운영이 원문 대조로 확인한다.',
+      policy: '아직 팩·분배 규칙이 없다. 정합성 점검 차단이 0이고 테넌트가 활성이면 분배 규칙을 컴파일할 수 있다 — 그때 facts IR v1이 봉인된다.',
+      money: '발행 조합 0 · 정산 0. 팩이 활성이 되면 조합 발행과 매출이 이 곡 아래에 모인다.',
+    };
+    const M = [['정국', 71890], ['지민', 40820], ['뷔', 26240], ['진', 22970], ['RM', 18080], ['제이홉', 6550], ['슈가', 6240]];
+    const total = M.reduce((a, [, ms]) => a + ms, 0);
+    const members = M.map(([name, ms], i) => {
+      const p = ms / total * 100;
+      return { name, pct: p.toFixed(1) + '%', state: i === 0 ? '보이스 본인 · 확인됨' : '보이스 본인 · 확인 대기',
+        bar: 'width: ' + p.toFixed(1) + '%; height: 100%; border-radius: 3px; background: ' + (i === 0 ? '#1d4ed8' : '#93c5fd') };
+    });
+    return {
+      statusTabs, tabs, members,
+      tBasic: tab === 'basic', tHolders: tab === 'holders', tParts: tab === 'parts', tIr: tab === 'ir',
+      tOther: ['docs', 'confirm', 'policy', 'money'].includes(tab), otherText: other[tab] ?? '',
+    };
+  }
+}
+</script>
+</body>
+</html>

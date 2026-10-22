@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>곡 등록과 수정</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: rgba(15, 23, 42, 0.45); min-height: 100vh; box-sizing: border-box; padding: 40px 24px; display: flex; justify-content: center; align-items: flex-start">
+<div role="dialog" aria-labelledby="dlg-title" style="width: 100%; max-width: 1120px; background: #ffffff; border-radius: 14px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25)">
+<div style="padding: 18px 24px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+<div><div style="font-size: 13px; color: #475569">빅히트 뮤직 · 곡 수정 · 봉인 전</div><div id="dlg-title" style="font-size: 22px; font-weight: 700">Dynamite — 권리자·지분</div></div>
+<a href="Work-Workspace.dc.html" aria-label="닫기" style="font-size: 20px; text-decoration: none; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1; color: #0f172a">×</a>
+</div>
+<div role="tablist" style="display: flex; gap: 2px; padding: 12px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px">
+<span style="padding: 8px 14px; color: #475569">기본(곡·녹음)</span>
+<span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">권리자·지분 <span style="font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #fee2e2; color: #991b1b">1</span></span>
+<span style="padding: 8px 14px; color: #475569">근거 문서</span>
+<span style="padding: 8px 14px; color: #475569">수령 위임</span>
+<span style="padding: 8px 14px; color: #475569">메모</span>
+</div>
+
+<div style="padding: 18px 24px; display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 13px; color: #334155">당사자는 명부에서 고른다(빅히트 당사자 · 공용 명부의 멤버·작가). 자기 테넌트 당사자의 지분은 바로 확정되고, 다른 관리 주체의 지분은 저장하면 확인 요청이 간다. 갈래 사이 비율은 분배 규칙에서 정한다.</p>
+
+<section style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><strong>작품 · 작사·작곡</strong><span style="font-size: 12px; color: #475569">WRITTEN_BY · 근거: 퍼블리싱 계약서 v1</span><span style="margin-left: auto; font-size: 13px; color: #991b1b; font-weight: 600">합계 90% — 100%여야 저장</span></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; font-size: 12px; color: #475569"><span>당사자</span><span>구분</span><span>지분(%)</span><span>저장하면</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; align-items: center">
+<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>David Stewart · 작가(플랫폼 위탁)</option></select>
+<select aria-label="구분" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>작사·작곡</option><option>작사</option><option>작곡</option></select>
+<input aria-label="지분" type="number" value="50" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px">
+<span style="font-size: 13px; color: #92400e">확인 요청 → 운영 원문 대조(14일 뒤)</span>
+<button aria-label="행 삭제" style="font: inherit; min-height: 40px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff">×</button>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; align-items: center">
+<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>Jessica Agombar · 작가(플랫폼 위탁)</option></select>
+<select aria-label="구분" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>작사·작곡</option></select>
+<input aria-label="지분" type="number" value="40" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 2px solid #dc2626; border-radius: 8px">
+<span style="font-size: 13px; color: #92400e">확인 요청 → 운영 원문 대조(14일 뒤)</span>
+<button aria-label="행 삭제" style="font: inherit; min-height: 40px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff">×</button>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button style="font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">+ 권리자 추가</button><button style="font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 0; background: none; color: #1d4ed8">균등 분배</button></div>
+</div>
+</section>
+
+<section style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><strong>녹음 · 마스터</strong><span style="font-size: 12px; color: #475569">CONTROLLED_BY · 근거: 녹음 계약서 v1</span><span style="margin-left: auto; font-size: 13px; color: #166534; font-weight: 600">합계 100%</span></div>
+<div style="padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; align-items: center">
+<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>빅히트 뮤직 — 레이블(자기 당사자)</option></select>
+<select aria-label="구분" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>마스터 보유</option></select>
+<input aria-label="지분" type="number" value="100" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px">
+<span style="font-size: 13px; color: #166534">바로 확정</span>
+<button aria-label="행 삭제" style="font: inherit; min-height: 40px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff">×</button>
+</div>
+</section>
+
+<section style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
+<div style="padding: 10px 14px; background: #f1f5f9; display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><strong>실연 · 멤버(보이스 소유)</strong><span style="font-size: 12px; color: #475569">OWNED_BY 보이스 → 본인 · 몫은 조합마다 부른 시간으로</span><span style="margin-left: auto; font-size: 13px; color: #475569">7명</span></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="padding: 6px 10px; border-radius: 999px; background: #dbeafe">정국 · voc_jungkook · 확인됨</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">지민 · 확인 대기</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">뷔 · 확인 대기</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">진 · 확인 대기</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">RM · 확인 대기</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">제이홉 · 확인 대기</span>
+<span style="padding: 6px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1">슈가 · 확인 대기</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><button style="font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">+ 실연자 추가(보이스 + 소유 주장)</button><span style="font-size: 13px; color: #475569">파트별 스템과 실연 주장은 <a href="Detail-E11-Parts.dc.html">파트·스템</a> 탭에서(ID3)</span></div>
+</div>
+</section>
+
+<section style="border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<strong>수령 위임</strong><span>멤버 7명의 실연 몫 → 빅히트 뮤직 매니지먼트(소속사) 100% — 지분이 아니라 받는 경로. 표준 계약(수령 위임)에 멤버·소속사가 서명하면 기록된다.</span><a href="#" style="margin-left: auto">수령 위임 탭</a>
+</section>
+</div>
+
+<div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<span style="font-size: 13px; color: #475569; flex: 1 1 320px">봉인 전이라 고치고 지울 수 있다(ID1). 분배 규칙을 컴파일하면 facts IR v1로 봉인되고, 그 뒤 바뀌는 지분은 새 버전으로 기록된다.</span>
+<a href="Work-Workspace.dc.html" style="font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; text-decoration: none; color: #0f172a">취소</a>
+<button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">저장 후 다음 곡</button>
+<button disabled style="font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 8px; border: 0; background: #94a3b8; color: #ffffff; font-weight: 600">저장(작품 합계 확인)</button>
+</div>
+</div>
+</div>
+<div role="status" style="position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; padding: 10px 16px; border-radius: 10px; background: #0f172a; color: #ffffff; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; font-size: 14px">저장 예시: 지분 3건 기록 · 확인 요청 2건 보냄 <a href="#" style="color: #93c5fd">되돌리기(봉인 전)</a></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

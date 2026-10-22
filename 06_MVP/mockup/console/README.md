@@ -3,7 +3,7 @@
 [총괄 운영과 권한 구조](../../../00_프로젝트_개요/총괄_운영과_권한_구조_20261022.md)(M5a)를 진행하기 전에 화면 구조를 확인하려고 만든 시안이다. 단계별 화면·API는 [MVP E2E 흐름과 화면 매핑](../../../00_프로젝트_개요/MVP_E2E_흐름과_화면_매핑_20261022.md)의 E00~E61을 따른다.
 
 - 캔버스: https://claude.ai/artifact/Gg8EKnnnXcBan6nBcfpf6k (비공개 — 다른 사람에게 보이려면 페이지의 Share 메뉴에서 공유)
-- 파일: `project/canvas.json`(배치), `project/*.dc.html`(화면 14장)
+- 파일: `project/canvas.json`(배치), `project/*.dc.html`(화면 16장)
 - 목업 전용 파일이다. MVP 앱 코드는 이 파일을 쓰지 않는다. 금액은 예시 보고서 값이고, 정책 예시 계산의 1건당 금액과 봉인 digest는 자리 표시(`[예시 값]`, `[digest]`)로 두었다
 
 | 화면 | 파일 | 흐름 |
@@ -22,3 +22,7 @@
 | E10 [빅히트] 새 곡 — 곡 → 권리 범위(자동) → 녹음 | `Detail-E10-Work.dc.html` | E10, E12 |
 | E11 [빅히트] 파트 구성 — 타임라인·멤버 × 파트 스템 표·보이스·도구로 채우기 | `Detail-E11-Parts.dc.html` | E11 |
 | E10~E11 입력과 IR 연계 지도(facts·정책·조합 지분·멤버, 봉인 수명주기) | `IR-Map.dc.html` | E10~E15, E37, E41 |
+| 곡 워크스페이스(variant A): 곡 목록 + 하단 상세 패널, 탭 8개(권리자·지분 세 갈래 · 수령 위임) | `Work-Workspace.dc.html` | E10~E17 |
+| 곡 등록·수정 창(variant A): 권리자·지분 편집, 합계 검사, 확인 요청 안내, 되돌리기 | `Work-Edit.dc.html` | E10, E13, E14 |
+
+참조 디자인: `../reference/음악 저작권 관리.dc.html`(사용자 제공, variant A)
