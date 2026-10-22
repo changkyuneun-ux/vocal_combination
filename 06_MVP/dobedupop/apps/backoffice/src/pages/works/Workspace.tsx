@@ -4,7 +4,7 @@ import type { WorkFacts, WorkOverview } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
 import { currentClaims, slotPartRows, type PartRow } from "./model.ts";
-import { ReadyMark, useFacts, useMe, useParties, useReadiness, useScopeInfo, useWork } from "./data.tsx";
+import { ReadyMark, useFacts, useMe, useParties, useReadiness, useWork } from "./data.tsx";
 import { RightsTab } from "./tabs/Rights.tsx";
 import { StemsTab } from "./tabs/Stems.tsx";
 import { ConfirmTab } from "./tabs/Confirm.tsx";
@@ -43,7 +43,6 @@ export function Workspace() {
   const scopeId = work?.scopeId ?? null;
   const facts = useFacts(scopeId);
   const ready = useReadiness(scopeId);
-  const info = useScopeInfo(scopeId);
   const parties = useParties();
   const { can } = useMe();
   if (o.isLoading) return <p className="muted">불러오는 중…</p>;
@@ -63,7 +62,7 @@ export function Workspace() {
     <>
       <div className="crumb"><Link to={`/works?sel=${encodeURIComponent(workId)}&tab=${BACK_TAB[tab] ?? "overview"}`}>← 작품 목록</Link><span>작품 › {work.title}</span></div>
       {sealed ? (
-        <div className="ready-strip" role="status"><strong>IR {info.data ? `v${info.data.lastVersion}` : ""}</strong><span>facts·정책 digest 고정</span><span>원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
+        <div className="ready-strip" role="status"><strong>IR 생성됨</strong><span>facts·정책 digest 고정</span><span>원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
       ) : (
         <div className="ready-strip" role="status" aria-label="IR 생성 준비">
           <strong>IR 생성 준비</strong>
@@ -73,7 +72,7 @@ export function Workspace() {
       <div className="page-head">
         <div><h1>{work.title}</h1><div className="muted small">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>
         <span className={`badge ${sealed ? "info" : "ok"}`} aria-label="IR 상태">
-          {sealed ? <>IR 생성됨 {info.data ? `v${info.data.lastVersion}` : ""} · <Instant iso={work.sealedThrough} /> — 권리 정보 조회만</> : "IR 생성 전 — 등록·조회·수정 가능"}
+          {sealed ? <>IR 생성됨 · <Instant iso={work.sealedThrough} /> — 권리 정보 조회만</> : "IR 생성 전 — 등록·조회·수정 가능"}
         </span>
       </div>
       <nav className="tabs" aria-label="워크스페이스 탭">
