@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
-import { listMemberships, requireAnyRole, withSystemScope } from "./actor.ts";
+import { listMemberships, withSystemScope } from "./actor.ts";
 import { endBreakGlass, listBreakGlass, listInspections, startBreakGlass } from "./inspection.ts";
 import { DomainError } from "./errors.ts";
 import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
@@ -8,6 +8,7 @@ import { getTenant, onboardIndependentArtist, registerTenant, setCheck, setTenan
 import { delegationLog, getDelegation, setDelegation } from "./delegation.ts";
 import type { Tx } from "./db.ts";
 import type { Clock } from "./clock.ts";
+import { requirePermission } from "./permissions.ts";
 
 /** 해지 때 함께 끝낼 것(연결 모듈이 등록한다 — 순환 import를 피한다). */
 export const tenantTerminateHooks: ((tx: Tx, clock: Clock, tenantId: string) => Promise<void>)[] = [];
@@ -95,7 +96,7 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
   /** audit_id DESC. 역할: SPACE_OPS·SPACE_SETTLE·RIGHTS_EDITOR 중 하나. */
   app.get("/audit", async (req) =>
     withActor(deps, req, async (tx, actor) => {
-      requireAnyRole(actor, ["SPACE_OPS", "SPACE_SETTLE", "RIGHTS_EDITOR", "ONBOARDING", "COMPLIANCE", "TENANT_ADMIN"]);
+      requirePermission(actor, "audit.view");
       const q = req.query as Record<string, unknown>;
       const page = parsePage(q);
       const after = cursorKey(page, ["n"]);

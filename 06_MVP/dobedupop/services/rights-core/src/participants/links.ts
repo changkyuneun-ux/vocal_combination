@@ -1,10 +1,11 @@
-import { requireAnyRole, withSystemScope, type Actor, type Role } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { recordMandate } from "../registry/service.ts";
 import { revalidate } from "../validation/service.ts";
+import { hasPermission, requirePermission, type Permission } from "../platform/permissions.ts";
 
 /**
  * 참여 기관의 연결(테넌트 정책 4절, 결정 TD10·TD11, 진행 TN9·TN10).
@@ -19,9 +20,8 @@ type Side = "RIGHTS" | "PARTICIPANT";
 const ID = /^[A-Za-z0-9._-]+$/;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-const RIGHTS_DECIDERS: readonly Role[] = ["RIGHTS_EDITOR", "TENANT_ADMIN"];
-const PLATFORM_DECIDERS: readonly Role[] = ["ONBOARDING", "SPACE_OPS"];
-const participantDeciders = (tenantType: string): readonly Role[] => (tenantType === "CMO" ? ["TRUST_OFFICER", "TENANT_ADMIN"] : ["PARTNER_INTEGRATION", "TENANT_ADMIN"]);
+/** 참여 기관 쪽 연결 결정 권한: 신탁단체는 신탁 담당, 유통 파트너는 연동 담당(둘 다 조직 관리자 포함 — 0039 role_permission). */
+const participantDecider = (tenantType: string): Permission => (tenantType === "CMO" ? "link.decide_trust" : "link.decide_partner");
 
 async function tenantOf(tx: Tx, tenantId: string) {
   const t = (await tx.query("SELECT tenant_id, tenant_type, org_class, status FROM tenant WHERE tenant_id = $1", [tenantId])).rows[0];
@@ -55,12 +55,12 @@ export async function proposeLink(tx: Tx, clock: Clock, actor: Actor, b: Record<
     if (actor.orgClass === "PARTICIPANT") {
       side = "PARTICIPANT";
       participant = actor.tenantId;
-      requireAnyRole(actor, participantDeciders(actor.tenantType));
+      requirePermission(actor, participantDecider(actor.tenantType));
     } else if (actor.orgClass === "RIGHTS" || actor.scope === "platform") {
       side = "RIGHTS";
       if (typeof b.participantTenantId !== "string") throw invalid("BAD_REQUEST", "participantTenantId is required");
       participant = b.participantTenantId;
-      requireAnyRole(actor, actor.scope === "platform" ? PLATFORM_DECIDERS : RIGHTS_DECIDERS);
+      requirePermission(actor, actor.scope === "platform" ? "link.decide_platform" : "link.decide");
       if (actor.scope !== "platform") rightsTenant = actor.tenantId;
     } else {
       throw new DomainError("TENANT_FORBIDDEN", 403, "only rights tenants, participant organizations and the platform make links");
@@ -127,16 +127,16 @@ async function linkRow(tx: Tx, linkId: string, lock = false): Promise<LinkRow> {
 
 /** 이 행위자가 연결의 어느 쪽인지(권한 있는 역할까지 확인). 어느 쪽도 아니면 undefined. */
 async function sideOf(tx: Tx, actor: Actor, l: LinkRow): Promise<Side | "PLATFORM" | undefined> {
-  if (actor.scope === "platform") return PLATFORM_DECIDERS.some((r) => actor.roles.has(r)) ? "PLATFORM" : undefined;
+  if (actor.scope === "platform") return hasPermission(actor, "link.decide_platform") ? "PLATFORM" : undefined;
   if (actor.tenantId === l.participant_tenant_id) {
     const pt = await tenantOf(tx, l.participant_tenant_id);
-    return participantDeciders(pt.tenant_type).some((r) => actor.roles.has(r)) ? "PARTICIPANT" : undefined;
+    return hasPermission(actor, participantDecider(pt.tenant_type)) ? "PARTICIPANT" : undefined;
   }
-  if (l.link_type === "DISTRIBUTION") return actor.tenantId === l.rights_tenant_id && RIGHTS_DECIDERS.some((r) => actor.roles.has(r)) ? "RIGHTS" : undefined;
+  if (l.link_type === "DISTRIBUTION") return actor.tenantId === l.rights_tenant_id && hasPermission(actor, "link.decide") ? "RIGHTS" : undefined;
   // 신탁: 작가의 관리 주체(권리 테넌트·본인), 또는 제안한 권리 테넌트.
   const m = await managerOf(tx, l.author_party_id!);
   if (m.org_class === "INDIVIDUAL") return actor.partyId === l.author_party_id ? "RIGHTS" : undefined;
-  if ((actor.tenantId === m.tenant_id || actor.tenantId === l.rights_tenant_id) && RIGHTS_DECIDERS.some((r) => actor.roles.has(r))) return "RIGHTS";
+  if ((actor.tenantId === m.tenant_id || actor.tenantId === l.rights_tenant_id) && hasPermission(actor, "link.decide")) return "RIGHTS";
   return undefined;
 }
 
@@ -316,7 +316,7 @@ export async function trustWorks(tx: Tx, actor: Actor) {
 /** 파트너가 자기 상품 코드 → 조합 대응을 제안한다. 그 조합의 팩을 가진 권리 테넌트와 유통 연결이 활성이어야 한다. */
 export async function proposeAsset(tx: Tx, clock: Clock, actor: Actor, b: { externalId?: unknown; vcId?: unknown }) {
   if (actor.tenantType !== "B2B_PARTNER") throw new DomainError("PARTNER_ONLY", 403, "only distribution partners propose product mappings");
-  requireAnyRole(actor, ["PARTNER_INTEGRATION", "TENANT_ADMIN"]);
+  requirePermission(actor, "asset.propose");
   if (typeof b.externalId !== "string" || b.externalId.trim() === "" || typeof b.vcId !== "string") throw invalid("BAD_REQUEST", "externalId and vcId are required");
   const externalId = b.externalId.trim();
   const owner = await withSystemScope(tx, async () => (await tx.query(
@@ -333,7 +333,7 @@ export async function proposeAsset(tx: Tx, clock: Clock, actor: Actor, b: { exte
 
 /** 권리 테넌트가 자기 조합에 대한 파트너의 상품 대응 제안을 확인·거절한다. */
 export async function decideAsset(tx: Tx, clock: Clock, actor: Actor, partnerTenantId: string, externalId: string, accept: boolean) {
-  requireAnyRole(actor, RIGHTS_DECIDERS);
+  requirePermission(actor, "link.decide");
   return withSystemScope(tx, async () => {
     const a = (await tx.query(
       `SELECT a.status, a.vc_id, k.owner_tenant_id FROM partner_asset a JOIN rights_snapshot s ON s.vc_id = a.vc_id JOIN vocal_pack k ON k.pack_id = s.pack_id

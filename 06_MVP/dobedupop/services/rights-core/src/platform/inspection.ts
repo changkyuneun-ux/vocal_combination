@@ -1,5 +1,4 @@
 import type { Actor } from "./actor.ts";
-import { requireRole } from "./actor.ts";
 import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
@@ -40,7 +39,7 @@ export async function applyBreakGlass(tx: Tx, bg: BreakGlass): Promise<void> {
 
 /** break-glass 시작: 플랫폼 운영(SPACE_OPS)만, 대상 테넌트·사유 필수, 1~60분. 같은 사용자는 동시에 하나만. */
 export async function startBreakGlass(tx: Tx, clock: Clock, actor: Actor, input: { targetTenantId?: string; reason?: string; minutes?: number }): Promise<BreakGlass> {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "breakglass.open");
   if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "break-glass is for platform operators");
   const reason = typeof input.reason === "string" ? input.reason.trim() : "";
   if (typeof input.targetTenantId !== "string" || reason === "") throw new DomainError("BAD_REQUEST", 400, "targetTenantId and reason are required");

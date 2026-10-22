@@ -113,12 +113,3 @@ export async function withSystemScope<T>(tx: Tx, fn: () => Promise<T>): Promise<
     await tx.query("SELECT set_config('rc.scope', $1, true), set_config('rc.tenant_id', $2, true)", [prev.s ?? "", prev.t ?? ""]);
   }
 }
-
-export function requireRole(actor: Actor, role: Role): void {
-  if (!actor.roles.has(role)) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role ${role}`);
-}
-
-/** 역할 중 하나라도 있으면 통과한다. 하나도 없으면 403 ROLE_REQUIRED. */
-export function requireAnyRole(actor: Actor, roles: readonly Role[]): void {
-  if (!roles.some((r) => actor.roles.has(r))) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks any of roles ${roles.join(", ")}`);
-}

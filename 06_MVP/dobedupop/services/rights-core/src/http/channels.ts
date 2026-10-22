@@ -23,13 +23,13 @@ export function allowed(channel: Channel, a: Actor): boolean {
   switch (channel) {
     case "ops": return a.scope === "platform";
     case "portal": return a.scope === "platform" || (a.scope === "tenant" && a.orgClass === "RIGHTS");
-    case "performer": return a.roles.has("PERFORMER") && a.partyId !== undefined;
+    case "performer": return a.permissions.has("performer.self") && a.partyId !== undefined;
     case "fan": return a.scope === "party" && a.partyType === "FAN";
     case "partner": return a.scope === "tenant" && a.orgClass === "PARTICIPANT";
   }
 }
 
-/** 채널 인증 정책: 신원이 이 채널에 들어올 수 없으면 403 CHANNEL_FORBIDDEN. 역할 검사(requireRole)는 그 뒤에 따로 한다. */
+/** 채널 인증 정책: 신원이 이 채널에 들어올 수 없으면 403 CHANNEL_FORBIDDEN. 권한 검사(requirePermission)는 그 뒤에 따로 한다. */
 export function assertChannel(channel: Channel, actor: Actor): void {
   if (!allowed(channel, actor)) throw new DomainError("CHANNEL_FORBIDDEN", 403, `${actor.userId} (${actor.scope}/${actor.tenantType}) cannot use the ${channel} channel`);
 }

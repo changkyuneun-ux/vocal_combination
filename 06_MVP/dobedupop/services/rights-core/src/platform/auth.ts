@@ -7,6 +7,7 @@ import type { Tx } from "./db.ts";
 import { conflict, DomainError, invalid, notFound } from "./errors.ts";
 import { confirmVerification, startVerification, type IdentityProvider } from "../performer/identity.ts";
 import { delegatedActor } from "./delegation.ts";
+import { requirePermission } from "./permissions.ts";
 
 /**
  * 인증·세션(MVP 진행계획 M3, 결정 MD3). 코어가 세션을 발급하고, 세션은 발급한 채널(서브도메인)에서만 쓴다.
@@ -272,15 +273,15 @@ async function hasAdmin(tx: Tx, tenantId: string): Promise<boolean> {
 async function adminScope(tx: Tx, actor: Actor, t: TenantInfo): Promise<{ firstAdmin: boolean }> {
   if (actor.scope === "platform") {
     if (t.orgClass === "PLATFORM") {
-      if (!actor.roles.has("SPACE_OPS")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS manages platform staff");
+      requirePermission(actor, "staff.manage");
       return { firstAdmin: false };
     }
-    if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
+    requirePermission(actor, "account.onboard");
     if (t.orgClass === "INDIVIDUAL") return { firstAdmin: false };
     if (await hasAdmin(tx, t.tenantId)) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} has an administrator; its administrator manages its accounts`);
     return { firstAdmin: true };
   }
-  if (!actor.roles.has("TENANT_ADMIN")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role TENANT_ADMIN`);
+  requirePermission(actor, "account.manage");
   if (actor.tenantId !== t.tenantId) throw new DomainError("TENANT_FORBIDDEN", 403, `${actor.userId} administers ${actor.tenantId}, not ${t.tenantId}`);
   return { firstAdmin: false };
 }
@@ -306,7 +307,7 @@ async function targetMembership(tx: Tx, actor: Actor, userId: string, tenantId?:
   const t = await tenantInfo(tx, tid);
   if (actor.scope === "platform" && (t.orgClass === "RIGHTS" || t.orgClass === "PARTICIPANT")) {
     // 운영은 조직 계정의 역할을 바꾸지 않는다. 관리자가 없는(잠긴) 조직이면 관리자를 다시 세우는 것만 한다.
-    if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
+    requirePermission(actor, "account.onboard");
     if (await hasAdmin(tx, t.tenantId)) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} has an administrator; its administrator manages its accounts`);
     return { t, firstAdmin: true };
   }
@@ -378,9 +379,9 @@ export async function setDisabled(tx: Tx, clock: Clock, actor: Actor, userId: st
   if (userId === actor.userId) throw new DomainError("SAME_PERSON", 403, "you cannot lock your own account");
   return withSystemScope(tx, async () => {
     if (actor.scope === "platform") {
-      if (!actor.roles.has("SPACE_OPS")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role SPACE_OPS`);
+      requirePermission(actor, "staff.manage");
     } else {
-      if (!actor.roles.has("TENANT_ADMIN")) throw new DomainError("ROLE_REQUIRED", 403, `${actor.userId} lacks role TENANT_ADMIN`);
+      requirePermission(actor, "account.manage");
       // 다른 조직에도 소속된 사람의 계정은 그 사람 전체를 잠그므로, 기본 소속 조직의 관리자만 잠근다.
       const u = (await tx.query("SELECT tenant_id FROM user_account WHERE user_id = $1", [userId])).rows[0];
       if (u === undefined) throw notFound("user", userId);
@@ -401,7 +402,7 @@ export async function reinvite(tx: Tx, clock: Clock, actor: Actor, userId: strin
     if (u === undefined) throw notFound("user", userId);
     const t = await tenantInfo(tx, u.tenant_id);
     if (actor.scope === "platform" && (t.orgClass === "RIGHTS" || t.orgClass === "PARTICIPANT")) {
-      if (!actor.roles.has("SPACE_OPS") && !actor.roles.has("ONBOARDING")) throw new DomainError("ROLE_REQUIRED", 403, "SPACE_OPS or ONBOARDING required");
+      requirePermission(actor, "account.onboard");
       const isAdmin = (await tx.query("SELECT 1 FROM portal_role WHERE user_id = $1 AND tenant_id = $2 AND role = 'TENANT_ADMIN'", [userId, t.tenantId])).rowCount !== 0;
       if (!isAdmin) throw new DomainError("TENANT_HAS_ADMIN", 409, `${t.tenantId} accounts are managed by its administrator`);
     } else {

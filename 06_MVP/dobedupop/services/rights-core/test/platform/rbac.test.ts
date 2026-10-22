@@ -64,3 +64,17 @@ test("requirePermission answers 403 ROLE_REQUIRED naming the permission", async 
   const boosted = withPermissions(label, ["issuance.issue"]);
   assert.ok(hasPermission(boosted, "issuance.issue") && !hasPermission(label, "issuance.issue"), "withPermissions copies");
 });
+
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("no business code checks role names; checks go through permissions", () => {
+  const files: string[] = [];
+  const walk = (dir: string) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) walk(p); else if (p.endsWith(".ts")) files.push(p); } };
+  walk(fileURLToPath(new URL("../../src", import.meta.url)));
+  const bad = files.flatMap((f) => readFileSync(f, "utf8").split("\n").map((l, i) => [f, i + 1, l] as const))
+    .filter(([, , l]) => /requireRole\(|requireAnyRole\(|\broles\.has\(/.test(l))
+    .map(([f, n]) => `${f}:${n}`);
+  assert.deepEqual(bad, []);
+});
