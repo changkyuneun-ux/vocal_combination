@@ -12,7 +12,7 @@ import { withPermissions } from "../platform/permissions.ts";
 /** 캐시 항목 수명. 동의 유효기간처럼 시각에 따라 바뀌는 판정이 있어 짧게 둔다. */
 export const DECISION_TTL_MS = 5 * 60_000;
 
-export type CheckInput = { packId: string; assignments: { slotId: string; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
+export type CheckInput = { packId: string; assignments: { slotId: string; partNo?: number; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
 export type Decision = { issuable: boolean; code?: string; message?: string; diagnostics: Diagnostic[]; members: Record<string, number> };
 export type CheckResult = Decision & { cached: boolean };
 
@@ -36,7 +36,11 @@ export async function checkCombination(ctx: BridgeCtx, tx: Tx, clock: Clock, act
     const policy = await activePolicyForPack(tx, input.packId);
     const members = input.members ?? (await defaultMembers(tx, input.assignments));
     const usage = input.usage ?? issuance.FAN_APP_USAGE;
-    const assignments = [...input.assignments].sort((a, b) => (a.slotId < b.slotId ? -1 : a.slotId > b.slotId ? 1 : a.stemId < b.stemId ? -1 : 1));
+    // 키 정렬은 (슬롯, 파트, 스템). 파트 1은 키에서 생략한다(파트 없는 기존 배치와 같은 키).
+    const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+    const assignments = [...input.assignments]
+      .sort((a, b) => cmp(a.slotId, b.slotId) || (a.partNo ?? 1) - (b.partNo ?? 1) || cmp(a.stemId, b.stemId))
+      .map((a) => ((a.partNo ?? 1) === 1 ? { slotId: a.slotId, stemId: a.stemId } : { slotId: a.slotId, partNo: a.partNo, stemId: a.stemId }));
     const key = canonicalSha256({ packId: input.packId, policyDigest: policy?.policyDigest ?? null, assignments, members: Object.fromEntries(Object.entries(members).map(([k, v]) => [k, String(v)])), usage });
     const now = clock.now();
 
