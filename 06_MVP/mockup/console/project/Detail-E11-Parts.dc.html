@@ -30,6 +30,11 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <span style="font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #475569">E11 · POST /slots · /stems · /voices</span>
 </div>
 
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; font-size: 14px">
+<strong>권리 범위 fsc_dynamite · 봉인 전</strong>
+<span style="flex: 1 1 480px">facts IR 없음. 슬롯·스템·보이스는 고치고 지울 수 있다(결정 ID1). 분배 규칙을 컴파일하면(E37) facts v1로 봉인되고 잠긴다 — 그 뒤 바로잡기는 새 행으로 대체.</span>
+<a href="IR-Map.dc.html" style="font-size: 14px">IR 연계 보기</a>
+</div>
 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0">
 <div style="display: flex; gap: 20px; font-size: 15px; flex: 1 1 420px; flex-wrap: wrap">
 <span>슬롯 <strong>1</strong> / 8</span><span>스템 <strong>1</strong> / 50</span><span>보이스 <strong>1</strong> / 7</span>
@@ -47,14 +52,15 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <div style="flex: 6210 1 0; background: #f1f5f9"></div>
 </div>
 <div style="display: flex; height: 28px; border-radius: 8px; overflow: hidden; border: 1px dashed #94a3b8; background: #f8fafc; align-items: center; padding: 0 10px; font-size: 12px; color: #475569">MR 슬롯 slt_mr · 0 ~ 199,000 · 권리 부담 없음(스템 stm_mr)</div>
+<div role="note" style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #fffbeb; border: 1px solid #fcd34d; font-size: 13px; color: #78350f"><strong>슬롯 길이 = 금액</strong><span>길이는 facts가 아니라 조합 지분 IR의 사용 시간이 된다(발행 때, E41). 분배 규칙의 "부른 시간 60%" 몫이 이 길이로 나뉜다. 이미 발행된 조합은 바뀌지 않는다.</span></div>
 <div style="overflow-x: auto">
 <table style="width: 100%; border-collapse: collapse; font-size: 14px">
-<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">순서</th><th style="padding: 8px 10px">슬롯</th><th style="padding: 8px 10px">파트</th><th style="padding: 8px 10px; text-align: right">시작~끝(ms)</th><th style="padding: 8px 10px; text-align: right">길이</th><th style="padding: 8px 10px">상태</th></tr></thead>
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">순서</th><th style="padding: 8px 10px">슬롯</th><th style="padding: 8px 10px">파트</th><th style="padding: 8px 10px; text-align: right">시작~끝(ms)</th><th style="padding: 8px 10px; text-align: right">길이</th><th style="padding: 8px 10px">상태</th><th style="padding: 8px 10px">봉인 전 편집</th></tr></thead>
 <tbody>
 <sc-for list="{{parts}}" as="p" hint-placeholder-count="7">
-<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">{{p.order}}</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">{{p.slot}}</td><td style="padding: 8px 10px">{{p.name}} 파트</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">{{p.range}}</td><td style="padding: 8px 10px; text-align: right">{{p.len}}</td><td style="padding: 8px 10px">{{p.state}}</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">{{p.order}}</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">{{p.slot}}</td><td style="padding: 8px 10px">{{p.name}} 파트</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">{{p.range}}</td><td style="padding: 8px 10px; text-align: right">{{p.len}}</td><td style="padding: 8px 10px">{{p.state}}</td><td style="padding: 8px 10px"><a href="#">고치기</a> · <a href="#">지우기</a></td></tr>
 </sc-for>
-<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">8</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">slt_mr</td><td style="padding: 8px 10px">MR(반주)</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">0 ~ 199,000</td><td style="padding: 8px 10px; text-align: right">199,000</td><td style="padding: 8px 10px">도구 대기</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">8</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">slt_mr</td><td style="padding: 8px 10px">MR(반주)</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">0 ~ 199,000</td><td style="padding: 8px 10px; text-align: right">199,000</td><td style="padding: 8px 10px">도구 대기</td><td style="padding: 8px 10px; color: #475569">—</td></tr>
 </tbody>
 </table>
 </div>
@@ -91,7 +97,14 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">부른 멤버(실연자)<select style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>지민 · pty_jimin (공용 명부)</option></select></label>
 <fieldset style="border: 0; margin: 0; padding: 0; display: flex; gap: 16px; font-size: 14px"><legend style="font-weight: 600; margin-bottom: 6px">권리 부담</legend><label><input type="radio" name="rb" checked> 예(실연 권리)</label><label><input type="radio" name="rb"> 아니오(MR 등)</label></fieldset>
 <label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">스템 id(자동)<input value="stm_jimin_jungkook" style="font: inherit; font-weight: 400; font-family: 'IBM Plex Mono', monospace; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
-<button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">스템 등록</button>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px; background: #eff6ff; border: 1px solid #93c5fd; font-size: 13px">
+<strong style="font-size: 14px">함께 만드는 것(결정 ID3)</strong>
+<span>실연 주장 PERFORMED_BY: stm_jimin_jungkook → voc_jimin · 주장 상태</span>
+<span>보이스 voc_jimin이 없으면: 보이스 + 소유 주장 OWNED_BY → 지민</span>
+<span>지민에게 확인 요청(실연자 앱, E20)</span>
+<span style="color: #334155">facts IR에는 주장이 들어간다. 스템의 실연자 칸은 발행 때 멤버 비율 검사에 쓰인다 — 둘이 다르면 정합성 점검이 경고한다.</span>
+</div>
+<button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">스템 등록(+ 실연 주장)</button>
 <p style="margin: 0; font-size: 12px; color: #475569">오디오는 등록 뒤 "스템 오디오·검수"에서 올린다(검수 통과해야 READY, 발행 게이트 STEM_NOT_READY).</p>
 </section>
 </div>
@@ -108,7 +121,7 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 </section>
 <section style="flex: 1 1 360px; max-width: 420px; padding: 20px; border-radius: 12px; background: #fffbeb; border: 1px solid #fcd34d; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
 <h2 style="margin: 0; font-size: 18px">데모 · 도구로 채우기(ED1)</h2>
-<div>슬롯 7(멤버 6 + MR) · 스템 49 · 보이스 6 = <strong>62건</strong></div>
+<div>슬롯 7(멤버 6 + MR) · 스템 49 · 보이스 6 = <strong>62건</strong>, 함께 만드는 실연 주장 49 · 소유 주장 6</div>
 <div style="color: #334155">화면과 같은 공개 API(POST /api/portal/slots·stems·voices)를 총괄 계정으로 부른다. DB 직접 쓰기 없음 — 검증·RLS·감사 로그가 그대로 돈다.</div>
 <div style="color: #334155">이미 있는 칸은 건너뛴다(같은 id면 409를 성공으로 본다).</div>
 <button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #b45309; color: #ffffff; font-weight: 600">채우기 실행</button>
