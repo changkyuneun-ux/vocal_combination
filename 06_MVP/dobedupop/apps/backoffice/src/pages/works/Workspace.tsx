@@ -27,8 +27,9 @@ const BACK_TAB: Record<string, string> = { rights: "rights", stems: "stems", con
 
 export function membersOf(facts: WorkFacts, names: Map<string, string>): { partyId: string; name: string }[] {
   const ids: string[] = [];
+  // 원곡에서 처음 부른 순서(슬롯 → 파트) 다음에 보이스만 있는 멤버.
+  for (const r of slotPartRows(facts.slots)) if (r.original && !ids.includes(r.original)) ids.push(r.original);
   for (const c of currentClaims(facts.claims)) if (c.edge === "OWNED_BY" && !ids.includes(c.targetId)) ids.push(c.targetId);
-  for (const s of facts.slots) for (const p of s.parts) if (p.originalPartyId && !ids.includes(p.originalPartyId)) ids.push(p.originalPartyId);
   return ids.map((partyId) => ({ partyId, name: names.get(partyId) ?? partyId }));
 }
 
