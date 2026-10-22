@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -12,6 +12,7 @@ import { checkPackActivation, claimantSet } from "../engine-bridge/activation.ts
 import { declaredClaimants, openDisputeInScope, packRow } from "../issuance/service.ts";
 import { assertActivationAllowed } from "../validation/service.ts";
 import { getTemplate, templateExemption, templateText } from "./templates.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type PolicyVersionRef = { policyId: string; version: number };
 type Row = { policyId: string; version: number; status: string; policyDigest: string; factsDigest: string; factsKnownAt: string; packId: string };
@@ -52,7 +53,7 @@ export async function compileFromTemplate(
 export async function compilePolicy(
   ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; sourceText: string; template?: { templateId: string; version: number } },
 ): Promise<PolicyVersionRef & { policyDigest: string; factsDigest: string; canonicalText: string }> {
-  requireRole(actor, "EDITOR");
+  requirePermission(actor, "policy.edit");
   // 잠금 순서는 팩 → 범위(openDispute·rebind와 같다). 팩을 먼저 잡지 않으면 봉인의 범위 FOR UPDATE와 분쟁 개시의 팩 FOR UPDATE가 교착한다.
   const pack = await packRow(tx, input.packId, "SHARE");
   const knownAt = clock.now();
@@ -70,7 +71,7 @@ export async function compilePolicy(
 }
 
 export async function approvePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, ref: PolicyVersionRef): Promise<void> {
-  requireRole(actor, "WORK_APPROVER");
+  requirePermission(actor, "policy.approve");
   const row = await versionRow(tx, ref);
   if (row.status !== "COMPILED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
   await requireNotSigned(tx, clock, row, actor, "APPROVE");
@@ -90,7 +91,7 @@ export async function supersedeAndActivate(tx: Tx, clock: Clock, row: Row): Prom
 }
 
 export async function activatePolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, ref: PolicyVersionRef): Promise<void> {
-  requireRole(actor, "ACTIVATOR");
+  requirePermission(actor, "policy.activate");
   const row = await versionRow(tx, ref);
   if (row.status !== "APPROVED") throw conflict("INVALID_STATE", `${ref.policyId}@${ref.version} is ${row.status}`);
   await requireNotSigned(tx, clock, row, actor, "ACTIVATE");
@@ -117,7 +118,7 @@ export async function activePolicyForPack(tx: Tx, packId: string): Promise<Omit<
  * 조건: facts가 실제로 바뀌었고, 청구권자 집합이 같고, 활성화 검사가 통과한다. 아니면 전체 재승인이 필요하다.
  */
 export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, policyId: string): Promise<{ version: number; factsDigest: string; policyDigest: string }> {
-  requireRole(actor, "ACTIVATOR");
+  requirePermission(actor, "policy.activate");
   const cur = (await tx.query("SELECT version FROM policy_version WHERE policy_id = $1 AND status = 'ACTIVE' FOR UPDATE", [policyId])).rows[0];
   if (cur === undefined) throw conflict("INVALID_STATE", `${policyId} has no ACTIVE version`);
   const row = await versionRow(tx, { policyId, version: cur.version });

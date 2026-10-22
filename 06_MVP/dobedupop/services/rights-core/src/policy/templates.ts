@@ -1,9 +1,10 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import { checkForm, explainForm, formToText, textToForm, type PolicyForm } from "../engine-bridge/policy-form.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /**
  * 표준 분배 규칙 템플릿(테넌트 정책 결정 TD13). 법무가 작성·승인(작성자 ≠ 승인자)한 폼이다. 권리 테넌트는 템플릿을 값 그대로 써서 정책을 만들 수 있고,
@@ -45,7 +46,7 @@ export function templateText(t: PolicyTemplate, packId: string, policyId: string
 
 /** 법무 초안 작성(DRAFT). 계약 몫(특정 당사자)이 없는 폼만. */
 export async function draftTemplate(tx: Tx, clock: Clock, actor: Actor, b: { templateId?: unknown; title?: unknown; description?: unknown; form?: unknown }) {
-  requireRole(actor, "LEGAL");
+  requirePermission(actor, "legal.template");
   if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "templates are drafted by platform legal");
   if (typeof b.templateId !== "string" || !/^ptpl_[a-z0-9_]+$/.test(b.templateId)) throw invalid("BAD_REQUEST", "templateId must look like ptpl_<소문자·숫자·_>");
   if (typeof b.title !== "string" || b.title.trim() === "" || typeof b.description !== "string") throw invalid("BAD_REQUEST", "title and description are required");
@@ -63,7 +64,7 @@ export async function draftTemplate(tx: Tx, clock: Clock, actor: Actor, b: { tem
 
 /** 법무 승인: 작성자가 아닌 다른 법무만. 같은 템플릿의 이전 승인본은 그대로 둔다(이미 만든 정책이 가리킨다). */
 export async function approveTemplate(tx: Tx, clock: Clock, actor: Actor, templateId: string, version: number) {
-  requireRole(actor, "LEGAL");
+  requirePermission(actor, "legal.template");
   if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "templates are approved by platform legal");
   const t = (await tx.query("SELECT status, authored_by FROM policy_template WHERE template_id = $1 AND version = $2 FOR UPDATE", [templateId, version])).rows[0];
   if (t === undefined) throw notFound("policy template", `${templateId}@${version}`);

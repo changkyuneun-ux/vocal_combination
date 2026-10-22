@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -17,9 +17,10 @@ import type { OutboxHandlers } from "../platform/outbox.ts";
 import { invalidateDecisions } from "../decisions/cache.ts";
 import { holdExposureForConsent } from "../exposure/service.ts";
 import { assertActivationAllowed } from "../validation/service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export async function createPack(tx: Tx, clock: Clock, actor: Actor, p: { packId: string; packCode: string; title: string; factsScopeId: string }): Promise<void> {
-  requireRole(actor, "RIGHTS_EDITOR");
+  requirePermission(actor, "pack.edit");
   await tx.query("INSERT INTO vocal_pack (pack_id, pack_code, title, facts_scope_id, created_at) VALUES ($1,$2,$3,$4,$5)",
     [p.packId, p.packCode, p.title, p.factsScopeId, clock.now()]);
   await audit(tx, clock, { actor: actor.userId, action: "PACK_CREATED", entityType: "vocal_pack", entityId: p.packId });
@@ -37,7 +38,7 @@ export async function packRow(tx: Tx, packId: string, lock: PackLock = "NONE"): 
 
 /** 선언 청구권자 교체. 활성 팩은 바꿀 수 없다(일시정지 또는 초안에서만). */
 export async function setPackClaimants(tx: Tx, clock: Clock, actor: Actor, packId: string, entries: Declared[]): Promise<void> {
-  requireRole(actor, "RIGHTS_EDITOR");
+  requirePermission(actor, "pack.edit");
   const pack = await packRow(tx, packId, "UPDATE");
   if (pack.status === "ACTIVE") throw conflict("INVALID_STATE", `pack ${packId} is ACTIVE`);
   await tx.query("DELETE FROM pack_claimant WHERE pack_id = $1", [packId]);
@@ -73,7 +74,7 @@ function rebindRequired(packId: string, active: { policyId: string; version: num
 
 /** F2(통합 설계 5.2): 활성 정책이 있고, 범위에 열린 분쟁이 없고, 정책의 facts가 마지막 분쟁 종결 이후에 고정됐고, 활성화 검사를 통과해야 한다. */
 export async function activatePack(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, packId: string): Promise<void> {
-  requireRole(actor, "ACTIVATOR");
+  requirePermission(actor, "pack.activate");
   const pack = await packRow(tx, packId, "UPDATE");
   if (pack.status === "ACTIVE") throw conflict("INVALID_STATE", `pack ${packId} is already ACTIVE`);
   const active = await activePolicyForPack(tx, packId);
@@ -119,7 +120,7 @@ export type IssueInput = { packId: string; vcId: string; assignments: { slotId: 
  * 봉인 직후 사전 검사(11.2-1)에서 엔진 진단이 나오면 422 ISSUE_NOT_SETTLEABLE.
  */
 export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: IssueInput): Promise<IssueSeal> {
-  requireRole(actor, "ISSUER");
+  requirePermission(actor, "issuance.issue");
   const pack = await packRow(tx, input.packId, "SHARE");
   if (pack.status !== "ACTIVE") throw conflict("PACK_NOT_ACTIVE", `pack ${input.packId} is ${pack.status}`);
   await assertOwnerTenantActive(tx, pack.factsScopeId, "issue"); // 정지된 테넌트의 팩은 판매하지 않는다(결정 TD7)

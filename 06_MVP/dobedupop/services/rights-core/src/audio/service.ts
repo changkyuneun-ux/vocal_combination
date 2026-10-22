@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Db, type Tx } from "../platform/db.ts";
@@ -7,6 +7,7 @@ import type { Jobs } from "../platform/jobs.ts";
 import type { AudioDeps } from "./deps.ts";
 import { sourceCheck } from "./source.ts";
 import { invalidateStem } from "../decisions/cache.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type AudioStatus = "PENDING" | "READY" | "QC_FAILED" | "REVIEW" | "BLOCKED";
 const MAX_BYTES = 200 * 1024 * 1024;
@@ -18,7 +19,7 @@ const MAX_BYTES = 200 * 1024 * 1024;
 export async function uploadStemAudio(
   tx: Tx, clock: Clock, jobs: Jobs, audio: AudioDeps, actor: Actor, input: { stemId: string; bytes: Uint8Array; contentType: string },
 ) {
-  requireRole(actor, "RIGHTS_EDITOR");
+  requirePermission(actor, "rights.edit");
   if (input.bytes.byteLength === 0 || input.bytes.byteLength > MAX_BYTES) throw invalid("AUDIO_SIZE", `audio must be 1..${MAX_BYTES} bytes`);
   if ((await tx.query("SELECT 1 FROM stem WHERE stem_id = $1", [input.stemId])).rowCount === 0) throw notFound("stem", input.stemId);
   const { sha256, uri } = await audio.store.put(input.bytes);
@@ -66,7 +67,7 @@ export async function checkStemAudio(d: { db: Db; clock: Clock; audio: AudioDeps
 
 /** REVIEW 스템의 사람 판단(운영 백오피스 ⑤ 소스 무결성 큐): READY 또는 BLOCKED, 사유 필수. */
 export async function reviewStemAudio(tx: Tx, clock: Clock, actor: Actor, input: { stemId: string; decision?: string; reason?: string }) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "audio.review");
   if (input.decision !== "READY" && input.decision !== "BLOCKED") throw new DomainError("BAD_REQUEST", 400, "decision must be READY or BLOCKED");
   if (typeof input.reason !== "string" || input.reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
   const cur = (await tx.query("SELECT status FROM stem_audio WHERE stem_id = $1 FOR UPDATE", [input.stemId])).rows[0];
@@ -84,7 +85,7 @@ export async function registerReference(
   tx: Tx, clock: Clock, audio: AudioDeps, actor: Actor,
   input: { referenceId: string; title: string; ownerPartyId?: string; recordingId?: string; bytes: Uint8Array },
 ) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "audio.review");
   const a = await audio.analyzer(input.bytes);
   if (a.fingerprint === null) throw invalid("AUDIO_UNDECODABLE", "reference audio could not be decoded");
   await tx.query(

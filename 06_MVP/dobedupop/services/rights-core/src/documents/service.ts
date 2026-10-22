@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { DocumentStore } from "./store.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export const DOCUMENT_KINDS = ["MASTER_CONTRACT", "PUBLISHING", "PERFORMER_CONSENT", "MANDATE", "PLATFORM_CONTRACT", "EVIDENCE"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
@@ -24,7 +25,7 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const bad = (m: string) => invalid("INVALID_DOCUMENT", m);
 
 function requireEditor(actor: Actor): void {
-  if (actor.scope !== "platform") requireRole(actor, "RIGHTS_EDITOR");
+  if (actor.scope !== "platform") requirePermission(actor, "rights.edit");
 }
 
 function retentionUntil(effectiveTo: string | null): string | null {
@@ -216,7 +217,7 @@ export async function rejectDocument(tx: Tx, clock: Clock, actor: Actor, ref: Do
  * 해시·메타데이터·연결·폐기 기록은 남는다. 봉인된 facts의 근거 digest는 계속 남는다.
  */
 export async function disposeDocument(tx: Tx, clock: Clock, store: DocumentStore, actor: Actor, ref: DocumentRef) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "document.dispose");
   const r = (await tx.query("SELECT * FROM source_document WHERE document_id = $1 AND version = $2 FOR UPDATE", [ref.documentId, ref.version])).rows[0];
   if (r === undefined) throw notFound("document", `${ref.documentId}@${ref.version}`);
   if (r.disposed_at !== null) throw conflict("ALREADY_DISPOSED", `${ref.documentId}@${ref.version} is already disposed`);

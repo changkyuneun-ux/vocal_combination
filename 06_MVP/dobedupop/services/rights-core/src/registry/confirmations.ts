@@ -1,4 +1,4 @@
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -6,6 +6,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import { notifyUser } from "../performer/notifications.ts";
 import { openDispute } from "./disputes.ts";
 import { currentClaim, currentMandate, recordClaim, recordMandate } from "./service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 /** 확인 기한(결정 D5): 14일. 상대가 플랫폼 밖이면 기한 뒤 플랫폼이 원문을 대조해 확인할 수 있다. */
 export const CONFIRMATION_DAYS = 14;
@@ -139,10 +140,10 @@ export async function declineRequest(tx: Tx, clock: Clock, actor: Actor, request
 
 /**
  * 플랫폼 확인(결정 D5의 세 번째 길): 상대가 플랫폼 사용자가 아니고(그 파티에 연결된 계정·기관 테넌트가 없다), 기한이 지났고,
- * 기록에 근거 원천 문서가 있을 때만. 운영(SPACE_OPS)이 원문을 대조했다는 사유를 남긴다.
+ * 기록에 근거 원천 문서가 있을 때만. 운영(confirmation.platform_verify)이 원문을 대조했다는 사유를 남긴다.
  */
 export async function platformVerify(tx: Tx, clock: Clock, actor: Actor, requestId: number, reason: unknown) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "confirmation.platform_verify");
   if (typeof reason !== "string" || reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
   const q = await openRequest(tx, requestId);
   const now = clock.now();

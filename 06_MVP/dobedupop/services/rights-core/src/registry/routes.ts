@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
-import { requireAnyRole, requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
@@ -13,6 +13,7 @@ import { linkClause } from "./evidence-links.ts";
 import { revalidate } from "../validation/service.ts";
 import { applyTrustOnClaim } from "../participants/links.ts";
 import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   /** 기록이 속한 곡을 다시 검사한다(조항 연결 뒤). */
@@ -23,14 +24,14 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   };
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   /**
-   * 등록 역할: 권리 테넌트는 RIGHTS_EDITOR. 플랫폼 운영은 권리를 등록하지 않고(결정 TD3) 당사자 등록만 온보딩(ONBOARDING)으로 한다.
+   * 등록 권한: 권리 테넌트는 rights.edit. 플랫폼 운영은 권리를 등록하지 않고(결정 TD3) 당사자 등록만 party.register_platform(온보딩)으로 한다.
    * (플랫폼 RIGHTS_EDITOR는 이제 발급할 수 없다. 기존 개발·시험 계정만 남아 있다.)
    */
   const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
     app.post(path, async (req, reply) => {
       const out = await withActor(deps, req, async (tx, actor) => {
-        if (actor.scope === "platform" && path === "/parties") requireAnyRole(actor, ["ONBOARDING", "RIGHTS_EDITOR"]);
-        else requireRole(actor, "RIGHTS_EDITOR");
+        if (actor.scope === "platform" && path === "/parties") requirePermission(actor, "party.register_platform");
+        else requirePermission(actor, "rights.edit");
         const body = req.body as Record<string, unknown>;
         const missing = required.filter((k) => body?.[k] === undefined);
         if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
@@ -76,7 +77,7 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   created<any>("/disputes", (tx, b) => openDispute(tx, deps.clock, b));
   app.post<{ Params: { id: string }; Body: { resolution?: { shareBps?: number; targetId?: string } } }>("/disputes/:id/close", async (req) =>
     withActor(deps, req, async (tx, actor) => {
-      requireRole(actor, "RIGHTS_EDITOR");
+      requirePermission(actor, "rights.edit");
       await closeDispute(tx, deps.clock, { disputeId: req.params.id, ...(req.body?.resolution && { resolution: req.body.resolution }) });
       return {};
     }));
@@ -119,7 +120,7 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
   // 조항 → 기록 근거 연결, 확인 요청(원천 문서 설계 S3).
   app.post<{ Params: { cid: string } }>("/clauses/:cid/links", async (req, reply) => reply.status(201).send(await withActor(deps, req, async (tx, actor) => {
-    if (actor.scope !== "platform") requireRole(actor, "RIGHTS_EDITOR");
+    if (actor.scope !== "platform") requirePermission(actor, "rights.edit");
     const out = await linkClause(tx, deps.clock, actor, req.params.cid, (req.body ?? {}) as Record<string, unknown>);
     await revalidateRecord(tx, out.recordType, out.recordId);
     return out;
