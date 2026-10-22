@@ -36,11 +36,11 @@ export async function checkCombination(ctx: BridgeCtx, tx: Tx, clock: Clock, act
     const policy = await activePolicyForPack(tx, input.packId);
     const members = input.members ?? (await defaultMembers(tx, input.assignments));
     const usage = input.usage ?? issuance.FAN_APP_USAGE;
-    // 키 정렬은 (슬롯, 파트, 스템). 파트 1은 키에서 생략한다(파트 없는 기존 배치와 같은 키).
+    // 키 정렬은 (슬롯, 파트, 스템). 파트 1은 키에서 생략한다(파트 없는 기존 배치와 같은 키). 정규 JSON에는 숫자를 쓸 수 없어 파트 번호는 문자열이다.
     const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
     const assignments = [...input.assignments]
       .sort((a, b) => cmp(a.slotId, b.slotId) || (a.partNo ?? 1) - (b.partNo ?? 1) || cmp(a.stemId, b.stemId))
-      .map((a) => ((a.partNo ?? 1) === 1 ? { slotId: a.slotId, stemId: a.stemId } : { slotId: a.slotId, partNo: a.partNo, stemId: a.stemId }));
+      .map((a) => ((a.partNo ?? 1) === 1 ? { slotId: a.slotId, stemId: a.stemId } : { slotId: a.slotId, partNo: String(a.partNo), stemId: a.stemId }));
     const key = canonicalSha256({ packId: input.packId, policyDigest: policy?.policyDigest ?? null, assignments, members: Object.fromEntries(Object.entries(members).map(([k, v]) => [k, String(v)])), usage });
     const now = clock.now();
 

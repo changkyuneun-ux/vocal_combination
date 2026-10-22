@@ -8,6 +8,7 @@ import * as policy from "../../src/policy/service.ts";
 import * as issuance from "../../src/issuance/service.ts";
 import { rederiveIssue } from "../../src/engine-bridge/issue.ts";
 import { createBridgeCtx } from "../../src/engine-bridge/context.ts";
+import { checkCombination } from "../../src/fan/decision.ts";
 
 // 발행을 슬롯·파트 단위로(결정 SL1·SL2·SL7): 보컬 파트는 모두 채우고, 사용 시간은 파트 길이, 그룹 파트는 원곡 스템으로 고정.
 const { db, drop } = await freshDb();
@@ -70,4 +71,13 @@ test("issue by part: both vocal parts must be assigned, usage = part length, gro
 test("a group part keeps its original stem (SL7)", async () => {
   await db.tx((tx) => reg.registerStem(tx, fixedClock("2026-03-01T00:00:00.000Z", 0), { stemId: "st_gr_alt", slotId: "s_gr", partNo: 1, recordingId: "rcd_nova", rightsBearing: false }));
   await assert.rejects(issueAs({ vcId: "vc_grp", assignments: [{ slotId: "s_ch", partNo: 1, stemId: "st_ch_1_a" }, { slotId: "s_ch", partNo: 2, stemId: "st_ch_2_a" }, { slotId: "s_gr", stemId: "st_gr_alt" }], members: { pty_member_a: 10000 } }), { code: "GROUP_PART_FIXED" });
+});
+
+test("a fan check with part numbers above 1 is decided and cached (cache key carries partNo as text)", async () => {
+  const input = { packId: PACK, assignments: [{ slotId: "s_ch", partNo: 1, stemId: "st_ch_1_a" }, { slotId: "s_ch", partNo: 2, stemId: "st_ch_2_b" }, { slotId: "s_ch", partNo: 3, stemId: "st_ch_inst" }],
+    members: { pty_member_a: 5000, pty_member_b: 5000 } };
+  const first = await db.tx((tx) => checkCombination(ctx, tx, clock, users.issuer, input));
+  const again = await db.tx((tx) => checkCombination(ctx, tx, clock, users.issuer, input));
+  assert.equal(first.issuable, again.issuable);
+  assert.equal(again.cached, true);
 });
