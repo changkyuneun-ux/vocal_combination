@@ -86,6 +86,8 @@ export async function registerRecording(tx: Tx, clock: Clock, r: { recordingId: 
 export async function registerSlot(tx: Tx, s: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number }): Promise<void> {
   await tx.query("INSERT INTO part_slot (slot_id, recording_id, start_ms, end_ms, sort_order) VALUES ($1,$2,$3,$4,$5)",
     [s.slotId, s.recordingId, s.startMs, s.endMs, s.sortOrder]);
+  // 스템은 (슬롯, 파트)를 가리킨다 — 파트를 따로 주지 않으면 슬롯 전체 길이의 반주 파트 1.
+  await tx.query("INSERT INTO slot_part (slot_id, part_no, kind, start_ms, end_ms) VALUES ($1, 1, 'INSTRUMENT', $2, $3)", [s.slotId, s.startMs, s.endMs]);
 }
 
 export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; slotId: string; recordingId: string; performerPartyId?: string; rightsBearing: boolean }): Promise<void> {
