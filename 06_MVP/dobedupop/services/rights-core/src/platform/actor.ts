@@ -5,7 +5,7 @@ import { DomainError } from "./errors.ts";
 import type { Permission } from "./permissions.ts";
 
 export type Role = "RIGHTS_EDITOR" | "EDITOR" | "WORK_APPROVER" | "ACTIVATOR" | "ISSUER" | "SPACE_OPS" | "SPACE_SETTLE" | "SYSTEM" | "PERFORMER" | "COMPLIANCE" | "LEGAL"
-  | "TENANT_ADMIN" | "ONBOARDING" | "TRUST_OFFICER" | "PARTNER_INTEGRATION";
+  | "TENANT_ADMIN" | "ONBOARDING" | "TRUST_OFFICER" | "PARTNER_INTEGRATION" | "PLATFORM_ALL" | "RIGHTS_ALL" | "PARTICIPANT_ALL";
 /** 참여 구분(테넌트 정책 2절, 결정 TD1): 권리 테넌트·참여 기관·개인·플랫폼 운영. */
 export type OrgClass = "RIGHTS" | "PARTICIPANT" | "INDIVIDUAL" | "PLATFORM";
 export type TenantStatus = "APPLIED" | "VERIFIED" | "ACTIVE" | "SUSPENDED" | "TERMINATED";
