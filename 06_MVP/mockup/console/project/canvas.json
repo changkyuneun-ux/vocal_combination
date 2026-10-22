@@ -14,13 +14,17 @@
     "Artist-Consent.dc.html": { "x": 3040, "y": 3300, "w": 390, "h": 844, "title": "[실연자: 정국] 본인 전환 — 확인·동의" },
     "Console-Settlement.dc.html": { "x": 0, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 정산 배치 상세 — 재계산·확정", "expand": "fill" },
     "Console-Payout.dc.html": { "x": 1520, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑥ 지급·명세 — 정산 확인", "expand": "fill" },
-    "Console-RBAC.dc.html": { "x": 3040, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑩ 역할·권한·직무 분리 규칙", "expand": "fill" }
+    "Console-RBAC.dc.html": { "x": 3040, "y": 4700, "w": 1440, "h": 1000, "title": "[플랫폼] ⑩ 역할·권한·직무 분리 규칙", "expand": "fill" },
+    "Detail-E09-Parties.dc.html": { "x": 0, "y": 6100, "w": 1440, "h": 1200, "title": "E09 [빅히트] 당사자 등록 — 레이블·소속사", "expand": "fill" },
+    "Detail-E10-Work.dc.html": { "x": 1520, "y": 6100, "w": 1440, "h": 1200, "title": "E10 [빅히트] 새 곡 — 곡·권리 범위·녹음", "expand": "fill" },
+    "Detail-E11-Parts.dc.html": { "x": 3040, "y": 6100, "w": 1440, "h": 1500, "title": "E11 [빅히트] 파트 구성 — 슬롯·스템·보이스", "expand": "fill" }
   },
-  "order": ["Main.dc.html", "Console-Platform.dc.html", "Console-Org.dc.html", "Console-Demo.dc.html", "Console-Rights.dc.html", "Console-Policy.dc.html", "Artist-Consent.dc.html", "Console-Settlement.dc.html", "Console-Payout.dc.html", "Console-RBAC.dc.html"],
+  "order": ["Main.dc.html", "Console-Platform.dc.html", "Console-Org.dc.html", "Console-Demo.dc.html", "Console-Rights.dc.html", "Console-Policy.dc.html", "Artist-Consent.dc.html", "Console-Settlement.dc.html", "Console-Payout.dc.html", "Console-RBAC.dc.html", "Detail-E09-Parties.dc.html", "Detail-E10-Work.dc.html", "Detail-E11-Parts.dc.html"],
   "notes": {
     "t_row2": { "x": 0, "y": 1640, "text": "P1·P5 온보딩과 운영 확인 — 플랫폼 소속", "kind": "title1", "maxW": 4480 },
     "t_row3": { "x": 0, "y": 3040, "text": "P2~P7 권리 등록·실연자·정책 — 빅히트 소속과 본인 전환", "kind": "title1", "maxW": 4480 },
-    "t_row4": { "x": 0, "y": 4440, "text": "P9~P10 정산·지급·명세, 권한 구조", "kind": "title1", "maxW": 4480 }
+    "t_row4": { "x": 0, "y": 4440, "text": "P9~P10 정산·지급·명세, 권한 구조", "kind": "title1", "maxW": 4480 },
+    "t_row5": { "x": 0, "y": 5840, "text": "E09~E11 상세 — 당사자·곡·녹음·파트 구성(시연 한 건 + 도구로 채우기, ED1)", "kind": "title1", "maxW": 4480 }
   },
   "designSystems": []
 }

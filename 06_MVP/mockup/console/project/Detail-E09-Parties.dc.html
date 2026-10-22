@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>E09 당사자 등록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #dbeafe">작업 소속 <strong style="color: #ffffff">빅히트 뮤직 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">RIGHTS_ALL</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #fde68a; color: #78350f; font-weight: 600">확인됨 — 등록 가능, 활성화·판매 불가</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-02 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569">빅히트 뮤직 › ① 권리 등록 › 당사자</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">당사자</h1>
+<span style="font-size: 14px; color: #475569">돈을 받고 권리를 갖는 주체. 계정이 아니라 당사자가 권리를 가진다(TR4).</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #475569">E09 · POST /api/portal/parties</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px">빅히트 뮤직이 관리하는 당사자</h2>
+<div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 10px 14px">표시명</th><th style="padding: 10px 14px">유형</th><th style="padding: 10px 14px">사업자번호</th><th style="padding: 10px 14px">당사자 id</th><th style="padding: 10px 14px">쓰이는 곳</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px; font-weight: 600">빅히트 뮤직 — 레이블</td><td style="padding: 10px 14px">레이블</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">BRN-DEMO-BIGHIT</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">pty_bighit_label</td><td style="padding: 10px 14px">녹음 마스터 보유(E10)</td></tr>
+<tr style="border-top: 1px solid #e2e8f0; background: #eff6ff"><td style="padding: 10px 14px; font-weight: 600">빅히트 뮤직 — 소속사 <span style="font-size: 12px; color: #1d4ed8">방금 등록</span></td><td style="padding: 10px 14px">소속사</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">BRN-DEMO-BIGHIT</td><td style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace">pty_bighit_agency</td><td style="padding: 10px 14px">멤버 실연 몫 수령(위임, E27)</td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">같은 법인(사업자번호 같음)이 레이블·소속사 두 역할을 한다 → 당사자 두 개(결정 TD2). 지급 계좌 예금주는 당사자와 같아야 한다(E30).</p>
+
+<h2 style="margin: 8px 0 0; font-size: 18px">공용 명부에서 보이는 당사자(고르기만, 고치지 못함)</h2>
+<div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 10px 14px">표시명</th><th style="padding: 10px 14px">유형</th><th style="padding: 10px 14px">관리 주체</th><th style="padding: 10px 14px">등록</th></tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">정국 · 지민 · 뷔 · 진 · RM · 제이홉 · 슈가</td><td style="padding: 10px 14px">멤버(개인)</td><td style="padding: 10px 14px">본인(개인 계정)</td><td style="padding: 10px 14px">플랫폼 E06</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">David Stewart · Jessica Agombar</td><td style="padding: 10px 14px">작가</td><td style="padding: 10px 14px">플랫폼 위탁</td><td style="padding: 10px 14px">플랫폼 E07</td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">공용 명부는 이름·유형만 보인다(결정 TD8). 다른 관리 주체의 계좌·명세는 보이지 않는다.</p>
+</section>
+
+<section aria-labelledby="new-party" style="flex: 1 1 380px; max-width: 460px; padding: 20px; border-radius: 12px; background: #ffffff; border: 2px solid #1d4ed8; display: flex; flex-direction: column; gap: 14px">
+<h2 id="new-party" style="margin: 0; font-size: 18px">당사자 등록</h2>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 14px; font-weight: 600; margin-bottom: 6px">유형 — 권리 테넌트가 둘 수 있는 것</legend>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px"><input type="radio" name="t" style="margin-top: 3px"><span><strong>레이블</strong> — 녹음(마스터)을 보유한다</span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 2px solid #1d4ed8; background: #eff6ff; font-size: 14px"><input type="radio" name="t" checked style="margin-top: 3px"><span><strong>소속사</strong> — 소속 아티스트의 실연 몫을 위임받아 수령한다</span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px"><input type="radio" name="t" style="margin-top: 3px"><span><strong>음악 출판사</strong> — 작품(작사·작곡) 몫을 관리한다</span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px"><input type="radio" name="t" style="margin-top: 3px"><span><strong>아티스트</strong> — 독립 아티스트 본인(1인 테넌트)</span></label>
+<span style="font-size: 12px; color: #475569">멤버·작가·세션은 개인이라 여기서 만들지 않는다 — 플랫폼이 개인 계정으로 등록하고, 여기서는 고른다.</span>
+</fieldset>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">표시명<input value="빅히트 뮤직 — 소속사" style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">사업자번호<input placeholder="비우면 테넌트 번호 BRN-DEMO-BIGHIT" style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><span style="font-weight: 400; font-size: 12px; color: #475569">다른 법인이면 관리 위임 계약(원천 문서)을 붙여야 한다</span></label>
+<details style="font-size: 14px"><summary style="cursor: pointer; font-weight: 600">선택 항목 · 당사자 id</summary>
+<div style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px">
+<label style="display: flex; flex-direction: column; gap: 4px">ISNI(16자)<input style="font: inherit; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px">IPI 번호(11자 이내)<input style="font: inherit; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px">당사자 id(자동, 고칠 수 있음)<input value="pty_bighit_agency" style="font: inherit; font-family: 'IBM Plex Mono', monospace; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+</div></details>
+<button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">당사자 등록</button>
+<div role="alert" style="padding: 10px 12px; border-radius: 8px; background: #fef2f2; border: 1px solid #fca5a5; font-size: 13px; color: #7f1d1d"><strong>오류 예: PARTY_OTHER_ENTITY</strong> — 사업자번호가 빅히트 뮤직과 다르다. 관리 위임 계약을 붙이거나 그 회사를 별도 테넌트로 등록한다.</div>
+</section>
+</div>
+
+<section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>코어가 막는 것</strong><br>참여 기관 유형(CMO)·팬·플랫폼은 권리 테넌트 당사자가 될 수 없다 · 테넌트가 해지·정지면 등록 불가</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>남는 것</strong><br>party(관리 주체 = 빅히트 뮤직, 사업자번호) · 감사 로그(행위자 usr_admin, 소속 빅히트)</div>
+<div style="padding: 14px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>다음 → E10</strong><br>새 곡: 곡 → 권리 범위 → 녹음(마스터 보유자 = 레이블 당사자)</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

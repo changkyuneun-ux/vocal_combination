@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>E11 파트 구성</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #dbeafe">작업 소속 <strong style="color: #ffffff">빅히트 뮤직 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">RIGHTS_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-02 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569">빅히트 뮤직 › ① 권리 등록 › 카탈로그 › Dynamite › 녹음 rcd_dynamite</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">파트 구성 · Dynamite (Vocal Recombination)</h1>
+<span style="font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #475569">E11 · POST /slots · /stems · /voices</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0">
+<div style="display: flex; gap: 20px; font-size: 15px; flex: 1 1 420px; flex-wrap: wrap">
+<span>슬롯 <strong>1</strong> / 8</span><span>스템 <strong>1</strong> / 50</span><span>보이스 <strong>1</strong> / 7</span>
+<span style="color: #475569">화면으로 정국 한 건을 넣은 상태</span>
+</div>
+<button style="font: inherit; min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #b45309; background: #fffbeb; color: #92400e; font-weight: 600">데모 · 나머지 도구로 채우기(62건)</button>
+</div>
+
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 18px">슬롯(파트) 타임라인</h2><span style="font-size: 13px; color: #475569">슬롯 하나 = 그 멤버가 원곡에서 부른 파트 묶음(연속 구간은 근사) · 0 ~ 199,000 ms</span></div>
+<div style="display: flex; height: 44px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1">
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="7">
+<div style="{{p.barStyle}}"><span style="font-size: 12px; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden">{{p.name}}</span></div>
+</sc-for>
+<div style="flex: 6210 1 0; background: #f1f5f9"></div>
+</div>
+<div style="display: flex; height: 28px; border-radius: 8px; overflow: hidden; border: 1px dashed #94a3b8; background: #f8fafc; align-items: center; padding: 0 10px; font-size: 12px; color: #475569">MR 슬롯 slt_mr · 0 ~ 199,000 · 권리 부담 없음(스템 stm_mr)</div>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 8px 10px">순서</th><th style="padding: 8px 10px">슬롯</th><th style="padding: 8px 10px">파트</th><th style="padding: 8px 10px; text-align: right">시작~끝(ms)</th><th style="padding: 8px 10px; text-align: right">길이</th><th style="padding: 8px 10px">상태</th></tr></thead>
+<tbody>
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="7">
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">{{p.order}}</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">{{p.slot}}</td><td style="padding: 8px 10px">{{p.name}} 파트</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">{{p.range}}</td><td style="padding: 8px 10px; text-align: right">{{p.len}}</td><td style="padding: 8px 10px">{{p.state}}</td></tr>
+</sc-for>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 8px 10px">8</td><td style="padding: 8px 10px; font-family: 'IBM Plex Mono', monospace">slt_mr</td><td style="padding: 8px 10px">MR(반주)</td><td style="padding: 8px 10px; text-align: right; font-family: 'IBM Plex Mono', monospace">0 ~ 199,000</td><td style="padding: 8px 10px; text-align: right">199,000</td><td style="padding: 8px 10px">도구 대기</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 640px; min-width: 0; padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 18px">스템 — 부른 멤버 × 파트</h2><span style="font-size: 13px; color: #475569">칸 하나 = 스템 하나(stm_부른멤버_파트) · 대각선 = 원곡 배치 · 49 + MR 1</span></div>
+<div style="overflow-x: auto">
+<table style="border-collapse: separate; border-spacing: 4px; font-size: 13px; min-width: 640px">
+<thead><tr><th style="padding: 6px 8px; text-align: left; color: #475569">부른 멤버 ↓ / 파트 →</th>
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="7"><th style="padding: 6px 8px; font-weight: 600">{{p.name}}</th></sc-for>
+</tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+<tr><th style="padding: 6px 8px; text-align: left; font-weight: 600">{{r.name}}</th>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="7"><td style="{{c.style}}">{{c.label}}</td></sc-for>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: #334155">
+<span><span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #1d4ed8; vertical-align: middle"></span> 화면으로 등록</span>
+<span><span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #ffffff; border: 2px solid #1d4ed8; vertical-align: middle"></span> 선택(오른쪽 폼)</span>
+<span><span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #f1f5f9; border: 1px solid #cbd5e1; vertical-align: middle"></span> 도구로 채울 칸</span>
+<span><span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #eef2ff; border: 1px solid #a5b4fc; vertical-align: middle"></span> 원곡 배치(대각선)</span>
+</div>
+</section>
+
+<section aria-labelledby="one" style="flex: 1 1 360px; max-width: 420px; padding: 20px; border-radius: 12px; background: #ffffff; border: 2px solid #1d4ed8; display: flex; flex-direction: column; gap: 12px">
+<h2 id="one" style="margin: 0; font-size: 18px">선택한 칸 등록 — 지민 × 정국 파트</h2>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">파트(슬롯)<select style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>정국 파트 · slt_part_jungkook</option></select><span style="font-weight: 400; font-size: 12px; color: #475569">슬롯이 아직 없으면 위 타임라인에서 먼저 만든다</span></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">부른 멤버(실연자)<select style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>지민 · pty_jimin (공용 명부)</option></select></label>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; gap: 16px; font-size: 14px"><legend style="font-weight: 600; margin-bottom: 6px">권리 부담</legend><label><input type="radio" name="rb" checked> 예(실연 권리)</label><label><input type="radio" name="rb"> 아니오(MR 등)</label></fieldset>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">스템 id(자동)<input value="stm_jimin_jungkook" style="font: inherit; font-weight: 400; font-family: 'IBM Plex Mono', monospace; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">스템 등록</button>
+<p style="margin: 0; font-size: 12px; color: #475569">오디오는 등록 뒤 "스템 오디오·검수"에서 올린다(검수 통과해야 READY, 발행 게이트 STEM_NOT_READY).</p>
+</section>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section style="flex: 999 1 640px; min-width: 0; padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 18px">보이스 — 멤버마다 하나(사람 목소리)</h2><span style="font-size: 13px; color: #475569">권리 범위 fsc_dynamite에 붙는다 · 보이스 소유·스템 실연 주장(E15)의 대상</span></div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; font-size: 13px">
+<sc-for list="{{voices}}" as="v" hint-placeholder-count="7">
+<div style="{{v.style}}"><strong>{{v.name}}</strong><br><span style="font-family: 'IBM Plex Mono', monospace">{{v.id}}</span><br>{{v.state}}</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">종류: 사람(HUMAN) · AI 보이스는 같은 화면에서 종류만 바꿔 등록한다.</p>
+</section>
+<section style="flex: 1 1 360px; max-width: 420px; padding: 20px; border-radius: 12px; background: #fffbeb; border: 1px solid #fcd34d; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<h2 style="margin: 0; font-size: 18px">데모 · 도구로 채우기(ED1)</h2>
+<div>슬롯 7(멤버 6 + MR) · 스템 49 · 보이스 6 = <strong>62건</strong></div>
+<div style="color: #334155">화면과 같은 공개 API(POST /api/portal/slots·stems·voices)를 총괄 계정으로 부른다. DB 직접 쓰기 없음 — 검증·RLS·감사 로그가 그대로 돈다.</div>
+<div style="color: #334155">이미 있는 칸은 건너뛴다(같은 id면 409를 성공으로 본다).</div>
+<button style="font: inherit; min-height: 44px; border-radius: 8px; border: 0; background: #b45309; color: #ffffff; font-weight: 600">채우기 실행</button>
+</section>
+</div>
+
+<section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>코어가 막는 것</strong><br>같은 녹음에서 순서 중복 · 끝 ≤ 시작 · 스템의 슬롯과 녹음 불일치 · 없는 실연자 당사자 · 다른 테넌트 녹음(TENANT_FORBIDDEN)</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>남는 것</strong><br>part_slot · stem · voice(소유 = 빅히트 뮤직) · 판정 캐시 무효화(곡 세대 번호) · 감사 로그</div>
+<div style="padding: 14px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>다음 → E12·E13</strong><br>원천 문서 올리기 → 권리 주장(녹음 확정, 작가 지분·보이스·실연은 확인 요청)</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const M = [
+      { key: 'jungkook', name: '정국', ms: 71890 }, { key: 'jimin', name: '지민', ms: 40820 }, { key: 'v', name: '뷔', ms: 26240 },
+      { key: 'jin', name: '진', ms: 22970 }, { key: 'rm', name: 'RM', ms: 18080 }, { key: 'jhope', name: '제이홉', ms: 6550 }, { key: 'suga', name: '슈가', ms: 6240 },
+    ];
+    const fmt = (n) => n.toLocaleString('en-US');
+    let at = 0;
+    const parts = M.map((m, i) => {
+      const start = at; at += m.ms;
+      const done = m.key === 'jungkook';
+      return {
+        name: m.name, order: i + 1, slot: 'slt_part_' + m.key, range: fmt(start) + ' ~ ' + fmt(at), len: fmt(m.ms),
+        state: done ? '화면으로 등록' : '도구 대기',
+        barStyle: 'flex: ' + m.ms + ' 1 0; display: flex; align-items: center; border-right: 1px solid #ffffff; ' + (done ? 'background: #1d4ed8; color: #ffffff' : 'background: #dbeafe; color: #1e3a8a'),
+      };
+    });
+    const rows = M.map((r) => ({
+      name: r.name,
+      cells: M.map((c) => {
+        const done = r.key === 'jungkook' && c.key === 'jungkook';
+        const picked = r.key === 'jimin' && c.key === 'jungkook';
+        const diag = r.key === c.key;
+        const base = 'padding: 8px 6px; min-width: 64px; text-align: center; border-radius: 6px; ';
+        const look = done ? 'background: #1d4ed8; color: #ffffff; font-weight: 600'
+          : picked ? 'background: #ffffff; border: 2px solid #1d4ed8; color: #1e3a8a; font-weight: 600'
+          : diag ? 'background: #eef2ff; border: 1px solid #a5b4fc; color: #3730a3'
+          : 'background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569';
+        return { label: done ? '등록됨' : picked ? '선택' : diag ? '원곡' : '대기', style: base + look };
+      }),
+    }));
+    const voices = M.map((m) => {
+      const done = m.key === 'jungkook';
+      return { name: m.name, id: 'voc_' + m.key, state: done ? '등록됨' : '도구 대기',
+        style: 'padding: 10px; border-radius: 8px; ' + (done ? 'background: #1d4ed8; color: #ffffff' : 'background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155') };
+    });
+    return { parts, rows, voices };
+  }
+}
+</script>
+</body>
+</html>

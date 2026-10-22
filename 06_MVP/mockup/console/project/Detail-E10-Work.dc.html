@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>E10 새 곡 등록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<span style="font-size: 14px; color: #dbeafe">작업 소속 <strong style="color: #ffffff">빅히트 뮤직 ▾</strong></span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">RIGHTS_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-02 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569">빅히트 뮤직 › ① 권리 등록 › 카탈로그 › 새 곡</nav>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 26px">새 곡</h1>
+<span style="font-size: 14px; color: #475569">곡을 만들면 권리 범위가 함께 생기고, 그 아래에 녹음을 붙인다</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #475569">E10</span>
+</div>
+
+<ol aria-label="새 곡 단계" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<li style="padding: 14px 16px; border-radius: 10px; background: #dcfce7; border: 1px solid #86efac"><strong>1 곡</strong> · 완료<br><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">POST /works</span></li>
+<li style="padding: 14px 16px; border-radius: 10px; background: #dcfce7; border: 1px solid #86efac"><strong>2 권리 범위</strong> · 자동 완료<br><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">POST /scopes</span></li>
+<li style="padding: 14px 16px; border-radius: 10px; background: #ffffff; border: 2px solid #1d4ed8"><strong>3 녹음</strong> · 입력 중<br><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">POST /recordings</span></li>
+</ol>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<section style="padding: 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 18px">1 곡(작품)</h2>
+<dl style="margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; font-size: 14px">
+<dt style="color: #475569">제목</dt><dd style="margin: 0; font-weight: 600">Dynamite</dd>
+<dt style="color: #475569">ISWC</dt><dd style="margin: 0">— (선택, 같은 번호는 한 곡만)</dd>
+<dt style="color: #475569">곡 id</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace">wrk_dynamite (자동)</dd>
+</dl>
+<h2 style="margin: 8px 0 0; font-size: 18px">2 권리 범위</h2>
+<p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.6">곡 하나에 범위 하나(<span style="font-family: 'IBM Plex Mono', monospace">fsc_dynamite</span>). 녹음·스템·보이스·권리 주장·정책·팩이 모두 이 범위에 묶이고, 정책을 컴파일할 때 이 범위를 봉인(facts IR)한다. 사용자가 따로 만들 일이 없어 화면에서 숨긴다.</p>
+<div style="padding: 10px 12px; border-radius: 8px; background: #f1f5f9; font-size: 13px; color: #334155">지금 화면은 "facts 범위 생성"이 별도 폼이다 → 시안은 곡 등록과 함께 자동으로 만든다(G10).</div>
+</section>
+
+<section aria-labelledby="rec" style="padding: 20px; border-radius: 12px; background: #ffffff; border: 2px solid #1d4ed8; display: flex; flex-direction: column; gap: 14px">
+<h2 id="rec" style="margin: 0; font-size: 18px">3 녹음(마스터)</h2>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">버전명<input value="Vocal Recombination" style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">마스터 보유 당사자
+<select style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>빅히트 뮤직 — 레이블 (pty_bighit_label)</option><option>빅히트 뮤직 — 소속사 (pty_bighit_agency)</option></select>
+<span style="font-weight: 400; font-size: 12px; color: #475569">이 테넌트가 관리하는 당사자만 고를 수 있다(E09). 녹음 권리 주장(E13)의 대상이 된다.</span></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">ISRC(선택, 12자)<input placeholder="예: KR-XXX-26-00001 형식의 12자" style="font: inherit; font-weight: 400; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600">녹음 id(자동, 고칠 수 있음)<input value="rcd_dynamite" style="font: inherit; font-weight: 400; font-family: 'IBM Plex Mono', monospace; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"></label>
+<div style="display: flex; gap: 10px">
+<button style="font: inherit; flex: 1 1 0; min-height: 44px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">녹음 등록하고 파트 구성으로</button>
+<button style="font: inherit; min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">나중에</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #475569">세 요청은 따로 저장된다. 녹음에서 실패해도 곡·범위는 남고, 이 화면에서 이어서 입력한다.</p>
+</section>
+</div>
+
+<section style="padding: 16px 20px; border-radius: 12px; background: #ffffff; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px">원천 문서 연결(같은 시점, E12)</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px">
+<div style="flex: 1 1 320px; padding: 12px; border-radius: 8px; border: 1px dashed #94a3b8">녹음 계약서(PDF) — 당사자: 레이블 · 효력 2026-01-01 · <a href="#">원천 문서에 올리기</a></div>
+<div style="flex: 1 1 320px; padding: 12px; border-radius: 8px; border: 1px dashed #94a3b8">퍼블리싱 계약서(PDF) — 당사자: 작가 2명 · 효력 2026-01-01 · <a href="#">원천 문서에 올리기</a></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #475569">녹음 계약서는 녹음 권리 주장의 근거(E13)이고, 빅히트를 활성으로 올리는 권리 보유 증빙(E32)이다.</p>
+</section>
+
+<section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 14px">
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>코어가 막는 것</strong><br>범위는 곡당 하나 · ISWC·ISRC 중복 · 다른 테넌트 곡 밑에 녹음 붙이기(TENANT_FORBIDDEN)</div>
+<div style="padding: 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><strong>남는 것</strong><br>work · facts_scope · recording_version(소유 = 빅히트 뮤직) · 감사 로그</div>
+<div style="padding: 14px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd"><strong>다음 → E11</strong><br>녹음 상세 › 파트 구성: 슬롯 8 · 스템 50 · 보이스 7</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
