@@ -160,6 +160,48 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
       }
     }
   }
+  // 8. 카탈로그와 권리 주장(슬롯·파트 구조, 결정 SL1·SL3·ID2·ID3). 대상은 곡 안의 행이라 subjectType은 SCOPE, subjectId는 녹음·스템·"슬롯#파트".
+  const recs = await q(
+    "SELECT r.recording_id, r.master_owner_party_id FROM recording_version r JOIN facts_scope s ON s.work_id = r.work_id WHERE s.facts_scope_id = $1 ORDER BY r.recording_id", [scopeId]);
+  for (const r of recs) {
+    const ctl = claims.filter((c) => c.edge === "CONTROLLED_BY" && c.source_id === r.recording_id).map((c) => c.target_id as string);
+    if (ctl.length > 0 && !ctl.includes(r.master_owner_party_id)) {
+      out.push({ rule: "MASTER_OWNER_CLAIM_MISMATCH", severity: "WARN", subjectType: "SCOPE", subjectId: r.recording_id,
+        message: `녹음 ${r.recording_id}의 마스터 보유자(${r.master_owner_party_id})와 녹음 권리 주장 대상(${[...new Set(ctl)].sort().join(", ")})이 다르다`,
+        hint: "녹음 정보의 마스터 보유자나 녹음 권리 주장 중 틀린 쪽을 고친다" });
+    }
+  }
+  const ownersOf = (voiceId: string) => claims.filter((c) => c.edge === "OWNED_BY" && c.source_id === voiceId).map((c) => c.target_id as string);
+  const stems = await q(
+    `SELECT st.stem_id, st.slot_id, st.part_no, st.performer_party_id, st.rights_bearing FROM stem st
+       JOIN recording_version r ON r.recording_id = st.recording_id JOIN facts_scope s ON s.work_id = r.work_id
+      WHERE s.facts_scope_id = $1 ORDER BY st.stem_id`, [scopeId]);
+  for (const st of stems.filter((x) => x.rights_bearing && x.performer_party_id !== null)) {
+    const owners = claims.filter((c) => c.edge === "PERFORMED_BY" && c.source_id === st.stem_id).flatMap((c) => ownersOf(c.target_id));
+    if (owners.length > 0 && !owners.includes(st.performer_party_id)) {
+      out.push({ rule: "STEM_PERFORMER_CLAIM_MISMATCH", severity: "BLOCK", subjectType: "SCOPE", subjectId: st.stem_id,
+        message: `스템 ${st.stem_id}의 실연자(${st.performer_party_id})와 실연 주장의 보이스 소유자(${[...new Set(owners)].sort().join(", ")})가 다르다`,
+        hint: "스템의 실연자나 실연 주장의 보이스 중 틀린 쪽을 고친다" });
+    }
+  }
+  const parts = await q(
+    `SELECT p.slot_id, p.part_no, p.kind, p.original_party_id FROM slot_part p JOIN part_slot sl ON sl.slot_id = p.slot_id
+       JOIN recording_version r ON r.recording_id = sl.recording_id JOIN facts_scope s ON s.work_id = r.work_id
+      WHERE s.facts_scope_id = $1 AND p.kind IN ('VOCAL','GROUP') ORDER BY p.slot_id, p.part_no`, [scopeId]);
+  const voiceOwners = new Set(voices.flatMap((v) => ownersOf(v.voice_id)));
+  for (const p of parts) {
+    const id = `${p.slot_id}#${p.part_no}`;
+    const inPart = stems.filter((s) => s.slot_id === p.slot_id && s.part_no === p.part_no);
+    if (p.kind === "VOCAL" ? !inPart.some((s) => s.performer_party_id === p.original_party_id) : inPart.length === 0) {
+      out.push({ rule: "PART_NO_ORIGINAL_STEM", severity: "WARN", subjectType: "SCOPE", subjectId: id,
+        message: p.kind === "VOCAL" ? `파트 ${id}에 원곡 담당(${p.original_party_id})이 부른 스템이 없다` : `그룹 파트 ${id}에 원곡 그룹 스템이 없다`,
+        hint: "원곡 스템을 그 파트로 등록한다" });
+    }
+    if (p.kind === "VOCAL" && !voiceOwners.has(p.original_party_id)) {
+      out.push({ rule: "PART_ORIGINAL_NO_VOICE", severity: "BLOCK", subjectType: "SCOPE", subjectId: id,
+        message: `파트 ${id}의 원곡 담당 ${p.original_party_id}에게 이 곡의 보이스가 없다`, hint: "그 멤버의 보이스와 소유 주장을 등록한다(스템 등록 때 주장 함께 만들기)" });
+    }
+  }
   return out.sort((a, b) => (a.rule + a.subjectId < b.rule + b.subjectId ? -1 : 1));
 }
 
