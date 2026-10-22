@@ -70,11 +70,11 @@
     단계 규칙: 팩 ACTIVE → 4(판매 중) · 활성 정책 있음 → 3 · 봉인됨 → 2(IR 생성됨) · 확인 대기 > 0 → 1(확인 대기) · 그 밖 0(입력 중). 열린 분쟁이 있거나 팩 PAUSED면 상태는 "분쟁·보류"(단계는 그대로)
   - `GET /portal/scopes/:id/readiness` → `{ items: { key: string; ok: boolean | "warn"; label: string; detail: string }[] }`. 항목: `shares`(갈래별 합계 100%), `evidence`(확정 주장의 근거 문서), `originalStems`(보컬·그룹 파트마다 원곡 스템), `confirmations`(대기 수), `consents`(보이스별 유효 이용 동의), `mandates`(멤버 수령 위임 반영 수), `audio`(오디오가 있는 스템 중 READY 아닌 수), `blocks`(정합성 차단 수 — `checkScope` 결과 BLOCK)
 
-- [ ] **Step 1: 실패하는 시험** — `test/registry/overview.test.ts`: 기존 레지스트리 픽스처로 곡 1개(범위·녹음·슬롯 1·보컬 파트 1·스템 1·작가 주장 ASSERTED)를 만들고 포털 사용자로 `GET /portal/works/overview`를 부른다. `stage === 1`, `status === "확인 대기"`, `pendingConfirmations === 1`, `authors`에 작가 표시명. `GET /portal/scopes/:id/readiness`의 `confirmations` 항목이 `ok: "warn"`. 다른 테넌트 사용자에게는 그 곡이 목록에 없다
+- [x] **Step 1: 실패하는 시험** — `test/registry/overview.test.ts`: 기존 레지스트리 픽스처로 곡 1개(범위·녹음·슬롯 1·보컬 파트 1·스템 1·작가 주장 ASSERTED)를 만들고 포털 사용자로 `GET /portal/works/overview`를 부른다. `stage === 1`, `status === "확인 대기"`, `pendingConfirmations === 1`, `authors`에 작가 표시명. `GET /portal/scopes/:id/readiness`의 `confirmations` 항목이 `ok: "warn"`. 다른 테넌트 사용자에게는 그 곡이 목록에 없다
 
-- [ ] **Step 2~4: 구현·통과** — 두 함수는 RLS가 있는 트랜잭션에서 그대로 질의한다(테넌트 범위). `worksOverview`는 곡 하나당 질의를 반복하지 말고 범위별 집계를 한 질의로 모은다(`LEFT JOIN LATERAL (SELECT count(*) …)`). `scopeReadiness`의 `blocks`는 `checkScope(tx, scopeId, now)`(validation/service.ts)를 그대로 부른다. 권한은 `requirePermission(actor, "rights.edit")`가 아니라 조회라서 포털 채널이면 된다(기존 `GET /scopes/:id/summary`와 같은 방식)
+- [x] **Step 2~4: 구현·통과** — 두 함수는 RLS가 있는 트랜잭션에서 그대로 질의한다(테넌트 범위). `worksOverview`는 곡 하나당 질의를 반복하지 말고 범위별 집계를 한 질의로 모은다(`LEFT JOIN LATERAL (SELECT count(*) …)`). `scopeReadiness`의 `blocks`는 `checkScope(tx, scopeId, now)`(validation/service.ts)를 그대로 부른다. 권한은 `requirePermission(actor, "rights.edit")`가 아니라 조회라서 포털 채널이면 된다(기존 `GET /scopes/:id/summary`와 같은 방식)
 
-- [ ] **Step 5: Commit** — `feat(core): 작품 개요(진행 단계)와 IR 생성 준비 조회 — 포털 작품 목록·워크스페이스용`
+- [x] **Step 5: Commit** — `feat(core): 작품 개요(진행 단계)와 IR 생성 준비 조회 — 포털 작품 목록·워크스페이스용`
 
 ---
 
@@ -98,15 +98,15 @@
   export function previewLines(form: PolicyFormValues, price: number, sungSeconds: Record<string, number>): { label: string; won: number; level: 0 | 1 }[];  // 시안 Song-Policy 오른쪽 목록과 같은 계산(표시용 근사, 실제는 /policies/preview)
   ```
 
-- [ ] **Step 1: 시험** — `model.test.ts`에 함수마다 시험 하나 이상. 숫자 예는 시안을 그대로 쓴다:
+- [x] **Step 1: 시험** — `model.test.ts`에 함수마다 시험 하나 이상. 숫자 예는 시안을 그대로 쓴다:
   - `stageBars(1)` → `["done","now","todo","todo","todo"]`
   - `rightsBuckets`: 작가 2(각 5000), 레이블 1(10000), 보이스 소유 7 → 갈래 3개, `totalBps` 10000·10000·(멤버 수 무관하게 표시용 0)
   - `stemMatrix`: 시안 Chorus 1(파트 1 정국·파트 2 지민) + 스템 `원곡 정국`, `원곡 지민`, `진이 파트 2` → 행 2 × 열 7에서 (0,정국)=original, (1,지민)=original, (1,진)=registered, 나머지 empty
   - `previewLines`(권리자 70 · 녹음 40 · 실연 45 · 작품 15, 실연 고정 40 + 부른 시간 60, 3,300원, 시안의 부른 시간) → 플랫폼 825, 운영 165, 권리자 2,310, 녹음 924, 작품 작가 각 173.25, 실연 1,039.5, 정국 기여 ≈ 291.4(소수 1자리 비교)
 
-- [ ] **Step 2~4: 구현·통과** — Run: `npm test -- src/pages/works/model.test.ts`
+- [x] **Step 2~4: 구현·통과** — Run: `npm test -- src/pages/works/model.test.ts`
 
-- [ ] **Step 5: Commit** — `feat(backoffice): 작품·워크스페이스 화면 모델과 API 모듈`
+- [x] **Step 5: Commit** — `feat(backoffice): 작품·워크스페이스 화면 모델과 API 모듈`
 
 ---
 
@@ -121,9 +121,9 @@
 - 표: 관리번호(=workId), 곡명/녹음, 작사·작곡, 원곡 권리(갈래 수), 멤버 스템, 확인 대기, 진행 5단계 막대(`stageBars`), 상태 배지, 열기 → `/works/:workId/rights`
 - 행을 누르면 하단 패널: 탭 개요·원곡 권리·스템·문서·계약·확인·동의·분배 규칙·팩·정산·변경 이력. **조회 전용 요약**과 탭마다 "○○ 관리 →"(`/works/:workId/<탭>`). 개요 탭은 기본정보·진행·IR 생성 준비(`/scopes/:id/readiness`)
 
-- [ ] **Step 1:** 컴포넌트 작성(위 구성. 요약 카드 문구는 시안 Catalog의 `D` 객체 문구를 실제 값으로 채운다)
-- [ ] **Step 2:** Run: `npm run typecheck && npm test` / Expected: 오류 0
-- [ ] **Step 3: Commit** — `feat(backoffice): 포털 작품 목록 — 현황·상태 탭·진행 단계·하단 조회 요약과 탭별 관리 이동`
+- [x] **Step 1:** 컴포넌트 작성(위 구성. 요약 카드 문구는 시안 Catalog의 `D` 객체 문구를 실제 값으로 채운다)
+- [x] **Step 2:** Run: `npm run typecheck && npm test` / Expected: 오류 0
+- [x] **Step 3: Commit** — `feat(backoffice): 포털 작품 목록 — 현황·상태 탭·진행 단계·하단 조회 요약과 탭별 관리 이동`
 
 ---
 
@@ -140,8 +140,8 @@
   - 갈래 합계가 10000bps가 아니면 저장 버튼을 막고 "합계 100%여야 저장" 표시(시안 Work-Edit의 오류 표시)
   - IR 생성 뒤: 모든 수정·삭제 숨김, "새 버전으로 바로잡기"(시안 `Song-Locked`) — 지분은 주장 새 버전, 슬롯·파트는 409 `CATALOG_SEALED` 안내
 
-- [ ] **Step 1~2:** 작성 → typecheck/test
-- [ ] **Step 3: Commit** — `feat(backoffice): 곡 워크스페이스 틀(IR 준비·상태·탭)과 원곡 권리 탭 — 세 갈래·슬롯·파트별 담당·수령 위임`
+- [x] **Step 1~2:** 작성 → typecheck/test
+- [x] **Step 3: Commit** — `feat(backoffice): 곡 워크스페이스 틀(IR 준비·상태·탭)과 원곡 권리 탭 — 세 갈래·슬롯·파트별 담당·수령 위임`
 
 ---
 
@@ -156,8 +156,8 @@
 - 빈 칸을 누르면 같은 자리에 "스템 추가" 폼(슬롯·파트·부른 멤버가 채워짐, 권리 부담, 스템 id 자동 `stm_<slot>_p<part>_<member>`) → `POST /stems` `withClaims: true`
 - 수정·삭제: 2부-A `PUT/DELETE /stems/:id`(IR 생성 전만)
 
-- [ ] **Step 1~2:** 작성 → typecheck/test
-- [ ] **Step 3: Commit** — `feat(backoffice): 스템 탭 — 슬롯 흐름, 보컬 파트 × 멤버 표, 스템 상세·추가(권리 주장 함께)·수정·삭제`
+- [x] **Step 1~2:** 작성 → typecheck/test
+- [x] **Step 3: Commit** — `feat(backoffice): 스템 탭 — 슬롯 흐름, 보컬 파트 × 멤버 표, 스템 상세·추가(권리 주장 함께)·수정·삭제`
 
 ---
 
@@ -170,8 +170,8 @@
   - "계약 만들기" 패널: 템플릿 선택 → 변수(당사자는 명부 선택) → 미리보기(`POST /contracts/preview`) → 작성(`POST /contracts`). **수령 위임은 멤버 여러 명을 고르면 한 사람씩 계약을 만든다**(반복 호출)
   - 기존 `src/pages/contracts/Contracts.tsx`의 마법사 부분을 컴포넌트로 떼어 두 화면이 같이 쓴다(복사하지 않는다)
 
-- [ ] **Step 1~2:** 작성 → typecheck/test
-- [ ] **Step 3: Commit** — `feat(backoffice): 확인·동의 탭(멤버 진행·작가 대조)과 문서·계약 탭(곡별 계약·서명·반영, 수령 위임 여러 건)`
+- [x] **Step 1~2:** 작성 → typecheck/test
+- [x] **Step 3: Commit** — `feat(backoffice): 확인·동의 탭(멤버 진행·작가 대조)과 문서·계약 탭(곡별 계약·서명·반영, 수령 위임 여러 건)`
 
 ---
 
@@ -193,8 +193,8 @@
   - 출시 조건 목록 — `readiness` + 테넌트 상태(`/me`의 `tenantStatus === "ACTIVE"`) + 정책 상태. 조건이 안 되면 버튼 disabled와 이유
   - "출시하면", "출시 뒤 관리"(일시정지 `POST /packs/:id/pause`가 있으면 버튼)
 
-- [ ] **Step 1~2:** 작성 → typecheck/test
-- [ ] **Step 3: Commit** — `feat(backoffice): 분배 규칙·팩 탭(팩·청구권자 자동·규칙 폼·미리보기·컴파일)과 승인·출시 탭(승인·활성화·팩 활성화, 출시 조건)`
+- [x] **Step 1~2:** 작성 → typecheck/test
+- [x] **Step 3: Commit** — `feat(backoffice): 분배 규칙·팩 탭(팩·청구권자 자동·규칙 폼·미리보기·컴파일)과 승인·출시 탭(승인·활성화·팩 활성화, 출시 조건)`
 
 ---
 
@@ -204,8 +204,8 @@
 
 시안 `Song-Create`: 1 곡·녹음(곡 → 범위 자동 → 녹음 + `masterClaim`, 근거 문서 올리기는 기존 원천 문서 업로드 재사용) → 2 원곡 권리(작가 행·균등 분배·합계 검사, 녹음 지분) → 3 멤버(실연자 명부에서 고르기 → 보이스·소유 주장) → 4 확인(요약·확인 요청 보내기). 단계마다 저장, "나중에 이어서"는 작품 목록으로. 끝나면 `/works/:workId/stems`. id는 제목에서 자동(`wrk_<slug>`, `fsc_<slug>`, `rcd_<slug>`), 충돌하면 숫자 꼬리
 
-- [ ] **Step 1~2:** 작성 → typecheck/test
-- [ ] **Step 3: Commit** — `feat(backoffice): 새 곡 워크스페이스 마법사 — 곡·녹음 → 원곡 권리 → 멤버 → 확인`
+- [x] **Step 1~2:** 작성 → typecheck/test
+- [x] **Step 3: Commit** — `feat(backoffice): 새 곡 워크스페이스 마법사 — 곡·녹음 → 원곡 권리 → 멤버 → 확인`
 
 ---
 
@@ -214,5 +214,13 @@
 **Files:** Create `e2e/stack-works.spec.ts`; Modify `docs/데모_가이드.md`, `docs/요건추적표.md`, `00_프로젝트_개요/MVP_E2E_흐름과_화면_매핑_20261022.md`(G10·E09~E40 화면 상태 갱신)
 
 - E2E(데모 스택, 빅히트 관리자 페르소나 — 기존 `e2e/fixtures.ts`의 로그인 도우미): 새 곡 "E2E Song"을 마법사로 만들고(작가 2·레이블·멤버 2) → 스템 탭에서 슬롯 1·보컬 파트 2·스템 2를 추가 → 계약 탭에서 수령 위임 계약 만들기 → 분배 규칙·팩 탭에서 팩 만들기·표준 템플릿·미리보기 표시 확인 → 컴파일 → 원곡 권리 탭이 조회만인지(수정 버튼 없음) → 승인·출시 탭에서 승인. **활성화·출시는 확인 요청이 남아 있어 막히는지**(버튼 disabled와 이유 문구)까지 본다. 실패 API 호출 0(기존 `stack-screens.spec.ts`의 콘솔·네트워크 감시 방식)
-- [ ] Run: `npm run e2e -- e2e/stack-works.spec.ts` / Expected: 통과
-- [ ] 문서 갱신 후 Commit — `test(e2e): 빅히트 작품·워크스페이스 화면 흐름, 문서 갱신`
+- [x] Run: `npm run e2e -- e2e/stack-works.spec.ts` / Expected: 통과
+- [x] 문서 갱신 후 Commit — `test(e2e): 빅히트 작품·워크스페이스 화면 흐름, 문서 갱신`
+
+## 완료 메모(2026-10-22)
+
+- E2E는 데모 스택을 다시 빌드하지 않도록 `e2e/stack-works.spec.ts` 대신 개발 서버용 `e2e/works.spec.ts`로 했다(같은 흐름, 실패 API 0)
+- 없는 API라 숨긴 것: 확인 요청 다시 알림, 실연자 본인 인증 상태, 반려(새 초안), 팩 일시정지, 직무 분리 조회, 곡별 감사 로그(최근 변경·변경 기록 탭), 주장 삭제
+- 코어 보탬: `/me`에 `permissions`(메뉴·버튼 권한), 팬 조합 판정 캐시 키의 파트 번호를 문자열로
+- "표준 템플릿으로"는 컴파일하지 않고 템플릿 폼을 규칙 텍스트로 넣는다(컴파일은 확인 단계 뒤 한 번). 예시 조합 미리보기는 근사(서버 미리보기는 대표 조합만)
+- 새 곡 마법사의 멤버는 공용 명부가 테넌트에 보이지 않아 당사자 id로 찾아 더한다. 보이스 id는 당사자당 하나(`voc_<멤버>`)라 다른 곡에 이미 있으면 막힌다(코어 ID3 한계)
