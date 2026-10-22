@@ -4,6 +4,7 @@ import { audit } from "./audit.ts";
 import type { Clock } from "./clock.ts";
 import { iso, type Tx } from "./db.ts";
 import { conflict, DomainError, notFound } from "./errors.ts";
+import { requirePermission } from "./permissions.ts";
 
 /**
  * 플랫폼 조회의 단계별 통제(다음 작업 7, migrations/0019_inspection.sql).
@@ -128,13 +129,13 @@ export function maskRef(ref: string | null): string | null {
 
 /**
  * 2단계 마스킹 해제: 요청이 unmask=1이면 사유(reason)를 받아 열람 기록(pii_unmasked)을 남기고 원문을 돌려준다.
- * 해제할 수 있는 역할은 정산 담당(SPACE_SETTLE). 기록은 응답과 같은 트랜잭션이라 기록 없이 원문이 나가지 않는다.
+ * 해제할 수 있는 권한은 inspection.unmask(정산 담당). 기록은 응답과 같은 트랜잭션이라 기록 없이 원문이 나가지 않는다.
  */
 export async function unmaskRequested(
   tx: Tx, clock: Clock, actor: Actor, query: Record<string, unknown>, target: { partyId: string; nodeType: string; nodeId: string; ip: string },
 ): Promise<boolean> {
   if (query.unmask !== "1" && query.unmask !== "true") return false;
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "inspection.unmask");
   const reason = typeof query.reason === "string" ? query.reason.trim() : "";
   if (reason === "") throw new DomainError("REASON_REQUIRED", 400, "unmasking needs a reason");
   const tenant = (await tx.query("SELECT tenant_id FROM party WHERE party_id = $1", [target.partyId])).rows[0]?.tenant_id as string | undefined;

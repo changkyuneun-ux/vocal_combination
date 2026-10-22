@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
@@ -10,6 +10,7 @@ import { attest } from "../engine-bridge/attest.ts";
 import { sealDocument } from "../engine-bridge/seal-store.ts";
 import { openDisputeInScope } from "../issuance/service.ts";
 import type { RefundHook, RevisionHook } from "../revenue/service.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type SettleDeps = { db: Db; ctx: BridgeCtx; clock: Clock; jobs: Jobs };
 export type BatchView = {
@@ -32,7 +33,7 @@ export async function releaseRunEvents(tx: Tx, runId: string): Promise<number> {
  * revision-recorded가 무효화·역분개를 끝내면 다음 배치의 후보가 된다).
  */
 export async function createBatch(d: SettleDeps, actor: Actor, input: { batchId: string; periodStart: string; periodEnd: string }) {
-  requireRole(actor, "SPACE_OPS");
+  requirePermission(actor, "settlement.batch_create");
   for (const t of [input.periodStart, input.periodEnd]) {
     if (!INSTANT.test(t) || new Date(t).toISOString() !== t) throw invalid("INVALID_INSTANT", `${t} must be ms UTC ISO`);
   }
@@ -139,9 +140,9 @@ export async function batchView(tx: Tx, batchId: string): Promise<BatchView> {
   return { batchId, status: b.status, runs, progress, skipped };
 }
 
-/** 배치 확정(통합 설계 10.2-7): 살아 있는 run이 모두 VERIFIED일 때 SPACE_SETTLE(생성자와 다른 사람)이 매니페스트에 서명한다. */
+/** 배치 확정(통합 설계 10.2-7): 살아 있는 run이 모두 VERIFIED일 때 settlement.confirm 권한자(규칙이 켜지면 생성자와 다른 사람)가 매니페스트에 서명한다. */
 export async function confirmBatch(d: SettleDeps, actor: Actor, batchId: string): Promise<{ manifestDigest: string }> {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "settlement.confirm");
   return d.db.tx(async (tx) => {
     const b = (await tx.query("SELECT status, executed_by FROM settlement_batch WHERE batch_id = $1 FOR UPDATE", [batchId])).rows[0];
     if (b === undefined) throw notFound("batch", batchId);

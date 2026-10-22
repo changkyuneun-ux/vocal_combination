@@ -1,4 +1,4 @@
-import { requireRole, withSystemScope, type Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
@@ -7,7 +7,7 @@ import type { BridgeCtx } from "../engine-bridge/context.ts";
 import { policyEventTypes } from "../engine-bridge/settle.ts";
 import { ingestRevenue, type RefundHook, type RevisionHook } from "./service.ts";
 import { assertExposed } from "../exposure/service.ts";
-import { withPermissions } from "../platform/permissions.ts";
+import { withPermissions, requirePermission } from "../platform/permissions.ts";
 
 /** 유효 재생 기준: 30초 이상 들었으면 한 번으로 센다. */
 export const COUNTED_MS = 30_000;
@@ -58,7 +58,7 @@ export type PoolInput = { poolId?: unknown; source?: unknown; periodStart?: unkn
 
 /** 기간 수익 풀 등록(정산 담당): 구독 또는 광고 수익의 한 기간치. */
 export async function createPool(tx: Tx, clock: Clock, actor: Actor, i: PoolInput) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "traffic.manage");
   const bad = (m: string) => invalid("INVALID_POOL", m);
   if (typeof i.poolId !== "string" || !ID.test(i.poolId)) throw bad("poolId must be an id");
   if (i.source !== "SUBSCRIPTION" && i.source !== "AD") throw bad("source must be SUBSCRIPTION or AD");
@@ -97,7 +97,7 @@ export function splitByPlays(amount: bigint, plays: { vcId: string; plays: numbe
  * (그대로 넣으면 엔진이 run을 거부해 조합이 격리된다). 한 번만 배정한다. 유효 재생이 없으면 NO_PLAYS로 닫고 금액은 남는다.
  */
 export async function allocatePool(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, poolId: string, onRefund: RefundHook, onRevision: RevisionHook) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "traffic.manage");
   const pool = (await tx.query("SELECT * FROM traffic_pool WHERE pool_id = $1 FOR UPDATE", [poolId])).rows[0];
   if (pool === undefined) throw notFound("traffic pool", poolId);
   if (pool.status !== "OPEN") throw conflict("POOL_ALREADY_ALLOCATED", `pool ${poolId} is ${pool.status}`);

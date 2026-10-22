@@ -1,4 +1,4 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
@@ -7,6 +7,7 @@ import type { Jobs } from "../platform/jobs.ts";
 import { postEntry } from "../ledger/journal.ts";
 import { PAYOUT_KEY_PREFIX } from "./provider.ts";
 import { decide, loadPayoutPolicy, TAX_TYPES, type HoldReason, type ProfileView, type TaxType } from "./policy.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type PayoutDeps = { db: Db; clock: Clock; jobs: Jobs };
 export type InstructionStatus = "PENDING" | "CARRIED" | "HELD";
@@ -16,14 +17,14 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const RUN_ID = /^[A-Za-z0-9.-]{1,100}$/;
 
 /**
- * 지급 프로필(통합 설계 11.2-6, SPACE_SETTLE): 없으면 만들고(first_payable_at = 지금), 있으면 세금 유형·계좌 토큰·KYC·수정 시각만 바꾼다.
+ * 지급 프로필(통합 설계 11.2-6, payout.profile_set): 없으면 만들고(first_payable_at = 지금), 있으면 세금 유형·계좌 토큰·KYC·수정 시각만 바꾼다.
  * payoutAccountRef를 생략하면 기존 값을 두고, null이면 지운다. 계좌 토큰은 PSP 쪽 토큰이다(원문 계좌번호가 아니다).
  * 계좌 토큰이 바뀌면(처음 등록·지움 포함) account_changed_at·account_changed_by를 지금·이 사용자로 쓴다 — 지급 실행의 냉각 기간
  * (ACCOUNT_COOLING)과 직무 분리(ACCOUNT_SOD) 판정에 쓴다. 감사 PAYOUT_PROFILE_SET에 이전 값과 새 값(토큰·세금 유형·KYC)을 남긴다.
  */
 export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
   input: { partyId: string; taxType: string; payoutAccountRef?: string | null; kycVerified: boolean; accountHolderId?: string }) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "payout.profile_set");
   if (!TAX_TYPES.includes(input.taxType as TaxType)) throw invalid("INVALID_TAX_TYPE", `taxType must be one of ${TAX_TYPES.join(", ")}`);
   if (typeof input.kycVerified !== "boolean") throw invalid("INVALID_KYC", "kycVerified must be a boolean");
   const ref = input.payoutAccountRef;
@@ -77,7 +78,7 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
 }
 
 /**
- * 지급 실행(통합 설계 11.2-6, SPACE_SETTLE): PARTY_PAYABLE 계정이 있는 권리자마다 지시 하나를 만든다. 한 트랜잭션.
+ * 지급 실행(통합 설계 11.2-6, payout.run): PARTY_PAYABLE 계정이 있는 권리자마다 지시 하나를 만든다. 한 트랜잭션.
  * 총액 = 미지급금 부채 잔액(asOf 이전 전기의 −합). 단 이미 쓴 PAYOUT·PAYOUT_FAILED 분개는 시각과 무관하게 넣는다 —
  * 앞선 지급의 분개가 이번 asOf보다 늦게 기록됐어도 같은 잔액을 두 번 지급하지 않는다.
  * 프로필은 FOR SHARE로 읽는다: 판정하는 동안 계좌 토큰 변경(setPayoutProfile의 FOR UPDATE)은 이 실행이 끝날 때까지 기다린다.
@@ -88,7 +89,7 @@ export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
  * asOf는 이전 실행들의 최대 asOf보다 앞설 수 없다(422 AS_OF_REGRESSED — 잠금 안에서 검사).
  */
 export async function createPayoutRun(d: PayoutDeps, actor: Actor, input: { payoutRunId: string; asOf: string }) {
-  requireRole(actor, "SPACE_SETTLE");
+  requirePermission(actor, "payout.run");
   if (typeof input.payoutRunId !== "string" || !RUN_ID.test(input.payoutRunId) || input.payoutRunId === "__proto__") {
     throw invalid("INVALID_ID", "payoutRunId must match [A-Za-z0-9.-]{1,100} (no '_')");
   }

@@ -1,9 +1,10 @@
-import { requireRole, type Actor } from "../platform/actor.ts";
+import type { Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import { iso, type Tx } from "../platform/db.ts";
 import { lockBatching } from "../platform/locks.ts";
 import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
+import { requirePermission } from "../platform/permissions.ts";
 
 export type RevenueType = "PURCHASE" | "RESALE" | "TRAFFIC" | "REFUND";
 export type RevenueInput = {
@@ -80,7 +81,7 @@ const samePayload = (a: RevenueRow, b: RevenueInput) =>
 export async function ingestRevenue(
   tx: Tx, clock: Clock, actor: Actor, input: RevenueInput, onRefund: RefundHook, onRevision: RevisionHook,
 ): Promise<{ eventId: string; created: boolean }> {
-  requireRole(actor, "SYSTEM");
+  requirePermission(actor, "revenue.ingest");
   validate(input);
   const revision = input.sourceRevision ?? 1;
   // 잠금은 revision을 뺀 source 키로 잡는다: 같은 source 이벤트의 다른 revision 동시 수집도 직렬화해야 아래 판단이 성립한다.
