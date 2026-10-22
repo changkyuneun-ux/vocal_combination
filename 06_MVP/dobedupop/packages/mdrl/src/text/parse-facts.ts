@@ -215,6 +215,16 @@ function parseFactsProgram(toks: readonly Token[]): FactsDocument {
         expectP(":");
         const slot = id("slot id");
         expectP(";");
+        // 파트 번호(선택, 결정 SL4)
+        let part: string | undefined;
+        if (isW(peek(), "part")) {
+          next();
+          expectP(":");
+          const pt = next();
+          if (pt.kind !== "number" || !/^[1-9][0-9]*$/.test(pt.text)) fail("PARSE_SYNTAX", at(pt), `expected part number, found ${describe(pt)}`);
+          part = pt.text;
+          expectP(";");
+        }
         expectW("rights_bearing");
         expectP(":");
         const rbTok = next();
@@ -222,7 +232,7 @@ function parseFactsProgram(toks: readonly Token[]): FactsDocument {
         if (rightsBearing === null) fail("PARSE_SYNTAX", at(rbTok), "expected boolean true or false");
         expectP(";");
         expectP("}");
-        stems.push({ id: itemId, of: ofRec, slot, rights_bearing: rightsBearing });
+        stems.push({ id: itemId, of: ofRec, slot, ...(part === undefined ? {} : { part }), rights_bearing: rightsBearing });
         break;
       }
       case "claim": {
