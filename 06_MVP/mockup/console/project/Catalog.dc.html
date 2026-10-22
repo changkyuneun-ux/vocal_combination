@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>빅히트 뮤직 작품 목록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop</strong><span style="font-size: 14px; color: #dbeafe">빅히트 뮤직 ▾</span>
+<nav aria-label="주 메뉴" style="display: flex; gap: 4px; flex-wrap: wrap; font-size: 14px"><a href="#" aria-current="page" style="padding: 6px 12px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">작품</a><a href="#" style="padding: 6px 12px; color: #dbeafe; text-decoration: none">모아 보기</a><a href="#" style="padding: 6px 12px; color: #dbeafe; text-decoration: none">분배 규칙·팩</a><a href="#" style="padding: 6px 12px; color: #dbeafe; text-decoration: none">발행·정산</a><a href="#" style="padding: 6px 12px; color: #dbeafe; text-decoration: none">조직</a></nav>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색 · <b>N</b> 새 곡 · <b>Esc</b> 닫기</span>
+</header>
+
+<div style="padding: 18px 24px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div><div style="font-size: 13px; color: #475569">빅히트 뮤직 / 작품</div><h1 style="margin: 2px 0 0; font-size: 26px">작품 관리</h1></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button disabled title="상용 단계(결정 ED1)" style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px dashed #94a3b8; background: #f8fafc; color: #64748b">CSV 일괄 등록 · 상용</button>
+<button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button>
+<a href="Song-Create.dc.html" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">+ 새 곡 워크스페이스</a>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">{{k.label}}</div><div style="font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums">{{k.value}}</div><div style="font-size: 12px; color: #475569">{{k.note}}</div></div>
+</sc-for>
+</div>
+
+<div role="tablist" aria-label="진행 상태" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+<button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 12px; color: #64748b">{{t.count}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="q" style="position: absolute; left: -9999px">작품 검색</label>
+<input id="q" placeholder="곡명, 아티스트, 작사·작곡가, 관리번호, ISRC·ISWC" style="font: inherit; font-size: 14px; flex: 1 1 320px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
+<select aria-label="아티스트" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>아티스트 전체</option></select>
+<select aria-label="정렬" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>최근 등록순</option><option>곡명순</option><option>진행 단계순</option></select>
+<span style="margin-left: auto; font-size: 13px; color: #475569">검색 결과 <b style="color: #0f172a">{{total}}</b>곡 · Dynamite 외는 예시 데이터</span>
+</div>
+</div>
+
+<div style="padding: 10px 24px 0; overflow-x: auto">
+<table style="width: 100%; min-width: 1180px; border-collapse: collapse; font-size: 14px; background: #ffffff; border: 1px solid #e2e8f0">
+<thead><tr style="text-align: left; background: #f1f5f9"><th style="padding: 10px 12px; width: 36px"><input type="checkbox" aria-label="전체 선택"></th><th style="padding: 10px 12px">관리번호</th><th style="padding: 10px 12px">곡명 / 아티스트</th><th style="padding: 10px 12px">작사·작곡</th><th style="padding: 10px 12px">원곡 권리</th><th style="padding: 10px 12px">멤버 스템</th><th style="padding: 10px 12px">확인 대기</th><th style="padding: 10px 12px; min-width: 170px">진행</th><th style="padding: 10px 12px">상태</th><th style="padding: 10px 12px; text-align: right">관리</th></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<tr onClick="{{r.pick}}" style="{{r.rowStyle}}">
+<td style="padding: 10px 12px"><input type="checkbox" aria-label="선택"></td>
+<td style="padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #475569; white-space: nowrap">{{r.id}}</td>
+<td style="padding: 10px 12px"><div style="font-weight: 600">{{r.title}}</div><div style="font-size: 12px; color: #475569">{{r.artist}}</div></td>
+<td style="padding: 10px 12px">{{r.credit}}</td>
+<td style="padding: 10px 12px">{{r.rights}}</td>
+<td style="padding: 10px 12px; font-variant-numeric: tabular-nums">{{r.stems}}</td>
+<td style="padding: 10px 12px; font-variant-numeric: tabular-nums">{{r.pending}}</td>
+<td style="padding: 10px 12px"><div style="display: flex; gap: 3px">
+<sc-for list="{{r.steps}}" as="s" hint-placeholder-count="5"><div style="{{s}}"></div></sc-for>
+</div><div style="font-size: 12px; color: #475569; margin-top: 4px">{{r.stepLabel}}</div></td>
+<td style="padding: 10px 12px"><span style="{{r.statusStyle}}">{{r.status}}</span></td>
+<td style="padding: 10px 12px; text-align: right; white-space: nowrap"><a href="{{r.href}}">열기</a> · <a href="#">수정</a> · <a href="#">삭제</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+
+<section aria-label="선택한 작품" style="flex: 1 1 auto; margin: 14px 24px 24px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; flex-direction: column; min-height: 420px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px 24px 0">
+<div>
+<div style="display: flex; gap: 8px; align-items: center; font-size: 12px; color: #475569"><span style="font-family: 'IBM Plex Mono', monospace">{{sel.id}}</span><span style="{{sel.statusStyle}}">{{sel.status}}</span><span>{{sel.sample}}</span></div>
+<h2 style="margin: 4px 0 0; font-size: 24px">{{sel.title}}</h2>
+<div style="font-size: 13px; color: #475569">{{sel.artist}} · 녹음 {{sel.recording}}</div>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><a href="{{sel.href}}" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">워크스페이스 열기</a><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">수정</button><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">삭제</button></div>
+</div>
+<div role="tablist" aria-label="작품 상세" style="display: flex; gap: 2px; padding: 10px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px">
+<span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">기본정보</span><span style="padding: 8px 14px; color: #475569">원곡 권리</span><span style="padding: 8px 14px; color: #475569">스템</span><span style="padding: 8px 14px; color: #475569">문서·계약</span><span style="padding: 8px 14px; color: #475569">확인·동의</span><span style="padding: 8px 14px; color: #475569">정산</span><span style="padding: 8px 14px; color: #475569">변경 이력</span>
+</div>
+<div style="padding: 18px 24px 22px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<div style="flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px 24px; font-size: 14px">
+<sc-for list="{{sel.info}}" as="f" hint-placeholder-count="10"><div><div style="font-size: 12px; color: #475569">{{f.label}}</div><div style="font-weight: 500">{{f.value}}</div></div></sc-for>
+</div>
+<div style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 8px">
+<strong style="font-size: 15px">진행</strong>
+<sc-for list="{{sel.timeline}}" as="t" hint-placeholder-count="5"><div style="{{t.style}}"><b>{{t.label}}</b><span>{{t.note}}</span></div></sc-for>
+</div>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    const T = ['밤의 정류장', '푸른 계절', 'Lights Out', '서쪽 바람', '파도의 문법', 'Midnight Loop', '오래된 지도'];
+    const A = ['한서윤', '블루노트', 'ORBIT', '정하람', '모노트리', 'LUNA', '김도윤'];
+    const C = ['박지훈', '최유진', '이강민', '정다은', '오세린', '한태오', '서민재'];
+    const plan = [[0, '입력 중'], [1, '확인 대기'], [2, 'IR 생성됨'], [4, '판매 중'], [4, '판매 중'], [0, '입력 중'], [3, '분쟁·보류']];
+    const works = [{
+      id: 'BH-2026-0001', title: 'Dynamite', artist: 'BTS', credit: 'David Stewart · Jessica Agombar', rights: '작품 2 · 녹음 1 · 실연 7', stems: '50 / 50', pending: 50,
+      stage: 1, status: '확인 대기', real: true, recording: 'Vocal Recombination', iswc: '—', isrc: '—', reg: '2026-01-02', members: 'BTS 멤버 7',
+    }].concat(T.map((t, i) => ({
+      id: 'BH-2026-' + String(i + 2).padStart(4, '0'), title: t, artist: A[i], credit: C[i] + ' · ' + C[(i + 3) % 7],
+      rights: plan[i][0] === 0 ? '작품 1 · 녹음 1 · 실연 입력 전' : '작품 2 · 녹음 1 · 실연 ' + (2 + i % 4),
+      stems: plan[i][0] === 0 ? '0 / —' : (4 + i) * 2 + ' / ' + (4 + i) * 2, pending: plan[i][0] === 1 ? 6 + i : 0,
+      stage: plan[i][0], status: plan[i][1], real: false, recording: t + ' (Original)', iswc: '—', isrc: '—', reg: '2026-0' + (i % 9 + 1) + '-1' + i, members: A[i],
+    })));
+    this.works = works;
+    this.state = { selected: works[0].id, tab: 'all' };
+  }
+  renderVals() {
+    const STAGES = ['권리 입력', '확인', 'IR 생성', '팩 활성', '판매'];
+    const tone = { '입력 중': ['#e2e8f0', '#334155'], '확인 대기': ['#fef3c7', '#92400e'], 'IR 생성됨': ['#e0e7ff', '#3730a3'], '판매 중': ['#dcfce7', '#166534'], '분쟁·보류': ['#fee2e2', '#991b1b'] };
+    const pill = (s) => 'font-size: 12px; padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; background: ' + tone[s][0] + '; color: ' + tone[s][1];
+    const tabKeys = [['all', '전체'], ['입력 중', '입력 중'], ['확인 대기', '확인 대기'], ['IR 생성됨', 'IR 생성됨'], ['판매 중', '판매 중'], ['분쟁·보류', '분쟁·보류']];
+    const tabStyle = (on) => 'padding: 8px 14px; margin-bottom: -1px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14px; white-space: nowrap; color: ' + (on ? '#0f172a; font-weight: 600' : '#475569') + '; border-bottom: 2px solid ' + (on ? '#1d4ed8' : 'transparent');
+    const tabs = tabKeys.map(([k, label]) => ({ label, count: k === 'all' ? this.works.length : this.works.filter((w) => w.status === k).length, style: tabStyle(this.state.tab === k), pick: () => this.setState({ tab: k }) }));
+    const list = this.works.filter((w) => this.state.tab === 'all' || w.status === this.state.tab);
+    const rows = list.map((w) => {
+      const on = w.id === this.state.selected;
+      return {
+        ...w, statusStyle: pill(w.status), href: w.real ? 'Song-Home.dc.html' : '#',
+        rowStyle: 'cursor: pointer; border-top: 1px solid #e2e8f0; ' + (on ? 'background: #eff6ff; box-shadow: inset 3px 0 0 #1d4ed8' : ''),
+        steps: STAGES.map((_, i) => 'flex: 1 1 0; height: 6px; border-radius: 3px; background: ' + (i < w.stage ? '#1d4ed8' : i === w.stage ? '#93c5fd' : '#e2e8f0')),
+        stepLabel: STAGES[Math.min(w.stage, 4)] + (w.stage >= 4 ? '' : ' 단계'),
+        pick: () => this.setState({ selected: w.id }),
+      };
+    });
+    const w = this.works.find((x) => x.id === this.state.selected) || this.works[0];
+    const sel = {
+      ...w, statusStyle: pill(w.status), sample: w.real ? '데모 데이터' : '예시 데이터', href: w.real ? 'Song-Home.dc.html' : '#',
+      info: [['곡명', w.title], ['아티스트', w.artist], ['작사·작곡', w.credit], ['녹음', w.recording], ['마스터', '빅히트 뮤직(레이블)'], ['실연자', w.members], ['원곡 권리', w.rights], ['멤버 스템', w.stems], ['ISWC · ISRC', w.iswc + ' · ' + w.isrc], ['등록', w.reg]].map(([label, value]) => ({ label, value })),
+      timeline: STAGES.map((label, i) => ({
+        label,
+        note: i < w.stage ? '완료' : i === w.stage ? (w.real && i === 1 ? '멤버 확인 48 · 작가 원문 대조 2 남음' : '진행 중') : '대기',
+        style: 'display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; ' + (i < w.stage ? 'background: #eff6ff; color: #1e3a8a' : i === w.stage ? 'background: #ffffff; border: 2px solid #1d4ed8' : 'background: #f8fafc; color: #475569'),
+      })),
+    };
+    const count = (s) => this.works.filter((x) => x.status === s).length;
+    const kpis = [
+      { label: '전체 곡', value: this.works.length, note: '빅히트 뮤직 등록' },
+      { label: '권리 입력 중', value: count('입력 중'), note: '원곡 권리·스템' },
+      { label: '확인 대기', value: count('확인 대기'), note: '확인 요청 ' + this.works.reduce((a, x) => a + x.pending, 0) + '건' },
+      { label: 'IR 생성됨', value: count('IR 생성됨'), note: '분배 규칙 고정' },
+      { label: '판매 중', value: count('판매 중'), note: '팩 활성' },
+      { label: '분쟁·보류', value: count('분쟁·보류'), note: '처리 필요' },
+    ];
+    return { kpis, tabs, rows, total: list.length, sel };
+  }
+}
+</script>
+</body>
+</html>
