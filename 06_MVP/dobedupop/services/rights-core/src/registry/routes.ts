@@ -9,6 +9,8 @@ import { optFilter, parsePage } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 import { parseRefs } from "../documents/service.ts";
 import { rightsSummary } from "./summary.ts";
+import { worksOverview } from "./overview.ts";
+import { scopeReadiness } from "./readiness.ts";
 import { linkClause } from "./evidence-links.ts";
 import { revalidate } from "../validation/service.ts";
 import { applyTrustOnClaim } from "../participants/links.ts";
@@ -204,6 +206,9 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     withActor(deps, req, async (tx, actor) => decided(tx, await platformVerify(tx, deps.clock, actor, Number(req.params.id), req.body?.reason))));
   // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
   app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
+  // 포털 작품 목록·곡 워크스페이스(2부-B): 작품 개요(진행 단계)와 IR 생성 준비. 조회라 보이는 곡이면 된다(RLS).
+  app.get("/works/overview", async (req) => withActor(deps, req, (tx) => worksOverview(tx)));
+  app.get<{ Params: { id: string } }>("/scopes/:id/readiness", async (req) => withActor(deps, req, (tx) => scopeReadiness(tx, req.params.id, deps.clock.now())));
   app.get("/disputes", async (req) =>
     withActor(deps, req, (tx) => q.listDisputes(tx, { status: optFilter(q0(req), "status"), scope: optFilter(q0(req), "scope") }, parsePage(q0(req)))));
 }
