@@ -41,6 +41,7 @@ import { Pipeline } from "../pages/monitor/Pipeline.tsx";
 import { StemAudioPage } from "../pages/audio/Audio.tsx";
 import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx";
 import { WorksCatalog } from "../pages/works/Catalog.tsx";
+import { Workspace } from "../pages/works/Workspace.tsx";
 import type { AppKind } from "./apps.ts";
 
 export function Placeholder({ title }: { title: string }) {
@@ -81,6 +82,7 @@ const rightsRoutes: RouteDef[] = [
 /** 포털 작품 목록·곡 워크스페이스(2부-B, 결정 ED3). */
 const worksRoutes: RouteDef[] = [
   { path: "/works", title: "작품 관리", element: <WorksCatalog /> },
+  { path: "/works/:workId/:tab", title: "곡 워크스페이스", element: <Workspace /> },
 ];
 
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
