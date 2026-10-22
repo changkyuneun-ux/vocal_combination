@@ -65,6 +65,8 @@ test("ops invites the tenant's first administrator, who invites the staff; staff
   const cookie = cookieOf(r);
   const me = await app.inject({ method: "GET", url: "/portal/me", headers: { cookie } });
   assert.equal(me.json().userId, "usr_bh_rights");
+  // 화면은 /me의 권한으로 메뉴·버튼을 보인다(1부 RBAC, 2부-B).
+  assert.ok(me.json().permissions.includes("rights.edit"), JSON.stringify(me.json()));
   // 상태를 바꾸는 요청은 CSRF 헤더가 있어야 한다.
   const noCsrf = await app.inject({ method: "POST", url: "/portal/works", headers: { cookie }, payload: { workId: "wrk_x", title: "X" } });
   assert.equal(noCsrf.json().code, "CSRF_REQUIRED");

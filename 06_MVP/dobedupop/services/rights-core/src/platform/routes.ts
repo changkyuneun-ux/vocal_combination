@@ -19,7 +19,7 @@ export function platformRoutes(app: FastifyInstance, deps: Deps): void {
     withActor(deps, req, async (tx, actor) => {
       const u = (await tx.query("SELECT display_name FROM user_account WHERE user_id = $1", [actor.userId])).rows[0];
       return {
-        userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort(), tenantId: actor.tenantId, tenantType: actor.tenantType,
+        userId: actor.userId, displayName: u.display_name as string, roles: [...actor.roles].sort(), permissions: [...actor.permissions].sort(), tenantId: actor.tenantId, tenantType: actor.tenantType,
         orgClass: actor.orgClass, tenantStatus: actor.tenantStatus, scope: actor.scope, ...(actor.readOnly && { readOnly: true }),
         ...(actor.actingOnBehalfOf !== undefined && { actingOnBehalfOf: actor.actingOnBehalfOf }),
         memberships: await withSystemScope(tx, () => listMemberships(tx, actor.userId)),
