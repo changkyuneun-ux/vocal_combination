@@ -112,7 +112,10 @@ export function slotShareBps(performers: readonly string[]): Record<string, numb
 /** 팬앱 조합의 기본 이용 범위. 발행 요청이 usage를 주지 않으면 이 범위로 이용허락을 판정한다. */
 export const FAN_APP_USAGE: Usage = { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] };
 
-export type IssueInput = { packId: string; vcId: string; assignments: { slotId: string; stemId: string }[]; members: Record<string, number>; usage?: Usage };
+/** 배정의 파트 번호(선택, 결정 SL1): 없으면 파트 1. */
+export const validPartNo = (v: unknown): boolean => v === undefined || (Number.isInteger(v) && (v as number) >= 1);
+
+export type IssueInput = { packId: string; vcId: string; assignments: { slotId: string; partNo?: number; stemId: string }[]; members: Record<string, number>; usage?: Usage };
 
 /**
  * F3(통합 설계 5.3, 9.3-6·7): 한 트랜잭션에서 스냅샷을 쓰고 발행 봉인을 만든다. 하나라도 실패하면 아무것도 남지 않는다.
@@ -133,21 +136,36 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
 
   const bad = (m: string) => invalid("INVALID_ISSUE", m);
   if (input.assignments.length === 0) throw bad("assignments must not be empty");
-  if (new Set(input.assignments.map((a) => a.slotId)).size !== input.assignments.length) throw bad("duplicate slot in assignments");
+  // 배정 = 슬롯·파트마다 스템 하나(결정 SL1). partNo가 없으면 파트 1(하위 호환).
+  const picks = input.assignments.map((a) => ({ slotId: a.slotId, partNo: a.partNo ?? 1, stemId: a.stemId }));
+  if (picks.some((a) => !Number.isInteger(a.partNo) || a.partNo < 1)) throw bad("partNo must be a positive integer");
+  if (new Set(picks.map((a) => `${a.slotId}#${a.partNo}`)).size !== picks.length) throw bad("duplicate slot part in assignments");
   const stems = (await tx.query(
-    `SELECT st.stem_id, st.slot_id, st.performer_party_id, st.rights_bearing, sl.start_ms, sl.end_ms, sl.duration_ms, s.facts_scope_id
-       FROM stem st JOIN part_slot sl ON sl.slot_id = st.slot_id
+    `SELECT st.stem_id, st.slot_id, st.part_no, st.performer_party_id, st.rights_bearing, p.kind, p.start_ms, p.end_ms, p.duration_ms, s.facts_scope_id
+       FROM stem st JOIN slot_part p ON p.slot_id = st.slot_id AND p.part_no = st.part_no
        JOIN recording_version r ON r.recording_id = st.recording_id JOIN facts_scope s ON s.work_id = r.work_id
       WHERE st.stem_id = ANY($1)`,
-    [input.assignments.map((a) => a.stemId)],
+    [picks.map((a) => a.stemId)],
   )).rows;
   const byStem = new Map(stems.map((s) => [s.stem_id as string, s]));
-  for (const a of input.assignments) {
+  for (const a of picks) {
     const s = byStem.get(a.stemId);
-    if (s === undefined || s.slot_id !== a.slotId || s.facts_scope_id !== pack.factsScopeId) throw bad(`stem ${a.stemId} is not in slot ${a.slotId} of this song`);
+    if (s === undefined || s.slot_id !== a.slotId || s.part_no !== a.partNo || s.facts_scope_id !== pack.factsScopeId) throw bad(`stem ${a.stemId} is not in slot ${a.slotId} part ${a.partNo} of this song`);
+  }
+  // 배정한 슬롯의 보컬 파트는 모두 채워야 한다(SL1). 그룹 파트는 원곡 그룹 스템으로만(SL7).
+  const vocal = (await tx.query(
+    "SELECT slot_id, part_no FROM slot_part WHERE kind = 'VOCAL' AND slot_id = ANY($1) ORDER BY slot_id, part_no",
+    [[...new Set(picks.map((a) => a.slotId))]],
+  )).rows;
+  const missing = vocal.filter((v) => !picks.some((a) => a.slotId === v.slot_id && a.partNo === v.part_no));
+  if (missing.length > 0) throw invalid("PART_MISSING", `vocal parts are not assigned: ${missing.map((m) => `${m.slot_id}#${m.part_no}`).join(", ")}`);
+  for (const a of picks) {
+    if (byStem.get(a.stemId)!.kind === "GROUP" && !(await isOriginalGroupStem(tx, a.stemId))) {
+      throw invalid("GROUP_PART_FIXED", `slot ${a.slotId} part ${a.partNo} is a group part; only its original stem can be used`);
+    }
   }
   // 오디오를 올린 스템은 검수·출처 검사를 통과(READY)해야 쓸 수 있다(다음 작업 9). 오디오 없이 등록된 메타데이터 스템은 검사 대상이 아니다.
-  const notReady = (await tx.query("SELECT stem_id, status FROM stem_audio WHERE stem_id = ANY($1) AND status <> 'READY' ORDER BY stem_id", [input.assignments.map((a) => a.stemId)])).rows;
+  const notReady = (await tx.query("SELECT stem_id, status FROM stem_audio WHERE stem_id = ANY($1) AND status <> 'READY' ORDER BY stem_id", [picks.map((a) => a.stemId)])).rows;
   if (notReady.length > 0) {
     throw invalid("STEM_NOT_READY", `stems are not ready: ${notReady.map((r) => `${r.stem_id}:${r.status}`).join(", ")}`,
       notReady.map((r) => ({ code: "STEM_NOT_READY", path: `$.assignments.${r.stem_id}`, message: `stem audio is ${r.status}` })));
@@ -158,14 +176,14 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   const known = (await tx.query("SELECT party_id FROM party WHERE party_id = ANY($1)", [memberEntries.map(([p]) => p)])).rows.length;
   if (known !== memberEntries.length) throw bad("unknown member party");
   // 멤버는 배정된 정산 대상 스템을 실연한 party여야 한다(레이블·작가 등은 멤버 비율을 받을 수 없다).
-  const performers = new Set(input.assignments.map((a) => byStem.get(a.stemId)!).filter((s) => s.rights_bearing && s.performer_party_id !== null).map((s) => s.performer_party_id as string));
+  const performers = new Set(picks.map((a) => byStem.get(a.stemId)!).filter((s) => s.rights_bearing && s.performer_party_id !== null).map((s) => s.performer_party_id as string));
   const outsiders = memberEntries.map(([p]) => p).filter((p) => !performers.has(p));
   if (outsiders.length > 0) throw bad(`members must perform an assigned rights-bearing stem: ${outsiders.sort().join(", ")}`);
 
   const issuedAt = clock.now();
   const license = await decideIssueLicense(tx, {
-    factsScopeId: pack.factsScopeId, stemIds: input.assignments.map((a) => a.stemId),
-    rightsBearingStemIds: input.assignments.filter((a) => byStem.get(a.stemId)!.rights_bearing).map((a) => a.stemId),
+    factsScopeId: pack.factsScopeId, stemIds: picks.map((a) => a.stemId),
+    rightsBearingStemIds: picks.filter((a) => byStem.get(a.stemId)!.rights_bearing).map((a) => a.stemId),
     usage: input.usage ?? FAN_APP_USAGE, at: issuedAt,
   });
   if (license.decision.result !== "PERMIT" && license.decision.result !== "PERMIT_WITH_OBLIGATION") {
@@ -175,13 +193,15 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   await tx.query("INSERT INTO rights_snapshot (snapshot_id, vc_id, pack_id, policy_id, policy_version, created_at, issued_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
     [snapshotId, input.vcId, input.packId, active.policyId, active.version, issuedAt, actor.userId]);
   const usageMs: Record<string, number> = {};
-  for (const a of input.assignments) {
+  for (const a of picks) {
     const s = byStem.get(a.stemId)!;
     await tx.query(
-      "INSERT INTO snapshot_stem_assignment (snapshot_id, slot_id, stem_id, party_id, start_ms, end_ms, duration_ms, rights_bearing) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [snapshotId, a.slotId, a.stemId, s.performer_party_id, s.start_ms, s.end_ms, s.duration_ms, s.rights_bearing],
+      "INSERT INTO snapshot_stem_assignment (snapshot_id, slot_id, part_no, stem_id, party_id, start_ms, end_ms, duration_ms, rights_bearing) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [snapshotId, a.slotId, a.partNo, a.stemId, s.performer_party_id, s.start_ms, s.end_ms, s.duration_ms, s.rights_bearing],
     );
-    if (s.rights_bearing) usageMs[a.stemId] = (usageMs[a.stemId] ?? 0) + (s.duration_ms as number);
+    // 사용 시간 = 파트 길이(SL2). 그룹 파트는 넣지 않는다(SL7). 반주 파트의 스템은 권리 부담이 없어 빠진다(SL6) —
+    // 파트를 따로 주지 않고 만든 기존 슬롯(반주 파트 1에 권리 부담 스템)은 지금처럼 넣는다.
+    if (s.rights_bearing && s.kind !== "GROUP") usageMs[a.stemId] = (usageMs[a.stemId] ?? 0) + (s.duration_ms as number);
   }
   for (const [party, bps] of memberEntries) {
     await tx.query("INSERT INTO snapshot_member_pct (snapshot_id, party_id, pct_bps) VALUES ($1,$2,$3)", [snapshotId, party, bps]);
@@ -193,7 +213,7 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   await audit(tx, clock, { actor: actor.userId, action: "ISSUED", entityType: "rights_snapshot", entityId: snapshotId, after: { projection: seal.projectionDigest, license: license.decision.digest } });
   // 실연자 앱 알림: 내 보이스(스템)가 새 조합에 쓰였다.
   const used = new Map<string, string[]>();
-  for (const a of input.assignments) {
+  for (const a of picks) {
     const s = byStem.get(a.stemId)!;
     if (s.rights_bearing && s.performer_party_id !== null) used.set(s.performer_party_id as string, [...(used.get(s.performer_party_id as string) ?? []), a.slotId]);
   }
@@ -203,7 +223,15 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
   return seal;
 }
 
-const GATE_CODES = new Set(["ISSUE_NOT_LICENSED", "ISSUE_NOT_SETTLEABLE", "STEM_NOT_READY", "INVALID_ISSUE", "PACK_NOT_ACTIVE", "FACTS_DISPUTE_OPEN", "REBIND_REQUIRED", "NO_ACTIVE_POLICY"]);
+/** 그룹 파트의 원곡 스템 = 그 파트에 처음 등록된 스템(SL7). */
+async function isOriginalGroupStem(tx: Tx, stemId: string): Promise<boolean> {
+  const r = (await tx.query(
+    `SELECT o.stem_id FROM stem st JOIN stem o ON o.slot_id = st.slot_id AND o.part_no = st.part_no
+      WHERE st.stem_id = $1 ORDER BY o.created_at, o.stem_id LIMIT 1`, [stemId])).rows[0];
+  return r?.stem_id === stemId;
+}
+
+const GATE_CODES = new Set(["PART_MISSING", "GROUP_PART_FIXED", "ISSUE_NOT_LICENSED", "ISSUE_NOT_SETTLEABLE", "STEM_NOT_READY", "INVALID_ISSUE", "PACK_NOT_ACTIVE", "FACTS_DISPUTE_OPEN", "REBIND_REQUIRED", "NO_ACTIVE_POLICY"]);
 
 /**
  * 발행 게이트 거부를 관제용으로 남긴다(⑧ 게이트 거부율). 발행 트랜잭션은 롤백되므로 별도 트랜잭션(system 범위)으로 쓴다.

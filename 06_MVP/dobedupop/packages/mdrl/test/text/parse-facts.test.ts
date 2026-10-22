@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { formatFacts } from "../../src/text/format-facts.ts";
 import { parseFacts, compileFacts } from "../../src/text/parse-facts.ts";
 import type { FactsDocument } from "../../src/facts/types.ts";
+import { validateFacts } from "../../src/facts/validate.ts";
 
 const sampleFacts: FactsDocument = {
   mdrl: "1.0",
@@ -90,4 +91,21 @@ test("parseFacts reports syntax errors with line:col", () => {
     assert.equal(parsed.errors[0].code, "PARSE_SYNTAX");
     assert.equal(parsed.errors[0].path.startsWith("@2:"), true);
   }
+});
+
+test("stem part is optional: absent keeps the text, present round-trips (결정 SL4)", () => {
+  const base = sampleFacts;
+  const withPart: FactsDocument = { ...base, body: { ...base.body, stems: base.body.stems.map((s, i) => (i === 0 ? { ...s, part: "2" } : s)) } };
+  assert.deepEqual(validateFacts(base), []);
+  assert.deepEqual(validateFacts(withPart), []);
+  const text = formatFacts(withPart);
+  assert.match(text, /slot: s_lead; part: 2; rights_bearing: true;/);
+  const parsed = parseFacts(text);
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) assert.deepEqual(parsed.value.body.stems, withPart.body.stems);
+  assert.doesNotMatch(formatFacts(base), /part:/);
+  const back = parseFacts(formatFacts(base));
+  if (back.ok) assert.equal("part" in back.value.body.stems[0]!, false);
+  const bad = { ...base, body: { ...base.body, stems: [{ ...base.body.stems[0]!, part: "0" }] } };
+  assert.equal(validateFacts(bad).some((d) => d.path === "$.body.stems[0].part"), true);
 });

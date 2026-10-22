@@ -39,7 +39,7 @@ export function formatFacts(doc: FactsDocument): string {
   for (const r of b.recordings) lines.push(`  recording ${idText(r.id)} { of: ${idText(r.of)};${idsText(r.ids)} }`);
   for (const v of b.voices) lines.push(`  voice ${idText(v.id)} { kind: ${v.kind}; }`);
   for (const s of b.stems) {
-    lines.push(`  stem ${idText(s.id)} { of: ${idText(s.of)}; slot: ${idText(s.slot)}; rights_bearing: ${s.rights_bearing}; }`);
+    lines.push(`  stem ${idText(s.id)} { of: ${idText(s.of)}; slot: ${idText(s.slot)};${s.part === undefined ? "" : ` part: ${s.part};`} rights_bearing: ${s.rights_bearing}; }`);
   }
   for (const c of b.claims) {
     lines.push(

@@ -16,8 +16,8 @@ function parseIssueBody(body: unknown): issuance.IssueInput {
   if (!isObject(body)) throw fail("body must be an object");
   const { packId, vcId, assignments, members, usage } = body;
   if (typeof packId !== "string" || typeof vcId !== "string") throw fail("packId and vcId must be strings");
-  if (!Array.isArray(assignments) || !assignments.every((a) => isObject(a) && typeof a.slotId === "string" && typeof a.stemId === "string")) {
-    throw fail("assignments must be an array of {slotId, stemId} strings");
+  if (!Array.isArray(assignments) || !assignments.every((a) => isObject(a) && typeof a.slotId === "string" && typeof a.stemId === "string" && issuance.validPartNo(a.partNo))) {
+    throw fail("assignments must be an array of {slotId, partNo?, stemId} (partNo a positive integer)");
   }
   if (!isObject(members) || !Object.values(members).every((v) => Number.isInteger(v))) throw fail("members must be an object of integer bps");
   // 이용 범위(선택): 없으면 팬앱 기본 범위(FAN_APP_USAGE)로 이용허락을 판정한다.
@@ -27,7 +27,7 @@ function parseIssueBody(body: unknown): issuance.IssueInput {
   }
   return {
     packId, vcId,
-    assignments: assignments.map((a) => ({ slotId: a.slotId as string, stemId: a.stemId as string })),
+    assignments: assignments.map((a) => ({ slotId: a.slotId as string, ...(a.partNo !== undefined && { partNo: a.partNo as number }), stemId: a.stemId as string })),
     members: members as Record<string, number>,
     ...(usage !== undefined && { usage: Object.fromEntries(dims.map((k) => [k, [...(usage as Record<string, string[]>)[k]!]])) as unknown as issuance.Usage }),
   };

@@ -59,8 +59,8 @@ export async function seedSyntheticSong(tx: Tx, clock: Clock, rights: Actor): Pr
   await reg.createScope(tx, clock, { factsScopeId: SONG.scope, workId: "wrk_nova_summer" });
   await reg.registerRecording(tx, clock, { recordingId: "rcd_nova_summer", workId: "wrk_nova_summer", masterOwnerPartyId: "pty_label", versionTitle: "Main" });
   let sort = 1;
-  for (const s of SONG.slots) await reg.registerSlot(tx, { slotId: s.id, recordingId: "rcd_nova_summer", startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
-  await reg.registerSlot(tx, { slotId: "slt_mr", recordingId: "rcd_nova_summer", startMs: 0, endMs: 180000, sortOrder: sort });
+  for (const s of SONG.slots) await reg.registerSlot(tx, clock, { slotId: s.id, recordingId: "rcd_nova_summer", startMs: s.startMs, endMs: s.endMs, sortOrder: sort++ });
+  await reg.registerSlot(tx, clock, { slotId: "slt_mr", recordingId: "rcd_nova_summer", startMs: 0, endMs: 180000, sortOrder: sort });
   await reg.registerStem(tx, clock, { stemId: "stm_mr", slotId: "slt_mr", recordingId: "rcd_nova_summer", rightsBearing: false });
   const base = { factsScopeId: SONG.scope, status: "VERIFIED" as const, validFrom: T0 };
   for (const m of SONG.members) {

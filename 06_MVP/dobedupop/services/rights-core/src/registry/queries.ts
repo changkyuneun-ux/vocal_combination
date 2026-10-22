@@ -85,6 +85,9 @@ export async function getScopeFacts(tx: Tx, scopeId: string) {
   // 한 PoolClient에서는 쿼리를 순차로 실행한다(동시 실행은 pg 경고).
   const recordings = await q("SELECT * FROM recording_version WHERE work_id = $1 ORDER BY recording_id", [s.work_id]);
   const slots = await q("SELECT p.* FROM part_slot p JOIN recording_version r ON r.recording_id = p.recording_id WHERE r.work_id = $1 ORDER BY p.slot_id", [s.work_id]);
+  const parts = await q(
+    `SELECT sp.* FROM slot_part sp JOIN part_slot p ON p.slot_id = sp.slot_id JOIN recording_version r ON r.recording_id = p.recording_id
+      WHERE r.work_id = $1 ORDER BY sp.slot_id, sp.part_no`, [s.work_id]);
   const stems = await q("SELECT t.* FROM stem t JOIN recording_version r ON r.recording_id = t.recording_id WHERE r.work_id = $1 ORDER BY t.stem_id", [s.work_id]);
   const voices = await q("SELECT * FROM voice WHERE facts_scope_id = $1 ORDER BY voice_id", [scopeId]);
   const claims = await q("SELECT * FROM right_claim WHERE facts_scope_id = $1 ORDER BY claim_id, version", [scopeId]);
@@ -97,10 +100,15 @@ export async function getScopeFacts(tx: Tx, scopeId: string) {
     })),
     slots: slots.map((r) => ({
       slotId: r.slot_id as string, recordingId: r.recording_id as string, startMs: r.start_ms as number, endMs: r.end_ms as number,
-      durationMs: r.duration_ms as number, sortOrder: r.sort_order as number,
+      durationMs: r.duration_ms as number, sortOrder: r.sort_order as number, sectionLabel: r.section_label as string | null,
+      // 파트(결정 SL1): 슬롯 안 원곡 트랙 — 보컬·그룹·반주
+      parts: parts.filter((p) => p.slot_id === r.slot_id).map((p) => ({
+        partNo: p.part_no as number, kind: p.kind as string, role: p.role as string | null, startMs: p.start_ms as number, endMs: p.end_ms as number,
+        durationMs: p.duration_ms as number, originalPartyId: p.original_party_id as string | null,
+      })),
     })),
     stems: stems.map((r) => ({
-      stemId: r.stem_id as string, slotId: r.slot_id as string, recordingId: r.recording_id as string,
+      stemId: r.stem_id as string, slotId: r.slot_id as string, partNo: r.part_no as number, recordingId: r.recording_id as string,
       performerPartyId: r.performer_party_id as string | null, rightsBearing: r.rights_bearing as boolean, createdAt: ts(r.created_at)!,
     })),
     voices: voices.map((r) => ({ voiceId: r.voice_id as string, factsScopeId: r.facts_scope_id as string, kind: r.kind as string, createdAt: ts(r.created_at)! })),

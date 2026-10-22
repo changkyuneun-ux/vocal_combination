@@ -22,7 +22,7 @@ const ALLOWED_KEYS = {
   work: ["id", "ids"],
   recording: ["id", "of", "ids"],
   voice: ["id", "kind"],
-  stem: ["id", "of", "slot", "rights_bearing"],
+  stem: ["id", "of", "slot", "part", "rights_bearing"],
   claim: [
     "id", "source", "edge", "target", "share", "performer_role", "role_detail",
     "status", "valid", "recorded_at", "superseded_at", "evidence", "visibility",
@@ -165,6 +165,9 @@ function validateStructure(doc: unknown, mode: "raw" | "public"): Diagnostic[] {
     out.push(...unknownKeys(x, "stem", p));
     ref(x.of, "recording", `${p}.of`);
     text(x.slot, `${p}.slot`);
+    // 파트 번호(선택, 결정 SL4): 파트가 둘 이상인 슬롯만 적는다.
+    text(x.part, `${p}.part`, true);
+    if (typeof x.part === "string" && !/^[1-9][0-9]*$/.test(x.part)) out.push(diag("CORE_TYPE_ERROR", `${p}.part`, "part must be a positive integer string"));
     if (typeof x.rights_bearing !== "boolean") out.push(diag("CORE_TYPE_ERROR", `${p}.rights_bearing`));
   });
 

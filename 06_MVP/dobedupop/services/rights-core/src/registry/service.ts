@@ -83,17 +83,43 @@ export async function registerRecording(tx: Tx, clock: Clock, r: { recordingId: 
     [r.recordingId, r.workId, r.masterOwnerPartyId, r.isrc ?? null, r.versionTitle, at]);
 }
 
-export async function registerSlot(tx: Tx, s: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number }): Promise<void> {
-  await tx.query("INSERT INTO part_slot (slot_id, recording_id, start_ms, end_ms, sort_order) VALUES ($1,$2,$3,$4,$5)",
-    [s.slotId, s.recordingId, s.startMs, s.endMs, s.sortOrder]);
-}
+export type PartKind = "VOCAL" | "GROUP" | "INSTRUMENT";
+export type PartRole = "LEAD" | "HARMONY" | "ADLIB" | "UNISON" | "RAP";
+export type SlotPartInput = { partNo: number; kind: PartKind; role?: PartRole; startMs: number; endMs: number; originalPartyId?: string };
 
-export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; slotId: string; recordingId: string; performerPartyId?: string; rightsBearing: boolean }): Promise<void> {
+/** 슬롯 = 원곡 흐름 구간(SL1). 파트를 주지 않으면 슬롯 전체 길이의 반주 파트 1을 만든다. */
+export async function registerSlot(tx: Tx, clock: Clock, s: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number; sectionLabel?: string; parts?: SlotPartInput[] }): Promise<void> {
+  // 시계는 한 번만 읽는다(단계 시계를 쓰는 시나리오의 이후 시각이 밀리지 않게).
   const at = clock.now();
   await fenceRecording(tx, s.recordingId, at);
-  await tx.query("INSERT INTO stem (stem_id, slot_id, recording_id, performer_party_id, rights_bearing, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-    [s.stemId, s.slotId, s.recordingId, s.performerPartyId ?? null, s.rightsBearing, at]);
+  await tx.query("INSERT INTO part_slot (slot_id, recording_id, start_ms, end_ms, sort_order, section_label) VALUES ($1,$2,$3,$4,$5,$6)",
+    [s.slotId, s.recordingId, s.startMs, s.endMs, s.sortOrder, s.sectionLabel ?? null]);
+  for (const p of s.parts ?? [{ partNo: 1, kind: "INSTRUMENT" as const, startMs: s.startMs, endMs: s.endMs }]) await insertPart(tx, s.slotId, p, at);
 }
+
+/** 파트 = 슬롯 안 원곡 트랙(SL1·SL6·SL7). 보컬은 원곡 담당 멤버가 있어야 한다. */
+export async function registerSlotPart(tx: Tx, clock: Clock, slotId: string, p: SlotPartInput): Promise<void> {
+  const r = (await tx.query("SELECT recording_id FROM part_slot WHERE slot_id = $1", [slotId])).rows[0];
+  if (r === undefined) throw invalid("INVALID_REFERENCE", `slot ${slotId} does not exist`);
+  const at = clock.now();
+  await fenceRecording(tx, r.recording_id, at);
+  await insertPart(tx, slotId, p, at);
+}
+
+async function insertPart(tx: Tx, slotId: string, p: SlotPartInput, at: string): Promise<void> {
+  await tx.query("INSERT INTO slot_part (slot_id, part_no, kind, role, start_ms, end_ms, original_party_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+    [slotId, p.partNo, p.kind, p.role ?? null, p.startMs, p.endMs, p.originalPartyId ?? null, at]);
+}
+
+export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; slotId: string; partNo?: number; recordingId: string; performerPartyId?: string; rightsBearing: boolean }): Promise<void> {
+  const at = clock.now();
+  await fenceRecording(tx, s.recordingId, at);
+  await tx.query("INSERT INTO stem (stem_id, slot_id, part_no, recording_id, performer_party_id, rights_bearing, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [s.stemId, s.slotId, s.partNo ?? 1, s.recordingId, s.performerPartyId ?? null, s.rightsBearing, at]);
+}
+
+/** 실연자 보이스 id 규칙(결정 ID3): pty_ 접두어를 떼고 voc_를 붙인다(pty_jimin → voc_jimin, pb → voc_pb). */
+export const voiceIdFor = (partyId: string): string => `voc_${partyId.replace(/^pty_/, "")}`;
 
 export async function registerVoice(tx: Tx, clock: Clock, v: { voiceId: string; factsScopeId: string; kind: "HUMAN" | "AI" }): Promise<void> {
   const at = clock.now();

@@ -59,7 +59,9 @@ export async function rederiveIssue(ctx: BridgeCtx, tx: Tx, snapshotId: string) 
     membersDigest: s.members_digest, asOf: iso(s.as_of)!, knownAt: iso(s.known_at)!,
   };
   const usageMs: Record<string, number> = {};
-  for (const r of (await tx.query("SELECT stem_id, duration_ms FROM snapshot_stem_assignment WHERE snapshot_id = $1 AND rights_bearing", [snapshotId])).rows) {
+  // 사용 시간: 그룹 파트는 넣지 않는다(SL7, 발행과 같은 규칙).
+  for (const r of (await tx.query(
+    `SELECT a.stem_id, a.duration_ms FROM snapshot_stem_assignment a WHERE a.snapshot_id = $1 AND a.rights_bearing AND NOT EXISTS (SELECT 1 FROM slot_part p WHERE p.slot_id = a.slot_id AND p.part_no = a.part_no AND p.kind = 'GROUP')`, [snapshotId])).rows) {
     usageMs[r.stem_id] = (usageMs[r.stem_id] ?? 0) + r.duration_ms;
   }
   const members: Record<string, number> = {};

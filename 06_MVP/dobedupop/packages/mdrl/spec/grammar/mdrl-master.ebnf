@@ -23,7 +23,7 @@ party_stmt      = "party" id "{" "kind" ":" ident ";" [ ids_block ] [ visibility
 work_stmt       = "work" id "{" [ ids_block ] "}" ;
 recording_stmt  = "recording" id "{" "of" ":" id ";" [ ids_block ] "}" ;
 voice_stmt      = "voice" id "{" "kind" ":" ident ";" "}" ;
-stem_stmt       = "stem" id "{" "of" ":" id ";" "slot" ":" id ";" "rights_bearing" ":" boolean ";" "}" ;
+stem_stmt       = "stem" id "{" "of" ":" id ";" "slot" ":" id ";" [ "part" ":" int ";" ] "rights_bearing" ":" boolean ";" "}" ;
 
 claim_stmt      = "claim" id ":" id ident id "share" ratio [ "role" ident ] [ "detail" string ] "status" ident "valid" interval "recorded" instant [ "superseded" instant ] [ "evidence" string ] [ "visibility" ident ] ";" ;
 

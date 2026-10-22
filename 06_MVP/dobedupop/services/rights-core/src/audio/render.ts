@@ -15,17 +15,17 @@ import { requirePermission } from "../platform/permissions.ts";
  * 그래서 렌더 결과가 봉인된 배정과 일치하는지 다시 렌더해 확인할 수 있다. 정산은 렌더 결과를 쓰지 않는다.
  */
 
-type Assigned = { slot_id: string; stem_id: string; start_ms: number; end_ms: number; status: string | null; storage_uri: string | null; file_sha256: string | null };
+type Assigned = { slot_id: string; part_no: number; stem_id: string; start_ms: number; end_ms: number; status: string | null; storage_uri: string | null; file_sha256: string | null };
 
 async function assignments(tx: Tx, snapshotId: string): Promise<Assigned[]> {
   return (await tx.query(
-    `SELECT a.slot_id, a.stem_id, a.start_ms, a.end_ms, s.status, s.storage_uri, s.file_sha256
-       FROM snapshot_stem_assignment a LEFT JOIN stem_audio s ON s.stem_id = a.stem_id WHERE a.snapshot_id = $1 ORDER BY a.start_ms, a.slot_id`, [snapshotId])).rows;
+    `SELECT a.slot_id, a.part_no, a.stem_id, a.start_ms, a.end_ms, s.status, s.storage_uri, s.file_sha256
+       FROM snapshot_stem_assignment a LEFT JOIN stem_audio s ON s.stem_id = a.stem_id WHERE a.snapshot_id = $1 ORDER BY a.start_ms, a.slot_id, a.part_no`, [snapshotId])).rows;
 }
 
-/** 렌더 입력 요약(슬롯·구간·파일 해시). 같은 요약이면 같은 렌더가 나와야 한다. */
+/** 렌더 입력 요약(슬롯·파트·구간·파일 해시). 같은 요약이면 같은 렌더가 나와야 한다. 파트 1은 적지 않는다(파트 이전 렌더와 같은 요약). */
 function inputSha(rows: Assigned[]): string {
-  return createHash("sha256").update(JSON.stringify(rows.map((r) => [r.slot_id, r.start_ms, r.end_ms, r.file_sha256]))).digest("hex");
+  return createHash("sha256").update(JSON.stringify(rows.map((r) => (r.part_no === 1 ? [r.slot_id, r.start_ms, r.end_ms, r.file_sha256] : [r.slot_id, r.part_no, r.start_ms, r.end_ms, r.file_sha256])))).digest("hex");
 }
 
 async function partsOf(audio: AudioDeps, rows: Assigned[]): Promise<RenderPart[]> {
@@ -107,14 +107,16 @@ export async function getRender(tx: Tx, snapshotId: string) {
 export async function renderPreview(tx: Tx, audio: AudioDeps | undefined, input: { packId?: unknown; assignments?: unknown }) {
   const { renderer } = rendererOf(audio);
   if (typeof input.packId !== "string" || !Array.isArray(input.assignments) || input.assignments.length === 0) throw new DomainError("BAD_REQUEST", 400, "packId and assignments are required");
-  const picks = input.assignments as { slotId: string; stemId: string }[];
+  const picks = input.assignments as { slotId: string; partNo?: number; stemId: string }[];
+  // 구간은 파트의 시각(파트를 주지 않으면 파트 1).
   const rows = await withSystemScope(tx, async () => (await tx.query(
-    `SELECT sl.slot_id, st.stem_id, sl.start_ms, sl.end_ms, a.status, a.storage_uri, a.file_sha256
+    `SELECT sl.slot_id, pt.part_no, st.stem_id, pt.start_ms, pt.end_ms, a.status, a.storage_uri, a.file_sha256
        FROM vocal_pack p JOIN facts_scope f ON f.facts_scope_id = p.facts_scope_id JOIN recording_version r ON r.work_id = f.work_id
-       JOIN part_slot sl ON sl.recording_id = r.recording_id JOIN stem st ON st.slot_id = sl.slot_id LEFT JOIN stem_audio a ON a.stem_id = st.stem_id
-      WHERE p.pack_id = $1 AND p.status = 'ACTIVE' AND (sl.slot_id, st.stem_id) IN (SELECT * FROM unnest($2::text[], $3::text[]))
-      ORDER BY sl.start_ms, sl.slot_id`,
-    [input.packId, picks.map((p) => p.slotId), picks.map((p) => p.stemId)])).rows as Assigned[]);
+       JOIN part_slot sl ON sl.recording_id = r.recording_id JOIN stem st ON st.slot_id = sl.slot_id
+       JOIN slot_part pt ON pt.slot_id = st.slot_id AND pt.part_no = st.part_no LEFT JOIN stem_audio a ON a.stem_id = st.stem_id
+      WHERE p.pack_id = $1 AND p.status = 'ACTIVE' AND (sl.slot_id, st.part_no, st.stem_id) IN (SELECT * FROM unnest($2::text[], $3::int[], $4::text[]))
+      ORDER BY pt.start_ms, sl.slot_id, pt.part_no`,
+    [input.packId, picks.map((p) => p.slotId), picks.map((p) => p.partNo ?? 1), picks.map((p) => p.stemId)])).rows as Assigned[]);
   if (rows.length !== picks.length) throw invalid("INVALID_PREVIEW", "every assignment must be a stem of that slot in an active pack");
   const missing = rows.filter((r) => r.status !== "READY");
   if (missing.length > 0) throw conflict("PREVIEW_UNAVAILABLE", `no ready audio for ${missing.map((m) => m.stem_id).join(", ")}`);

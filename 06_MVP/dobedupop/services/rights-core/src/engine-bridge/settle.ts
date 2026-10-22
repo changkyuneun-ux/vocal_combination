@@ -65,7 +65,9 @@ export async function verifyRun(ctx: BridgeCtx, tx: Tx, input: { runId: string; 
   const given = await loadSealed(ctx, tx, input.resultDigest);
   const usage: Record<string, string> = {};
   const rows = (await tx.query(
-    "SELECT stem_id, SUM(duration_ms)::text AS ms FROM snapshot_stem_assignment WHERE snapshot_id = $1 AND rights_bearing GROUP BY stem_id ORDER BY stem_id",
+    // 사용 시간: 그룹 파트는 넣지 않는다(SL7, 발행과 같은 규칙).
+    `SELECT a.stem_id, SUM(a.duration_ms)::text AS ms FROM snapshot_stem_assignment a
+      WHERE a.snapshot_id = $1 AND a.rights_bearing AND NOT EXISTS (SELECT 1 FROM slot_part p WHERE p.slot_id = a.slot_id AND p.part_no = a.part_no AND p.kind = 'GROUP') GROUP BY a.stem_id ORDER BY a.stem_id`,
     [input.snapshotId],
   )).rows;
   for (const r of rows) usage[r.stem_id] = r.ms;

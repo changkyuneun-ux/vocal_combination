@@ -18,7 +18,7 @@ async function seed() {
     await reg.registerWork(tx, c, { workId: "wrk_1", title: "Song" });
     await reg.createScope(tx, c, { factsScopeId: "fsc_1", workId: "wrk_1" });
     await reg.registerRecording(tx, c, { recordingId: "rcd_1", workId: "wrk_1", masterOwnerPartyId: "pty_label", versionTitle: "Main" });
-    await reg.registerSlot(tx, { slotId: "slt_1", recordingId: "rcd_1", startMs: 0, endMs: 30000, sortOrder: 1 });
+    await reg.registerSlot(tx, c, { slotId: "slt_1", recordingId: "rcd_1", startMs: 0, endMs: 30000, sortOrder: 1 });
     await reg.registerStem(tx, c, { stemId: "stm_1", slotId: "slt_1", recordingId: "rcd_1", performerPartyId: "pty_m1", rightsBearing: true });
     await reg.registerVoice(tx, c, { voiceId: "vo_1", factsScopeId: "fsc_1", kind: "HUMAN" });
   });
@@ -46,7 +46,16 @@ test("recordClaim creates version 1, then a new version supersedes the old one",
 
 test("right_claim rows cannot be updated or deleted except a single superseded_at set", async () => {
   await assert.rejects(db.pool.query("UPDATE right_claim SET share_bps = 1 WHERE claim_id = 'c_ctrl'"), /append-only|permission denied/);
-  await assert.rejects(db.pool.query("DELETE FROM right_claim WHERE claim_id = 'c_ctrl'"), /append-only|permission denied/);
+  // 삭제는 봉인(IR 생성) 전에만 된다(결정 ID1): 범위를 봉인한 상태에서 거부되는지 보고 되돌린다.
+  const c = await db.pool.connect();
+  try {
+    await c.query("BEGIN");
+    await c.query("UPDATE facts_scope SET sealed_through = '2025-01-01T00:00:00Z' WHERE facts_scope_id = 'fsc_1'");
+    await assert.rejects(c.query("DELETE FROM right_claim WHERE claim_id = 'c_ctrl'"), /append-only|CATALOG_SEALED/);
+  } finally {
+    await c.query("ROLLBACK");
+    c.release();
+  }
   await assert.rejects(
     db.pool.query("UPDATE right_claim SET superseded_at = now() WHERE claim_id = 'c_ctrl' AND version = 1"),
     /append-only/,

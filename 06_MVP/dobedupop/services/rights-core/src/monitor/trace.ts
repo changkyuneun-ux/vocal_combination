@@ -14,8 +14,8 @@ export async function traceCombination(tx: Tx, vcId: string, onlyEvent?: string)
       WHERE s.vc_id = $1`, [vcId])).rows[0];
   if (s === undefined) throw notFound("combination", vcId);
   const assignments = (await tx.query(
-    `SELECT a.slot_id, a.stem_id, a.party_id, a.duration_ms, a.rights_bearing, st.recording_id
-       FROM snapshot_stem_assignment a JOIN stem st ON st.stem_id = a.stem_id WHERE a.snapshot_id = $1 ORDER BY a.start_ms, a.slot_id`, [s.snapshot_id])).rows;
+    `SELECT a.slot_id, a.part_no, a.stem_id, a.party_id, a.duration_ms, a.rights_bearing, st.recording_id
+       FROM snapshot_stem_assignment a JOIN stem st ON st.stem_id = a.stem_id WHERE a.snapshot_id = $1 ORDER BY a.start_ms, a.slot_id, a.part_no`, [s.snapshot_id])).rows;
   const members = (await tx.query("SELECT party_id, pct_bps FROM snapshot_member_pct WHERE snapshot_id = $1 ORDER BY party_id", [s.snapshot_id])).rows;
   const events = (await tx.query(
     `SELECT event_id, event_type, net_amount_krw::text AS amount, integrity_status, occurred_at FROM revenue_event
@@ -48,7 +48,7 @@ export async function traceCombination(tx: Tx, vcId: string, onlyEvent?: string)
       snapshotId: s.snapshot_id as string, packId: s.pack_id as string, policy: `${s.policy_id}@${s.policy_version}`, issuedAt: iso(s.created_at)!, asOf: iso(s.as_of)!,
       seal: { facts: s.facts_digest as string, policy: s.policy_digest as string, projection: s.projection_digest as string, members: s.members_digest as string },
     },
-    assignments: assignments.map((a) => ({ slotId: a.slot_id as string, stemId: a.stem_id as string, recordingId: a.recording_id as string, performer: a.party_id as string | null, durationMs: a.duration_ms as number, rightsBearing: a.rights_bearing as boolean })),
+    assignments: assignments.map((a) => ({ slotId: a.slot_id as string, partNo: a.part_no as number, stemId: a.stem_id as string, recordingId: a.recording_id as string, performer: a.party_id as string | null, durationMs: a.duration_ms as number, rightsBearing: a.rights_bearing as boolean })),
     members: members.map((m) => ({ partyId: m.party_id as string, bps: m.pct_bps as number })),
     revenue,
     payouts: payouts.map((p) => ({ partyId: p.party_id as string, instructionId: p.instruction_id as string, payoutRunId: p.payout_run_id as string, status: p.status as string, netKrw: p.net as string })),

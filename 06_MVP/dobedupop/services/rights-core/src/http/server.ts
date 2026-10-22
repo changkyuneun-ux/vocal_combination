@@ -121,6 +121,10 @@ export function buildServer(deps: Deps): FastifyInstance {
     if (err?.code === "40P01" || err?.code === "40001") return reply.status(409).send({ code: "RETRY", message: "transaction conflict; retry the request", diagnostics: [] });
     // RLS 쓰기 거부(42501): 다른 테넌트 소유 행 밑에 쓰려 했다.
     if (err?.code === "42501") return reply.status(403).send({ code: "TENANT_FORBIDDEN", message: err.message, diagnostics: [] });
+    // 파트 시각이 슬롯 밖(0042 트리거).
+    if (err?.code === "P0001" && String(err.message).startsWith("PART_OUTSIDE_SLOT:")) return reply.status(422).send({ code: "PART_OUTSIDE_SLOT", message: err.message, diagnostics: [] });
+    // 봉인된 곡의 카탈로그 행 수정·삭제(0043 트리거).
+    if (err?.code === "RC001" && String(err.message).startsWith("CATALOG_SEALED:")) return reply.status(409).send({ code: "CATALOG_SEALED", message: err.message, diagnostics: [] });
     if (err?.code === "RC001") return reply.status(409).send({ code: "APPEND_ONLY", message: err.message, diagnostics: [] });
     if (err?.code === "23503" || err?.code === "23514") return reply.status(422).send({ code: "INVALID_REFERENCE", message: err.detail ?? err.message, diagnostics: [] });
     if (err?.validation || (typeof err?.statusCode === "number" && err.statusCode >= 400 && err.statusCode < 500)) return reply.status(400).send({ code: "BAD_REQUEST", message: err.message, diagnostics: [] });

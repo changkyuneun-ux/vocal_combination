@@ -41,7 +41,7 @@ async function registerConformance(tx: Tx, seed?: number) {
   await reg.createScope(tx, c, { factsScopeId: conformance.facts.id, workId: "wrk_01" });
   await reg.registerRecording(tx, c, { recordingId: "rcd_01", workId: "wrk_01", masterOwnerPartyId: "pty_label_x", isrc: f.recordings[0].ids.isrc, versionTitle: "Main" });
   let sort = 1;
-  for (const s of f.stems) await reg.registerSlot(tx, { slotId: s.slot, recordingId: "rcd_01", startMs: 0, endMs: 1000, sortOrder: sort++ });
+  for (const s of f.stems) await reg.registerSlot(tx, c, { slotId: s.slot, recordingId: "rcd_01", startMs: 0, endMs: 1000, sortOrder: sort++ });
   for (const s of order<any>(f.stems)) await reg.registerStem(tx, c, { stemId: s.id, slotId: s.slot, recordingId: s.of, rightsBearing: s.rights_bearing });
   for (const v of order<any>(f.voices)) await reg.registerVoice(tx, c, { voiceId: v.id, factsScopeId: conformance.facts.id, kind: v.kind });
   for (const cl of order<any>(f.claims)) {

@@ -29,7 +29,10 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
     "SELECT recording_id, work_id, isrc, created_at FROM recording_version WHERE work_id = $1 AND created_at <= $2", [scope.work_id, knownAt],
   )).rows;
   const stems = (await tx.query(
-    "SELECT stem_id, recording_id, slot_id, rights_bearing, created_at FROM stem WHERE recording_id = ANY($1) AND created_at <= $2",
+    // 파트 번호는 파트가 둘 이상인 슬롯만 facts에 적는다(결정 SL4 — 파트 하나뿐인 기존 슬롯은 digest 불변).
+    `SELECT st.stem_id, st.recording_id, st.slot_id, st.part_no, st.rights_bearing, st.created_at,
+            (SELECT count(*)::int FROM slot_part p WHERE p.slot_id = st.slot_id AND p.created_at <= $2) AS part_count
+       FROM stem st WHERE st.recording_id = ANY($1) AND st.created_at <= $2`,
     [recordings.map((r) => r.recording_id), knownAt],
   )).rows;
   const voices = (await tx.query("SELECT voice_id, kind, created_at FROM voice WHERE facts_scope_id = $1 AND created_at <= $2", [scopeId, knownAt])).rows;
@@ -50,7 +53,7 @@ export async function loadFactsRows(tx: Tx, scopeId: string, knownAt: string): P
     scopeId,
     work: { workId: scope.work_id, iswc: opt(scope.iswc), createdAt: iso(scope.created_at)! },
     recordings: recordings.map((r) => ({ recordingId: r.recording_id, workId: r.work_id, isrc: opt(r.isrc), createdAt: iso(r.created_at)! })),
-    stems: stems.map((s) => ({ stemId: s.stem_id, recordingId: s.recording_id, slotId: s.slot_id, rightsBearing: s.rights_bearing, createdAt: iso(s.created_at)! })),
+    stems: stems.map((s) => ({ stemId: s.stem_id, recordingId: s.recording_id, slotId: s.slot_id, partNo: s.part_count > 1 ? s.part_no : undefined, rightsBearing: s.rights_bearing, createdAt: iso(s.created_at)! })),
     voices: voices.map((v) => ({ voiceId: v.voice_id, kind: v.kind, createdAt: iso(v.created_at)! })),
     parties: parties.map((p) => ({ partyId: p.party_id, partyType: p.party_type, isni: opt(p.isni), ipiNo: opt(p.ipi_no), createdAt: iso(p.created_at)! })),
     claims: claims.map((c) => ({

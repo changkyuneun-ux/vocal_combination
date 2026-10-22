@@ -22,7 +22,7 @@ export type Party = { id: string; kind: EnumValue<"party_kind">; ids?: Record<st
 export type Work = { id: string; ids?: Record<string, string> };
 export type Recording = { id: string; of: string; ids?: Record<string, string> };
 export type Voice = { id: string; kind: EnumValue<"voice_kind"> };
-export type Stem = { id: string; of: string; slot: string; rights_bearing: boolean };
+export type Stem = { id: string; of: string; slot: string; part?: string; rights_bearing: boolean };
 
 type Recorded = { recorded_at: Instant; superseded_at?: Instant; status: EnumValue<"claim_status">; valid: Interval };
 

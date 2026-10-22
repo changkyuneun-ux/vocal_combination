@@ -47,10 +47,10 @@ export function portalRoutes(app: FastifyInstance, deps: Deps): void {
 /** 내 스템이 쓰인 발행 조합. 발행 데이터는 팩 소유 테넌트만 보므로, 본인 파티로 거른 조회만 system 범위로 한다. */
 async function myUsages(tx: Tx, partyId: string) {
   return withSystemScope(tx, async () => (await tx.query(
-    `SELECT s.snapshot_id, s.vc_id, s.pack_id, s.created_at, a.slot_id, a.stem_id, a.duration_ms
+    `SELECT s.snapshot_id, s.vc_id, s.pack_id, s.created_at, a.slot_id, a.part_no, a.stem_id, a.duration_ms
        FROM snapshot_stem_assignment a JOIN rights_snapshot s ON s.snapshot_id = a.snapshot_id
-      WHERE a.party_id = $1 AND a.rights_bearing ORDER BY s.created_at, s.snapshot_id, a.slot_id`, [partyId],
-  )).rows.map((r) => ({ snapshotId: r.snapshot_id as string, vcId: r.vc_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!, slotId: r.slot_id as string, stemId: r.stem_id as string, durationMs: r.duration_ms as number })));
+      WHERE a.party_id = $1 AND a.rights_bearing ORDER BY s.created_at, s.snapshot_id, a.slot_id, a.part_no`, [partyId],
+  )).rows.map((r) => ({ snapshotId: r.snapshot_id as string, vcId: r.vc_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!, slotId: r.slot_id as string, partNo: r.part_no as number, stemId: r.stem_id as string, durationMs: r.duration_ms as number })));
 }
 
 /**
@@ -120,18 +120,18 @@ export function performerRoutes(app: FastifyInstance, deps: Deps): void {
 async function fanPack(tx: Tx, packId: string, detail = false) {
   const p = (await tx.query("SELECT pack_id, pack_code, title, facts_scope_id FROM vocal_pack WHERE pack_id = $1", [packId])).rows[0];
   const stems = (await tx.query(
-    `SELECT sl.slot_id, sl.start_ms, sl.end_ms, st.stem_id, st.rights_bearing, pt.display_name, au.status AS audio_status
+    `SELECT sl.slot_id, sl.start_ms, sl.end_ms, st.stem_id, st.part_no, st.rights_bearing, pt.display_name, au.status AS audio_status
        FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
        JOIN stem st ON st.slot_id = sl.slot_id LEFT JOIN party pt ON pt.party_id = st.performer_party_id
        LEFT JOIN stem_audio au ON au.stem_id = st.stem_id
-      WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, st.stem_id`, [p.facts_scope_id],
+      WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, st.part_no, st.stem_id`, [p.facts_scope_id],
   )).rows;
-  type FanStem = { stemId: string; performer?: string; available?: boolean; audio?: string };
+  type FanStem = { stemId: string; partNo: number; performer?: string; available?: boolean; audio?: string };
   const slots = new Map<string, { slotId: string; startMs: number; endMs: number; stems: FanStem[] }>();
   for (const s of stems) {
     const slot = slots.get(s.slot_id) ?? { slotId: s.slot_id as string, startMs: s.start_ms as number, endMs: s.end_ms as number, stems: [] as FanStem[] };
     slot.stems.push({
-      stemId: s.stem_id, ...(s.display_name !== null && { performer: s.display_name }),
+      stemId: s.stem_id, partNo: s.part_no as number, ...(s.display_name !== null && { performer: s.display_name }),
       ...(detail && { available: s.audio_status === null || s.audio_status === "READY", audio: (s.audio_status ?? "NONE") as string }),
     });
     slots.set(s.slot_id, slot);
@@ -159,9 +159,9 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
    * 같은 배치의 판정은 캐시한다(cached). 거부도 200으로 돌려준다(issuable=false, code, diagnostics).
    */
   app.post("/combinations/check", async (req) => {
-    const b = req.body as { packId?: string; assignments?: { slotId: string; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
-    if (typeof b?.packId !== "string" || !Array.isArray(b.assignments) || !b.assignments.every((a) => typeof a?.slotId === "string" && typeof a?.stemId === "string")) {
-      throw new DomainError("BAD_REQUEST", 400, "packId and assignments of {slotId, stemId} are required");
+    const b = req.body as { packId?: string; assignments?: { slotId: string; partNo?: number; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
+    if (typeof b?.packId !== "string" || !Array.isArray(b.assignments) || !b.assignments.every((a) => typeof a?.slotId === "string" && typeof a?.stemId === "string" && issuance.validPartNo(a?.partNo))) {
+      throw new DomainError("BAD_REQUEST", 400, "packId and assignments of {slotId, partNo?, stemId} are required");
     }
     return withActor(deps, req, (tx, actor) => checkCombination(deps.ctx, tx, deps.clock, actor, {
       packId: b.packId!, assignments: b.assignments!, ...(b.members && { members: b.members }), ...(b.usage && { usage: b.usage }),
@@ -177,12 +177,12 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/combinations", async (req) => withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => (await tx.query(
     `SELECT s.snapshot_id, s.vc_id, s.pack_id, s.created_at, r.status AS render_status, r.duration_ms,
             EXISTS (SELECT 1 FROM exposure_hold h WHERE h.snapshot_id = s.snapshot_id AND h.released_at IS NULL) AS stopped,
-            (SELECT json_agg(json_build_object('slotId', a.slot_id, 'stemId', a.stem_id) ORDER BY a.slot_id) FROM snapshot_stem_assignment a WHERE a.snapshot_id = s.snapshot_id) AS assignments
+            (SELECT json_agg(json_build_object('slotId', a.slot_id, 'partNo', a.part_no, 'stemId', a.stem_id) ORDER BY a.slot_id, a.part_no) FROM snapshot_stem_assignment a WHERE a.snapshot_id = s.snapshot_id) AS assignments
        FROM rights_snapshot s LEFT JOIN combination_render r ON r.snapshot_id = s.snapshot_id
       WHERE s.issued_by = $1 ORDER BY s.created_at DESC, s.snapshot_id`, [actor.userId],
   )).rows.map((r) => ({
     vcId: r.vc_id as string, snapshotId: r.snapshot_id as string, packId: r.pack_id as string, issuedAt: iso(r.created_at)!,
-    assignments: r.assignments as { slotId: string; stemId: string }[], render: r.render_status === null ? "NONE" : (r.render_status as string),
+    assignments: r.assignments as { slotId: string; partNo: number; stemId: string }[], render: r.render_status === null ? "NONE" : (r.render_status as string),
     exposure: r.stopped ? "STOPPED" : "OPEN",
     ...(r.duration_ms !== null && { durationMs: r.duration_ms as number }),
   })))));
@@ -191,8 +191,8 @@ export function fanRoutes(app: FastifyInstance, deps: Deps): void {
    * 팬은 ISSUER 역할이 없다. 이 채널이 발행 권한의 주체이며, 감사 기록의 행위자는 팬 본인이다.
    */
   app.post("/combinations", async (req, reply) => {
-    const b = req.body as { packId?: string; vcId?: string; assignments?: { slotId: string; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
-    if (typeof b?.packId !== "string" || typeof b.vcId !== "string" || !Array.isArray(b.assignments)) throw new DomainError("BAD_REQUEST", 400, "packId, vcId and assignments are required");
+    const b = req.body as { packId?: string; vcId?: string; assignments?: { slotId: string; partNo?: number; stemId: string }[]; members?: Record<string, number>; usage?: issuance.Usage };
+    if (typeof b?.packId !== "string" || typeof b.vcId !== "string" || !Array.isArray(b.assignments) || !b.assignments.every((a) => issuance.validPartNo(a?.partNo))) throw new DomainError("BAD_REQUEST", 400, "packId, vcId and assignments are required");
     const seal = await withActor(deps, req, (tx, actor) => withSystemScope(tx, async () => {
       let members = b.members;
       members ??= await defaultMembers(tx, b.assignments!);

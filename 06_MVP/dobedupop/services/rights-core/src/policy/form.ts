@@ -24,25 +24,29 @@ async function representative(tx: Tx, packId: string, scopeId: string) {
   return withSystemScope(tx, async () => {
     const issued = (await tx.query("SELECT snapshot_id, vc_id FROM rights_snapshot WHERE pack_id = $1 ORDER BY created_at DESC, snapshot_id LIMIT 1", [packId])).rows[0];
     if (issued !== undefined) {
-      const a = (await tx.query("SELECT slot_id, stem_id, party_id, duration_ms, rights_bearing FROM snapshot_stem_assignment WHERE snapshot_id = $1 ORDER BY slot_id", [issued.snapshot_id])).rows;
+      const a = (await tx.query(
+        `SELECT a.slot_id, a.part_no, a.stem_id, a.party_id, a.duration_ms, a.rights_bearing AND NOT EXISTS (SELECT 1 FROM slot_part p WHERE p.slot_id = a.slot_id AND p.part_no = a.part_no AND p.kind = 'GROUP') AS counted
+           FROM snapshot_stem_assignment a WHERE a.snapshot_id = $1 ORDER BY a.slot_id, a.part_no`, [issued.snapshot_id])).rows;
       const m = (await tx.query("SELECT party_id, pct_bps FROM snapshot_member_pct WHERE snapshot_id = $1", [issued.snapshot_id])).rows;
       const usageMs: Record<string, number> = {};
-      for (const r of a) if (r.rights_bearing) usageMs[r.stem_id] = (usageMs[r.stem_id] ?? 0) + (r.duration_ms as number);
+      for (const r of a) if (r.counted) usageMs[r.stem_id] = (usageMs[r.stem_id] ?? 0) + (r.duration_ms as number);
       return {
         source: "ISSUED" as const, vcId: issued.vc_id as string, usageMs, members: Object.fromEntries(m.map((r) => [r.party_id as string, r.pct_bps as number])),
-        assignments: a.map((r) => ({ slotId: r.slot_id as string, stemId: r.stem_id as string, partyId: (r.party_id ?? undefined) as string | undefined })),
+        assignments: a.map((r) => ({ slotId: r.slot_id as string, partNo: r.part_no as number, stemId: r.stem_id as string, partyId: (r.party_id ?? undefined) as string | undefined })),
       };
     }
-    // 기본 조합: 슬롯 순서대로, 지금까지 가장 적게 고른 실연자의 스템을 고른다(한 사람이 다 부르는 조합은 1인 상한에 걸리기 쉽다).
+    // 기본 조합: 슬롯·파트 순서대로, 지금까지 가장 적게 고른 실연자의 스템을 고른다(한 사람이 다 부르는 조합은 1인 상한에 걸리기 쉽다).
+    // 사용 시간은 파트 길이(SL2). 그룹 파트는 사용 시간에 넣지 않으므로 후보가 아니다(SL7).
     const candidates = (await tx.query(
-      `SELECT sl.slot_id, sl.duration_ms, st.stem_id, st.performer_party_id
+      `SELECT sl.slot_id, p.part_no, p.duration_ms, st.stem_id, st.performer_party_id
          FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
-         JOIN stem st ON st.slot_id = sl.slot_id AND st.rights_bearing AND st.performer_party_id IS NOT NULL
-        WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, sl.slot_id, st.stem_id`, [scopeId])).rows;
+         JOIN slot_part p ON p.slot_id = sl.slot_id AND p.kind <> 'GROUP'
+         JOIN stem st ON st.slot_id = p.slot_id AND st.part_no = p.part_no AND st.rights_bearing AND st.performer_party_id IS NOT NULL
+        WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, sl.slot_id, p.part_no, st.stem_id`, [scopeId])).rows;
     const picked = new Map<string, number>();
     const stems: typeof candidates = [];
-    for (const slot of [...new Set(candidates.map((c) => c.slot_id as string))]) {
-      const options = candidates.filter((c) => c.slot_id === slot);
+    for (const key of [...new Set(candidates.map((c) => `${c.slot_id}#${c.part_no}`))]) {
+      const options = candidates.filter((c) => `${c.slot_id}#${c.part_no}` === key);
       const best = options.reduce((a, c) => ((picked.get(c.performer_party_id) ?? 0) < (picked.get(a.performer_party_id) ?? 0) ? c : a));
       picked.set(best.performer_party_id, (picked.get(best.performer_party_id) ?? 0) + 1);
       stems.push(best);
@@ -51,7 +55,7 @@ async function representative(tx: Tx, packId: string, scopeId: string) {
     return {
       source: "DEFAULT" as const, usageMs: Object.fromEntries(stems.map((s) => [s.stem_id as string, s.duration_ms as number])),
       members: slotShareBps(stems.map((s) => s.performer_party_id as string)),
-      assignments: stems.map((s) => ({ slotId: s.slot_id as string, stemId: s.stem_id as string, partyId: s.performer_party_id as string })),
+      assignments: stems.map((s) => ({ slotId: s.slot_id as string, partNo: s.part_no as number, stemId: s.stem_id as string, partyId: s.performer_party_id as string })),
     };
   });
 }
