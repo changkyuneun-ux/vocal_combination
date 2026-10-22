@@ -131,7 +131,7 @@ class Component extends DCLogic {
     const C = ['박지훈', '최유진', '이강민', '정다은', '오세린', '한태오', '서민재'];
     const plan = [[0, '입력 중'], [1, '확인 대기'], [2, 'IR 생성됨'], [4, '판매 중'], [4, '판매 중'], [0, '입력 중'], [3, '분쟁·보류']];
     const works = [{
-      id: 'BH-2026-0001', title: 'Dynamite', artist: 'BTS', credit: 'David Stewart · Jessica Agombar', rights: '작품 2 · 녹음 1 · 실연 구간 12·라인 22', stems: '7 / 154', pending: 50,
+      id: 'BH-2026-0001', title: 'Dynamite', artist: 'BTS', credit: 'David Stewart · Jessica Agombar', rights: '작품 2 · 녹음 1 · 실연 슬롯 10·보컬 파트 19', stems: '8 / 143', pending: 50,
       stage: 1, status: '확인 대기', real: true, recording: 'Vocal Recombination', iswc: '—', isrc: '—', reg: '2026-01-02', members: 'BTS 멤버 7',
     }].concat(T.map((t, i) => ({
       id: 'BH-2026-' + String(i + 2).padStart(4, '0'), title: t, artist: A[i], credit: C[i] + ' · ' + C[(i + 3) % 7],
@@ -173,13 +173,13 @@ class Component extends DCLogic {
     const ok = (t) => ({ mark: '✓', text: t, markStyle: 'color: #166534; font-weight: 700' });
     const warn = (t) => ({ mark: '!', text: t, markStyle: 'color: #92400e; font-weight: 700' });
     const todo = (t) => ({ mark: '·', text: t, markStyle: 'color: #475569; font-weight: 700' });
-    sel.ready = w.real ? [ok('원곡 권리 합계 100%'), ok('근거 문서 연결'), warn('원곡 배치 스템 1 / 22'), warn('확인 50 남음(멤버 48 · 작가 2)'), todo('수령 위임 서명 1/7')]
+    sel.ready = w.real ? [ok('원곡 권리 합계 100%'), ok('근거 문서 연결'), warn('원곡 스템 2 / 29'), warn('확인 50 남음(멤버 48 · 작가 2)'), todo('수령 위임 서명 1/7')]
       : w.stage >= 2 ? [ok('IR 생성됨 — 수정은 새 버전으로')] : [w.stage === 1 ? warn('확인 ' + w.pending + ' 남음') : todo('원곡 권리 입력 중'), todo('예시 데이터')];
     const note = (t, tone) => ({ note: t, noteStyle: 'font-size: 12px; color: ' + (tone === 'ok' ? '#166534' : tone === 'warn' ? '#92400e' : '#475569') });
     const card = (label, value, t, tone) => ({ label, value, ...note(t, tone) });
     const D = {
-      rights: [card('작품 · 작사·작곡', 'David Stewart 50 · Jessica Agombar 50', '확인 대기 2 · 퍼블리싱 계약서', 'warn'), card('녹음 · 마스터', '빅히트 뮤직(레이블) 100', '확정 · 녹음 계약서', 'ok'), card('실연 · 구간별 담당', '구간 12 · 라인 22', '본인 확인 1/7 · 가정 데이터', 'warn'), card('수령 위임', '소속사 100%', '서명 1/7', 'warn')],
-      stems: [card('보컬 구간 · 라인', '12 · 22', '여러 명 구간 4 · 가정 데이터', 'warn'), card('원곡 배치 스템', '1 / 22', '', 'warn'), card('멤버 추가 녹음 스템', '6 / 132', '', 'warn'), card('오디오 검수', '7 / 7', '등록한 것 통과', 'ok')],
+      rights: [card('작품 · 작사·작곡', 'David Stewart 50 · Jessica Agombar 50', '확인 대기 2 · 퍼블리싱 계약서', 'warn'), card('녹음 · 마스터', '빅히트 뮤직(레이블) 100', '확정 · 녹음 계약서', 'ok'), card('실연 · 슬롯별 담당', '슬롯 10 · 보컬 파트 19', '본인 확인 1/7 · 가정 데이터', 'warn'), card('수령 위임', '소속사 100%', '서명 1/7', 'warn')],
+      stems: [card('슬롯 · 파트', '10 · 보컬 19 · 반주 10', '원곡 흐름 Intro → … → Outro · 가정 데이터', 'warn'), card('원곡 스템', '2 / 29', '', 'warn'), card('멤버 추가 녹음 스템', '6 / 114', '', 'warn'), card('오디오 검수', '8 / 8', '등록한 것 통과', 'ok')],
       docs: [card('원천 문서', '2', '녹음 계약서 · 퍼블리싱 계약서', ''), card('표준 계약', '11', '플랫폼 · 녹음 이용허락 · 작품 이용허락 2 · 수령 위임 7', '')],
       confirm: [card('확인 요청', '58', '확인 8 · 대기 50', 'warn'), card('이용 동의', '1 / 7', '멤버 본인(실연자 앱)', 'warn')],
       money: [card('발행 조합', '0', '팩 활성 뒤', ''), card('매출', '0원', '', ''), card('지급', '0원', '', '')],
@@ -188,7 +188,7 @@ class Component extends DCLogic {
       rights: [card('원곡 권리', w.rights, '예시 데이터', '')], stems: [card('멤버 스템', w.stems, '예시 데이터', '')], docs: [card('문서·계약', '—', '예시 데이터', '')],
       confirm: [card('확인 대기', String(w.pending), '예시 데이터', '')], money: [card('정산', w.stage >= 4 ? '판매 중' : '—', '예시 데이터', '')],
     };
-    const PT = [['overview', '개요', ''], ['rights', '원곡 권리', w.real ? 10 : ''], ['stems', '스템', w.real ? 7 : ''], ['docs', '문서·계약', w.real ? 13 : ''], ['confirm', '확인·동의', w.real ? 58 : ''], ['money', '정산', ''], ['history', '변경 이력', '']];
+    const PT = [['overview', '개요', ''], ['rights', '원곡 권리', w.real ? 10 : ''], ['stems', '스템', w.real ? 8 : ''], ['docs', '문서·계약', w.real ? 13 : ''], ['confirm', '확인·동의', w.real ? 58 : ''], ['money', '정산', ''], ['history', '변경 이력', '']];
     const ptab = this.state.ptab;
     const ptabs = PT.map(([k, label, c]) => ({ label, count: c, style: tabStyle(ptab === k), pick: () => this.setState({ ptab: k }) }));
     const manageHref = { rights: 'Song-Rights.dc.html', stems: 'Song-Stems.dc.html' };
