@@ -112,21 +112,61 @@
       "x": 0,
       "y": 0
     },
-    "Work-Workspace.dc.html": {
-      "x": 0,
-      "y": 8000,
-      "w": 1440,
-      "h": 1400,
-      "title": "곡 워크스페이스 — 목록 + 상세(권리자·지분·파트·문서·확인·정책·정산·IR)",
-      "expand": "fill",
-      "is_interactive": true
-    },
     "Work-Edit.dc.html": {
-      "x": 1520,
-      "y": 8000,
-      "w": 1440,
+      "expand": "fill",
       "h": 1100,
       "title": "곡 등록·수정 — 기본·권리자·지분·근거 문서·수령 위임",
+      "w": 1440,
+      "x": 1520,
+      "y": 8111
+    },
+    "Work-Workspace.dc.html": {
+      "expand": "fill",
+      "h": 1400,
+      "is_interactive": true,
+      "title": "곡 워크스페이스 — 목록 + 상세(권리자·지분·파트·문서·확인·정책·정산·IR)",
+      "w": 1440,
+      "x": 0,
+      "y": 8000
+    },
+    "Song-Home.dc.html": {
+      "x": 0,
+      "y": 9900,
+      "w": 1440,
+      "h": 1200,
+      "title": "v2 ① 곡 홈 — 곡 목록 + 개요(IR 생성 준비)",
+      "expand": "fill"
+    },
+    "Song-Rights.dc.html": {
+      "x": 1520,
+      "y": 9900,
+      "w": 1440,
+      "h": 1300,
+      "title": "v2 ② 원곡 권리 — 작품·녹음·실연·수령 위임 등록·조회·수정",
+      "expand": "fill"
+    },
+    "Song-Stems.dc.html": {
+      "x": 3040,
+      "y": 9900,
+      "w": 1440,
+      "h": 1400,
+      "title": "v2 ③ 스템 — 원곡 배치·멤버 추가 녹음 스템과 스템 권리",
+      "expand": "fill"
+    },
+    "Song-Create.dc.html": {
+      "x": 4560,
+      "y": 9900,
+      "w": 1440,
+      "h": 1100,
+      "title": "v2 ④ 새 곡 — 곡·녹음 → 원곡 권리 → 멤버 → 확인",
+      "expand": "fill"
+    },
+    "Song-Locked.dc.html": {
+      "x": 6080,
+      "y": 9900,
+      "w": 1440,
+      "h": 1100,
+      "title": "v2 ⑤ IR 생성 뒤 — 읽기 전용, 새 버전으로 바로잡기",
       "expand": "fill"
     }
   },
@@ -179,11 +219,26 @@
       "y": 6100
     },
     "t_row6": {
-      "x": 0,
-      "y": 7740,
-      "text": "곡 중심 관리 — 참조 디자인 variant A(목록 + 하단 상세 패널 + 탭 편집 창)",
       "kind": "title1",
-      "maxW": 2960
+      "maxW": 2960,
+      "text": "곡 중심 관리 — 참조 디자인 variant A(목록 + 하단 상세 패널 + 탭 편집 창)",
+      "w": 240,
+      "x": 0,
+      "y": 7740
+    },
+    "t_row7": {
+      "x": 0,
+      "y": 9640,
+      "text": "곡 워크스페이스 v2 — 빅히트 레이블이 곡 단위로 원곡 권리·멤버 스템 권리를 등록·조회·수정(IR 생성 전까지)",
+      "kind": "title1",
+      "maxW": 7520
+    },
+    "n_superseded": {
+      "x": 3040,
+      "y": 8000,
+      "w": 400,
+      "text": "대체됨: E09~E11 단독 시안과 곡 중심 관리(variant A) 줄은 아래 '곡 워크스페이스 v2'로 대체했다. 비교용으로 남겨 둔다.",
+      "fill": "orange"
     }
   },
   "order": [
@@ -202,7 +257,12 @@
     "Detail-E11-Parts.dc.html",
     "IR-Map.dc.html",
     "Work-Workspace.dc.html",
-    "Work-Edit.dc.html"
+    "Work-Edit.dc.html",
+    "Song-Home.dc.html",
+    "Song-Rights.dc.html",
+    "Song-Stems.dc.html",
+    "Song-Create.dc.html",
+    "Song-Locked.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"
