@@ -201,6 +201,32 @@
       "h": 1200,
       "title": "P6 승인·출시 — 승인 → 활성화 → 팩 활성화(출시), 출시 조건",
       "expand": "fill"
+    },
+    "Sidebar.dc.html": {
+      "x": 0,
+      "y": 13650,
+      "w": 260,
+      "h": 1100,
+      "title": "사이드 메뉴(권리 테넌트) — 작품 관리 · 운영 관리 아코디온",
+      "is_interactive": true
+    },
+    "Nav-Works-Stems.dc.html": {
+      "x": 340,
+      "y": 13650,
+      "w": 1440,
+      "h": 1100,
+      "title": "작품 관리 › 작품 워크스페이스 › Dynamite › 스템",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Nav-Ops-Confirm.dc.html": {
+      "x": 1860,
+      "y": 13650,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 확인·동의 › 확인 요청 전체(여러 곡)",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -286,6 +312,20 @@
       "text": "빅히트 기준 P3·P4·P6 — 확인·동의 → 계약 → 분배 규칙·팩 → 승인·출시(퍼블리싱)",
       "kind": "title1",
       "maxW": 5920
+    },
+    "t_row9": {
+      "x": 0,
+      "y": 13400,
+      "text": "사이드 메뉴 — 작품 관리 / 운영 관리(계층·아코디온)",
+      "kind": "title1",
+      "maxW": 2900
+    },
+    "n_nav": {
+      "x": 3380,
+      "y": 13650,
+      "w": 420,
+      "text": "사이드 메뉴 규칙: 1단계 = 작품 관리·운영 관리(둘 다 펼침 가능), 2단계 = 메뉴 묶음, 3단계 = 화면. 작품 워크스페이스 묶음은 지금 연 곡(Dynamite)의 화면 6개를 담고, 다른 곡은 '다른 작품 열기'. 지금 화면은 파란 바탕 + 왼쪽 3px 파란 선, 접힌 묶음 안에 지금 화면이 있으면 묶음 이름을 굵게. 건수 배지는 회색, 할 일이 있으면 주황. 본문 위 탭 줄은 없앤다.",
+      "fill": "blue"
     }
   },
   "order": [
@@ -313,7 +353,10 @@
     "Song-Confirm.dc.html",
     "Song-Contracts.dc.html",
     "Song-Policy.dc.html",
-    "Song-Release.dc.html"
+    "Song-Release.dc.html",
+    "Sidebar.dc.html",
+    "Nav-Works-Stems.dc.html",
+    "Nav-Ops-Confirm.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"

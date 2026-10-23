@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>운영 관리 — 확인 요청 전체</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop</strong>
+<span style="font-size: 14px; color: #dbeafe">빅히트 뮤직 ▾</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-12 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<dc-import name="Sidebar" active="op-confirm-all" hint-size="260px,1000px"></dc-import>
+<main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #475569"><span>운영 관리</span><span>›</span><span>확인·동의</span><span>›</span><strong style="color: #0f172a">확인 요청 전체</strong></nav>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
+<div><h1 style="margin: 0; font-size: 26px">확인 요청 전체</h1><div style="font-size: 13px; color: #475569">빅히트 뮤직의 모든 곡에서 상대 당사자에게 보낸 확인 요청. 곡 하나의 확인은 작품 워크스페이스 › 확인·동의에서</div></div>
+<button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">대기</div><div style="font-size: 22px; font-weight: 700">9</div><div style="font-size: 12px; color: #475569">곡 2</div></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fdba74"><div style="font-size: 12px; color: #475569">기한 3일 안</div><div style="font-size: 22px; font-weight: 700; color: #92400e">2</div><div style="font-size: 12px; color: #475569">지나면 정합성 차단</div></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">확인됨(이번 달)</div><div style="font-size: 22px; font-weight: 700">147</div><div style="font-size: 12px; color: #475569">멤버 7</div></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">거절·이의제기</div><div style="font-size: 22px; font-weight: 700">0</div><div style="font-size: 12px; color: #475569">분쟁으로 이어짐</div></div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="q" style="position: absolute; left: -9999px">검색</label>
+<input id="q" placeholder="곡명, 기록, 상대 당사자" style="font: inherit; font-size: 14px; flex: 1 1 280px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
+<select aria-label="곡" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>곡 전체</option><option>Dynamite</option><option>푸른 계절</option></select>
+<select aria-label="상대" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>상대 전체</option><option>멤버(실연자 앱)</option><option>플랫폼 위탁 작가(운영 대조)</option></select>
+<select aria-label="상태" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>대기</option><option>확인됨</option><option>거절</option><option>전체</option></select>
+</div>
+
+<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden">
+<div style="overflow-x: auto"><table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 14px">
+<thead><tr>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">곡</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">기록</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">확인할 상대</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">요청</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">기한</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">상태</th>
+<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc"></th>
+</tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<tr style="border-top: 1px solid #e2e8f0">
+<td style="padding: 9px 14px; font-weight: 600">{{r.song}}<div style="font-size: 12px; font-weight: 400; color: #475569">{{r.sample}}</div></td>
+<td style="padding: 9px 14px">{{r.record}}</td>
+<td style="padding: 9px 14px">{{r.party}}</td>
+<td style="padding: 9px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{r.at}}</td>
+<td style="{{r.dueStyle}}">{{r.due}}</td>
+<td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">대기</span></td>
+<td style="padding: 9px 14px; white-space: nowrap"><a href="#">곡 워크스페이스 › 확인·동의 →</a></td>
+</tr>
+</sc-for>
+</tbody></table></div>
+<div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">대기 9건 · 멤버 확인은 실연자 앱에서 본인이, 플랫폼 위탁 작가는 운영이 원문 대조로 확인한다. 이 화면은 조회와 이동만 한다.</div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const R = [
+      ['Dynamite', '', '작가 지분 50% · David Stewart', '플랫폼 위탁 작가(운영 대조)', '01-02 09:10', '01-16', true],
+      ['Dynamite', '', '작가 지분 50% · Jessica Agombar', '플랫폼 위탁 작가(운영 대조)', '01-02 09:10', '01-16', true],
+      ['푸른 계절', '예시 데이터', '보이스 소유 · 블루노트', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
+      ['푸른 계절', '예시 데이터', '실연 · Verse 1 파트 1', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
+      ['푸른 계절', '예시 데이터', '실연 · Chorus 1 파트 1', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
+      ['푸른 계절', '예시 데이터', '작가 지분 60% · 최유진', '최유진(포털 확인)', '01-08 14:05', '01-22', false],
+    ];
+    const rows = R.map(([song, sample, record, party, at, due, soon]) => ({ song, sample, record, party, at, due,
+      dueStyle: 'padding: 9px 14px; font-family: \'IBM Plex Mono\', monospace; font-size: 13px; ' + (soon ? 'color: #92400e; font-weight: 600' : 'color: #334155') }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>권리 테넌트 사이드 메뉴</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="권리 테넌트 메뉴" style="width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: #ffffff; border-right: 1px solid #e2e8f0; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9">
+<button aria-expanded="{{g.expanded}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: #0f172a; text-align: left">
+<span aria-hidden="true" style="{{g.chevron}}">▸</span><span style="flex: 1 1 auto">{{g.label}}</span><span style="font-size: 11px; font-weight: 500; color: #475569">{{g.hint}}</span>
+</button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column">
+<button aria-expanded="{{it.expanded}}" aria-current="{{it.current}}" onClick="{{it.toggle}}" style="{{it.style}}">
+<span aria-hidden="true" style="{{it.chevron}}">{{it.glyph}}</span><span style="flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.label}}</span>
+<sc-if value="{{it.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{it.badgeStyle}}">{{it.badge}}</span></sc-if>
+</button>
+<sc-if value="{{it.open}}" hint-placeholder-val="{{false}}">
+<div style="margin-left: 27px; padding-left: 8px; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 1px">
+<sc-if value="{{it.hasWork}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 6px; padding: 6px 8px 4px; font-size: 13px"><strong style="flex: 1 1 auto">Dynamite</strong><span style="font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">확인 대기</span></div>
+<button style="margin: 0 8px 4px; padding: 3px 0; border: 0; background: none; font: inherit; font-size: 12px; color: #1d4ed8; text-align: left; cursor: pointer">다른 작품 열기 ▾</button>
+</sc-if>
+<sc-for list="{{it.children}}" as="c" hint-placeholder-count="4">
+<a href="#" aria-current="{{c.current}}" style="{{c.style}}"><span style="flex: 1 1 auto">{{c.label}}</span><sc-if value="{{c.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{c.badgeStyle}}">{{c.badge}}</span></sc-if></a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</sc-if>
+</div>
+</sc-for>
+<p style="margin: 8px 10px 0; font-size: 11px; color: #475569; line-height: 1.5">메뉴는 빅히트 뮤직 소속의 권한으로 걸러 보인다. 플랫폼 운영 메뉴는 따로다.</p>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-contracts-all","op-docs","op-statements"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
+class Component extends DCLogic {
+  state = { closed: {} };
+  renderVals() {
+    const active = this.props.active ?? 'ws-stems';
+    const closed = this.state.closed;
+    const toggle = (k) => () => this.setState({ closed: { ...closed, [k]: !closed[k] } });
+    const isOpen = (k, dflt) => (closed[k] === undefined ? dflt : !closed[k]);
+    const badge = (n, tone) => ({ hasBadge: n !== '', badge: n, badgeStyle: 'font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 600; ' + (tone === 'warn' ? 'background: #fef3c7; color: #92400e' : 'background: #f1f5f9; color: #475569') });
+    const leafStyle = (on) => 'display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; text-decoration: none; ' +
+      (on ? 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8' : 'color: #334155');
+    const leaf = (key, label, n, tone) => ({ label, current: key === active ? 'page' : 'false', style: leafStyle(key === active), ...badge(n ?? '', tone) });
+    const itemStyle = (on, parent) => 'display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 12px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; text-align: left; ' +
+      (on ? 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8' : parent ? 'background: none; color: #0f172a; font-weight: 600' : 'background: none; color: #0f172a');
+    const chev = (open) => 'display: inline-block; width: 12px; font-size: 11px; color: #475569; transform: rotate(' + (open ? 90 : 0) + 'deg)';
+    const item = (key, label, kids, opts = {}) => {
+      const open = kids ? isOpen(key, opts.open ?? false) : false;
+      const containsActive = kids ? kids.some((c) => c.current === 'page') : false;
+      return {
+        label, glyph: kids ? '▸' : '·', chevron: kids ? chev(open) : 'display: inline-block; width: 12px; text-align: center; color: #94a3b8',
+        expanded: kids ? String(open) : 'false', current: !kids && key === active ? 'page' : 'false',
+        toggle: kids ? toggle(key) : () => {}, open, children: kids ?? [], hasWork: !!opts.work,
+        style: itemStyle(!kids && key === active, kids && containsActive && !open), ...badge(opts.n ?? '', opts.tone),
+      };
+    };
+    const ws = [leaf('ws-rights', '원곡 권리'), leaf('ws-stems', '스템', '154'), leaf('ws-confirm', '확인·동의', '2', 'warn'), leaf('ws-contracts', '문서·계약', '11'), leaf('ws-policy', '분배 규칙·팩'), leaf('ws-release', '승인·출시')];
+    const g1 = [
+      item('works-list', '작품 목록', null, { n: '8' }),
+      item('works-new', '새 곡 워크스페이스', null),
+      item('ws', '작품 워크스페이스', ws, { open: active.startsWith('ws-'), work: true }),
+      item('recent', '최근 연 작품', [leaf('r1', '밤의 정류장'), leaf('r2', '푸른 계절')]),
+    ];
+    const g2 = [
+      item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '2', 'warn'), leaf('op-consents', '멤버 이용 동의', '7')], { open: true }),
+      item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '11'), leaf('op-docs', '원천 문서', '13'), leaf('op-templates', '계약 템플릿')], { open: true }),
+      item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2', 'warn'), leaf('op-inspections', '플랫폼 열람 기록')]),
+      item('op-s', '정산', [leaf('op-statements', '명세·지급'), leaf('op-issues', '발행 조합')]),
+      item('op-o', '조직', [leaf('op-org', '내 조직'), leaf('op-accounts', '담당자 계정'), leaf('op-delegation', '위임 대행'), leaf('op-links', '신탁·유통 연결')]),
+    ];
+    const grp = (key, label, hint, items) => {
+      const open = isOpen(key, true);
+      return { label, hint, items, open, expanded: String(open), toggle: toggle(key), chevron: chev(open) };
+    };
+    return { groups: [grp('g-works', '작품 관리', '곡 단위', g1), grp('g-ops', '운영 관리', '여러 곡 · 조직', g2)] };
+  }
+}
+</script>
+</body>
+</html>
