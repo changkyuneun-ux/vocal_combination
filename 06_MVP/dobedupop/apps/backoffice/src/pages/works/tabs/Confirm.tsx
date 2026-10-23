@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { paginate } from "../../../api/paged.ts";
+import { PageNav, PagedTableFoot } from "../../../components/PageNav.tsx";
 import { Link } from "react-router";
 import { useClock } from "../../../api/clock.ts";
 import { useGet } from "../../../api/hooks.ts";
@@ -19,6 +22,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
   const consents = useGet<ConsentRow[]>(["work-consents", ctx.scopeId], `/consents?scope=${encodeURIComponent(ctx.scopeId)}`);
   const confs = useGet<ConfirmationRow[]>(["work-confirmations"], "/confirmations");
   const now = clock.data?.now ?? ctx.now;
+  const [pg1, setPg1] = useState(1), [pg2, setPg2] = useState(1);
   const ev = useEvidenceTitles(ctx.scopeId);
   const rows = memberProgress(ctx.members, ctx.facts.claims, ctx.rows, ctx.facts.stems, consents.data ?? [], ctx.facts.mandates, now);
   const mine = (confs.data ?? []).filter((c) => c.factsScopeId === ctx.scopeId);
@@ -38,7 +42,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
         <ErrorPanel error={consents.error ?? confs.error} />
         <div className="p-scroll"><table className="p-table" style={{ minWidth: 980 }} aria-label="멤버 확인 진행">
           <thead><tr>{th.map((h) => <th key={h} style={{ padding: "8px 14px" }}>{h}</th>)}</tr></thead>
-          <tbody>{rows.map((r) => {
+          <tbody>{paginate(rows, pg1).rows.map((r) => {
             const left = r.left === 0 ? "없음" : `${r.left - (r.consent ? 0 : 1) - (r.mandate ? 0 : 1)}건${!r.consent || !r.mandate ? " + " + [!r.consent && "동의", !r.mandate && "서명"].filter(Boolean).join("·") : ""}`;
             return (
               <tr key={r.member}>
@@ -55,12 +59,14 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
             );
           })}</tbody>
         </table></div>
-        <div className="p-card-foot" style={{ fontSize: 13 }}>멤버는 실연자 앱에서 "내 보이스와 내가 부른 스템"을 한 번에 확인한다(항목마다 거절·이의제기 가능). 원곡 파트 담당 지정도 이 확인에 포함된다(SL3).</div>
+        <PagedTableFoot note={<>멤버는 실연자 앱에서 "내 보이스와 내가 부른 스템"을 한 번에 확인한다(항목마다 거절·이의제기 가능). 원곡 파트 담당 지정도 이 확인에 포함된다(SL3).</>}>
+          <PageNav page={pg1} total={rows.length} onPage={setPg1} />
+        </PagedTableFoot>
       </section>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
         <section className="p-card">
           <div className="p-card-head"><h2>작가 지분 확인</h2><span className="p-badge sm warn">운영이 원문 대조</span></div>
-          <table className="p-table"><tbody>{work.map((c, i) => {
+          <table className="p-table"><tbody>{paginate(work, pg2).rows.map((c, i) => {
             const q = mine.filter((x) => x.recordId === c.claimId).sort((a, b) => b.requestId - a.requestId)[0];
             const done = c.status === "VERIFIED";
             return (
@@ -71,7 +77,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
               </tr>
             );
           })}</tbody></table>
-          <div className="p-card-foot" style={{ fontSize: 13, borderTop: 0 }}>플랫폼 위탁 작가라 빅히트는 조회만 한다. 대조가 끝나면 확정으로 바뀐다(P5 E31).</div>
+          <PagedTableFoot note="플랫폼 위탁 작가라 빅히트는 조회만 한다. 대조가 끝나면 확정으로 바뀐다(P5 E31)."><PageNav page={pg2} total={work.length} onPage={setPg2} /></PagedTableFoot>
         </section>
         <section className="p-card">
           <div className="p-card-head"><h2>확인이 IR 생성·출시에 주는 영향</h2></div>

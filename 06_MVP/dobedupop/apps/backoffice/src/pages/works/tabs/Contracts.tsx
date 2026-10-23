@@ -5,6 +5,8 @@ import { toAnswers, usableTemplates, type Contract, type FormValue, type Templat
 import { useGet } from "../../../api/hooks.ts";
 import type { DocumentRow, PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
+import { PageNav, PagedTableFoot } from "../../../components/PageNav.tsx";
+import { paginate } from "../../../api/paged.ts";
 import { currentClaims } from "../model.ts";
 import { useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
@@ -23,6 +25,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const w = useWrite();
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [pg1, setPg1] = useState(1), [pg2, setPg2] = useState(1);
   const own = new Set((mine.data ?? []).map((p) => p.partyId));
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const tplTitle = (c: Contract) => `${(templates.data ?? []).find((t) => t.templateId === c.templateId && t.version === c.templateVersion)?.title ?? c.templateId} v${c.templateVersion}`;
@@ -70,7 +73,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
           <ErrorPanel error={list.error ?? w.err} />
           <div className="p-scroll"><table className="p-table" style={{ minWidth: 760 }} aria-label="이 곡의 표준 계약">
             <thead><tr>{["계약", "템플릿", "서명 당사자", "상태", ""].map(th)}</tr></thead>
-            <tbody>{groups.flatMap((g) => {
+            <tbody>{paginate(groups, pg1).rows.flatMap((g) => {
               if (g.length === 1) return [row(g[0]!)];
               const key = g[0]!.contractId;
               const mineToSign = g.filter(ourTurn);
@@ -92,18 +95,18 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
               {contracts.length === 0 && <tr><td style={td} colSpan={5} className="p-todo">이 곡의 계약이 없습니다.</td></tr>}
             </tbody>
           </table></div>
-          {w.notice && <div className="p-card-foot" role="status">{w.notice}</div>}
+          <PagedTableFoot note={w.notice ? <span role="status">{w.notice}</span> : undefined}><PageNav page={pg1} total={groups.length} onPage={setPg1} /></PagedTableFoot>
         </section>
         <section className="p-card">
           <div className="p-card-head"><h2>원천 문서 {documents.length}</h2></div>
-          <table className="p-table"><tbody>{documents.map((d, i) => (
+          <table className="p-table"><tbody>{paginate(documents, pg2).rows.map((d, i) => (
             <tr key={`${d.documentId}@${d.version}`} style={i === 0 ? { borderTop: 0 } : undefined}>
               <td style={td}>{d.title} v{d.version} (PDF)</td>
               <td style={td}>당사자 {d.parties.length > 1 ? `${d.parties.length}명` : d.parties.map((p) => ctx.name(p)).join(", ")}{d.effectiveFrom ? ` · 효력 ${d.effectiveFrom.slice(0, 10)}` : ""}</td>
               <td style={td}>근거: {KIND_LABEL[d.kind] ?? d.kind}</td>
             </tr>
           ))}</tbody></table>
-          <div className="p-card-foot" style={{ fontSize: 13, borderTop: 0 }}>반영된 표준 계약의 서명본은 원천 문서로 자동 등록된다.</div>
+          <PagedTableFoot note="반영된 표준 계약의 서명본은 원천 문서로 자동 등록된다."><PageNav page={pg2} total={documents.length} onPage={setPg2} /></PagedTableFoot>
         </section>
       </div>
       <NewContract ctx={ctx} own={own} onDone={() => void list.refetch()} contracts={contracts} />

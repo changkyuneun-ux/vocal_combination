@@ -5,6 +5,8 @@ import { useGet } from "../../api/hooks.ts";
 import type { ConfirmationRow, DocumentRow, WorkOverview } from "../../api/works.ts";
 import type { IssueRow, Paged } from "../../api/types.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
+import { PageNav } from "../../components/PageNav.tsx";
+import { usePaged } from "../../api/paged.ts";
 import { currentClaims, pctText, recentChanges, slotPartRows, stageBars, stageLabel, STAGES } from "./model.ts";
 import { useFacts, useMe, useOverview, useParties, useReadiness } from "./data.tsx";
 
@@ -56,12 +58,9 @@ export function WorksCatalog() {
   const works = o.data ?? [];
   const org = me?.memberships?.find((m) => m.tenantId === me.tenantId)?.name ?? "";
   const count = (s: string) => works.filter((w) => w.status === s).length;
-  const list = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const xs = works.filter((w) => (status === "전체" || w.status === status)
-      && (needle === "" || [w.title, w.workId, w.recordingTitle ?? "", ...w.authors].some((s) => s.toLowerCase().includes(needle))));
-    return sort === "recent" ? xs : [...xs].sort((a, b) => (sort === "stage" ? a.stage - b.stage : a.title.localeCompare(b.title, "ko")));
-  }, [works, status, q, sort]);
+  // 쪽 번호 목록(3부-A PG2): 검색어·상태 탭은 서버 필터, 정렬은 그 쪽 안에서.
+  const paged = usePaged<WorkOverview>("works-overview", "/works/overview", { filters: { q: q.trim() || undefined, status: status === "전체" ? undefined : status } });
+  const list = useMemo(() => (sort === "recent" ? paged.rows : [...paged.rows].sort((a, b) => (sort === "stage" ? a.stage - b.stage : a.title.localeCompare(b.title, "ko")))), [paged.rows, sort]);
   const selId = params.get("sel") ?? list[0]?.workId ?? "";
   const sel = works.find((w) => w.workId === selId);
   const tab = (params.get("tab") ?? "overview") as PanelTab;
@@ -81,7 +80,7 @@ export function WorksCatalog() {
           <div><div className="p-path">{org} / 작품</div><h1>작품 관리</h1></div>
           <div className="p-row">
             <button type="button" className="p-btn wide" disabled title="상용 단계(결정 ED1)">CSV 일괄 등록 · 상용</button>
-            <button type="button" className="p-btn wide" onClick={() => downloadCsv(list)}>엑셀 다운로드</button>
+            <button type="button" className="p-btn wide" onClick={() => downloadCsv(works)}>엑셀 다운로드</button>
             {can("rights.edit") ? <Link className="p-btn primary big" to="/works/new">+ 새 곡 워크스페이스</Link>
               : <button type="button" className="p-btn big" disabled title="권리 편집 권한이 필요하다">+ 새 곡 워크스페이스</button>}
           </div>
@@ -101,7 +100,7 @@ export function WorksCatalog() {
           <select aria-label="정렬" className="p-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="recent">최근 등록순</option><option value="title">곡명순</option><option value="stage">진행 단계순</option>
           </select>
-          <span className="p-sub" style={{ marginLeft: "auto" }}>검색 결과 <b style={{ color: "var(--p-fg)" }}>{list.length}</b>곡</span>
+          <span className="p-sub" style={{ marginLeft: "auto" }}>검색 결과 <b style={{ color: "var(--p-fg)" }}>{paged.total}</b>곡</span>
         </div>
       </div>
       <ErrorPanel error={o.error} />
@@ -132,6 +131,9 @@ export function WorksCatalog() {
             {list.length === 0 && <tr><td colSpan={10} className="p-sub">{o.isLoading ? "불러오는 중…" : "작품이 없습니다."}</td></tr>}
           </tbody>
         </table>
+      </div>
+      <div className="p-catbl" style={{ padding: 0, margin: "0 24px" }}>
+        <div style={{ display: "flex", padding: "8px 24px", borderTop: "1px solid var(--p-line)", background: "var(--p-surface)" }}><PageNav page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
       </div>
       {sel && <SelectedWork w={sel} org={org} tab={tab} onTab={(t) => pick({ sel: sel.workId, tab: t })} />}
     </div>

@@ -24,7 +24,6 @@ export type WsCtx = {
 
 export const WS_TABS = [["rights", "원곡 권리"], ["stems", "스템"], ["confirm", "확인·동의"], ["contracts", "문서·계약"], ["policy", "분배 규칙·팩"], ["release", "승인·출시"]] as const;
 /** 워크스페이스 탭 → 작품 목록 하단 요약 탭(돌아갈 때 그대로 연다). */
-const BACK_TAB: Record<string, string> = { rights: "rights", stems: "stems", confirm: "confirm", contracts: "docs", policy: "policy", release: "policy" };
 
 export function membersOf(facts: WorkFacts, names: Map<string, string>): { partyId: string; name: string }[] {
   const ids: string[] = [];

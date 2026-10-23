@@ -23,7 +23,9 @@ for (const c of cases) {
     page.on("console", (m) => { if (m.type() === "error") problems.push(`console ${route}: ${m.text().slice(0, 200)}`); });
     await page.goto(`http://${c.app}.${DOMAIN}/?persona=${c.persona}`);
     await expect(page.getByLabel("로그인한 사용자")).toContainText(c.persona);
-    const links = await page.locator("nav.menu a").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute("href")!));
+    // 포털은 사이드 메뉴(3부-A): 접힌 메뉴를 모두 펼친 뒤 링크를 모은다.
+    for (let i = 0; i < 20; i++) { const b = page.locator('nav.p-sb button[aria-expanded="false"]').first(); if ((await b.count()) === 0) break; await b.click(); }
+    const links = await page.locator("nav.menu a, nav.p-sb a").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute("href")!));
     for (const href of links) {
       route = href;
       await page.goto(`http://${c.app}.${DOMAIN}${href}`);

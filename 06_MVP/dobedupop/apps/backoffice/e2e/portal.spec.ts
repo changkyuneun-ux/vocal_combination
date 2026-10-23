@@ -9,14 +9,12 @@ test("권리자 포털: 권리 화면만 있고, 레이블 사용자는 자기 �
   await ok(request, null, "POST", "/dev/seed/synthetic-song", {});
 
   await page.goto("/portal/");
-  // 포털 틀은 시안 머리글(디자인 가이드 4절): 사이드바 없이 주 메뉴 작품 · 모아 보기 · 분배 규칙·팩 · 발행·정산 · 조직.
+  // 포털 틀(3부-A, 디자인 가이드 4절): 머리글 + 사이드 메뉴(작품 관리 / 운영 관리). 운영 앱 메뉴는 없다.
   await expect(page.locator(".p-brand")).toHaveText("dobedupop");
-  const menu = page.getByRole("navigation", { name: "주 메뉴" });
-  for (const m of ["작품", "모아 보기", "분배 규칙·팩", "발행·정산", "조직"]) await expect(menu.getByRole("link", { name: m, exact: true })).toBeVisible();
-  await menu.getByRole("link", { name: "모아 보기", exact: true }).click();
-  await expect(page.getByRole("link", { name: "당사자", exact: true })).toBeVisible();
+  const menu = page.getByRole("navigation", { name: "권리 테넌트 메뉴" });
+  for (const m of ["작품 관리", "운영 관리"]) await expect(menu.getByRole("button", { name: new RegExp(m) })).toBeVisible();
+  await expect(menu.getByRole("link", { name: /작품 목록/ })).toBeVisible();
   for (const ops of ["정산 배치", "원장", "지급 run", "매출", "PSP 시뮬레이터"]) await expect(page.getByRole("link", { name: ops, exact: true })).toHaveCount(0);
-  await page.goto("/portal/");
 
   await as(page, "usr_label");
   await expect(page.getByText("tnt_dev_label")).toBeVisible();
