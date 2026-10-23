@@ -12,10 +12,10 @@ TONE = {
     "warn": "background: #fef3c7; color: #92400e",
     "err": "background: #fee2e2; color: #991b1b",
     "ir": "background: #e0e7ff; color: #3730a3",
-    "gray": "background: #f1f5f9; color: #475569",
+    "gray": "background: #f1f5f9; color: #334155",
     "blue": "background: #dbeafe; color: #1e3a8a",
 }
-MONO = "font-family: 'IBM Plex Mono', monospace; font-size: 13px"
+MONO = "font-variant-numeric: tabular-nums; font-size: 13px"
 
 
 def badge(text, tone="gray"):
@@ -27,7 +27,7 @@ def mono(text):
 
 
 def sub(main, small):
-    return f'{main}<div style="font-size: 12px; font-weight: 400; color: #475569">{small}</div>'
+    return f'{main}<div style="font-size: 12px; font-weight: 400; color: #334155">{small}</div>'
 
 
 def link(text):
@@ -42,9 +42,9 @@ def stats(items):
         color = "; color: #92400e" if warn else ""
         cards.append(
             f'<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid {border}">'
-            f'<div style="font-size: 12px; color: #475569">{label}</div>'
+            f'<div style="font-size: 12px; color: #334155">{label}</div>'
             f'<div style="font-size: 22px; font-weight: 700{color}">{val}</div>'
-            f'<div style="font-size: 12px; color: #475569">{note}</div></div>')
+            f'<div style="font-size: 12px; color: #334155">{note}</div></div>')
     return (f'<div style="display: grid; grid-template-columns: repeat({len(items)}, minmax(0, 1fr)); gap: 10px">'
             + "".join(cards) + "</div>")
 
@@ -76,16 +76,16 @@ def pager(total):
     nxt_dis = pages == 1
     nxt = (f'<button{" disabled" if nxt_dis else ""} aria-label="다음 쪽" style="{btn}border: 1px solid {"#e2e8f0" if nxt_dis else "#cbd5e1"}; background: #ffffff; color: {"#94a3b8" if nxt_dis else "#0f172a"}">›</button>')
     return (f'<nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto">'
-            f'<span style="font-size: 13px; color: #475569; margin-right: 6px; font-family: \'IBM Plex Mono\', monospace">1–{min(total, PAGE_SIZE)} / {total}</span>{prev}{nums}{nxt}</nav>')
+            f'<span style="font-size: 13px; color: #334155; margin-right: 6px; font-variant-numeric: tabular-nums">1–{min(total, PAGE_SIZE)} / {total}</span>{prev}{nums}{nxt}</nav>')
 
 
 def table(cols, rows, foot=None, title=None, min_w=900, empty=None, paged=True):
     """paged=False: 항목 수가 정해진 표(확인 항목·규칙별 결과)는 쪽 나눔 줄을 두지 않는다."""
-    th = "".join(f'<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">{c}</th>' for c in cols)
+    th = "".join(f'<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #334155; background: #f8fafc">{c}</th>' for c in cols)
     total = len(rows)
     body = []
     if total == 0 and empty:
-        body.append(f'<tr style="border-top: 1px solid #e2e8f0"><td colspan="{len(cols)}" style="padding: 28px 14px; text-align: center; color: #475569">{empty}</td></tr>')
+        body.append(f'<tr style="border-top: 1px solid #e2e8f0"><td colspan="{len(cols)}" style="padding: 28px 14px; text-align: center; color: #334155">{empty}</td></tr>')
     for r in rows[:PAGE_SIZE]:
         tds = []
         for i, cell in enumerate(r):
@@ -94,9 +94,9 @@ def table(cols, rows, foot=None, title=None, min_w=900, empty=None, paged=True):
         body.append('<tr style="border-top: 1px solid #e2e8f0">' + "".join(tds) + "</tr>")
     head = ""
     if title:
-        head = f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px"><h2 style="margin: 0; font-size: 17px">{title[0]}</h2><span style="font-size: 13px; color: #475569">{title[1]}</span></div>'
+        head = f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px"><h2 style="margin: 0; font-size: 17px">{title[0]}</h2><span style="font-size: 13px; color: #334155">{title[1]}</span></div>'
     pg = pager(total) if paged else ""
-    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">'
+    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #334155">'
               f'<span style="flex: 1 1 320px">{foot or ""}</span>{pg}</div>') if (foot or pg) else ""
     return ('<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden">'
             + head + f'<div style="overflow-x: auto"><table style="width: 100%; min-width: {min_w}px; border-collapse: collapse; font-size: 14px">'
@@ -104,7 +104,7 @@ def table(cols, rows, foot=None, title=None, min_w=900, empty=None, paged=True):
 
 
 def card(title, body, hint=""):
-    h = f'<span style="font-size: 13px; color: #475569">{hint}</span>' if hint else ""
+    h = f'<span style="font-size: 13px; color: #334155">{hint}</span>' if hint else ""
     return ('<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">'
             f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><h2 style="margin: 0; font-size: 17px">{title}</h2>{h}</div>{body}</section>')
 
@@ -116,7 +116,7 @@ def note(text, tone="blue"):
 
 
 def kv(pairs):
-    rows = "".join(f'<div style="display: contents"><dt style="color: #475569">{k}</dt><dd style="margin: 0">{v}</dd></div>' for k, v in pairs)
+    rows = "".join(f'<div style="display: contents"><dt style="color: #334155">{k}</dt><dd style="margin: 0">{v}</dd></div>' for k, v in pairs)
     return f'<dl style="display: grid; grid-template-columns: 160px 1fr; gap: 8px 16px; margin: 0; font-size: 14px">{rows}</dl>'
 
 
@@ -143,7 +143,7 @@ def page(fname, title, active, clock, crumbs, h1, desc, actions, body, height=10
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
 body{{margin:0}}
 a{{color:#1d4ed8}}a:hover{{color:#1e3a8a}}
@@ -156,15 +156,15 @@ a{{color:#1d4ed8}}a:hover{{color:#1e3a8a}}
 <span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
 <div style="flex: 1 1 40px"></div>
 <span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
-<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">{clock}</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-variant-numeric: tabular-nums">{clock}</span>
 <span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
 </header>
 <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
 <dc-import name="Sidebar" active="{active}" hint-size="260px,{height}px"></dc-import>
 <main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
-<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #475569">{crumb}</nav>
+<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #334155">{crumb}</nav>
 {before_title}<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
-<div><h1 style="margin: 0; font-size: 26px">{h1}</h1><div style="font-size: 13px; color: #475569">{desc}</div></div>
+<div><h1 style="margin: 0; font-size: 26px">{h1}</h1><div style="font-size: 13px; color: #334155">{desc}</div></div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px">{"".join(actions)}</div>
 </div>
 {after_title}{chr(10).join(body)}
@@ -372,10 +372,10 @@ def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, re
             f'background: #ffffff; border: 1px solid #e2e8f0; font-size: 13px"><strong>IR 생성 준비</strong>{marks}</div>\n')
     tabs = "".join(
         f'<span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">{t}</span>' if t == active_tab
-        else (f'<span style="padding: 8px 14px; color: #475569">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">{t}</a>')
+        else (f'<span style="padding: 8px 14px; color: #334155">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 8px 14px; text-decoration: none; color: #334155">{t}</a>')
         for t in WS_TABS)
     tabrow = f'<div role="tablist" aria-label="워크스페이스 탭" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px">{tabs}</div>\n'
-    key = {"원곡 권리": "ws-rights", "스템": "ws-stems", "확인·동의": "ws-confirm", "문서·계약": "ws-contracts", "분배 규칙·팩": "ws-policy", "승인·출시": "ws-release"}[active_tab]
+    key = "ws"  # 사이드 메뉴는 곡 단위로 활성, 곡 안의 화면은 탭으로 고른다
     page(fname, title, key, clock, crumbs, h1, desc,
          actions + [badge("IR 생성 전 — 등록·조회·수정 가능", "ok")], body, height=height, before_title=band, after_title=tabrow)
 
@@ -391,7 +391,7 @@ def steps(items, current):
             st = "background: #ffffff; border: 2px solid #1d4ed8; color: #1e3a8a; font-weight: 600"
             mark = ""
         else:
-            st = "background: #ffffff; border: 1px dashed #94a3b8; color: #475569"
+            st = "background: #ffffff; border: 1px dashed #94a3b8; color: #334155"
             mark = ""
         out.append(f'<div style="flex: 1 1 140px; padding: 8px 12px; border-radius: 8px; font-size: 13px; {st}">{mark}{i} {label}</div>')
     return '<div style="display: flex; flex-wrap: wrap; gap: 6px">' + "".join(out) + "</div>"
@@ -403,13 +403,13 @@ def check(on):
 
 
 def field(label, control, hint=""):
-    h = f'<div style="font-size: 12px; color: #475569">{hint}</div>' if hint else ""
+    h = f'<div style="font-size: 12px; color: #334155">{hint}</div>' if hint else ""
     return f'<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px"><span style="font-weight: 600">{label}</span>{control}{h}</label>'
 
 
 def chips(opts, on):
     return '<div style="display: flex; flex-wrap: wrap; gap: 6px">' + "".join(
-        f'<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; {"background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; font-weight: 600" if o in on else "background: #ffffff; color: #475569; border: 1px solid #cbd5e1"}">{o}</span>'
+        f'<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; {"background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; font-weight: 600" if o in on else "background: #ffffff; color: #334155; border: 1px solid #cbd5e1"}">{o}</span>'
         for o in opts) + "</div>"
 
 
@@ -419,7 +419,7 @@ USE_TERRITORIES = ["대한민국", "일본", "미국"]
 USE_MEDIA = ["팬앱", "외부 SNS"]
 USE_AUDIENCE = ["팬 커뮤니티", "전체 공개"]
 INPUT = "font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #ffffff"
-READY_IMPORT = [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 원곡 스템 34 중 2 등록", "#92400e"), ("! 확인 대기", "#92400e"), ("· 위임 서명 1/7", "#475569")]
+READY_IMPORT = [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 원곡 스템 34 중 2 등록", "#92400e"), ("! 확인 대기", "#92400e"), ("· 위임 서명 1/7", "#334155")]
 IMPORT_STEPS = ["계약서 불러오기", "후보 값 확인", "IR 정보 대조", "빠진 것 입력", "권리 확인서 서명"]
 
 # ── 작품 워크스페이스 › 문서·계약 › 계약서 불러오기 ──
@@ -452,18 +452,18 @@ ws_page("Song-Import.dc.html", "Dynamite — 계약서 불러오기", "문서·�
               + field("이용 행위", chips(USE_ACTIONS, ["미리듣기", "조합 생성", "개인 보관"]), "멤버 이용 동의·팩 이용 범위와 같아야 한다")
               + field("지역", chips(USE_TERRITORIES, USE_TERRITORIES))
               + field("매체 · 공개 대상", chips(USE_MEDIA + USE_AUDIENCE, ["팬앱", "팬 커뮤니티"]))
-              + field("기간 끝", f'<input value="2030-12-31" style="{INPUT}; font-family: \'IBM Plex Mono\', monospace">', "원본 계약 기간을 넘지 않게")
+              + field("기간 끝", f'<input value="2030-12-31" style="{INPUT}; font-variant-numeric: tabular-nums">', "원본 계약 기간을 넘지 않게")
               + "</div>", hint="원본 계약에 없는 값"),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("권리 확인서 만들기 →", primary=True) + "</div>"],
         READY_IMPORT, height=1600)
 
 # ── 작품 워크스페이스 › 문서·계약 › 권리 확인서 ──
-clause = lambda no, head, body_: f'<div style="display: flex; flex-direction: column; gap: 4px"><strong style="font-size: 14px">{no} {head}</strong><div style="font-size: 14px; color: #334155; line-height: 1.6">{body_}</div></div>'
+clause = lambda no, head, body_: f'<div style="display: flex; flex-direction: column; gap: 4px"><strong style="font-size: 14px">{no} {head}</strong><div style="font-size: 14px; color: #1e293b; line-height: 1.6">{body_}</div></div>'
 share_tbl = ('<table style="border-collapse: collapse; font-size: 14px; margin-top: 4px"><thead><tr>'
-             + "".join(f'<th style="padding: 6px 12px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">{h}</th>' for h in ["작가", "역할", "지분", "수령"])
+             + "".join(f'<th style="padding: 6px 12px; text-align: left; font-size: 13px; color: #334155; background: #f8fafc">{h}</th>' for h in ["작가", "역할", "지분", "수령"])
              + '</tr></thead><tbody>'
-             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">David Stewart</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
-             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">Jessica Agombar</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
+             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">David Stewart</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-variant-numeric: tabular-nums">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
+             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">Jessica Agombar</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-variant-numeric: tabular-nums">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
              + '</tbody></table>')
 doc = ('<article style="display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff">'
        '<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><h3 style="margin: 0; font-size: 18px">권리 확인서 — 작가용</h3>' + badge("템플릿 v1", "gray") + badge("미리보기", "blue") + '</div>'
@@ -516,7 +516,7 @@ ws_page("Song-Import-Start.dc.html", "Dynamite — 계약서 불러오기 시작
         READY_IMPORT, height=1000)
 
 # ── 계약서 불러오기 — 후보 값 상태(다름 · 사람이 입력) ──
-small = lambda ph, w="120px", mono_=False: f'<input placeholder="{ph}" style="{INPUT}; width: {w}' + ('; font-family: \'IBM Plex Mono\', monospace' if mono_ else '') + '">'
+small = lambda ph, w="120px", mono_=False: f'<input placeholder="{ph}" style="{INPUT}; width: {w}' + ('; font-variant-numeric: tabular-nums' if mono_ else '') + '">'
 radio = lambda label, on: (f'<label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-right: 12px">'
                            f'<span style="display: inline-block; width: 14px; height: 14px; border-radius: 999px; border: {"4px solid #1d4ed8" if on else "1px solid #94a3b8"}; background: #ffffff; box-sizing: border-box"></span>{label}</label>')
 ws_page("Song-Import-Values.dc.html", "Dynamite — 후보 값(다름 · 사람이 입력)", "문서·계약", "2026-01-03 09:00",
@@ -550,11 +550,11 @@ ws_page("Song-ClaimConfirm-Apply.dc.html", "Dynamite — 권리 확인서 기록
                                                ("확인 요청", "열린 확인 요청 2건이 닫히고 정합성 경고 2건이 닫힌다")])) + '</div></div>',
          note("반영은 한 번만 한다. 반영한 뒤에는 확인서와 만들어진 기록을 고칠 수 없고, 바로잡기는 새 확인서로 한다."),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("서명본 보기") + button("기록 반영", primary=True) + "</div>"],
-        [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 확인 대기 2 → 반영하면 닫힘", "#92400e"), ("· 위임 서명 7/7", "#475569")], height=900)
+        [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 확인 대기 2 → 반영하면 닫힘", "#92400e"), ("· 위임 서명 7/7", "#334155")], height=900)
 
 # ── 운영 관리 › 계약 템플릿 › 읽기 틀 등록 ──
 filled = lambda v, w: f'<input value="{v}" style="{INPUT}; width: {w}">'
-frow = lambda item, pg, cl, pat, quote, got: [item, filled(pg, "56px"), filled(cl, "96px"), f'<input value="{pat}" style="{INPUT}; width: 100%; font-family: \'IBM Plex Mono\', monospace; font-size: 13px">', f'<span style="font-size: 13px; color: #334155">“{quote}”</span>', got]
+frow = lambda item, pg, cl, pat, quote, got: [item, filled(pg, "56px"), filled(cl, "96px"), f'<input value="{pat}" style="{INPUT}; width: 100%; font-variant-numeric: tabular-nums; font-size: 13px">', f'<span style="font-size: 13px; color: #1e293b">“{quote}”</span>', got]
 page("Ops-FrameNew.dc.html", "운영 관리 — 읽기 틀 등록", "op-templates", "2026-01-02 10:10",
      ["운영 관리", "계약·문서", "계약 템플릿", "읽기 틀 등록"], "읽기 틀 등록",
      "계약 양식에서 값이 있는 위치(쪽·조항)와 값 모양을 IR 항목에 대응시킨다. 빅히트가 등록하고 플랫폼이 승인한다(CT2)",
