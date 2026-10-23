@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_ACTOR, currentActor, resetActorForTest, setActor, subscribe } from "./actor.ts";
+import { DEFAULT_ACTOR, PORTAL_DEFAULT_ACTOR, currentActor, resetActorForTest, setActor, subscribe } from "./actor.ts";
 
 describe("actor store", () => {
   beforeEach(() => resetActorForTest());
@@ -62,5 +62,22 @@ describe("actor 복구", () => {
     setActor(undefined as unknown as string);
     setActor(null as unknown as string);
     expect(currentActor()).toBe("usr_ops");
+  });
+});
+
+describe("앱별 사용자(포털은 운영 앱과 따로 저장)", () => {
+  beforeEach(() => resetActorForTest());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("포털은 rc.actor.portal을 쓰고 기본값은 빅히트 권리 편집 — 운영 앱에서 고른 플랫폼 사용자를 따라가지 않는다", () => {
+    const store: Record<string, string> = { "rc.actor": "usr_editor" };
+    vi.stubGlobal("localStorage", { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; } });
+    vi.stubGlobal("location", { pathname: "/portal/works" });
+    expect(currentActor()).toBe(PORTAL_DEFAULT_ACTOR);
+    setActor("usr_bh_admin");
+    expect(store).toEqual({ "rc.actor": "usr_editor", "rc.actor.portal": "usr_bh_admin" });
+    resetActorForTest();
+    vi.stubGlobal("location", { pathname: "/batches" });
+    expect(currentActor()).toBe("usr_editor");
   });
 });

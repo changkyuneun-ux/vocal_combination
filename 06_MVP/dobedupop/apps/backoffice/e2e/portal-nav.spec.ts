@@ -7,7 +7,7 @@ import { onboardBighit } from "./bighit.ts";
  * 개발 서버(로컬)에서 돈다 — 데모 스택을 다시 빌드하지 않도록 stack-* 대신 개발 DB를 쓴다.
  */
 async function actAs(page: Page, userId: string, path: string) {
-  await page.evaluate((u) => localStorage.setItem("rc.actor", u), userId);
+  await page.evaluate((u) => localStorage.setItem("rc.actor.portal", u), userId);
   await page.goto(path);
 }
 const T0 = "2026-01-01T00:00:00.000Z";

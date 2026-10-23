@@ -1,6 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createUser } from "../../src/platform/actor.ts";
+import { ensureSuperAdmin } from "../../src/platform/super-admin.ts";
 import { markIdentityVerified } from "../../src/performer/identity.ts";
 import { fixedClock } from "../../src/platform/clock.ts";
 import { recordingJobs } from "../../src/platform/jobs.ts";
@@ -9,7 +10,7 @@ import { registerParty } from "../../src/registry/service.ts";
 import { settlementWorld } from "../settlement-fixtures.ts";
 import { SCOPE } from "../fixtures.ts";
 
-// API 채널(다음 작업 5): 채널마다 들어올 수 있는 신원이 다르다. ops = 플랫폼, portal = 권리자 테넌트·플랫폼,
+// API 채널(다음 작업 5): 채널마다 들어올 수 있는 신원이 다르다. ops = 플랫폼, portal = 권리 테넌트 소속만(플랫폼은 권리를 다루지 않는다, 결정 WD),
 // performer = PERFORMER 본인, fan = 팬 파티, partner = B2B 파트너 테넌트.
 const w = await settlementWorld();
 const clock = fixedClock("2026-02-10T00:00:00.000Z", 1000);
@@ -25,6 +26,8 @@ await w.db.tx(async (tx) => {
   await markIdentityVerified(tx, c0, "usr_perf_a", "TEST");
   await createUser(tx, c0, { userId: "usr_fan", displayName: "fan", roles: [], tenantId: "tnt_platform_default", partyId: "pty_fan_1" });
   await createUser(tx, c0, { userId: "usr_partner", displayName: "partner", roles: [], tenantId: "tnt_partner" });
+  // 총괄(결정 RD1): 플랫폼 기본 소속(PLATFORM_ALL) + 권리 테넌트 소속(RIGHTS_ALL).
+  await ensureSuperAdmin(tx, c0, { userId: "usr_all", displayName: "총괄", tenantIds: ["tnt_lbl"] });
 });
 
 const call = (method: "GET" | "POST", url: string, actor: string, payload?: object) =>
@@ -38,7 +41,7 @@ const json = async (method: "GET" | "POST", url: string, actor: string, status: 
 test("each channel admits only its identities (403 CHANNEL_FORBIDDEN otherwise)", async () => {
   const users = ["usr_ops", "usr_label", "usr_perf_a", "usr_fan", "usr_partner"];
   const admits: Record<string, string[]> = {
-    ops: ["usr_ops"], portal: ["usr_ops", "usr_label"], performer: ["usr_perf_a"], fan: ["usr_fan"], partner: ["usr_partner"],
+    ops: ["usr_ops"], portal: ["usr_label"], performer: ["usr_perf_a"], fan: ["usr_fan"], partner: ["usr_partner"],
   };
   for (const [ch, ok] of Object.entries(admits)) {
     for (const u of users) {
@@ -47,6 +50,17 @@ test("each channel admits only its identities (403 CHANNEL_FORBIDDEN otherwise)"
       if (!ok.includes(u)) assert.equal(r.json().code, "CHANNEL_FORBIDDEN");
     }
   }
+});
+
+test("portal: platform accounts are refused; a super admin (platform home + rights membership) enters as the rights tenant", async () => {
+  assert.equal((await json("GET", "/portal/me", "usr_ops", 403)).code, "CHANNEL_FORBIDDEN");
+  assert.equal((await json("GET", "/portal/works", "usr_settle", 403)).code, "CHANNEL_FORBIDDEN");
+  const me = await json("GET", "/portal/me", "usr_all", 200);
+  assert.deepEqual([me.tenantId, me.scope, me.roles], ["tnt_lbl", "tenant", ["RIGHTS_ALL"]]);
+  assert.equal((await json("GET", "/ops/me", "usr_all", 200)).tenantId, "tnt_platform", "the same account is platform on the ops channel");
+  // 플랫폼 소속을 직접 고르면 포털에서는 거부된다.
+  const r = await app.inject({ method: "GET", url: "/portal/me", headers: { "x-actor": "usr_all", "x-tenant": "tnt_platform" } });
+  assert.equal(r.statusCode, 403);
 });
 
 test("the same handler on two channels: settlement reads are ops-only, registry reads are on ops and portal", async () => {
@@ -90,7 +104,7 @@ test("rights-holder portal: statements only for parties of the caller's tenant",
   const q = "from=2026-01-01T00:00:00.000Z&to=2026-12-31T00:00:00.000Z";
   await json("GET", `/portal/parties/pty_label/statements?${q}`, "usr_label", 404);
   assert.deepEqual(await json("GET", "/portal/my/parties", "usr_label", 200), []);
-  await json("GET", `/portal/parties/pty_label/statements?${q}`, "usr_ops", 200);
+  assert.equal((await json("GET", `/portal/parties/pty_label/statements?${q}`, "usr_ops", 403)).code, "CHANNEL_FORBIDDEN", "the platform reads statements on ops, not on the portal");
 });
 
 test("user APIs exist only under a channel: the old root paths are gone", async () => {

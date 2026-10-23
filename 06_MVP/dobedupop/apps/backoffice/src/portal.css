@@ -61,9 +61,6 @@
 .p-header .p-user select option { color: var(--p-fg); }
 .p-header .p-user button { font: inherit; font-size: 13px; color: var(--p-header-muted); background: transparent; border: 0; padding: 0; text-decoration: underline; cursor: pointer; min-height: 0; }
 /* 개발 서버 전용 데모 도구(머리글 아래 얇은 띠) */
-.p-devstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 24px; background: var(--p-warn-soft); border-bottom: 1px solid var(--p-warn-line-2); font-size: 12px; color: var(--p-demo); }
-.p-devstrip button, .p-devstrip a { font: inherit; font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--p-warn-line); background: var(--p-surface); color: var(--p-demo-dark); text-decoration: none; min-height: 0; cursor: pointer; }
-.p-devstrip input { font: inherit; font-size: 12px; padding: 1px 4px; }
 
 .p-main { max-width: 1360px; box-sizing: content-box; margin: 0 auto; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
 .p-main.gap14 { gap: 14px; }

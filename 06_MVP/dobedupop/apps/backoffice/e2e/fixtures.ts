@@ -63,6 +63,16 @@ export async function as(page: Page, userId: string): Promise<void> {
   await page.getByLabel("사용자 전환").selectOption(userId);
 }
 
+/**
+ * 권리자 포털 사용자(개발 서버): 포털은 사용자 전환 도구가 없다 — 앱별 저장값(rc.actor.portal)을 시험 코드가 넣고 그 경로를 연다.
+ * 포털이 아닌 경로에 있으면 먼저 포털을 열어 같은 출처의 저장소를 쓴다.
+ */
+export async function asPortal(page: Page, userId: string, path?: string): Promise<void> {
+  if (!new URL(page.url() === "about:blank" ? "http://x/" : page.url()).pathname.startsWith("/portal")) await page.goto("/portal/");
+  await page.evaluate((u) => localStorage.setItem("rc.actor.portal", u), userId);
+  await page.goto(path ?? page.url());
+}
+
 /** 헤더 가상 시계 버튼("+1시간", "+1일", "+3일", "+30일")을 누른다. */
 export async function advance(page: Page, label: string): Promise<void> {
   await page.getByRole("button", { name: label, exact: true }).click();

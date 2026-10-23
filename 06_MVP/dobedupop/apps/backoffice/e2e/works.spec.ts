@@ -8,7 +8,7 @@ import { onboardBighit } from "./bighit.ts";
  * 개발 서버(로컬)에서 돈다 — 데모 스택을 다시 빌드하지 않도록 stack-* 대신 개발 DB를 쓴다. 빅히트 테넌트·계정은 Dynamite 온보딩 단계와 같은 API로 만든다.
  */
 async function actAs(page: Page, userId: string, path: string) {
-  await page.evaluate((u) => localStorage.setItem("rc.actor", u), userId);
+  await page.evaluate((u) => localStorage.setItem("rc.actor.portal", u), userId);
   await page.goto(path);
 }
 

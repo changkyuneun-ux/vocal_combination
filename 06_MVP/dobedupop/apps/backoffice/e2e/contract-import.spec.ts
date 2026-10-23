@@ -14,7 +14,7 @@ import { MASTER_FRAME, PUBLISHING_CLAUSES, PUBLISHING_FRAME } from "../../../ser
  */
 async function actAs(page: Page, userId: string, path: string) {
   await page.goto("/portal/");
-  await page.evaluate((u) => localStorage.setItem("rc.actor", u), userId);
+  await page.evaluate((u) => localStorage.setItem("rc.actor.portal", u), userId);
   await page.goto(path);
 }
 

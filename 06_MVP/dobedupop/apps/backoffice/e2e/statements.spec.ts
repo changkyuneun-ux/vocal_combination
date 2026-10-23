@@ -10,7 +10,7 @@ test("빅히트 명세·지급: 받는 당사자 4(레이블·소속사·작가 
   test.setTimeout(420_000);
   execFileSync("node", [fileURLToPath(new URL("./seed-dynamite.mjs", import.meta.url)), "payout"], { stdio: "inherit", timeout: 400_000 });
   await page.goto("/portal/");
-  await page.evaluate(() => localStorage.setItem("rc.actor", "usr_bh_rights"));
+  await page.evaluate(() => localStorage.setItem("rc.actor.portal", "usr_bh_rights"));
   await page.goto("/portal/ops/statements");
   const kpi = (label: string) => page.locator(".p-kpi").filter({ hasText: label });
   await expect(kpi("받는 당사자").locator(".v")).toHaveText("4");

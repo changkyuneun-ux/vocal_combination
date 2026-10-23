@@ -1,13 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { useClock } from "../api/clock.ts";
-import { authApi, devApi, sessionMode } from "../api/client.ts";
+import { authApi, sessionMode } from "../api/client.ts";
 import { useGet } from "../api/hooks.ts";
 import { ROLE_LABEL, type Me } from "../api/admin.ts";
-import type { UserRow } from "../api/types.ts";
 import type { WorkOverview } from "../api/works.ts";
-import { DEFAULT_ACTOR, setActor, useActor } from "./actor.ts";
+import { useActor } from "./actor.ts";
+import { ErrorPanel } from "../components/ErrorPanel.tsx";
 import { Sidebar, useSidebarToggles } from "./Sidebar.tsx";
 import { activeKey, crumbsFor, sidebarModel, workIdOf, type Counts } from "./sidebar.ts";
 
@@ -35,6 +34,7 @@ export function Crumbs({ linkWork }: { linkWork?: string }) {
  */
 export function PortalShell() {
   const loc = useLocation();
+  const actor = useActor();
   const me = useGet<Me & { permissions?: string[] }>(["me"], "/me");
   const clock = useClock();
   const overview = useGet<WorkOverview[]>(["works-overview"], "/works/overview");
@@ -67,22 +67,22 @@ export function PortalShell() {
     <div className="p-shell p-shell2">
       <header className="p-header">
         <strong className="p-brand">dobedupop</strong>
-        <span className="p-org">{org} ▾</span>
+        <span className="p-org">{org}</span>
         <span className="p-tenant">권리 테넌트</span>
         <div className="p-spacer" />
         <span className="p-search"><b>/</b> 검색</span>
         <span className="p-clock" data-testid="clock-now">{clock.data ? `${clock.data.now.slice(0, 10)} ${clock.data.now.slice(11, 16)}` : "—"}</span>
-        {sessionMode ? (
-          <span className="p-user" aria-label="로그인한 사용자">{role} · {me.data?.userId} <button type="button" onClick={() => void authApi("POST", "/logout").then(() => location.reload(), () => location.reload())}>로그아웃</button></span>
-        ) : <DevUser role={role} />}
+        {/* 시안: "역할 · 사용자 id" 글자만. 개발 서버의 사용자 전환·데모 도구는 포털에 두지 않는다(포털은 권리 테넌트 하나로 고정). */}
+        <span className="p-user" aria-label="로그인한 사용자">{role} · {me.data?.userId ?? actor}{sessionMode && <> <button type="button" onClick={() => void authApi("POST", "/logout").then(() => location.reload(), () => location.reload())}>로그아웃</button></>}</span>
       </header>
-      {import.meta.env.DEV && <DevStrip />}
       <div className="p-body">
         <Sidebar groups={groups} closed={closed} onToggle={onToggle} org={org} />
         <div className="p-content">
           <CrumbsCtx.Provider value={crumbs}>
             {/* 작품·운영 관리 화면은 본문 틀(경로·제목)을 스스로 그린다. 그 밖(기존 권리 화면)은 틀 안에 넣는다. */}
-            {activeKey(loc.pathname) !== "" ? <Outlet /> : <main className="p-main"><Crumbs /><Outlet /></main>}
+            {me.error ? <main className="p-main"><ErrorPanel error={me.error} />
+              <p className="p-sub">권리자 포털은 권리 테넌트 소속 계정으로만 씁니다. 플랫폼 운영 업무는 운영 백오피스에서 합니다.</p></main>
+              : activeKey(loc.pathname) !== "" ? <Outlet /> : <main className="p-main"><Crumbs /><Outlet /></main>}
           </CrumbsCtx.Provider>
         </div>
       </div>
@@ -90,36 +90,3 @@ export function PortalShell() {
   );
 }
 
-/** 개발 서버: 사용자 이름 자리를 사용자 전환으로(머리글 글자 모양 그대로). */
-function DevUser({ role }: { role: string }) {
-  const users = useGet<{ items: UserRow[] }>(["users", "dev-switcher"], "/users?limit=200", { api: { actorOverride: DEFAULT_ACTOR } });
-  const actor = useActor();
-  const rows = users.data?.items ?? [];
-  return (
-    <span className="p-user">
-      {role} · <select aria-label="사용자 전환" value={actor} onChange={(e) => setActor(e.target.value)}>
-        {!rows.some((u) => u.userId === actor) && <option value={actor}>{actor}</option>}
-        {rows.map((u) => <option key={u.userId} value={u.userId}>{u.userId}</option>)}
-      </select>
-    </span>
-  );
-}
-
-const HOUR = 3_600_000;
-/** 개발 서버 전용 데모 도구(시계 전진·지정, 다른 앱으로). */
-function DevStrip() {
-  const qc = useQueryClient();
-  const [at, setAt] = useState("");
-  const run = (p: Promise<unknown>) => void p.then(() => qc.invalidateQueries());
-  return (
-    <div className="p-devstrip" aria-label="데모 도구">
-      <span>데모 도구</span>
-      {([["+1시간", HOUR], ["+1일", 24 * HOUR], ["+3일", 72 * HOUR], ["+30일", 720 * HOUR]] as const).map(([l, ms]) => (
-        <button key={l} type="button" onClick={() => run(devApi("POST", "/clock/advance", { ms }))}>{l}</button>
-      ))}
-      <input type="datetime-local" aria-label="지정 시각(UTC)" value={at} onChange={(e) => setAt(e.target.value)} />
-      <button type="button" disabled={!at} onClick={() => run(devApi("POST", "/clock/set", { at: new Date(`${at}Z`).toISOString() }))}>지정</button>
-      <a href="/">운영 백오피스로</a><a href="/partner/">참여 기관으로</a>
-    </div>
-  );
-}

@@ -5,7 +5,8 @@ import { DomainError } from "../platform/errors.ts";
 /**
  * API 채널(아키텍처 문서 "사용자 업무 시스템 분리", 다음 작업 5). 앱마다 쓰는 표면과 들어올 수 있는 신원이 다르다.
  * - ops: 운영 백오피스. 플랫폼 운영 테넌트 사용자만.
- * - portal: 권리자 포털. 권리 테넌트(레이블·기획사·출판사·독립 아티스트) 사용자, 그리고 온보딩·대행을 하는 플랫폼 운영.
+ * - portal: 권리자 포털. 권리 테넌트(레이블·기획사·출판사·독립 아티스트) 소속만. 플랫폼은 권리를 다루지 않으므로(결정 WD1~WD3)
+ *   플랫폼 소속으로는 들어오지 못한다 — 위임 대행(x-on-behalf-of)도 포털에서는 막힌다. 여러 소속을 가진 계정(총괄)은 권리 테넌트 소속으로 들어온다.
  *   신탁단체는 권리를 만들지 않으므로 들어오지 못한다(결정 TD12).
  * - performer: 실연자 앱. PERFORMER 역할의 본인 계정(파티 연결)만.
  * - fan: 팬 앱. 팬 파티에 연결된 개인 계정만.
@@ -22,7 +23,7 @@ declare module "fastify" {
 export function allowed(channel: Channel, a: Actor): boolean {
   switch (channel) {
     case "ops": return a.scope === "platform";
-    case "portal": return a.scope === "platform" || (a.scope === "tenant" && a.orgClass === "RIGHTS");
+    case "portal": return a.scope === "tenant" && a.orgClass === "RIGHTS";
     case "performer": return a.permissions.has("performer.self") && a.partyId !== undefined;
     case "fan": return a.scope === "party" && a.partyType === "FAN";
     case "partner": return a.scope === "tenant" && a.orgClass === "PARTICIPANT";
