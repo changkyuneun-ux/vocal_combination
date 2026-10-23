@@ -7,55 +7,66 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "project"
 
+# ── 스타일 v2(2026-10-23): 비즈니스 클래식 — 남색 주색, 회색 단계, 흰 카드 + 옅은 그림자, 라벨 왼쪽·값 오른쪽, 큰 현황 숫자 ──
+NAVY = "#1e3a8a"
+LINE = "#e3e7ee"
+CARD = f"background: #ffffff; border: 1px solid {LINE}; border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05)"
 TONE = {
-    "ok": "background: #dcfce7; color: #166534",
-    "warn": "background: #fef3c7; color: #92400e",
-    "err": "background: #fee2e2; color: #991b1b",
-    "ir": "background: #e0e7ff; color: #3730a3",
-    "gray": "background: #f1f5f9; color: #334155",
-    "blue": "background: #dbeafe; color: #1e3a8a",
+    "ok": "background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0",
+    "warn": "background: #fffbeb; color: #b45309; border: 1px solid #fde68a",
+    "err": "background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca",
+    "ir": "background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe",
+    "gray": "background: #f8fafc; color: #334155; border: 1px solid #e2e8f0",
+    "blue": "background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe",
 }
-MONO = "font-variant-numeric: tabular-nums; font-size: 13px"
+MONO = "font-variant-numeric: tabular-nums"
 
 
 def badge(text, tone="gray"):
-    return f'<span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; {TONE[tone]}; font-weight: 600; white-space: nowrap">{text}</span>'
+    return f'<span style="display: inline-block; font-size: 12px; line-height: 18px; padding: 2px 10px; border-radius: 999px; {TONE[tone]}; font-weight: 700; white-space: nowrap">{text}</span>'
 
 
 def mono(text):
-    return f'<span style="{MONO}">{text}</span>'
+    return f'<span style="{MONO}; white-space: nowrap">{text}</span>'
 
 
 def sub(main, small):
-    return f'{main}<div style="font-size: 12px; font-weight: 400; color: #334155">{small}</div>'
+    return f'{main}<div style="margin-top: 2px; font-size: 12.5px; font-weight: 400; color: #334155">{small}</div>'
 
 
 def link(text):
-    return f'<a href="#">{text}</a>'
+    return f'<a href="#" style="font-weight: 600; text-decoration: none; white-space: nowrap">{text}</a>'
 
 
 def stats(items):
-    """items: (라벨, 값, 아래 설명, 주의 여부)"""
+    """현황 숫자 카드. items: (라벨, 값, 아래 설명, 주의 여부). 위쪽 3px 띠 — 보통 남색, 주의 호박색."""
     cards = []
     for label, val, note, warn in items:
-        border = "#fdba74" if warn else "#e2e8f0"
-        color = "; color: #92400e" if warn else ""
+        bar = "#b45309" if warn else NAVY
+        color = "#b45309" if warn else "#0f172a"
         cards.append(
-            f'<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid {border}">'
-            f'<div style="font-size: 12px; color: #334155">{label}</div>'
-            f'<div style="font-size: 22px; font-weight: 700{color}">{val}</div>'
-            f'<div style="font-size: 12px; color: #334155">{note}</div></div>')
-    return (f'<div style="display: grid; grid-template-columns: repeat({len(items)}, minmax(0, 1fr)); gap: 10px">'
+            f'<div style="{CARD}; border-top: 3px solid {bar}; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">'
+            f'<div style="font-size: 13px; font-weight: 600; color: #334155">{label}</div>'
+            f'<div style="font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.01em; color: {color}; {MONO}">{val}</div>'
+            f'<div style="font-size: 13px; color: #334155">{note}</div></div>')
+    return (f'<div style="display: grid; grid-template-columns: repeat({len(items)}, minmax(0, 1fr)); gap: 14px">'
             + "".join(cards) + "</div>")
 
 
+SELECT = "font: inherit; font-size: 14px; color: #0f172a; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff"
+
+
 def filters(placeholder, selects):
-    out = ['<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">',
+    """검색 + 고르기. 처음 값은 언제나 '전체'(2026-10-23) — 옵션에 '전체'가 없으면 '<이름> 전체'를 앞에 둔다."""
+    out = ['<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">',
            '<label for="q" style="position: absolute; left: -9999px">검색</label>',
-           f'<input id="q" placeholder="{placeholder}" style="font: inherit; font-size: 14px; flex: 1 1 280px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">']
+           f'<input id="q" placeholder="{placeholder}" style="{SELECT}; flex: 1 1 280px">']
     for name, opts in selects:
+        opts = list(opts)
+        alls = [x for x in opts if "전체" in x]
+        opts = (alls[:1] + [x for x in opts if x != alls[0]]) if alls else [f"{name} 전체"] + opts
         o = "".join(f"<option>{x}</option>" for x in opts)
-        out.append(f'<select aria-label="{name}" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px">{o}</select>')
+        out.append(f'<select aria-label="{name}" style="{SELECT}">{o}</select>')
     out.append("</div>")
     return "\n".join(out)
 
@@ -70,69 +81,74 @@ def pager(total):
     pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
     btn = "min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; "
     nums = "".join(
-        f'<button aria-current="page" style="{btn}border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button>' if n == 1
-        else f'<button style="{btn}border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a">{n}</button>' for n in range(1, pages + 1))
+        f'<button aria-current="page" style="{btn}border: 0; background: {NAVY}; color: #ffffff; font-weight: 700">1</button>' if n == 1
+        else f'<button style="{btn}border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; font-weight: 600">{n}</button>' for n in range(1, pages + 1))
     prev = f'<button disabled aria-label="이전 쪽" style="{btn}border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button>'
     nxt_dis = pages == 1
     nxt = (f'<button{" disabled" if nxt_dis else ""} aria-label="다음 쪽" style="{btn}border: 1px solid {"#e2e8f0" if nxt_dis else "#cbd5e1"}; background: #ffffff; color: {"#94a3b8" if nxt_dis else "#0f172a"}">›</button>')
     return (f'<nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto">'
-            f'<span style="font-size: 13px; color: #334155; margin-right: 6px; font-variant-numeric: tabular-nums">1–{min(total, PAGE_SIZE)} / {total}</span>{prev}{nums}{nxt}</nav>')
+            f'<span style="font-size: 13px; color: #334155; margin-right: 6px; {MONO}">1–{min(total, PAGE_SIZE)} / {total}</span>{prev}{nums}{nxt}</nav>')
+
+
+def head(title, hint="", right=""):
+    """카드 머리: 제목 16px 700 왼쪽, 설명은 제목 옆, 오른쪽 끝에 버튼."""
+    h = f'<span style="font-size: 13px; color: #334155">{hint}</span>' if hint else ""
+    r = f'<span style="margin-left: auto; display: flex; gap: 8px">{right}</span>' if right else ""
+    return f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a">{title}</h2>{h}{r}</div>'
 
 
 def table(cols, rows, foot=None, title=None, min_w=900, empty=None, paged=True):
     """paged=False: 항목 수가 정해진 표(확인 항목·규칙별 결과)는 쪽 나눔 줄을 두지 않는다."""
-    th = "".join(f'<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #334155; background: #f8fafc">{c}</th>' for c in cols)
+    th = "".join(f'<th style="padding: 10px 16px; text-align: left; font-size: 12.5px; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 1px solid {LINE}; white-space: nowrap">{c}</th>' for c in cols)
     total = len(rows)
     body = []
     if total == 0 and empty:
-        body.append(f'<tr style="border-top: 1px solid #e2e8f0"><td colspan="{len(cols)}" style="padding: 28px 14px; text-align: center; color: #334155">{empty}</td></tr>')
+        body.append(f'<tr><td colspan="{len(cols)}" style="padding: 32px 16px; text-align: center; font-size: 14px; color: #334155">{empty}</td></tr>')
     for r in rows[:PAGE_SIZE]:
         tds = []
         for i, cell in enumerate(r):
             weight = "; font-weight: 600" if i == 0 else ""
-            tds.append(f'<td style="padding: 9px 14px{weight}">{cell}</td>')
-        body.append('<tr style="border-top: 1px solid #e2e8f0">' + "".join(tds) + "</tr>")
-    head = ""
-    if title:
-        head = f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px"><h2 style="margin: 0; font-size: 17px">{title[0]}</h2><span style="font-size: 13px; color: #334155">{title[1]}</span></div>'
+            tds.append(f'<td style="padding: 12px 16px; vertical-align: middle{weight}">{cell}</td>')
+        body.append('<tr style="border-top: 1px solid #eef1f5">' + "".join(tds) + "</tr>")
+    hd = f'<div style="padding: 16px 18px 12px">{head(title[0], title[1])}</div>' if title else ""
     pg = pager(total) if paged else ""
-    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #334155">'
+    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 18px; border-top: 1px solid {LINE}; font-size: 13px; color: #334155">'
               f'<span style="flex: 1 1 320px">{foot or ""}</span>{pg}</div>') if (foot or pg) else ""
-    return ('<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden">'
-            + head + f'<div style="overflow-x: auto"><table style="width: 100%; min-width: {min_w}px; border-collapse: collapse; font-size: 14px">'
+    return (f'<section style="{CARD}; overflow: hidden">'
+            + hd + f'<div style="overflow-x: auto"><table style="width: 100%; min-width: {min_w}px; border-collapse: collapse; font-size: 14px; color: #0f172a">'
             + f"<thead><tr>{th}</tr></thead><tbody>" + "".join(body) + "</tbody></table></div>" + footer + "</section>")
 
 
 def card(title, body, hint=""):
-    h = f'<span style="font-size: 13px; color: #334155">{hint}</span>' if hint else ""
-    return ('<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">'
-            f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><h2 style="margin: 0; font-size: 17px">{title}</h2>{h}</div>{body}</section>')
+    return f'<section style="{CARD}; padding: 18px; display: flex; flex-direction: column; gap: 14px">{head(title, hint)}{body}</section>'
 
 
 def note(text, tone="blue"):
-    style = {"blue": "background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a",
-             "warn": "background: #fffbeb; border: 1px solid #fcd34d; color: #92400e"}[tone]
-    return f'<div role="note" style="padding: 10px 14px; border-radius: 10px; {style}; font-size: 13px">{text}</div>'
+    bar = {"blue": NAVY, "warn": "#b45309"}[tone]
+    return f'<div role="note" style="padding: 12px 16px; border-radius: 10px; background: #f8fafc; border: 1px solid {LINE}; border-left: 3px solid {bar}; color: #1e293b; font-size: 13.5px">{text}</div>'
 
 
 def kv(pairs):
-    rows = "".join(f'<div style="display: contents"><dt style="color: #334155">{k}</dt><dd style="margin: 0">{v}</dd></div>' for k, v in pairs)
-    return f'<dl style="display: grid; grid-template-columns: 160px 1fr; gap: 8px 16px; margin: 0; font-size: 14px">{rows}</dl>'
+    """라벨 왼쪽(회색) · 값 오른쪽(굵게) 정렬, 옅은 바탕 상자."""
+    rows = "".join(f'<div style="display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-top: 1px solid {"#eef1f5" if i else "transparent"}">'
+                   f'<dt style="color: #334155; flex: 0 0 auto">{k}</dt><dd style="margin: 0; font-weight: 600; text-align: right">{v}</dd></div>'
+                   for i, (k, v) in enumerate(pairs))
+    return f'<dl style="margin: 0; padding: 6px 16px; border-radius: 10px; background: #f8fafc; border: 1px solid {LINE}; font-size: 14px">{rows}</dl>'
 
 
 def button(text, primary=False, disabled=False):
     if primary:
-        s = "border: 0; background: #1d4ed8; color: #ffffff"
+        s = f"border: 1px solid {NAVY}; background: {NAVY}; color: #ffffff"
     else:
-        s = "border: 1px solid #94a3b8; background: #ffffff"
+        s = "border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a"
     if disabled:
-        s += "; opacity: 0.5; cursor: not-allowed"
+        s += "; opacity: 0.45; cursor: not-allowed"
     d = " disabled" if disabled else ""
-    return f'<button{d} style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; {s}">{text}</button>'
+    return f'<button{d} style="font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 10px; {s}">{text}</button>'
 
 
 def page(fname, title, active, clock, crumbs, h1, desc, actions, body, height=1000, before_title="", after_title=""):
-    crumb = "".join(f"<span>{c}</span><span>›</span>" for c in crumbs[:-1]) + f'<strong style="color: #0f172a">{crumbs[-1]}</strong>'
+    # crumbs: 경로 줄은 두지 않는다(2026-10-23). 위치는 사이드 메뉴 활성과 제목으로 안다
     html = f'''<!doctype html>
 <html lang="ko">
 <head>
@@ -146,14 +162,14 @@ def page(fname, title, active, clock, crumbs, h1, desc, actions, body, height=10
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
 body{{margin:0}}
-a{{color:#1d4ed8}}a:hover{{color:#1e3a8a}}
+a{{color:#1e40af}}a:hover{{color:#1e3a8a;text-decoration:underline}}
 </style>
 </helmet>
-<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
-<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f3f5f8; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: {NAVY}; color: #ffffff">
 <strong style="font-size: 16px">dobedupop</strong>
 <span style="font-size: 14px; color: #dbeafe">빅히트 뮤직</span>
-<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28)">권리 테넌트</span>
 <div style="flex: 1 1 40px"></div>
 <span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
 <span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-variant-numeric: tabular-nums">{clock}</span>
@@ -161,11 +177,10 @@ a{{color:#1d4ed8}}a:hover{{color:#1e3a8a}}
 </header>
 <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
 <dc-import name="Sidebar" active="{active}" hint-size="260px,{height}px"></dc-import>
-<main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
-<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #334155">{crumb}</nav>
+<main style="flex: 999 1 640px; min-width: 0; padding: 24px 28px 36px; display: flex; flex-direction: column; gap: 18px">
 {before_title}<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
-<div><h1 style="margin: 0; font-size: 26px">{h1}</h1><div style="font-size: 13px; color: #334155">{desc}</div></div>
-<div style="display: flex; flex-wrap: wrap; gap: 8px">{"".join(actions)}</div>
+<div><h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.01em">{h1}</h1><div style="margin-top: 6px; font-size: 14px; color: #334155">{desc}</div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">{"".join(actions)}</div>
 </div>
 {after_title}{chr(10).join(body)}
 </main>
@@ -283,7 +298,7 @@ page("Ops-Validation.dc.html", "운영 관리 — 정합성 점검 전체", "op-
            [["지분 합계 100%", "✓", "✓"], ["근거 문서", "✓", "✓"],
             ["마스터 보유자 ↔ 녹음 권리 주장", "✓", "✓"], ["스템 실연자 ↔ 실연 주장", "✓", "✓"],
             ["파트 원곡 스템 · 보이스 누락", "✓ 원곡 스템 등록 중(발행 때 검사)", "✓"],
-            ["확인 대기", '<span style="color: #92400e; font-weight: 600">! 경고 2</span>', "✓"],
+            ["확인 대기", '<span style="color: #b45309; font-weight: 600">! 경고 2</span>', "✓"],
             ["멤버 이용 동의", "— 진행 중(발행 때 검사)", "✓"]], min_w=700, paged=False), hint="곡 2 · 규칙 7")], height=1100)
 
 # ── 정산 › 명세·지급 ──
@@ -368,13 +383,13 @@ WS_TABS = ["원곡 권리", "스템", "확인·동의", "문서·계약", "분�
 def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, ready, height=1100):
     """작품 워크스페이스 화면: 경로 → IR 생성 준비 띠 → 제목(IR 상태 배지) → 탭 줄 → 본문 (시안 Nav-Works-Stems와 같은 틀)."""
     marks = "".join(f'<span style="color: {c}">{t}</span>' for t, c in ready)
-    band = (f'<div role="status" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 10px; '
-            f'background: #ffffff; border: 1px solid #e2e8f0; font-size: 13px"><strong>IR 생성 준비</strong>{marks}</div>\n')
+    band = (f'<div role="status" style="{CARD}; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 18px; font-size: 13.5px; font-weight: 600">'
+            f'<strong style="color: #0f172a">IR 생성 준비</strong>{marks}</div>\n')
     tabs = "".join(
-        f'<span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">{t}</span>' if t == active_tab
-        else (f'<span style="padding: 8px 14px; color: #334155">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 8px 14px; text-decoration: none; color: #334155">{t}</a>')
+        f'<span style="padding: 10px 16px; font-weight: 700; color: {NAVY}; border-bottom: 3px solid {NAVY}; margin-bottom: -1px">{t}</span>' if t == active_tab
+        else (f'<span style="padding: 10px 16px; font-weight: 600; color: #334155">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 10px 16px; font-weight: 600; text-decoration: none; color: #334155">{t}</a>')
         for t in WS_TABS)
-    tabrow = f'<div role="tablist" aria-label="워크스페이스 탭" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px">{tabs}</div>\n'
+    tabrow = f'<div role="tablist" aria-label="워크스페이스 탭" style="display: flex; gap: 4px; border-bottom: 1px solid #cbd5e1; overflow-x: auto; font-size: 15px">{tabs}</div>\n'
     key = "ws"  # 사이드 메뉴는 곡 단위로 활성, 곡 안의 화면은 탭으로 고른다
     page(fname, title, key, clock, crumbs, h1, desc,
          actions + [badge("IR 생성 전 — 등록·조회·수정 가능", "ok")], body, height=height, before_title=band, after_title=tabrow)
@@ -385,31 +400,31 @@ def steps(items, current):
     out = []
     for i, label in enumerate(items, 1):
         if i < current:
-            st = "background: #dcfce7; border: 1px solid #86efac; color: #166534"
+            st = "background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; font-weight: 600"
             mark = "✓ "
         elif i == current:
-            st = "background: #ffffff; border: 2px solid #1d4ed8; color: #1e3a8a; font-weight: 600"
+            st = f"background: #ffffff; border: 2px solid {NAVY}; color: {NAVY}; font-weight: 700"
             mark = ""
         else:
-            st = "background: #ffffff; border: 1px dashed #94a3b8; color: #334155"
+            st = "background: #ffffff; border: 1px dashed #cbd5e1; color: #334155; font-weight: 600"
             mark = ""
-        out.append(f'<div style="flex: 1 1 140px; padding: 8px 12px; border-radius: 8px; font-size: 13px; {st}">{mark}{i} {label}</div>')
+        out.append(f'<div style="flex: 1 1 140px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; {st}">{mark}{i} {label}</div>')
     return '<div style="display: flex; flex-wrap: wrap; gap: 6px">' + "".join(out) + "</div>"
 
 
 def check(on):
-    return ('<span aria-label="확인함" style="display: inline-flex; width: 18px; height: 18px; border-radius: 4px; background: #1d4ed8; color: #ffffff; font-size: 12px; align-items: center; justify-content: center">✓</span>'
+    return ('<span aria-label="확인함" style="display: inline-flex; width: 18px; height: 18px; border-radius: 4px; background: #1e3a8a; color: #ffffff; font-size: 12px; align-items: center; justify-content: center">✓</span>'
             if on else '<span aria-label="확인 안 함" style="display: inline-block; width: 16px; height: 16px; border-radius: 4px; border: 1px solid #94a3b8; background: #ffffff"></span>')
 
 
 def field(label, control, hint=""):
     h = f'<div style="font-size: 12px; color: #334155">{hint}</div>' if hint else ""
-    return f'<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px"><span style="font-weight: 600">{label}</span>{control}{h}</label>'
+    return f'<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px"><span style="font-weight: 700; color: #0f172a">{label}</span>{control}{h}</label>'
 
 
 def chips(opts, on):
     return '<div style="display: flex; flex-wrap: wrap; gap: 6px">' + "".join(
-        f'<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; {"background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; font-weight: 600" if o in on else "background: #ffffff; color: #334155; border: 1px solid #cbd5e1"}">{o}</span>'
+        f'<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; {"background: #eff6ff; color: #1e3a8a; border: 1px solid #93c5fd; font-weight: 700" if o in on else "background: #ffffff; color: #334155; border: 1px solid #cbd5e1; font-weight: 600"}">{o}</span>'
         for o in opts) + "</div>"
 
 
@@ -418,8 +433,8 @@ USE_ACTIONS = ["미리듣기", "조합 생성", "개인 보관", "링크 공유"
 USE_TERRITORIES = ["대한민국", "일본", "미국"]
 USE_MEDIA = ["팬앱", "외부 SNS"]
 USE_AUDIENCE = ["팬 커뮤니티", "전체 공개"]
-INPUT = "font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #ffffff"
-READY_IMPORT = [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 원곡 스템 34 중 2 등록", "#92400e"), ("! 확인 대기", "#92400e"), ("· 위임 서명 1/7", "#334155")]
+INPUT = SELECT
+READY_IMPORT = [("✓ 합계 100%", "#047857"), ("✓ 근거 문서", "#047857"), ("! 원곡 스템 34 중 2 등록", "#b45309"), ("! 확인 대기", "#b45309"), ("· 위임 서명 1/7", "#334155")]
 IMPORT_STEPS = ["계약서 불러오기", "후보 값 확인", "IR 정보 대조", "빠진 것 입력", "권리 확인서 서명"]
 
 # ── 작품 워크스페이스 › 문서·계약 › 계약서 불러오기 ──
@@ -518,7 +533,7 @@ ws_page("Song-Import-Start.dc.html", "Dynamite — 계약서 불러오기 시작
 # ── 계약서 불러오기 — 후보 값 상태(다름 · 사람이 입력) ──
 small = lambda ph, w="120px", mono_=False: f'<input placeholder="{ph}" style="{INPUT}; width: {w}' + ('; font-variant-numeric: tabular-nums' if mono_ else '') + '">'
 radio = lambda label, on: (f'<label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-right: 12px">'
-                           f'<span style="display: inline-block; width: 14px; height: 14px; border-radius: 999px; border: {"4px solid #1d4ed8" if on else "1px solid #94a3b8"}; background: #ffffff; box-sizing: border-box"></span>{label}</label>')
+                           f'<span style="display: inline-block; width: 14px; height: 14px; border-radius: 999px; border: {"4px solid #1e3a8a" if on else "1px solid #94a3b8"}; background: #ffffff; box-sizing: border-box"></span>{label}</label>')
 ws_page("Song-Import-Values.dc.html", "Dynamite — 후보 값(다름 · 사람이 입력)", "문서·계약", "2026-01-03 09:00",
         ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"], "계약서 불러오기",
         "후보 값이 기존 입력과 다를 때와, 읽기 틀이 값을 찾지 못해 사람이 입력할 때",
@@ -550,7 +565,7 @@ ws_page("Song-ClaimConfirm-Apply.dc.html", "Dynamite — 권리 확인서 기록
                                                ("확인 요청", "열린 확인 요청 2건이 닫히고 정합성 경고 2건이 닫힌다")])) + '</div></div>',
          note("반영은 한 번만 한다. 반영한 뒤에는 확인서와 만들어진 기록을 고칠 수 없고, 바로잡기는 새 확인서로 한다."),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("서명본 보기") + button("기록 반영", primary=True) + "</div>"],
-        [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 확인 대기 2 → 반영하면 닫힘", "#92400e"), ("· 위임 서명 7/7", "#334155")], height=900)
+        [("✓ 합계 100%", "#047857"), ("✓ 근거 문서", "#047857"), ("! 확인 대기 2 → 반영하면 닫힘", "#b45309"), ("· 위임 서명 7/7", "#334155")], height=900)
 
 # ── 운영 관리 › 계약 템플릿 › 읽기 틀 등록 ──
 filled = lambda v, w: f'<input value="{v}" style="{INPUT}; width: {w}">'
