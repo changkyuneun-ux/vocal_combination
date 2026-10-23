@@ -34,7 +34,7 @@ export function stageOf(w: { packStatus: string | null; activePolicy: boolean; s
  */
 export async function worksOverview(tx: Tx): Promise<WorkOverview[]> {
   const visible = (await tx.query(
-    "SELECT w.work_id, w.title, s.facts_scope_id FROM work w LEFT JOIN facts_scope s ON s.work_id = w.work_id ORDER BY w.title, w.work_id LIMIT 500")).rows;
+    "SELECT w.work_id, w.title, s.facts_scope_id FROM work w LEFT JOIN facts_scope s ON s.work_id = w.work_id ORDER BY w.title, w.work_id")).rows;
   if (visible.length === 0) return [];
   const ids = visible.map((v) => v.work_id as string);
   const rows = await withSystemScope(tx, async () => (await tx.query(

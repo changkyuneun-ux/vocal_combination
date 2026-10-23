@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { withSystemScope } from "../platform/actor.ts";
 import { DomainError } from "../platform/errors.ts";
-import { optFilter } from "../platform/paging.ts";
+import { optFilter, pagedOr } from "../platform/paging.ts";
 import type { SignatureProvider } from "./esign.ts";
 import {
   approveTemplateVersion, authorTemplateVersion, cancelContract, completeContract, createContract, getContract, getTemplate, listContracts, listTemplates,
@@ -40,7 +40,9 @@ export function contractRoutes(app: FastifyInstance, deps: Deps): void {
 export function signerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/contracts", async (req) => withActor(deps, req, (tx) => {
     const q = req.query as Record<string, unknown>;
-    return listContracts(tx, { ...(optFilter(q, "scope") !== undefined && { scope: optFilter(q, "scope") }), ...(optFilter(q, "status") !== undefined && { status: optFilter(q, "status") }) });
+    const template = optFilter(q, "template");
+    return listContracts(tx, { ...(optFilter(q, "scope") !== undefined && { scope: optFilter(q, "scope") }), ...(optFilter(q, "status") !== undefined && { status: optFilter(q, "status") }) })
+      .then((rows) => pagedOr(q, template === undefined ? rows : rows.filter((c) => c.templateId === template)));
   }));
   app.get<P>("/contracts/:id", async (req) => withActor(deps, req, (tx) => getContract(tx, req.params.id)));
   app.post<P & { Body: { partyId?: string } }>("/contracts/:id/sign", async (req) =>

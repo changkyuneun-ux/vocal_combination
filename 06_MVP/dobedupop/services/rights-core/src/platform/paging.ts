@@ -50,6 +50,14 @@ export function slicePageNo<R>(rows: R[], p: PageNo): { items: R[]; page: number
   return pageNoResult(rows.slice(p.offset, p.offset + p.size), rows.length, p);
 }
 
+/** ?page가 있으면 다 읽은 목록을 쪽으로, 없으면 그대로(기존 응답). */
+export function pagedOr<R>(q: Record<string, unknown>, rows: R[]): R[] | { items: R[]; page: number; size: number; total: number } {
+  const p = parsePageNo(q);
+  return p === null ? rows : slicePageNo(rows, p);
+}
+/** 커서 목록 함수를 쪽 번호로 쓸 때 한 번에 다 읽는 쪽 정보. */
+export const ALL_ROWS: Page = { limit: 1_000_000, after: undefined };
+
 export function encodeCursor(key: unknown[]): string {
   return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
 }

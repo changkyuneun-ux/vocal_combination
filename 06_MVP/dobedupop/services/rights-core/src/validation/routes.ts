@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
-import { optFilter } from "../platform/paging.ts";
+import { optFilter, pagedOr } from "../platform/paging.ts";
 import { DomainError, notFound } from "../platform/errors.ts";
 import { acceptIssue, dismissIssue, listIssues, requestAcceptance, revalidate, setEnforcement, sweepValidation } from "./service.ts";
 import { requirePermission } from "../platform/permissions.ts";
@@ -13,11 +13,11 @@ export function validationRoutes(app: FastifyInstance, deps: Deps): void {
     if ((await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1", [req.params.id])).rowCount === 0) throw notFound("facts scope", req.params.id);
     return revalidate(tx, deps.clock, req.params.id);
   }));
-  app.get("/validation-issues", async (req) => withActor(deps, req, (tx) => listIssues(tx, {
+  app.get("/validation-issues", async (req) => withActor(deps, req, async (tx) => pagedOr(q0(req), await listIssues(tx, {
     ...(optFilter(q0(req), "status") !== undefined && { status: optFilter(q0(req), "status") }),
     ...(optFilter(q0(req), "severity") !== undefined && { severity: optFilter(q0(req), "severity") }),
     ...(optFilter(q0(req), "scope") !== undefined && { scope: optFilter(q0(req), "scope") }),
-  })));
+  }))));
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/validation-issues/:id/acceptance-request", async (req) =>
     withActor(deps, req, (tx, actor) => requestAcceptance(tx, deps.clock, actor, Number(req.params.id), req.body?.reason)));
   app.post<{ Params: { id: string } }>("/validation-issues/:id/accept", async (req) => withActor(deps, req, (tx, actor) => acceptIssue(tx, deps.clock, actor, Number(req.params.id))));

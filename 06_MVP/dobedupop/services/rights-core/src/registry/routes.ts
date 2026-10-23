@@ -5,7 +5,8 @@ import { withActor, type Deps } from "../http/server.ts";
 import * as reg from "./service.ts";
 import { closeDispute, openDispute } from "./disputes.ts";
 import { getConsent, listConsents, recordContractConsents, revokeConsent, signConsent, type ConsentDraft } from "./consents.ts";
-import { optFilter, parsePage } from "../platform/paging.ts";
+import { optFilter, pagedOr, parsePage } from "../platform/paging.ts";
+import { withSystemScope } from "../platform/actor.ts";
 import * as q from "./queries.ts";
 import { parseRefs } from "../documents/service.ts";
 import { rightsSummary } from "./summary.ts";
@@ -170,7 +171,11 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   });
   app.get<{ Params: { id: string } }>("/consents/:id", async (req) => withActor(deps, req, (tx) => getConsent(tx, req.params.id)));
   app.get("/consents", async (req) =>
-    withActor(deps, req, (tx) => listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) })));
+    withActor(deps, req, async (tx) => {
+      const rows = await listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) });
+      const status = optFilter(q0(req), "status"); // 쪽 번호 화면의 상태 필터(SIGNED | REVOKED)
+      return pagedOr(q0(req), status === undefined ? rows : rows.filter((r: { status: string }) => r.status === status));
+    }));
   // 조회(로그인한 누구나)
   app.get("/parties", async (req) => withActor(deps, req, (tx, actor) => q.listParties(tx, {
     type: optFilter(q0(req), "type"), ...(optFilter(q0(req), "tenant") !== undefined && { tenant: optFilter(q0(req), "tenant") }),
@@ -190,9 +195,20 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     await revalidateRecord(tx, out.recordType, out.recordId);
     return out;
   })));
-  app.get("/confirmations", async (req) => withActor(deps, req, (tx) => listConfirmations(tx, {
-    ...(optFilter(q0(req), "status") !== undefined && { status: optFilter(q0(req), "status") }), ...(optFilter(q0(req), "party") !== undefined && { party: optFilter(q0(req), "party") }),
-  })));
+  app.get("/confirmations", async (req) => withActor(deps, req, async (tx) => {
+    let rows = await listConfirmations(tx, {
+      ...(optFilter(q0(req), "status") !== undefined && { status: optFilter(q0(req), "status") }), ...(optFilter(q0(req), "party") !== undefined && { party: optFilter(q0(req), "party") }),
+    });
+    // 쪽 번호 화면(운영 관리 › 확인 요청 전체)의 서버 필터: 곡(scope), 상대 당사자 종류(counterparty = MEMBER·AUTHOR 등).
+    const scope = optFilter(q0(req), "scope"), kind = optFilter(q0(req), "counterparty");
+    if (scope !== undefined) rows = rows.filter((r) => r.factsScopeId === scope);
+    if (kind !== undefined) {
+      const types = new Map((await withSystemScope(tx, async () => (await tx.query("SELECT party_id, party_type FROM party WHERE party_id = ANY($1)", [[...new Set(rows.map((r) => r.counterpartyId))]])).rows))
+        .map((r) => [r.party_id as string, r.party_type as string]));
+      rows = rows.filter((r) => types.get(r.counterpartyId) === kind);
+    }
+    return pagedOr(q0(req), rows);
+  }));
   app.post<{ Body: { recordType?: string; recordId?: string } }>("/confirmations", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => {
     const b = req.body ?? {};
     if ((b.recordType !== "CLAIM" && b.recordType !== "MANDATE") || typeof b.recordId !== "string") throw new DomainError("BAD_REQUEST", 400, "recordType (CLAIM | MANDATE) and recordId are required");
@@ -207,7 +223,12 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
   app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
   // 포털 작품 목록·곡 워크스페이스(2부-B): 작품 개요(진행 단계)와 IR 생성 준비. 조회라 보이는 곡이면 된다(RLS).
-  app.get("/works/overview", async (req) => withActor(deps, req, (tx) => worksOverview(tx)));
+  app.get("/works/overview", async (req) => withActor(deps, req, async (tx) => {
+    const name = optFilter(q0(req), "q")?.toLowerCase(), status = optFilter(q0(req), "status");
+    const rows = (await worksOverview(tx)).filter((w) => (name === undefined || w.title.toLowerCase().includes(name) || w.workId.toLowerCase().includes(name) || w.authors.some((a) => a.toLowerCase().includes(name)))
+      && (status === undefined || w.status === status));
+    return pagedOr(q0(req), rows);
+  }));
   app.get<{ Params: { id: string } }>("/scopes/:id/readiness", async (req) => withActor(deps, req, (tx) => scopeReadiness(tx, req.params.id, deps.clock.now())));
   app.get("/disputes", async (req) =>
     withActor(deps, req, (tx) => q.listDisputes(tx, { status: optFilter(q0(req), "status"), scope: optFilter(q0(req), "scope") }, parsePage(q0(req)))));

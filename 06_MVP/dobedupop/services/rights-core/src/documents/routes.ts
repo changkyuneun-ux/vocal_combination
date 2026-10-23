@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { withActor, type Deps } from "../http/server.ts";
 import { DomainError } from "../platform/errors.ts";
-import { optFilter } from "../platform/paging.ts";
+import { optFilter, pagedOr } from "../platform/paging.ts";
 import { addClause, disposeDocument, getDocument, listDocuments, readDocumentFile, rejectDocument, uploadDocument, uploadVersion, type DocumentMeta } from "./service.ts";
 import type { DocumentStore } from "./store.ts";
 import { revalidateForDocument } from "../validation/service.ts";
@@ -45,9 +45,17 @@ export function documentRoutes(app: FastifyInstance, deps: Deps): void {
   });
   app.post<{ Params: { id: string } }>("/documents/:id/versions", async (req, reply) =>
     reply.status(201).send(await withActor(deps, req, (tx, actor) => recheck(tx, req.params.id, uploadVersion(tx, deps.clock, storeOf(deps), actor, req.params.id, upload(req))))));
-  app.get("/documents", async (req) => withActor(deps, req, (tx) => {
+  app.get("/documents", async (req) => withActor(deps, req, async (tx) => {
     const q = req.query as Record<string, unknown>;
-    return listDocuments(tx, { ...(optFilter(q, "kind") !== undefined && { kind: optFilter(q, "kind") }), ...(optFilter(q, "party") !== undefined && { party: optFilter(q, "party") }) });
+    const rows = await listDocuments(tx, { ...(optFilter(q, "kind") !== undefined && { kind: optFilter(q, "kind") }), ...(optFilter(q, "party") !== undefined && { party: optFilter(q, "party") }) });
+    // 쪽 번호 화면(운영 관리 › 원천 문서)의 서버 필터: origin(직접 올림 UPLOAD · 서명본 CONTRACT), scope(그 곡 권리자가 당사자인 문서).
+    const origin = optFilter(q, "origin"), scope = optFilter(q, "scope");
+    let out = origin === undefined ? rows : rows.filter((d) => d.origin === origin);
+    if (scope !== undefined) {
+      const parties = new Set((await tx.query("SELECT DISTINCT target_id FROM right_claim WHERE facts_scope_id = $1", [scope])).rows.map((r) => r.target_id as string));
+      out = out.filter((d) => d.parties.some((p: string) => parties.has(p)));
+    }
+    return pagedOr(q, out);
   }));
   app.get<{ Params: { id: string } }>("/documents/:id", async (req) => withActor(deps, req, (tx) => getDocument(tx, req.params.id)));
   app.get<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/file", async (req, reply) => {

@@ -4,7 +4,7 @@ import type { Declared } from "../engine-bridge/activation.ts";
 import { DomainError } from "../platform/errors.ts";
 import * as issuance from "./service.ts";
 import { queueRender } from "../audio/render.ts";
-import { optFilter, parsePage } from "../platform/paging.ts";
+import { ALL_ROWS, optFilter, pagedOr, parsePage, parsePageNo } from "../platform/paging.ts";
 import * as q from "./queries.ts";
 import { listExposureHolds } from "../exposure/service.ts";
 
@@ -63,5 +63,16 @@ export function issuanceRoutes(app: FastifyInstance, deps: Deps): void {
   // 노출 보류(다음 작업 17): 기본은 풀리지 않은 것만, ?all=1이면 풀린 것까지. 팩 소유 테넌트는 RLS로 자기 조합만 본다.
   app.get("/exposure-holds", async (req) => withActor(deps, req, (tx) => listExposureHolds(tx, q0(req).all === "1")));
   app.get("/issues", async (req) =>
-    withActor(deps, req, (tx) => q.listIssues(tx, { pack: optFilter(q0(req), "pack"), vc: optFilter(q0(req), "vc") }, parsePage(q0(req)))));
+    withActor(deps, req, async (tx) => {
+      const f = { pack: optFilter(q0(req), "pack"), vc: optFilter(q0(req), "vc") };
+      if (parsePageNo(q0(req)) === null) return q.listIssues(tx, f, parsePage(q0(req)));
+      // 쪽 번호: 다 읽어 쪽으로(커서 응답은 그대로). scope면 그 곡 팩의 조합만.
+      const scope = optFilter(q0(req), "scope");
+      let rows = (await q.listIssues(tx, f, ALL_ROWS)).items;
+      if (scope !== undefined) {
+        const packs = new Set((await tx.query("SELECT pack_id FROM vocal_pack WHERE facts_scope_id = $1", [scope])).rows.map((r) => r.pack_id as string));
+        rows = rows.filter((r: { packId: string }) => packs.has(r.packId));
+      }
+      return pagedOr(q0(req), rows);
+    }));
 }

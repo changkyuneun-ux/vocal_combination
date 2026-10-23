@@ -3,7 +3,7 @@ import { withActor, type Deps } from "../http/server.ts";
 import { listMemberships, withSystemScope } from "./actor.ts";
 import { endBreakGlass, listBreakGlass, listInspections, startBreakGlass } from "./inspection.ts";
 import { DomainError } from "./errors.ts";
-import { cursorKey, optFilter, pageOf, parsePage, ts } from "./paging.ts";
+import { ALL_ROWS, cursorKey, optFilter, pagedOr, pageOf, parsePage, parsePageNo, ts } from "./paging.ts";
 import { getTenant, onboardIndependentArtist, registerTenant, setCheck, setTenantStatus, transferParty, updateTenantInfo } from "./tenants.ts";
 import { delegationLog, getDelegation, setDelegation } from "./delegation.ts";
 import type { Tx } from "./db.ts";
@@ -125,7 +125,8 @@ export function userListRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/users", async (req) =>
     withActor(deps, req, async (tx, actor) => withSystemScope(tx, async () => {
       const q = req.query as Record<string, unknown>;
-      const page = parsePage(q);
+      const pageNo = parsePageNo(q); // 쪽 번호(3부-A PG2)면 다 읽어 쪽으로, 아니면 커서 응답 그대로
+      const page = pageNo === null ? parsePage(q) : ALL_ROWS;
       const after = cursorKey(page, ["s"]);
       // 소속 기준(결정 TD9): 조직을 고르면 그 조직 소속 계정과 그 조직에서의 역할, 아니면 기본 소속과 그 역할.
       const tenant = actor.scope === "platform" ? optFilter(q, "tenant") ?? null : actor.tenantId;
@@ -142,12 +143,13 @@ export function userListRoutes(app: FastifyInstance, deps: Deps): void {
           WHERE ($2::text IS NULL OR u.user_id > $2)
           GROUP BY u.user_id, m.tenant_id, t.name, c.password_hash, c.totp_enabled_at ORDER BY u.user_id LIMIT $3`, p,
       )).rows;
-      return pageOf(rows.map((r) => ({
+      const view = rows.map((r) => ({
         userId: r.user_id as string, displayName: r.display_name as string, roles: r.roles as string[],
         tenantId: r.tenant_id as string, tenantName: r.tenant_name as string, partyId: (r.party_id as string | null) ?? null,
         homeMembership: r.home === true, memberships: r.memberships as number,
         disabled: r.disabled_at !== null, hasPassword: r.has_password === true, totpEnabled: r.totp_enabled === true,
         identityVerified: r.identity_verified_at !== null, lastLoginAt: ts(r.last_login_at),
-      })), page, (r) => [r.userId]);
+      }));
+      return pageNo === null ? pageOf(view, page, (r) => [r.userId]) : pagedOr(q, view);
     })));
 }
