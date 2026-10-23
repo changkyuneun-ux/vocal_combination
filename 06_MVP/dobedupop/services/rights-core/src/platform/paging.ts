@@ -24,6 +24,32 @@ export function parsePage(q: Record<string, unknown>): Page {
   return { limit, after: key };
 }
 
+/** 쪽 번호 방식(3부-A PG1). page가 없으면 null — 그 경로는 기존 커서 방식으로 답한다. */
+export type PageNo = { page: number; size: number; offset: number };
+const MAX_SIZE = 100;
+const DEFAULT_SIZE = 10;
+
+/** ?page=(1 이상)·?size=(1~100, 기본 10). 어긋나면 400 BAD_REQUEST. */
+export function parsePageNo(q: Record<string, unknown>): PageNo | null {
+  if (q.page === undefined) return null;
+  const int = (v: unknown) => (typeof v === "string" && /^[0-9]{1,6}$/.test(v) ? Number(v) : NaN);
+  const page = int(q.page);
+  if (!(page >= 1)) throw new DomainError("BAD_REQUEST", 400, "page must be an integer of 1 or more");
+  const size = q.size === undefined ? DEFAULT_SIZE : int(q.size);
+  if (!(size >= 1 && size <= MAX_SIZE)) throw new DomainError("BAD_REQUEST", 400, `size must be an integer between 1 and ${MAX_SIZE}`);
+  return { page, size, offset: (page - 1) * size };
+}
+
+/** 쪽 번호 응답 { items, page, size, total }. */
+export function pageNoResult<R>(items: R[], total: number, p: PageNo): { items: R[]; page: number; size: number; total: number } {
+  return { items, page: p.page, size: p.size, total };
+}
+
+/** 이미 다 읽은 작은 목록을 쪽으로 자른다(행 수가 곡 하나 범위인 목록). */
+export function slicePageNo<R>(rows: R[], p: PageNo): { items: R[]; page: number; size: number; total: number } {
+  return pageNoResult(rows.slice(p.offset, p.offset + p.size), rows.length, p);
+}
+
 export function encodeCursor(key: unknown[]): string {
   return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
 }

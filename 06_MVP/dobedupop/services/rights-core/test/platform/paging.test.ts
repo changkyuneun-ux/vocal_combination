@@ -1,10 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cursorKey, encodeCursor, pageOf, parsePage } from "../../src/platform/paging.ts";
+import { cursorKey, encodeCursor, pageNoResult, pageOf, parsePage, parsePageNo } from "../../src/platform/paging.ts";
 import { DomainError } from "../../src/platform/errors.ts";
 
 const fails = (fn: () => unknown, code: string) =>
   assert.throws(fn, (e) => e instanceof DomainError && e.status === 400 && e.code === code);
+
+// 쪽 번호 방식(3부-A PG1): ?page=&size= — page가 없으면 null(커서 방식), size 기본 10·최대 100.
+test("parsePageNo: absent page → null; defaults; bounds", () => {
+  assert.equal(parsePageNo({}), null);
+  assert.deepEqual(parsePageNo({ page: "1" }), { page: 1, size: 10, offset: 0 });
+  assert.deepEqual(parsePageNo({ page: "3", size: "20" }), { page: 3, size: 20, offset: 40 });
+  assert.deepEqual(parsePageNo({ page: "2", size: "100" }), { page: 2, size: 100, offset: 100 });
+  for (const q of [{ page: "0" }, { page: "-1" }, { page: "x" }, { page: "1", size: "0" }, { page: "1", size: "101" }, { page: "1.5" }, { page: "" }, { page: ["1"] }]) {
+    fails(() => parsePageNo(q as Record<string, unknown>), "BAD_REQUEST");
+  }
+});
+
+test("pageNoResult: items, page, size, total", () => {
+  assert.deepEqual(pageNoResult(["a", "b"], 12, { page: 2, size: 10, offset: 10 }), { items: ["a", "b"], page: 2, size: 10, total: 12 });
+});
 
 test("parsePage: default 50, 1..200 accepted, others 400 BAD_REQUEST", () => {
   assert.deepEqual(parsePage({}), { limit: 50, after: undefined });
