@@ -44,7 +44,7 @@ body{margin:0}
 <p style="margin: 8px 10px 0; font-size: 11px; color: #475569; line-height: 1.5">메뉴는 빅히트 뮤직 소속의 권한으로 걸러 보인다. 플랫폼 운영 메뉴는 따로다.</p>
 </nav>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-contracts-all","op-docs","op-statements"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-consents","op-contracts-all","op-docs","op-templates","op-validation","op-inspections","op-statements","op-issues","op-org","op-accounts","op-delegation","op-links"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
 class Component extends DCLogic {
   state = { closed: {} };
   renderVals() {
@@ -60,8 +60,8 @@ class Component extends DCLogic {
       (on ? 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8' : parent ? 'background: none; color: #0f172a; font-weight: 600' : 'background: none; color: #0f172a');
     const chev = (open) => 'display: inline-block; width: 12px; font-size: 11px; color: #475569; transform: rotate(' + (open ? 90 : 0) + 'deg)';
     const item = (key, label, kids, opts = {}) => {
-      const open = kids ? isOpen(key, opts.open ?? false) : false;
       const containsActive = kids ? kids.some((c) => c.current === 'page') : false;
+      const open = kids ? isOpen(key, opts.open ?? containsActive) : false;
       return {
         label, glyph: kids ? '▸' : '·', chevron: kids ? chev(open) : 'display: inline-block; width: 12px; text-align: center; color: #94a3b8',
         expanded: kids ? String(open) : 'false', current: !kids && key === active ? 'page' : 'false',
@@ -76,9 +76,11 @@ class Component extends DCLogic {
       item('ws', '작품 워크스페이스', ws, { open: active.startsWith('ws-'), work: true }),
       item('recent', '최근 연 작품', [leaf('r1', '밤의 정류장'), leaf('r2', '푸른 계절')]),
     ];
+    // 운영 관리 화면에서는 지금 화면이 든 묶음만, 작품 화면에서는 확인·동의 · 계약·문서를 펼친다
+    const onOps = active.startsWith('op-');
     const g2 = [
-      item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '2', 'warn'), leaf('op-consents', '멤버 이용 동의', '7')], { open: true }),
-      item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '11'), leaf('op-docs', '원천 문서', '13'), leaf('op-templates', '계약 템플릿')], { open: true }),
+      item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '9', 'warn'), leaf('op-consents', '멤버 이용 동의', '7')], { open: onOps ? undefined : true }),
+      item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '8', 'warn'), leaf('op-docs', '원천 문서', '13'), leaf('op-templates', '계약 템플릿')], { open: onOps ? undefined : true }),
       item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2', 'warn'), leaf('op-inspections', '플랫폼 열람 기록')]),
       item('op-s', '정산', [leaf('op-statements', '명세·지급'), leaf('op-issues', '발행 조합')]),
       item('op-o', '조직', [leaf('op-org', '내 조직'), leaf('op-accounts', '담당자 계정'), leaf('op-delegation', '위임 대행'), leaf('op-links', '신탁·유통 연결')]),

@@ -227,6 +227,114 @@
       "title": "운영 관리 › 확인·동의 › 확인 요청 전체(여러 곡)",
       "expand": "fill",
       "is_interactive": true
+    },
+    "Ops-Consents.dc.html": {
+      "x": 0,
+      "y": 15250,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 확인·동의 › 멤버 이용 동의",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Contracts.dc.html": {
+      "x": 1520,
+      "y": 15250,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 계약·문서 › 표준 계약 전체(여러 곡)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Docs.dc.html": {
+      "x": 3040,
+      "y": 15250,
+      "w": 1440,
+      "h": 1100,
+      "title": "운영 관리 › 계약·문서 › 원천 문서",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Templates.dc.html": {
+      "x": 4560,
+      "y": 15250,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 계약·문서 › 계약 템플릿",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Validation.dc.html": {
+      "x": 0,
+      "y": 16600,
+      "w": 1440,
+      "h": 1100,
+      "title": "운영 관리 › 점검 › 정합성 점검 전체(여러 곡)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Inspections.dc.html": {
+      "x": 1520,
+      "y": 16600,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 점검 › 플랫폼 열람 기록",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Statements.dc.html": {
+      "x": 3040,
+      "y": 16600,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 정산 › 명세·지급",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Issues.dc.html": {
+      "x": 4560,
+      "y": 16600,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 정산 › 발행 조합",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Org.dc.html": {
+      "x": 0,
+      "y": 17950,
+      "w": 1440,
+      "h": 1100,
+      "title": "운영 관리 › 조직 › 내 조직",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Accounts.dc.html": {
+      "x": 1520,
+      "y": 17950,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 조직 › 담당자 계정",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Delegation.dc.html": {
+      "x": 3040,
+      "y": 17950,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 조직 › 위임 대행",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-Links.dc.html": {
+      "x": 4560,
+      "y": 17950,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 조직 › 신탁·유통 연결",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -326,6 +434,20 @@
       "w": 420,
       "text": "사이드 메뉴 규칙: 1단계 = 작품 관리·운영 관리(둘 다 펼침 가능), 2단계 = 메뉴 묶음, 3단계 = 화면. 작품 워크스페이스 묶음은 지금 연 곡(Dynamite)의 화면 6개를 담는다. 다른 곡은 작품 목록에서 골라 연다(별도 메뉴 없음). 최근 연 작품은 작품 관리 맨 아래. 지금 화면은 파란 바탕 + 왼쪽 3px 파란 선, 접힌 묶음 안에 지금 화면이 있으면 묶음 이름을 굵게. 건수 배지는 회색, 할 일이 있으면 주황. 본문 위 탭 줄은 유지한다(사이드 메뉴와 같은 곳을 가리킨다).",
       "fill": "blue"
+    },
+    "t_row10": {
+      "x": 0,
+      "y": 15000,
+      "text": "운영 관리 — 여러 곡 모아 보기 · 조직(사이드 메뉴 운영 관리 아래 화면)",
+      "kind": "title1",
+      "maxW": 5920
+    },
+    "n_ops": {
+      "x": 6080,
+      "y": 15250,
+      "w": 420,
+      "fill": "blue",
+      "text": "운영 관리 화면은 여러 곡을 모아 보고 곡 워크스페이스로 이동만 한다(처리는 워크스페이스에서). 조직 묶음은 빅히트 뮤직 자체 정보. '예시 데이터'는 두 번째 곡(푸른 계절)을 보여 주려는 가짜 행이고 데모 시드에는 없다. 화면마다 데모 시계가 다르다(그 시점의 상태)."
     }
   },
   "order": [
@@ -356,7 +478,19 @@
     "Song-Release.dc.html",
     "Sidebar.dc.html",
     "Nav-Works-Stems.dc.html",
-    "Nav-Ops-Confirm.dc.html"
+    "Nav-Ops-Confirm.dc.html",
+    "Ops-Consents.dc.html",
+    "Ops-Contracts.dc.html",
+    "Ops-Docs.dc.html",
+    "Ops-Templates.dc.html",
+    "Ops-Validation.dc.html",
+    "Ops-Inspections.dc.html",
+    "Ops-Statements.dc.html",
+    "Ops-Issues.dc.html",
+    "Ops-Org.dc.html",
+    "Ops-Accounts.dc.html",
+    "Ops-Delegation.dc.html",
+    "Ops-Links.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>운영 관리 — 플랫폼 열람 기록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop</strong>
+<span style="font-size: 14px; color: #dbeafe">빅히트 뮤직 ▾</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-05-01 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<dc-import name="Sidebar" active="op-inspections" hint-size="260px,1000px"></dc-import>
+<main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #475569"><span>운영 관리</span><span>›</span><span>점검</span><span>›</span><strong style="color: #0f172a">플랫폼 열람 기록</strong></nav>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
+<div><h1 style="margin: 0; font-size: 26px">플랫폼 열람 기록</h1><div style="font-size: 13px; color: #475569">플랫폼 운영이 빅히트 뮤직 데이터를 본 기록. 플랫폼은 사유를 남기고 보며, 빅히트는 언제든 확인할 수 있다</div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px"><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">열람</div><div style="font-size: 22px; font-weight: 700">5</div><div style="font-size: 12px; color: #475569">2026-01 ~ 05</div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">사유 없는 열람</div><div style="font-size: 22px; font-weight: 700">0</div><div style="font-size: 12px; color: #475569"></div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">마스킹 해제</div><div style="font-size: 22px; font-weight: 700">0</div><div style="font-size: 12px; color: #475569">계좌 토큰 등</div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">긴급 열람(break-glass)</div><div style="font-size: 22px; font-weight: 700">0</div><div style="font-size: 12px; color: #475569"></div></div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="q" style="position: absolute; left: -9999px">검색</label>
+<input id="q" placeholder="사유, 대상" style="font: inherit; font-size: 14px; flex: 1 1 280px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
+<select aria-label="기간" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>전체</option><option>이번 달</option></select>
+<select aria-label="구분" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>구분 전체</option><option>온보딩 확인</option><option>운영 대조</option><option>정산</option></select>
+</div>
+<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden"><div style="overflow-x: auto"><table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 14px"><thead><tr><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">시각</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">누가</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">구분</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">본 것</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">사유</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">마스킹</th></tr></thead><tbody><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">01-02 10:00</span></td><td style="padding: 9px 14px">usr_admin<div style="font-size: 12px; font-weight: 400; color: #475569">플랫폼 운영 소속</div></td><td style="padding: 9px 14px">온보딩 확인</td><td style="padding: 9px 14px">사업자 확인서 · 대표자 확인서</td><td style="padding: 9px 14px">KYB 확인(E03)</td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap">유지</span></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">01-16 15:20</span></td><td style="padding: 9px 14px">usr_admin<div style="font-size: 12px; font-weight: 400; color: #475569">플랫폼 운영 소속</div></td><td style="padding: 9px 14px">운영 대조</td><td style="padding: 9px 14px">Dynamite 작품 퍼블리싱 계약서 v1</td><td style="padding: 9px 14px">위탁 작가 지분 원문 대조(E31)</td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap">유지</span></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">01-20 09:00</span></td><td style="padding: 9px 14px">usr_admin<div style="font-size: 12px; font-weight: 400; color: #475569">플랫폼 운영 소속</div></td><td style="padding: 9px 14px">온보딩 확인</td><td style="padding: 9px 14px">Dynamite 녹음 계약서 v1</td><td style="padding: 9px 14px">권리 보유 증빙 확인 → 활성(P5)</td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap">유지</span></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">04-01 09:05</span></td><td style="padding: 9px 14px">sys_verifier<div style="font-size: 12px; font-weight: 400; color: #475569">검증 워커</div></td><td style="padding: 9px 14px">정산</td><td style="padding: 9px 14px">정산 배치 bat_bts_2026_03</td><td style="padding: 9px 14px">독립 재계산</td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap">유지</span></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">05-01 09:01</span></td><td style="padding: 9px 14px">usr_admin<div style="font-size: 12px; font-weight: 400; color: #475569">플랫폼 운영 소속</div></td><td style="padding: 9px 14px">정산</td><td style="padding: 9px 14px">지급 pay-2026-05 · 받는 당사자 2</td><td style="padding: 9px 14px">지급 실행</td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap">유지</span></td></tr></tbody></table></div><div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">총괄 한 사람(usr_admin)이 두 소속을 오가며 일한다. 빅히트 데이터를 고칠 때는 빅히트 소속으로, 플랫폼 확인은 플랫폼 소속으로 — 플랫폼 소속으로 본 것만 여기 남는다.</div></section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

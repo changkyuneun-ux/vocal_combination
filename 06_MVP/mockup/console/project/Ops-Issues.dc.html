@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>운영 관리 — 발행 조합</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop</strong>
+<span style="font-size: 14px; color: #dbeafe">빅히트 뮤직 ▾</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-04-01 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<dc-import name="Sidebar" active="op-issues" hint-size="260px,1000px"></dc-import>
+<main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #475569"><span>운영 관리</span><span>›</span><span>정산</span><span>›</span><strong style="color: #0f172a">발행 조합</strong></nav>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
+<div><h1 style="margin: 0; font-size: 26px">발행 조합</h1><div style="font-size: 13px; color: #475569">팬앱에서 발행된 Dynamite 보컬 조합. 발행 순간의 IR(facts·정책·조합 지분·멤버)이 봉인되어 정산 근거가 된다</div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px"><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">발행 조합</div><div style="font-size: 22px; font-weight: 700">4</div><div style="font-size: 12px; color: #475569">Dynamite</div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">구매</div><div style="font-size: 22px; font-weight: 700">2,200</div><div style="font-size: 12px; color: #475569">2026년 3월</div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">매출</div><div style="font-size: 22px; font-weight: 700">7,260,000원</div><div style="font-size: 12px; color: #475569"></div></div><div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #fdba74"><div style="font-size: 12px; color: #475569">보류</div><div style="font-size: 22px; font-weight: 700; color: #92400e">1건</div><div style="font-size: 12px; color: #475569">이상거래</div></div></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="q" style="position: absolute; left: -9999px">검색</label>
+<input id="q" placeholder="조합 id, 이름" style="font: inherit; font-size: 14px; flex: 1 1 280px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
+<select aria-label="곡" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>곡 전체</option><option>Dynamite</option></select>
+<select aria-label="팩" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>DYNAMITE-FAN</option></select>
+</div>
+<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden"><div style="overflow-x: auto"><table style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 14px"><thead><tr><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">조합</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">바꾼 곳</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">발행</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">봉인</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">구매</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">매출(원)</th><th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc"></th></tr></thead><tbody><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600">원곡 배치<div style="font-size: 12px; font-weight: 400; color: #475569">vc_bts_orig</div></td><td style="padding: 9px 14px">없음(원곡 스템 그대로)</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">02-01 09:30</span></td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600; white-space: nowrap">facts v1 · 정책 v1</span></td><td style="padding: 9px 14px">1,200</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">3,960,000</span></td><td style="padding: 9px 14px"><a href="#">조합 지분 보기</a></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600">정국·지민 맞바꾸기<div style="font-size: 12px; font-weight: 400; color: #475569">vc_bts_swap</div></td><td style="padding: 9px 14px">정국 ↔ 지민 파트</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">02-03 18:12</span></td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600; white-space: nowrap">facts v1 · 정책 v1</span></td><td style="padding: 9px 14px">500</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">1,650,000</span></td><td style="padding: 9px 14px"><a href="#">조합 지분 보기</a></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600">랩 파트를 보컬 멤버가<div style="font-size: 12px; font-weight: 400; color: #475569">vc_bts_vocal</div></td><td style="padding: 9px 14px">Verse 2 (Rap) 파트 3</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">02-05 20:40</span></td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600; white-space: nowrap">facts v1 · 정책 v1</span></td><td style="padding: 9px 14px">300</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">990,000</span></td><td style="padding: 9px 14px"><a href="#">조합 지분 보기</a></td></tr><tr style="border-top: 1px solid #e2e8f0"><td style="padding: 9px 14px; font-weight: 600">진이 정국·지민 파트까지<div style="font-size: 12px; font-weight: 400; color: #475569">vc_bts_jin</div></td><td style="padding: 9px 14px">정국 · 지민 파트 → 진</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">02-09 11:05</span></td><td style="padding: 9px 14px"><span style="font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600; white-space: nowrap">facts v1 · 정책 v1</span></td><td style="padding: 9px 14px">200</td><td style="padding: 9px 14px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">660,000</span><div style="font-size: 12px; font-weight: 400; color: #475569">이상거래 1건 보류</div></td><td style="padding: 9px 14px"><a href="#">조합 지분 보기</a></td></tr></tbody></table></div><div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">발행 승인 대기는 없다 — 게이트를 통과하면 바로 봉인된다(MD8). 봉인된 조합은 고칠 수 없고, 권리가 바뀌면 다음 발행부터 새 버전이 쓰인다.</div></section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
