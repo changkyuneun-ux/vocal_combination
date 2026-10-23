@@ -640,7 +640,7 @@ ws_page("Song-Locked-Fix.dc.html", "Dynamite — 원곡 권리 새 버전(작품
         LOCK_READY, height=1700, status=LOCK_STATUS, band_label="IR 상태")
 
 perf_rows = table(["바로잡을 것", "지금(v1)", "새 값", "저장하면"],
-                  [["4 Pre-Chorus 1 · 파트 2 원곡 담당", "뷔", SEL(["진", "정국", "지민", "뷔", "RM", "제이홉", "슈가"], "160px") + '<div style="margin-top: 4px; font-size: 12.5px; color: #334155">이 곡의 멤버 7명만</div>', badge("진·뷔 실연자 앱 확인", "warn")],
+                  [[SEL(["4 Pre-Chorus 1 · 파트 2 원곡 담당", "2 Intro Chorus · 파트 1 원곡 담당", "3 Verse 1 · 파트 1 원곡 담당"], "260px") + '<div style="margin-top: 4px; font-size: 12.5px; font-weight: 400; color: #334155">보컬 파트만</div>', "뷔", SEL(["진", "정국", "지민", "뷔", "RM", "제이홉", "슈가"], "160px") + '<div style="margin-top: 4px; font-size: 12.5px; color: #334155">이 곡의 멤버 7명만</div>', badge("진·뷔 실연자 앱 확인", "warn")],
                    ["보이스 소유", "voc_v → 뷔", SEL(["바꾸지 않음"], "160px"), badge("바꾸지 않음", "gray")]],
                   foot="실연은 %가 아니다 — 멤버 몫은 조합마다 부른 시간으로 계산된다. 여기서는 원곡 파트 담당과 보이스 소유만 바로잡는다.", paged=False, min_w=700)
 perf_side = ('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
