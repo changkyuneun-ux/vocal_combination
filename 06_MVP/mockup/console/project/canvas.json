@@ -344,6 +344,51 @@
       "title": "작품 워크스페이스 › 문서·계약 › 권리 확인서(⑤ 서명)",
       "expand": "fill",
       "is_interactive": true
+    },
+    "Song-Import-Start.dc.html": {
+      "x": 0,
+      "y": 21700,
+      "w": 1440,
+      "h": 1000,
+      "title": "작품 워크스페이스 › 문서·계약 › 계약서 불러오기 ① 문서 고르기",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Song-Import-Values.dc.html": {
+      "x": 1520,
+      "y": 21700,
+      "w": 1440,
+      "h": 900,
+      "title": "계약서 불러오기 ② 후보 값 — 다름(고르기) · 사람이 입력",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Song-ClaimConfirm-Apply.dc.html": {
+      "x": 3040,
+      "y": 21700,
+      "w": 1440,
+      "h": 900,
+      "title": "권리 확인서 — 서명 끝, 기록 반영",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Ops-FrameNew.dc.html": {
+      "x": 4560,
+      "y": 21700,
+      "w": 1440,
+      "h": 1000,
+      "title": "운영 관리 › 계약 템플릿 › 읽기 틀 등록",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Console-Verify.dc.html": {
+      "x": 6080,
+      "y": 21700,
+      "w": 1440,
+      "h": 1100,
+      "title": "[플랫폼 콘솔] 운영 원문 대조 — 권리 확인서(위탁 작가)",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -471,6 +516,20 @@
       "w": 420,
       "fill": "blue",
       "text": "계약서 불러오기(00_프로젝트_개요/계약서_불러오기와_목록_쪽나눔_검토_20261023.md): 계약서는 플랫폼 밖으로 보내지 않고, 빅히트가 등록·플랫폼이 승인한 계약 양식별 읽기 틀로 값 후보를 채운다(CT1·CT2). 사람이 후보를 확인하고 IR에 필요한 것 중 빠진 것을 입력한 뒤, 권리 확인서(레이블용·작가용, CT5)에 서명한다. 확인서는 원본을 대체하지 않는다(CT3). 위탁 작가는 운영 원문 대조(CT4). 서명하면 권리 주장이 바로 VERIFIED — 상대 확인 14일 대기가 없어진다. 들어가는 곳: 작품 워크스페이스 › 문서·계약 탭의 '계약서 불러오기'."
+    },
+    "t_row12": {
+      "x": 0,
+      "y": 21450,
+      "text": "계약서 불러오기 보강 — 문서 고르기 · 다름/사람이 입력 · 기록 반영 · 읽기 틀 등록 · 운영 원문 대조",
+      "kind": "title1",
+      "maxW": 7400
+    },
+    "n_ct2": {
+      "x": 7600,
+      "y": 21700,
+      "w": 420,
+      "fill": "blue",
+      "text": "2026-10-23 결정: 이용 범위는 표준 계약 템플릿 어휘 그대로(이용 행위 5 · 지역 3 · 매체 · 공개 대상). 작품 이용 동의는 작가마다 1건. 위탁 작가 동의는 플랫폼 이름으로 기록, 빅히트는 조회만. 운영 원문 대조는 플랫폼 콘솔 화면."
     }
   },
   "order": [
@@ -514,7 +573,12 @@
     "Ops-Delegation.dc.html",
     "Ops-Links.dc.html",
     "Song-Import.dc.html",
-    "Song-ClaimConfirm.dc.html"
+    "Song-ClaimConfirm.dc.html",
+    "Song-Import-Start.dc.html",
+    "Song-Import-Values.dc.html",
+    "Song-ClaimConfirm-Apply.dc.html",
+    "Ops-FrameNew.dc.html",
+    "Console-Verify.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"

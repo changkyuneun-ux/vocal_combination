@@ -411,6 +411,11 @@ def chips(opts, on):
         for o in opts) + "</div>"
 
 
+# 이용 범위 어휘는 표준 계약 템플릿(마이그레이션 0032)과 같다
+USE_ACTIONS = ["미리듣기", "조합 생성", "개인 보관", "링크 공유", "내려받기"]
+USE_TERRITORIES = ["대한민국", "일본", "미국"]
+USE_MEDIA = ["팬앱", "외부 SNS"]
+USE_AUDIENCE = ["팬 커뮤니티", "전체 공개"]
 INPUT = "font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #ffffff"
 READY_IMPORT = [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 원곡 스템 34 중 2 등록", "#92400e"), ("! 확인 대기", "#92400e"), ("· 위임 서명 1/7", "#475569")]
 IMPORT_STEPS = ["계약서 불러오기", "후보 값 확인", "IR 정보 대조", "빠진 것 입력", "권리 확인서 서명"]
@@ -442,8 +447,9 @@ ws_page("Song-Import.dc.html", "Dynamite — 계약서 불러오기", "문서·�
                ["수령 위임", "멤버 → 소속사", "수령 위임계약", badge("1 / 7", "gray")]], paged=False, min_w=760),
               hint="빠짐이 남아 있으면 권리 확인서로 넘어가지 않는다"),
          card("④ 빠진 것 입력", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
-              + field("팬앱 이용 범위", chips(["조합", "구매", "감상", "재판매"], ["조합", "구매", "감상"]), "멤버 이용 동의·팩 이용 범위와 같아야 한다")
-              + field("이용 지역", f'<select style="{INPUT}"><option>전 세계</option><option>대한민국</option></select>')
+              + field("이용 행위", chips(USE_ACTIONS, ["미리듣기", "조합 생성", "개인 보관"]), "멤버 이용 동의·팩 이용 범위와 같아야 한다")
+              + field("지역", chips(USE_TERRITORIES, USE_TERRITORIES))
+              + field("매체 · 공개 대상", chips(USE_MEDIA + USE_AUDIENCE, ["팬앱", "팬 커뮤니티"]))
               + field("기간 끝", f'<input value="2030-12-31" style="{INPUT}; font-family: \'IBM Plex Mono\', monospace">', "원본 계약 기간을 넘지 않게")
               + "</div>", hint="원본 계약에 없는 값"),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("권리 확인서 만들기 →", primary=True) + "</div>"],
@@ -461,7 +467,7 @@ doc = ('<article style="display: flex; flex-direction: column; gap: 14px; paddin
        '<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><h3 style="margin: 0; font-size: 18px">권리 확인서 — 작가용</h3>' + badge("템플릿 v1", "gray") + badge("미리보기", "blue") + '</div>'
        + clause("제1조", "대상", "작품 「Dynamite」, 녹음 Vocal Recombination(빅히트 뮤직 레이블)")
        + clause("제2조", "작가와 지분", "아래 작가와 지분을 확인한다. 지분의 합은 100%다." + share_tbl)
-       + clause("제3조", "이용 범위", "팬앱에서 조합·구매·감상, 전 세계, 2026-01-01 ~ 2030-12-31")
+       + clause("제3조", "이용 범위", "이용 행위 미리듣기·조합 생성·개인 보관, 지역 대한민국·일본·미국, 매체 팬앱, 공개 대상 팬 커뮤니티, 2026-01-01 ~ 2030-12-31")
        + clause("제4조", "근거", "Dynamite 작품 퍼블리싱 계약서 v1 제3조(" + mono("doc_pub_dynamite") + ", sha256 " + mono("9f3c…a71e") + ")")
        + clause("제5조", "원본과의 관계", "이 확인서는 원본 계약을 대체하지 않는다. 원본과 다르면 원본이 우선하고, 다름은 분쟁으로 처리한다.")
        + '</article>')
@@ -477,7 +483,7 @@ ws_page("Song-ClaimConfirm.dc.html", "Dynamite — 권리 확인서", "문서·�
                 [["David Stewart", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대기", "warn")],
                  ["Jessica Agombar", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대기", "warn")]], paged=False, min_w=320), hint="작가 전원 · 한 부")
          + card("서명하면 만들어지는 기록", kv([("권리 주장", "작가 지분 2건(WRITTEN_BY) " + badge("VERIFIED", "ok")),
-                                               ("이용 동의", "작품 이용 동의 1건 " + badge("VERIFIED", "ok")),
+                                               ("이용 동의", "작품 이용 동의 2건(작가마다 1건) " + badge("VERIFIED", "ok")),
                                                ("원천 문서", "확인서 서명본 + 원본 계약 근거 연결"),
                                                ("확인 요청", "상대 확인 14일 대기 없음 — 경고 2건이 닫힌다")]))
          + '</div></div>',
@@ -487,5 +493,145 @@ ws_page("Song-ClaimConfirm.dc.html", "Dynamite — 권리 확인서", "문서·�
                foot="멤버의 보이스 소유·파트 담당은 확인서가 아니라 실연자 앱 확인으로 받는다.", title=("이 곡의 권리 확인서", "2부"), min_w=760),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("← 입력으로") + button("서명 요청 보내기", primary=True) + "</div>"],
         READY_IMPORT, height=1500)
+
+
+# ── 계약서 불러오기 ① 문서 고르기 ──
+ws_page("Song-Import-Start.dc.html", "Dynamite — 계약서 불러오기 시작", "문서·계약", "2026-01-03 08:50",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"], "계약서 불러오기",
+        "원본 계약서에서 권리 정보 후보를 채우고, IR에 필요한 것 중 빠진 것을 입력한 뒤 권리 확인서로 서명한다",
+        [],
+        [steps(IMPORT_STEPS, 1),
+         card("① 계약서 고르기", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: end">'
+              + field("원천 문서", f'<select style="{INPUT}"><option>Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · 4쪽 · 01-02</option><option>Dynamite 녹음 계약서 v1 (PDF) · 6쪽 · 01-02</option></select>',
+                      "이 곡의 원천 문서에서 고른다. 없으면 " + link("+ 새 문서 올리기"))
+              + field("읽기 틀", '<div style="padding: 8px 0">' + badge("양식 일치", "ok") + " 빅히트 작품 퍼블리싱 계약 양식 v1 — 값 4개를 후보로 채운다</div>",
+                      "일치하는 읽기 틀이 없으면 사람이 조항을 표시해 값을 넣는다")
+              + "</div>"
+              + '<div style="display: flex; justify-content: flex-end">' + button("불러오기", primary=True) + "</div>", hint="계약서는 플랫폼 밖으로 보내지 않는다"),
+         table(["계약서", "읽기 틀", "불러온 때", "단계", "확인서", ""],
+               [["Dynamite 녹음 계약서 v1", "빅히트 녹음 계약 양식 v1", mono("01-02 10:30"), badge("끝", "ok"), "레이블용 · 서명됨", link("보기")]],
+               foot="한 문서는 한 번에 하나만 불러온다. 끝난 불러오기는 조회만 한다.", title=("이 곡의 불러오기", "1건"), min_w=860)],
+        READY_IMPORT, height=1000)
+
+# ── 계약서 불러오기 — 후보 값 상태(다름 · 사람이 입력) ──
+small = lambda ph, w="120px", mono_=False: f'<input placeholder="{ph}" style="{INPUT}; width: {w}' + ('; font-family: \'IBM Plex Mono\', monospace' if mono_ else '') + '">'
+radio = lambda label, on: (f'<label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-right: 12px">'
+                           f'<span style="display: inline-block; width: 14px; height: 14px; border-radius: 999px; border: {"4px solid #1d4ed8" if on else "1px solid #94a3b8"}; background: #ffffff; box-sizing: border-box"></span>{label}</label>')
+ws_page("Song-Import-Values.dc.html", "Dynamite — 후보 값(다름 · 사람이 입력)", "문서·계약", "2026-01-03 09:00",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"], "계약서 불러오기",
+        "후보 값이 기존 입력과 다를 때와, 읽기 틀이 값을 찾지 못해 사람이 입력할 때",
+        [],
+        [steps(IMPORT_STEPS, 2),
+         table(["항목", "후보 값", "근거(쪽·조항)", "기존 입력과", "확인"],
+               [["작가 · 지분 1", sub("David Stewart · 작사·작곡 50%", "기존 입력: 45%"), sub("2쪽 제3조 1항", "“작가 갑의 지분은 50퍼센트”"),
+                 badge("다름", "err") + '<div style="margin-top: 6px">' + radio("계약서 값 50%", True) + radio("기존 값 45%", False) + "</div>", check(False)],
+                ["효력 시작", '<div style="display: flex; gap: 6px; flex-wrap: wrap">' + small("2026-01-01", "130px", True) + "</div>",
+                 '<div style="display: flex; gap: 6px; flex-wrap: wrap">' + small("쪽", "60px") + small("조항", "90px") + small("인용 문장(선택)", "220px") + "</div>",
+                 badge("사람이 입력", "gray"), check(False)]],
+               foot="다름: 고른 값으로 확인서를 만든다. 계약서 값을 고르면 원곡 권리의 기존 주장이 새 버전으로 바뀌고, 기존 값을 고르면 원본과 다르다는 표시가 남는다(확인서 제5조 — 원본 우선, 다름은 분쟁). 사람이 입력: 값과 근거 위치를 넣고 확인한다.",
+               title=("② 후보 값", "2 / 4 확인함"), paged=False, min_w=900)],
+        READY_IMPORT, height=900)
+
+# ── 권리 확인서 — 서명 끝, 기록 반영 ──
+ws_page("Song-ClaimConfirm-Apply.dc.html", "Dynamite — 권리 확인서 기록 반영", "문서·계약", "2026-01-16 15:30",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "권리 확인서"], "권리 확인서",
+        "모든 서명자가 끝나면 기록을 반영한다. 반영하면 권리 주장이 서명본을 근거로 VERIFIED가 된다",
+        [],
+        [steps(IMPORT_STEPS, 5),
+         '<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">'
+         + '<div style="flex: 1 1 520px; min-width: 0">' + card("서명", table(["서명자", "방법", "상태"],
+                [["David Stewart", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대조 완료 · 01-16", "ok")],
+                 ["Jessica Agombar", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대조 완료 · 01-16", "ok")]], paged=False, min_w=420), hint="작가용 · 2 / 2 끝") + '</div>'
+         + '<div style="flex: 1 1 380px; min-width: 0">' + card("반영하면 만들어지는 기록", kv([("권리 주장", "작가 지분 2건(WRITTEN_BY) " + badge("VERIFIED", "ok")),
+                                               ("이용 동의", "작품 이용 동의 2건(작가마다 1건) " + badge("VERIFIED", "ok")),
+                                               ("원천 문서", "확인서 서명본 + 원본 계약 근거 연결"),
+                                               ("확인 요청", "열린 확인 요청 2건이 닫히고 정합성 경고 2건이 닫힌다")])) + '</div></div>',
+         note("반영은 한 번만 한다. 반영한 뒤에는 확인서와 만들어진 기록을 고칠 수 없고, 바로잡기는 새 확인서로 한다."),
+         '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("서명본 보기") + button("기록 반영", primary=True) + "</div>"],
+        [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 확인 대기 2 → 반영하면 닫힘", "#92400e"), ("· 위임 서명 7/7", "#475569")], height=900)
+
+# ── 운영 관리 › 계약 템플릿 › 읽기 틀 등록 ──
+filled = lambda v, w: f'<input value="{v}" style="{INPUT}; width: {w}">'
+frow = lambda item, pg, cl, pat, quote, got: [item, filled(pg, "56px"), filled(cl, "96px"), f'<input value="{pat}" style="{INPUT}; width: 100%; font-family: \'IBM Plex Mono\', monospace; font-size: 13px">', f'<span style="font-size: 13px; color: #334155">“{quote}”</span>', got]
+page("Ops-FrameNew.dc.html", "운영 관리 — 읽기 틀 등록", "op-templates", "2026-01-02 10:10",
+     ["운영 관리", "계약·문서", "계약 템플릿", "읽기 틀 등록"], "읽기 틀 등록",
+     "계약 양식에서 값이 있는 위치(쪽·조항)와 값 모양을 IR 항목에 대응시킨다. 빅히트가 등록하고 플랫폼이 승인한다(CT2)",
+     [],
+     [card("양식", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
+           + field("양식 이름", f'<input value="빅히트 작품 퍼블리싱 계약 양식" style="{INPUT}">')
+           + field("쓰는 계약", f'<select style="{INPUT}"><option>작품 퍼블리싱 계약</option><option>녹음 계약</option></select>')
+           + field("기준 문서", f'<select style="{INPUT}"><option>Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · 4쪽</option></select>', "이 양식으로 쓴 계약서 하나를 골라 위치를 맞춘다")
+           + "</div>"),
+      table(["IR 항목", "쪽", "조항", "값 모양", "기준 문서 인용", "미리보기"],
+            [frow("곡명", "1", "제1조", "대상 저작물은 「{text}」", "본 계약의 대상 저작물은 「Dynamite」", "Dynamite"),
+             frow("작가 · 지분", "2", "제3조 1항", "작가 갑의 지분은 {percent}퍼센트", "작가 갑의 지분은 50퍼센트", "50%"),
+             frow("작가 · 지분", "2", "제3조 2항", "작가 을의 지분은 {percent}퍼센트", "작가 을의 지분은 50퍼센트", "50%"),
+             frow("효력 시작", "1", "제2조", "{date}부터 효력", "2026년 1월 1일부터 효력", mono("2026-01-01"))],
+            foot="값 모양의 기호: {text} 글자 · {percent} 퍼센트 · {bps} 만분율 · {date} 날짜 · {party} 당사자 이름. 기준 문서 인용에 값 모양이 맞으면 미리보기에 값이 나온다. 맞지 않으면 빨간 글씨로 '모양 안 맞음'.",
+            title=("항목", "4개 · " + link("+ 항목 추가")), paged=False, min_w=1000),
+      '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("승인 요청", primary=True) + "</div>"],
+     height=1000)
+
+
+# ── 플랫폼 콘솔 › 운영 원문 대조 ──
+def console_page(fname, title, clock, crumb, h1, body, height=1000):
+    html = f"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{title}</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{{margin:0}}
+a{{color:#1d4ed8}}a:hover{{color:#1e3a8a}}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #111827; color: #f9fafb">
+<strong style="font-size: 16px">dobedupop 총괄 콘솔</strong>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #d1d5db">작업 소속
+<select style="font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #4b5563; background: #1f2937; color: #f9fafb"><option>플랫폼 운영</option><option>빅히트 뮤직</option><option>가상 신탁단체</option></select></label>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #374151">PLATFORM_ALL</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">{clock}</span>
+<span style="font-size: 14px; color: #d1d5db">총괄 · usr_admin</span>
+</header>
+<main style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="위치" style="font-size: 14px; color: #475569">{crumb}</nav>
+<h1 style="margin: 0; font-size: 26px">{h1}</h1>
+{chr(10).join(body)}
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{{"$preview":{{"width":1440,"height":{height}}}}}'>
+class Component extends DCLogic {{
+  renderVals() {{ return {{}}; }}
+}}
+</script>
+</body>
+</html>
+"""
+    (OUT / fname).write_text(html, encoding="utf-8")
+
+
+console_page("Console-Verify.dc.html", "운영 원문 대조", "2026-01-16 15:20",
+             '⑦ 운영 확인 › 원문 대조 › 권리 확인서', "원문 대조 — 권리 확인서",
+             [table(["확인서", "곡", "대조할 당사자", "요청", "상태", ""],
+                    [[sub("작가용 권리 확인서", "빅히트 뮤직"), "Dynamite", "David Stewart(플랫폼 위탁)", mono("01-03 09:25"), badge("대조 대기", "warn"), link("대조하기")],
+                     [sub("작가용 권리 확인서", "빅히트 뮤직"), "Dynamite", "Jessica Agombar(플랫폼 위탁)", mono("01-03 09:25"), badge("대조 대기", "warn"), link("대조하기")]],
+                    foot="플랫폼 밖 당사자(위탁 작가)는 서명 대신 운영이 원본 계약과 확인서 값을 대조한다(CT4). 대조한 사람·시각·사유는 기록에 남는다.",
+                    title=("대조 대기", "2건"), min_w=900),
+              card("대조 — David Stewart", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px">'
+                   + card("확인서 값", kv([("작가", "David Stewart · 작사·작곡"), ("지분", mono("50.00%")), ("이용 범위", "미리듣기·조합 생성·개인 보관 · 대한민국·일본·미국 · 팬앱 · 팬 커뮤니티"), ("기간", mono("2026-01-01 ~ 2030-12-31"))]))
+                   + card("원본 계약", kv([("문서", "Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · " + link("원문 보기")), ("근거", "2쪽 제3조 1항"), ("인용", "“작가 갑의 지분은 50퍼센트”"), ("sha256", mono("9f3c…a71e"))]))
+                   + "</div>"
+                   + field("대조 메모", f'<textarea rows="2" style="{INPUT}; resize: vertical">원문 2쪽 제3조 1항과 지분 50% 일치</textarea>', "반려하면 분쟁이 열리고 확인서는 반영할 수 없다")
+                   + '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("반려(분쟁)") + button("대조 완료", primary=True) + "</div>",
+                   hint="1 / 2")], height=1100)
 
 print("ok")
