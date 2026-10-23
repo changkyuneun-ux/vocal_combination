@@ -167,7 +167,7 @@ class Component extends DCLogic {
       info: [['곡명', w.title], ['아티스트', w.artist], ['작사·작곡', w.credit], ['녹음', w.recording], ['마스터', '빅히트 뮤직(레이블)'], ['실연자', w.members], ['원곡 권리', w.rights], ['멤버 스템', w.stems], ['ISWC · ISRC', w.iswc + ' · ' + w.isrc], ['등록', w.reg]].map(([label, value]) => ({ label, value })),
       timeline: STAGES.map((label, i) => ({
         label,
-        note: i < w.stage ? '완료' : i === w.stage ? (w.real && i === 1 ? '멤버 확인 48 · 작가 원문 대조 2 남음' : '진행 중') : '대기',
+        note: i < w.stage ? '완료' : i === w.stage ? (w.real && i === 1 ? '멤버 확인 48 · 작가 서명 2 남음' : '진행 중') : '대기',
         style: 'display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; ' + (i < w.stage ? 'background: #eff6ff; color: #1e3a8a' : i === w.stage ? 'background: #ffffff; border: 2px solid #1d4ed8' : 'background: #f8fafc; color: #475569'),
       })),
     };

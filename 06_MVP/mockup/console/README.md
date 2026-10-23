@@ -85,4 +85,4 @@
 | ② 후보 값 — 다름(계약서 값/기존 값 고르기), 사람이 입력(값·쪽·조항·인용) | `Song-Import-Values.dc.html` |
 | 권리 확인서 — 서명 끝, 기록 반영 | `Song-ClaimConfirm-Apply.dc.html` |
 | 운영 관리 › 계약 템플릿 › 읽기 틀 등록 | `Ops-FrameNew.dc.html` |
-| [플랫폼 콘솔] 운영 원문 대조 — 권리 확인서 | `Console-Verify.dc.html` |
+| ~~[플랫폼 콘솔] 운영 원문 대조~~ — 삭제(플랫폼 위탁 폐지 WD3) | ~~`Console-Verify.dc.html`~~ |
