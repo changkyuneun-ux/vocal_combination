@@ -9,7 +9,7 @@ import type { UserRow } from "../api/types.ts";
 import type { WorkOverview } from "../api/works.ts";
 import { DEFAULT_ACTOR, setActor, useActor } from "./actor.ts";
 import { Sidebar, useSidebarToggles } from "./Sidebar.tsx";
-import { crumbsFor, sidebarModel, workIdOf, type Counts } from "./sidebar.ts";
+import { activeKey, crumbsFor, sidebarModel, workIdOf, type Counts } from "./sidebar.ts";
 
 const RECENT_KEY = "rc.recentWorks";
 const readRecent = (): { workId: string; title: string }[] => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"); } catch { return []; } };
@@ -81,7 +81,8 @@ export function PortalShell() {
         <Sidebar groups={groups} closed={closed} onToggle={onToggle} org={org} />
         <div className="p-content">
           <CrumbsCtx.Provider value={crumbs}>
-            {loc.pathname.startsWith("/works") || loc.pathname.startsWith("/ops") ? <Outlet /> : <main className="p-main"><Crumbs /><Outlet /></main>}
+            {/* 작품·운영 관리 화면은 본문 틀(경로·제목)을 스스로 그린다. 그 밖(기존 권리 화면)은 틀 안에 넣는다. */}
+            {activeKey(loc.pathname) !== "" ? <Outlet /> : <main className="p-main"><Crumbs /><Outlet /></main>}
           </CrumbsCtx.Provider>
         </div>
       </div>
