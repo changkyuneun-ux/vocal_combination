@@ -380,11 +380,11 @@ page("Ops-Links.dc.html", "운영 관리 — 신탁·유통 연결", "op-links",
 WS_TABS = ["원곡 권리", "스템", "확인·동의", "문서·계약", "분배 규칙·팩", "승인·출시", "변경 기록"]
 
 
-def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, ready, height=1100):
+def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, ready, height=1100, status=None, band_label="IR 생성 준비"):
     """작품 워크스페이스 화면: 경로 → IR 생성 준비 띠 → 제목(IR 상태 배지) → 탭 줄 → 본문 (시안 Nav-Works-Stems와 같은 틀)."""
     marks = "".join(f'<span style="color: {c}">{t}</span>' for t, c in ready)
     band = (f'<div role="status" style="{CARD}; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 18px; font-size: 13.5px; font-weight: 600">'
-            f'<strong style="color: #0f172a">IR 생성 준비</strong>{marks}</div>\n')
+            f'<strong style="color: #0f172a">{band_label}</strong>{marks}</div>\n')
     tabs = "".join(
         f'<span style="padding: 10px 16px; font-weight: 700; color: {NAVY}; border-bottom: 3px solid {NAVY}; margin-bottom: -1px">{t}</span>' if t == active_tab
         else (f'<span style="padding: 10px 16px; font-weight: 600; color: #334155">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 10px 16px; font-weight: 600; text-decoration: none; color: #334155">{t}</a>')
@@ -392,7 +392,7 @@ def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, re
     tabrow = f'<div role="tablist" aria-label="워크스페이스 탭" style="display: flex; gap: 4px; border-bottom: 1px solid #cbd5e1; overflow-x: auto; font-size: 15px">{tabs}</div>\n'
     key = "ws"  # 사이드 메뉴는 곡 단위로 활성, 곡 안의 화면은 탭으로 고른다
     page(fname, title, key, clock, crumbs, h1, desc,
-         actions + [badge("IR 생성 전 — 등록·조회·수정 가능", "ok")], body, height=height, before_title=band, after_title=tabrow)
+         actions + [status or badge("IR 생성 전 — 등록·조회·수정 가능", "ok")], body, height=height, before_title=band, after_title=tabrow)
 
 
 def steps(items, current):
@@ -589,5 +589,68 @@ page("Ops-FrameNew.dc.html", "운영 관리 — 읽기 틀 등록", "op-template
       '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("승인 요청", primary=True) + "</div>"],
      height=1000)
 
+
+
+# ── 원곡 권리(IR 생성 뒤) — 새 버전 만들기: 안내 띠 자리에 열린다(취소·저장하면 다시 안내 띠) ──
+LOCK_STATUS = badge("IR 생성됨 v1 · 2026-02-01 09:00 — 조회만", "ir")
+LOCK_READY = [("IR v1", "#3730a3"), ("facts v1 · 정책 v1 digest 고정", "#334155"), ("원곡 권리·스템은 조회만(바로잡기는 새 버전)", "#334155")]
+TYPES = ["작품 · 작사·작곡", "녹음 · 마스터", "실연 · 보이스·파트 담당"]
+
+
+def type_select(on):
+    return f'<select aria-label="권리자 유형" style="{SELECT}; font-weight: 700">' + "".join(f'<option{" selected" if t == on else ""}>{t}</option>' for t in TYPES) + "</select>"
+
+
+def fix_box(kind, rows_html, side, foot):
+    """안내 띠를 대신하는 편집 상자: 머리(제목 · 권리자 유형) → 입력 → 저장하면 순서 → 취소·저장."""
+    return (f'<section aria-label="새 버전 만들기" style="{CARD}; border: 2px solid #3730a3; padding: 18px; display: flex; flex-direction: column; gap: 14px">'
+            f'<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 700">새 버전 만들기</h2>'
+            f'{field("권리자 유형", type_select(kind))}<span style="font-size: 13px; color: #334155">권리자·근거 문서 목록은 고른 유형으로 걸러진다. v1은 그대로 남는다</span></div>'
+            f'{rows_html}{side}{note(foot)}'
+            f'<div style="display: flex; gap: 8px; justify-content: flex-end">{button("취소")}{button("새 버전 저장", primary=True)}</div></section>')
+
+
+locked_cards = [
+    table(["권리자", "역할", "지분", "버전", "IR v1", "상태"],
+          [["David Stewart", "작사·작곡", mono("50%"), "v1", "포함", badge("확정", "ok")], ["Jessica Agombar", "작사·작곡", mono("50%"), "v1", "포함", badge("확정", "ok")]],
+          title=("작품 · 작사·작곡", "수정·삭제 닫힘"), paged=False, min_w=760),
+    table(["권리자", "지분", "버전", "IR v1", "상태"], [["빅히트 뮤직 — 레이블", mono("100%"), "v1", "포함", badge("확정", "ok")]],
+          title=("녹음 · 마스터", "수정·삭제 닫힘"), paged=False, min_w=760),
+    table(["멤버", "보이스", "원곡 파트 담당", "버전", "IR v1", "상태"],
+          [[m, mono(v), n, "v1", "포함", badge("확정", "ok")] for m, v, n in
+           [("정국", "voc_jungkook", "파트 6"), ("지민", "voc_jimin", "파트 5"), ("뷔", "voc_v", "파트 3"), ("진", "voc_jin", "파트 3"), ("RM", "voc_rm", "파트 1"), ("제이홉", "voc_jhope", "파트 1"), ("슈가", "voc_suga", "파트 1")]],
+          title=("실연 · 멤버 보이스·파트 담당", "수정·삭제 닫힘 · 지분 없음(조합마다 부른 시간으로 계산)"), paged=False, min_w=760),
+]
+SEL = lambda opts, w="100%": f'<select style="{SELECT}; width: {w}">' + "".join(f"<option>{o}</option>" for o in opts) + "</select>"
+NUM = lambda v: f'<input value="{v}" style="{SELECT}; width: 90px; text-align: right; {MONO}">'
+
+work_rows = table(["권리자(작가만)", "지분(%)", "저장하면"],
+                  [["David Stewart · v1 50% → v2", NUM("40"), badge("작가 전자서명 링크로 확인", "warn")],
+                   ["Jessica Agombar · v1 50% → v2", NUM("40"), badge("작가 전자서명 링크로 확인", "warn")],
+                   [SEL(["(새) 작가 — 빅히트 관리 작가 명부에서", "김작가(작가)", "Lee Writer(작가)"]), NUM("20"), badge("작가 전자서명 링크로 확인", "warn")]],
+                  foot="합계 100%여야 저장된다(지금 100%).", paged=False, min_w=700)
+work_side = ('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
+             + field("효력 시작", f'<input value="2026-03-01" style="{SELECT}; {MONO}">')
+             + field("근거 문서(작품 계약만)", SEL(["Dynamite 작품 퍼블리싱 계약서 v1 (PDF)", "공동 작사 추가 계약서 (새로 올림)"]), "작품 퍼블리싱 계약·권리 확인서(작가용)만 보인다 · " + link("+ 새 문서 올리기"))
+             + "</div>")
+ws_page("Song-Locked-Fix.dc.html", "Dynamite — 원곡 권리 새 버전(작품)", "원곡 권리", "2026-02-20 10:00",
+        [], "Dynamite · 원곡 권리", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)", [],
+        [fix_box("작품 · 작사·작곡", work_rows, work_side,
+                 "저장하면: 새 버전 기록 → 작가 서명이 끝나면 ⑧ \"재고정 필요\" → 분배 규칙 재고정 → 다음 발행부터 IR v2. 이미 발행된 조합과 정산은 v1 그대로.")] + locked_cards,
+        LOCK_READY, height=1700, status=LOCK_STATUS, band_label="IR 상태")
+
+perf_rows = table(["바로잡을 것", "지금(v1)", "새 값", "저장하면"],
+                  [["4 Pre-Chorus 1 · 파트 2 원곡 담당", "뷔", SEL(["진", "정국", "지민", "뷔", "RM", "제이홉", "슈가"], "160px") + '<div style="margin-top: 4px; font-size: 12.5px; color: #334155">이 곡의 멤버 7명만</div>', badge("진·뷔 실연자 앱 확인", "warn")],
+                   ["보이스 소유", "voc_v → 뷔", SEL(["바꾸지 않음"], "160px"), badge("바꾸지 않음", "gray")]],
+                  foot="실연은 %가 아니다 — 멤버 몫은 조합마다 부른 시간으로 계산된다. 여기서는 원곡 파트 담당과 보이스 소유만 바로잡는다.", paged=False, min_w=700)
+perf_side = ('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
+             + field("효력 시작", f'<input value="2026-03-01" style="{SELECT}; {MONO}">')
+             + field("근거 문서(실연 관련만)", SEL(["멤버 팬앱 이용 동의 v1 서명본 · 진", "실연 수익 수령 위임계약 v1 서명본 · 진"]), "실연 이용 동의·수령 위임·녹음 세션 기록만 보인다")
+             + "</div>")
+ws_page("Song-Locked-FixPerf.dc.html", "Dynamite — 원곡 권리 새 버전(실연)", "원곡 권리", "2026-02-20 10:00",
+        [], "Dynamite · 원곡 권리", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)", [],
+        [fix_box("실연 · 보이스·파트 담당", perf_rows, perf_side,
+                 "저장하면: 새 버전 기록 → 바뀐 멤버들이 실연자 앱에서 확인 → ⑧ \"재고정 필요\" → 분배 규칙 재고정 → 다음 발행부터 IR v2. 이미 발행된 조합의 몫은 그대로.")] + locked_cards,
+        LOCK_READY, height=1650, status=LOCK_STATUS, band_label="IR 상태")
 
 print("ok")
