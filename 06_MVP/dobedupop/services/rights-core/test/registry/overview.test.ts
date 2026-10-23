@@ -23,6 +23,7 @@ await db.tx(async (tx) => {
   await registerParty(tx, c0, { partyId: "pty_writer", partyType: "AUTHOR", displayName: "작가 W" });
   await registerParty(tx, c0, { partyId: "pty_mem", partyType: "MEMBER", displayName: "멤버 M", tenantId: "tnt_platform_default" });
   await createUser(tx, c0, { userId: "usr_lbl", displayName: "label", roles: ["RIGHTS_EDITOR"], tenantId: "tnt_lbl" });
+  await createUser(tx, c0, { userId: "usr_mem", displayName: "member", roles: ["PERFORMER"], tenantId: "tnt_platform_default", partyId: "pty_mem" });
   await createUser(tx, c0, { userId: "usr_other", displayName: "other", roles: ["RIGHTS_EDITOR"], tenantId: "tnt_other" });
 });
 const json = async (method: "GET" | "POST", url: string, actor: string, status: number, payload?: object): Promise<any> => {
@@ -48,7 +49,7 @@ test("works overview: counts, authors and stage for the tenant's song; another t
   assert.equal(w.recordingTitle, "Main");
   assert.deepEqual(w.authors, ["작가 W"]);
   assert.deepEqual(w.rights, { work: 1, master: 0, performers: 0 });
-  assert.deepEqual([w.slots, w.vocalParts, w.stems], [1, 1, 1]);
+  assert.deepEqual([w.slots, w.vocalParts, w.stems, w.parts, w.members], [1, 1, 1, 2, 0]);
   assert.equal(w.pendingConfirmations, 1);
   assert.equal(w.sealed, false);
   assert.equal(w.pack, null);
@@ -76,4 +77,15 @@ test("stage rules: active pack sells, active policy waits, sealed is IR, dispute
   assert.deepEqual(stageOf({ ...base, packStatus: "ACTIVE", activePolicy: true, sealed: true }), { stage: 4, status: "판매 중" });
   assert.deepEqual(stageOf({ ...base, packStatus: "PAUSED", activePolicy: true, sealed: true }), { stage: 3, status: "분쟁·보류" });
   assert.deepEqual(stageOf({ ...base, openDisputes: 1 }), { stage: 0, status: "분쟁·보류" });
+});
+
+test("facts show the version a member confirmed (written by the member, still in the tenant's song)", async () => {
+  await json("POST", "/portal/voices", "usr_lbl", 201, { voiceId: "voc_mem", factsScopeId: "fsc_x", kind: "HUMAN" });
+  await json("POST", "/portal/claims", "usr_lbl", 201, { claimId: "c_own_voc_mem", factsScopeId: "fsc_x", sourceId: "voc_mem", edge: "OWNED_BY", targetId: "pty_mem", shareBps: 10000, status: "ASSERTED", validFrom: T0 });
+  const open = (await json("GET", "/performer/confirmations", "usr_mem", 200)).filter((r: any) => r.recordId === "c_own_voc_mem");
+  await json("POST", `/performer/confirmations/${open[0].requestId}/confirm`, "usr_mem", 200, {});
+  const facts = await json("GET", "/portal/scopes/fsc_x/facts", "usr_lbl", 200);
+  const cur = facts.claims.filter((c: any) => c.claimId === "c_own_voc_mem" && c.supersededAt === null);
+  assert.equal(cur.length, 1, JSON.stringify(facts.claims.filter((c: any) => c.claimId === "c_own_voc_mem")));
+  assert.equal(cur[0].status, "VERIFIED");
 });

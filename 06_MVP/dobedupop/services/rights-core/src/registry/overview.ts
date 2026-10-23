@@ -8,6 +8,8 @@ export type WorkOverview = {
   authors: string[];
   rights: { work: number; master: number; performers: number };
   slots: number; vocalParts: number; stems: number;
+  /** 파트 전체 수와 보이스를 가진 멤버 수 — 스템 자리 = 보컬 파트 × 멤버 + 그 밖 파트(작품 목록 "멤버 스템 n / 자리"). */
+  parts: number; members: number;
   pendingConfirmations: number;
   sealed: boolean; sealedThrough: string | null;
   pack: { packId: string; status: string } | null;
@@ -37,8 +39,8 @@ export async function worksOverview(tx: Tx): Promise<WorkOverview[]> {
   const ids = visible.map((v) => v.work_id as string);
   const rows = await withSystemScope(tx, async () => (await tx.query(
     `SELECT w.work_id, s.facts_scope_id, s.sealed_through,
-            rec.title AS recording_title, au.names AS authors, cl.work_n, cl.master_n, cl.perf_n,
-            cat.slots, cat.vocal_parts, cat.stems, cf.pending, pk.pack_id, pk.status AS pack_status, pol.active, dp.open_disputes
+            rec.title AS recording_title, au.names AS authors, cl.work_n, cl.master_n, cl.perf_n, cl.members_n,
+            cat.slots, cat.vocal_parts, cat.stems, cat.parts, cf.pending, pk.pack_id, pk.status AS pack_status, pol.active, dp.open_disputes
        FROM work w
        LEFT JOIN facts_scope s ON s.work_id = w.work_id
        LEFT JOIN LATERAL (SELECT version_title AS title FROM recording_version r WHERE r.work_id = w.work_id ORDER BY r.created_at, r.recording_id LIMIT 1) rec ON true
@@ -47,13 +49,16 @@ export async function worksOverview(tx: Tx): Promise<WorkOverview[]> {
           WHERE c.facts_scope_id = s.facts_scope_id AND c.edge = 'WRITTEN_BY' AND c.superseded_at IS NULL AND c.status <> 'SUPERSEDED') au ON true
        LEFT JOIN LATERAL (
          SELECT count(*) FILTER (WHERE edge = 'WRITTEN_BY')::int AS work_n, count(*) FILTER (WHERE edge = 'CONTROLLED_BY')::int AS master_n,
-                count(*) FILTER (WHERE edge = 'OWNED_BY')::int AS perf_n
+                count(*) FILTER (WHERE edge = 'OWNED_BY')::int AS perf_n,
+                count(DISTINCT target_id) FILTER (WHERE edge = 'OWNED_BY')::int AS members_n
            FROM right_claim c WHERE c.facts_scope_id = s.facts_scope_id AND c.superseded_at IS NULL AND c.status <> 'SUPERSEDED') cl ON true
        LEFT JOIN LATERAL (
          SELECT (SELECT count(*)::int FROM part_slot sl JOIN recording_version r ON r.recording_id = sl.recording_id WHERE r.work_id = w.work_id) AS slots,
                 (SELECT count(*)::int FROM slot_part p JOIN part_slot sl ON sl.slot_id = p.slot_id JOIN recording_version r ON r.recording_id = sl.recording_id
                   WHERE r.work_id = w.work_id AND p.kind = 'VOCAL') AS vocal_parts,
-                (SELECT count(*)::int FROM stem st JOIN recording_version r ON r.recording_id = st.recording_id WHERE r.work_id = w.work_id) AS stems) cat ON true
+                (SELECT count(*)::int FROM stem st JOIN recording_version r ON r.recording_id = st.recording_id WHERE r.work_id = w.work_id) AS stems,
+                (SELECT count(*)::int FROM slot_part p JOIN part_slot sl ON sl.slot_id = p.slot_id JOIN recording_version r ON r.recording_id = sl.recording_id
+                  WHERE r.work_id = w.work_id) AS parts) cat ON true
        LEFT JOIN LATERAL (SELECT count(*)::int AS pending FROM confirmation_request q WHERE q.facts_scope_id = s.facts_scope_id AND q.status = 'OPEN') cf ON true
        LEFT JOIN LATERAL (SELECT k.pack_id, k.status FROM vocal_pack k WHERE k.facts_scope_id = s.facts_scope_id ORDER BY (k.status = 'ACTIVE') DESC, k.created_at, k.pack_id LIMIT 1) pk ON true
        LEFT JOIN LATERAL (SELECT EXISTS (SELECT 1 FROM policy_version v JOIN vocal_pack k ON k.pack_id = v.pack_id WHERE k.facts_scope_id = s.facts_scope_id AND v.status = 'ACTIVE') AS active) pol ON true
@@ -69,7 +74,7 @@ export async function worksOverview(tx: Tx): Promise<WorkOverview[]> {
       workId: v.work_id, title: v.title, scopeId: v.facts_scope_id ?? null, recordingTitle: r.recording_title ?? null,
       authors: (r.authors as string[] | null) ?? [],
       rights: { work: r.work_n ?? 0, master: r.master_n ?? 0, performers: r.perf_n ?? 0 },
-      slots: r.slots ?? 0, vocalParts: r.vocal_parts ?? 0, stems: r.stems ?? 0,
+      slots: r.slots ?? 0, vocalParts: r.vocal_parts ?? 0, stems: r.stems ?? 0, parts: r.parts ?? 0, members: r.members_n ?? 0,
       pendingConfirmations: pending,
       sealed, sealedThrough: sealed ? iso(r.sealed_through)! : null,
       pack: r.pack_id ? { packId: r.pack_id as string, status: r.pack_status as string } : null,

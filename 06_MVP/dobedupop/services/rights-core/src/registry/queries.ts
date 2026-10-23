@@ -1,4 +1,5 @@
 import type { Tx } from "../platform/db.ts";
+import { withSystemScope } from "../platform/actor.ts";
 import { notFound } from "../platform/errors.ts";
 import { cursorKey, pageOf, ts, type Page } from "../platform/paging.ts";
 
@@ -81,6 +82,12 @@ export async function getScope(tx: Tx, scopeId: string) {
 export async function getScopeFacts(tx: Tx, scopeId: string) {
   const s = (await tx.query("SELECT work_id FROM facts_scope WHERE facts_scope_id = $1", [scopeId])).rows[0];
   if (s === undefined) throw notFound("facts scope", scopeId);
+  // 범위가 요청자에게 보이면(RLS) 그 곡 안의 행은 다 보인다 — 멤버가 확인해 쓴 새 버전(소유 테넌트가 다르다)도 곡의 현재 사실이다.
+  return withSystemScope(tx, () => scopeFactsRows(tx, scopeId, s.work_id as string));
+}
+
+async function scopeFactsRows(tx: Tx, scopeId: string, workId: string) {
+  const s = { work_id: workId };
   const q = async (sql: string, params: unknown[]): Promise<Rows> => (await tx.query(sql, params)).rows;
   // 한 PoolClient에서는 쿼리를 순차로 실행한다(동시 실행은 pg 경고).
   const recordings = await q("SELECT * FROM recording_version WHERE work_id = $1 ORDER BY recording_id", [s.work_id]);

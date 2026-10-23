@@ -61,6 +61,9 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
     [{ kind: "GROUP", n: 2 }, { kind: "INSTRUMENT", n: 12 }, { kind: "VOCAL", n: 20 }]);
   assert.equal(await count("SELECT count(*)::int AS n FROM stem WHERE recording_id = 'rcd_dynamite'"), 154);
   assert.equal(await count("SELECT count(*)::int AS n FROM confirmation_request r JOIN party p ON p.party_id = r.counterparty_id WHERE p.party_type = 'MEMBER' AND r.status = 'CONFIRMED'"), 147);
+  // 곡 워크스페이스 문서·계약: 빅히트는 자기 곡 범위의 계약을 다 본다 — 플랫폼이 작가와 맺은 작품 이용허락도(조회만).
+  const ctr = (await driver.call("portal", "usr_bh_rights", "GET", "/contracts?scope=fsc_dynamite")).body as { contractId: string }[];
+  assert.ok(ctr.some((c) => c.contractId === "ctr_work_david_stewart"), JSON.stringify(ctr.map((c) => c.contractId)));
   assert.deepEqual(r.issued, ["vc_bts_orig", "vc_bts_swap", "vc_bts_vocal", "vc_bts_jin"]);
   assert.equal(r.soloRejected.code, "ISSUE_NOT_SETTLEABLE");
   // 정산: 조합마다 run, 독립 재계산 통과 뒤 확정.

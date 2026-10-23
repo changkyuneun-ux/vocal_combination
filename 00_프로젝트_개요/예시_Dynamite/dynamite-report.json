@@ -460,10 +460,10 @@
       }
     ],
     "names": {
-      "pty_bighit_label": "빅히트 뮤직 — 레이블(마스터 보유, 가정)",
-      "pty_bighit_agency": "빅히트 뮤직 — 소속사(멤버 실연 몫 수령, 가정)",
-      "pty_david_stewart": "David Stewart(작사·작곡, 지분 가정 50%)",
-      "pty_jessica_agombar": "Jessica Agombar(작사·작곡, 지분 가정 50%)",
+      "pty_bighit_label": "빅히트 뮤직 — 레이블",
+      "pty_bighit_agency": "빅히트 뮤직 매니지먼트(소속사)",
+      "pty_david_stewart": "David Stewart",
+      "pty_jessica_agombar": "Jessica Agombar",
       "pty_jungkook": "정국",
       "pty_jimin": "지민",
       "pty_v": "뷔",

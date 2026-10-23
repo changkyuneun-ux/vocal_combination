@@ -97,11 +97,12 @@ export const VOCAL_PARTS = PARTS.filter((p) => p.kind === "VOCAL");
 export const stemId = (p: PartSpec, singer?: MemberKey): string =>
   `stm_s${pad2(p.slotNo)}_p${p.partNo}_${p.kind === "VOCAL" ? singer! : p.kind === "GROUP" ? "group" : "inst"}`;
 
+/** 표시 이름(화면 시안과 같게). 레이블·소속사 관계, 작가 지분 50·50은 가정이다. */
 export const NAMES: Record<string, string> = {
-  pty_bighit_label: "빅히트 뮤직 — 레이블(마스터 보유, 가정)",
-  pty_bighit_agency: "빅히트 뮤직 — 소속사(멤버 실연 몫 수령, 가정)",
-  pty_david_stewart: "David Stewart(작사·작곡, 지분 가정 50%)",
-  pty_jessica_agombar: "Jessica Agombar(작사·작곡, 지분 가정 50%)",
+  pty_bighit_label: "빅히트 뮤직 — 레이블",
+  pty_bighit_agency: "빅히트 뮤직 매니지먼트(소속사)",
+  pty_david_stewart: "David Stewart",
+  pty_jessica_agombar: "Jessica Agombar",
   ...Object.fromEntries(MEMBERS.map((m) => [`pty_${m.key}`, m.name])),
 };
 

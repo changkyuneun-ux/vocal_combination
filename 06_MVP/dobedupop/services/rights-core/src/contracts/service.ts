@@ -262,12 +262,17 @@ export async function getContract(tx: Tx, contractId: string) {
 }
 
 export async function listContracts(tx: Tx, f: { scope?: string; status?: string }) {
-  const ids = (await tx.query(
-    "SELECT contract_id FROM contract_envelope WHERE ($1::text IS NULL OR facts_scope_id = $1) AND ($2::text IS NULL OR status = $2) ORDER BY created_at DESC, contract_id",
-    [f.scope ?? null, f.status ?? null])).rows.map((r) => r.contract_id as string);
-  const out = [];
-  for (const id of ids) { const { html: _h, ...c } = await getContract(tx, id); out.push(c); }
-  return out;
+  const read = async () => {
+    const ids = (await tx.query(
+      "SELECT contract_id FROM contract_envelope WHERE ($1::text IS NULL OR facts_scope_id = $1) AND ($2::text IS NULL OR status = $2) ORDER BY created_at DESC, contract_id",
+      [f.scope ?? null, f.status ?? null])).rows.map((r) => r.contract_id as string);
+    const out = [];
+    for (const id of ids) { const { html: _h, ...c } = await getContract(tx, id); out.push(c); }
+    return out;
+  };
+  // 곡을 지정하고 그 곡이 요청자에게 보이면(RLS) 그 곡의 계약은 다 보인다 — 플랫폼이 위탁 작가와 맺은 작품 이용허락도(곡 워크스페이스 문서·계약, 조회만).
+  if (f.scope !== undefined && (await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1", [f.scope])).rows.length > 0) return withSystemScope(tx, read);
+  return read();
 }
 
 async function markSigned(tx: Tx, clock: Clock, contractId: string, partyId: string, method: string, by: string | null): Promise<void> {
