@@ -111,6 +111,12 @@ export function OpsStatements() {
   const vcs = paginate(issues.data?.items ?? [], page2);
   const sum = sts.reduce((a, s) => a + BigInt(s.payoutNet), 0n).toString();
   const role = (x: PartyRow) => (x.partyType === "LABEL" ? "녹음 몫" : x.partyType === "AGENCY" ? "실연 몫(멤버 수령 위임)" : x.partyType === "AUTHOR" ? `작품 몫 ${workShare(x.partyId) / 100}%` : "권리 몫");
+  // 시안: "원천징수 작가 각 83,650원, 합계 167,300원"(작가마다 같으면 "각", 다르면 합계만).
+  const authorWht = () => {
+    const w = sts.filter((x) => parties.find((y) => y.partyId === x.partyId)?.partyType === "AUTHOR").map((x) => Number(x.withholding));
+    const sum = w.reduce((a, x) => a + x, 0).toLocaleString();
+    return w.length > 1 && w.every((x) => x === w[0]) ? `원천징수 작가 각 ${w[0]!.toLocaleString()}원, 합계 ${sum}원` : `원천징수 합계 ${sum}원`;
+  };
   const kinds = [["LABEL", "레이블"], ["AGENCY", "소속사"], ["AUTHOR", "작가"]].map(([t, l]) => [l, parties.filter((x) => x.partyType === t).length] as const).filter(([, n]) => n > 0);
   const months = Array.from({ length: Number(now.slice(5, 7)) }, (_, i) => `${now.slice(0, 4)}-${String(i + 1).padStart(2, "0")}`).reverse();
   return (
@@ -125,7 +131,7 @@ export function OpsStatements() {
       <Filters placeholder="당사자" selects={[{ name: "기간", value: period, options: [["all", "전체 기간"], ...months.map((m): [string, string] => [m, `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`])], onChange: setPeriod }]} />
       <ErrorPanel error={stErr} />
       <TableCard label="명세" cols={["받는 당사자", "역할", "정산 기간", "지급(원)", "계좌", "상태", ""]} count={rows.rows.length} empty="받는 당사자가 없습니다."
-        page={page} total={rows.total} onPage={setPage} foot={`작가는 빅히트가 관리하는 당사자다. 작가 지급액은 원천징수 뒤 금액(원천징수 합계 ${sts.filter((x) => parties.find((y) => y.partyId === x.partyId)?.partyType === "AUTHOR").reduce((a, x) => a + Number(x.withholding), 0).toLocaleString()}원). 계좌·세금 정보는 빅히트가 등록하고 플랫폼은 지급만 실행한다. 멤버별 기여분은 실연자 앱에서 본인이 본다.`}>
+        page={page} total={rows.total} onPage={setPage} foot={`작가는 빅히트가 관리하는 당사자다. 작가 지급액은 원천징수 뒤 금액(${authorWht()}). 계좌·세금 정보는 빅히트가 등록하고 플랫폼은 지급만 실행한다. 멤버별 기여분은 실연자 앱에서 본인이 본다.`}>
         {rows.rows.map((x) => {
           const s = sts.find((y) => y.partyId === x.partyId);
           const paid = s !== undefined && BigInt(s.payoutNet) > 0n;

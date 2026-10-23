@@ -4,13 +4,15 @@
  */
 :root[data-app="portal"] {
   --p-font: "IBM Plex Sans KR", system-ui, sans-serif;
-  --p-mono: "IBM Plex Mono", monospace;
+  /* 고정폭 글꼴은 쓰지 않는다(0 가운데 점, 2026-10-23). 숫자·id·시각은 본문 글꼴 + tabular-nums. */
+  --p-mono: var(--p-font);
+  --font-mono: var(--p-font);
   --p-bg: #f8fafc;
   --p-surface: #ffffff;
   --p-fg: #0f172a;
-  --p-fg-2: #334155;
-  --p-muted: #475569;
-  --p-muted-2: #64748b;
+  --p-fg-2: #1e293b;
+  --p-muted: #334155;
+  --p-muted-2: #475569;
   --p-faint: #94a3b8;
   --p-line: #e2e8f0;
   --p-line-strong: #cbd5e1;
@@ -55,7 +57,7 @@
 .p-nav a:hover { color: var(--p-header-fg); }
 .p-nav a[aria-current="page"] { background: var(--p-accent); color: var(--p-header-fg); font-weight: 600; }
 .p-header .p-spacer { flex: 1 1 40px; }
-.p-header .p-clock { font-size: 14px; padding: 6px 12px; border-radius: 8px; background: var(--p-demo); font-family: var(--p-mono); }
+.p-header .p-clock { font-size: 14px; padding: 6px 12px; border-radius: 8px; background: var(--p-demo); font-variant-numeric: tabular-nums; }
 .p-header .p-user { font-size: 14px; color: var(--p-header-muted); }
 .p-header .p-user select { appearance: none; -webkit-appearance: none; min-height: 0; font: inherit; font-size: 14px; color: var(--p-header-muted); background: transparent; border: 0; padding: 0; max-width: 260px; }
 .p-header .p-user select option { color: var(--p-fg); }
@@ -148,7 +150,8 @@
 .p-table td a, .p-table td .p-mono, .p-table td .p-badge, .p-table td .p-linkbtn, .p-catbl td a, .p-catbl td .p-mono { white-space: nowrap; }
 .p-table .muted { color: var(--p-muted); } .p-table .b { font-weight: 600; }
 .p-table .sub { font-size: 12px; font-weight: 400; color: var(--p-muted); }
-.p-mono { font-family: var(--p-mono); }
+.p-mono { font-family: inherit; font-variant-numeric: tabular-nums; }
+.p-shell code, .p-shell .mono { font-family: inherit; font-variant-numeric: tabular-nums; }
 
 /* ── 작품 목록 ─────────────────────────────────────────────────────────── */
 .p-cat { padding: 18px 24px 0; display: flex; flex-direction: column; gap: 14px; }
@@ -241,26 +244,26 @@
 .p-header .p-search { font-size: 13px; color: var(--p-header-muted); }
 .p-body { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch; }
 .p-content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; }
-.p-sb { width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: var(--p-surface); border-right: 1px solid var(--p-line); display: flex; flex-direction: column; gap: 6px; }
-.p-sb-group { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--p-head-bg); }
-.p-shell2 .p-sb-g { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: var(--p-fg); text-align: left; }
-.p-sb-g .label { flex: 1 1 auto; } .p-sb-g .hint { font-size: 11px; font-weight: 500; color: var(--p-muted); }
+.p-sb { width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: var(--p-surface); border-right: 1px solid var(--p-line); display: flex; flex-direction: column; gap: 14px; }
+.p-sb-group { display: flex; flex-direction: column; gap: 2px; }
+/* 1단계: 15px 700, #f1f5f9 바탕 8px 모서리, 높이 40px */
+.p-shell2 .p-sb-g { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: var(--p-head-bg); cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; color: var(--p-fg); text-align: left; }
+.p-sb-g .label { flex: 1 1 auto; }
 .p-sb .chev { display: inline-block; width: 12px; font-size: 11px; color: var(--p-muted); transform: rotate(0deg); }
 .p-sb .chev[data-open="true"] { transform: rotate(90deg); }
-.p-sb .dot { display: inline-block; width: 12px; text-align: center; color: var(--p-faint); }
-.p-shell2 .p-sb-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 12px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; text-align: left; background: none; color: var(--p-fg); text-decoration: none; }
-.p-shell2 .p-sb-item.strong { font-weight: 600; }
+.p-sb .dot { display: inline-block; width: 12px; text-align: center; color: var(--p-muted); }
+/* 2단계: 14px 600, 왼쪽 안쪽 22px, 높이 38px */
+.p-shell2 .p-sb-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 22px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; text-align: left; background: none; color: var(--p-fg); text-decoration: none; }
+.p-shell2 .p-sb-item.strong { font-weight: 700; }
 .p-shell2 .p-sb-item[aria-current="page"], .p-shell2 .p-sb-leaf[aria-current="page"] { background: var(--p-accent-soft); color: var(--p-accent-dark); font-weight: 600; box-shadow: inset 3px 0 0 var(--p-accent); }
 .p-sb-item .label, .p-sb-leaf .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.p-sb-kids { margin-left: 27px; padding-left: 8px; border-left: 1px solid var(--p-line); display: flex; flex-direction: column; gap: 1px; }
-.p-sb-work { display: flex; align-items: center; gap: 6px; padding: 6px 8px 4px; font-size: 13px; }
-.p-sb-work strong { flex: 1 1 auto; }
-.p-sb-work .p-sb-badge { padding: 1px 6px; }
-.p-shell2 .p-sb-leaf { display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; text-decoration: none; color: var(--p-fg-2); }
-.p-sb-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 600; background: var(--p-head-bg); color: var(--p-muted); }
+/* 3단계: 13.5px 500 #1e293b, 26px 들여 2px #e2e8f0 세로선, 높이 34px */
+.p-sb-kids { margin-left: 26px; padding-left: 10px; border-left: 2px solid var(--p-line); display: flex; flex-direction: column; gap: 1px; }
+.p-shell2 .p-sb-leaf { display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; font-size: 13.5px; font-weight: 500; text-decoration: none; color: var(--p-fg-2); }
+.p-sb-badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--p-head-bg); color: var(--p-muted); }
 .p-sb-badge.warn { background: var(--p-warn-bg); color: var(--p-warn); }
 .p-sb-badge.ok { background: var(--p-ok-bg); color: var(--p-ok); } .p-sb-badge.ir { background: var(--p-ir-bg); color: var(--p-ir); } .p-sb-badge.bad { background: var(--p-bad-bg); color: var(--p-bad); }
-.p-sb-foot { margin: 8px 10px 0; font-size: 11px; color: var(--p-muted); line-height: 1.5; }
+.p-sb-foot { margin: 4px 10px 0; font-size: 12px; color: var(--p-muted); line-height: 1.5; }
 .p-crumbs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: var(--p-muted); }
 .p-crumbs strong { color: var(--p-fg); }
 .p-content > .p-main { max-width: none; margin: 0; padding: 18px 24px 32px; gap: 14px; }
@@ -269,7 +272,7 @@
 .p-tfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--p-line); font-size: 13px; color: var(--p-muted); }
 .p-tfoot > .note { flex: 1 1 320px; }
 .p-pager { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.p-pager .range { font-size: 13px; color: var(--p-muted); margin-right: 6px; font-family: var(--p-mono); }
+.p-pager .range { font-size: 13px; color: var(--p-muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .p-pager .gap { color: var(--p-muted); padding: 0 2px; }
 .p-shell .p-pager button { min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid var(--p-line-strong); background: var(--p-surface); color: var(--p-fg); cursor: pointer; }
 .p-shell .p-pager button[aria-current="page"] { border: 0; background: var(--p-accent); color: var(--p-header-fg); font-weight: 600; }

@@ -116,7 +116,7 @@ export function WorksCatalog() {
               <tr key={w.workId} className={w.workId === selId ? "sel" : ""} aria-selected={w.workId === selId} onClick={() => pick({ sel: w.workId })}>
                 <td><input type="checkbox" aria-label="선택" onClick={(e) => e.stopPropagation()} /></td>
                 <td className="p-mono" style={{ fontSize: 13, color: "var(--p-muted)", whiteSpace: "nowrap" }}>{w.workId}</td>
-                <td><div style={{ fontWeight: 600 }}>{w.title}</div><div className="p-sub" style={{ fontSize: 12 }}>{w.recordingTitle ?? "—"}</div></td>
+                <td><div style={{ fontWeight: 600 }}><Link to={`/works/${encodeURIComponent(w.workId)}/rights`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{w.title}</Link></div><div className="p-sub" style={{ fontSize: 12 }}>{w.recordingTitle ?? "—"}</div></td>
                 <td>{w.authors.join(" · ") || "—"}</td>
                 <td>{rightsText(w)}</td>
                 <td style={{ fontVariantNumeric: "tabular-nums" }}>{stemText(w)}</td>

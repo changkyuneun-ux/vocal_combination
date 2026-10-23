@@ -30,18 +30,28 @@ test("사이드 메뉴 이동, 운영 관리 → 곡 워크스페이스, 원천 
   await page.goto("/portal/");
   await actAs(page, "usr_bh_rights", "/portal/");
   const nav = page.getByRole("navigation", { name: "권리 테넌트 메뉴" });
-  // 시나리오 1: 작품 목록 → 곡 열기 → 사이드 메뉴의 작품 워크스페이스 6개가 탭 줄과 같은 곳으로
+  // 시나리오 1: 작품 목록 → 곡 열기(원곡 권리) → 곡 안의 화면은 본문 탭으로만, 사이드 메뉴는 곡 이름 줄이 늘 지금 화면(시안 Sidebar 2차)
+  await expect(nav.getByRole("link", { name: /새 곡 워크스페이스/ })).toHaveCount(0);
   await nav.getByRole("link", { name: /작품 목록/ }).click();
   await expect(page).toHaveURL(/\/portal\/works$/);
   await page.getByRole("link", { name: "열기" }).first().click();
   await expect(page).toHaveURL(/\/works\/wrk_navtest\/rights$/);
   await expect(page.getByRole("navigation", { name: "위치" })).toHaveText(/작품 관리\s*›\s*작품 워크스페이스\s*›\s*Nav Test\s*›\s*원곡 권리/);
-  for (const [label, tab] of [["스템", "stems"], ["확인·동의", "confirm"], ["문서·계약", "contracts"], ["분배 규칙·팩", "policy"], ["승인·출시", "release"], ["원곡 권리", "rights"]] as const) {
-    await nav.getByRole("link", { name: new RegExp(`^${label}`) }).click();
+  const tabs = page.getByRole("navigation", { name: "워크스페이스 탭" });
+  for (const [label, tab] of [["스템", "stems"], ["확인·동의", "confirm"], ["문서·계약", "contracts"], ["분배 규칙·팩", "policy"], ["승인·출시", "release"]] as const) {
+    await expect(nav.getByRole("link", { name: label, exact: true })).toHaveCount(0);
+    await tabs.getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/works/wrk_navtest/${tab}$`));
-    await expect(page.getByRole("navigation", { name: "워크스페이스 탭" }).getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute("aria-current", "page");
+    await expect(tabs.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link", { name: /^Nav Test/ })).toHaveAttribute("aria-current", "page");
   }
+  // 곡 이름 줄을 누르면 원곡 권리 탭
+  await nav.getByRole("link", { name: /^Nav Test/ }).click();
+  await expect(page).toHaveURL(/\/works\/wrk_navtest\/rights$/);
+  // 작품 목록의 곡 이름도 원곡 권리로
+  await nav.getByRole("link", { name: /작품 목록/ }).click();
+  await page.getByRole("link", { name: "Nav Test", exact: true }).click();
+  await expect(page).toHaveURL(/\/works\/wrk_navtest\/rights$/);
   // 시나리오 2: 운영 관리 › 확인 요청 전체 → 행 링크로 곡 확인·동의
   await nav.getByRole("link", { name: /확인 요청 전체/ }).click();
   await expect(page.getByRole("navigation", { name: "위치" })).toHaveText(/운영 관리\s*›\s*확인·동의\s*›\s*확인 요청 전체/);

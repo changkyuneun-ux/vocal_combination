@@ -54,11 +54,9 @@ export function PortalShell() {
     const next = [{ workId: w.workId, title: w.title }, ...readRecent().filter((r) => r.workId !== w.workId)];
     writeRecent(next); setRecent(next);
   }, [pathWork, w?.workId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const wc = total(`/contracts?scope=${encodeURIComponent(w?.scopeId ?? "")}&page=1&size=1`, !!w?.scopeId);
+  // 사이드 메뉴 배지는 할 일만(시안 Sidebar 2차): 확인 요청 대기 · 서명 대기 계약 · 정합성 경고.
   const counts: Counts = {
-    works: overview.data?.length, stems: w?.stems, wsConfirm: w?.pendingConfirmations, contracts: wc,
-    confirmAll: total("/confirmations?status=OPEN&page=1&size=1"), consents: total("/consents?status=SIGNED&right=PERFORMER&page=1&size=1"),
-    contractsPending: total("/contracts?status=SENT&page=1&size=1"), docs: total("/documents?page=1&size=1"),
+    confirmAll: total("/confirmations?status=OPEN&page=1&size=1"), contractsPending: total("/contracts?status=SENT&page=1&size=1"),
     warnings: total("/validation-issues?status=OPEN&severity=WARN&page=1&size=1"),
   };
   const groups = sidebarModel(loc.pathname, w ? { workId: w.workId, title: w.title, status: w.status } : null, counts, can, recent, closed);

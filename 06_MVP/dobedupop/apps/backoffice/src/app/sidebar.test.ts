@@ -4,34 +4,40 @@ import { activeKey, crumbsFor, sidebarModel, workIdOf } from "./sidebar.ts";
 const all = () => true;
 const work = { workId: "wrk_dynamite", title: "Dynamite", status: "확인 대기" };
 const find = (g: ReturnType<typeof sidebarModel>, key: string) => g.flatMap((x) => x.items).find((i) => i.key === key)!;
+const badges = (g: ReturnType<typeof sidebarModel>) => g.flatMap((x) => x.items).flatMap((i) => [i.badge, ...i.children.map((c) => c.badge)]).filter(Boolean);
 
-describe("권리 테넌트 사이드 메뉴(시안 Sidebar.dc.html)", () => {
-  it("maps paths to the active key and the open work", () => {
+describe("권리 테넌트 사이드 메뉴(시안 Sidebar.dc.html 2026-10-23 2차)", () => {
+  it("maps paths: every tab of the open song (and screens under it) is the song row", () => {
     expect(activeKey("/works")).toBe("works-list");
-    expect(activeKey("/works/new")).toBe("works-new");
-    expect(activeKey("/works/wrk_dynamite/stems")).toBe("ws-stems");
+    expect(activeKey("/works/wrk_dynamite/stems")).toBe("ws");
+    expect(activeKey("/works/wrk_dynamite/rights")).toBe("ws");
+    expect(activeKey("/works/wrk_dynamite/contracts/import")).toBe("ws");
     expect(activeKey("/ops/confirmations")).toBe("op-confirm-all");
     expect(activeKey("/")).toBe("op-org");
     expect(workIdOf("/works/wrk_dynamite/stems")).toBe("wrk_dynamite");
     expect(workIdOf("/works/new")).toBeNull();
   });
 
-  it("work screen: workspace and 확인·동의 · 계약·문서 open, others closed; current leaf marked", () => {
-    const g = sidebarModel("/works/wrk_dynamite/stems", work, { stems: 154, wsConfirm: 2 }, all);
+  it("작품 관리: 작품 목록 · 작품 워크스페이스(곡 이름 + 상태 배지 하나, 원곡 권리로) — no new-song item, no song sub-menu", () => {
+    const g = sidebarModel("/works/wrk_dynamite/stems", work, {}, all, [{ workId: "wrk_b", title: "푸른 계절" }]);
+    expect(g.map((x) => x.label)).toEqual(["작품 관리", "운영 관리"]);
+    expect(g[0]!.items.map((i) => i.key)).toEqual(["works-list", "ws", "recent"]);
     const ws = find(g, "ws");
     expect(ws.open).toBe(true);
-    expect(ws.work).toEqual({ title: "Dynamite", status: "확인 대기" });
-    expect(ws.children.find((c) => c.current)?.label).toBe("스템");
-    expect(ws.children.find((c) => c.key === "ws-confirm")?.badge).toEqual({ text: "2", tone: "warn" });
+    expect(ws.children).toEqual([{ key: "ws", label: "Dynamite", to: "/works/wrk_dynamite/rights", current: true, badge: { text: "확인 대기", tone: "warn" } }]);
     expect([find(g, "op-c").open, find(g, "op-d").open, find(g, "op-v").open, find(g, "op-s").open, find(g, "op-o").open]).toEqual([true, true, false, false, false]);
   });
 
-  it("ops screen: only the group holding the screen is open; workspace closed and shown strong only if it holds the screen", () => {
+  it("badges are to-dos only (orange): no grey count badges", () => {
+    const g = sidebarModel("/works/wrk_dynamite/rights", work, { confirmAll: 9, contractsPending: 8, warnings: 2 }, all);
+    expect(badges(g)).toEqual([{ text: "확인 대기", tone: "warn" }, { text: "9", tone: "warn" }, { text: "8", tone: "warn" }, { text: "경고 2", tone: "warn" }]);
+    expect(badges(sidebarModel("/works", null, { confirmAll: 0 }, all))).toEqual([]);
+  });
+
+  it("ops screen: only the group holding the screen is open; the workspace stays open with the song row not current", () => {
     const g = sidebarModel("/ops/validation", work, { warnings: 2 }, all);
     expect([find(g, "op-c").open, find(g, "op-d").open, find(g, "op-v").open, find(g, "op-s").open, find(g, "op-o").open]).toEqual([false, false, true, false, false]);
-    expect(find(g, "ws").open).toBe(false);
-    expect(find(g, "ws").strong).toBe(false);
-    expect(find(g, "op-v").children[0]!.badge).toEqual({ text: "경고 2", tone: "warn" });
+    expect(find(g, "ws").children[0]!.current).toBe(false);
   });
 
   it("a closed menu holding the current screen is strong", () => {
@@ -41,20 +47,17 @@ describe("권리 테넌트 사이드 메뉴(시안 Sidebar.dc.html)", () => {
   });
 
   it("hides items without permission and has no workspace without an open work", () => {
-    const g = sidebarModel("/works", null, { works: 1 }, (p) => p !== "rights.edit" && p !== "account.manage");
-    expect(g.flatMap((x) => x.items).map((i) => i.key)).not.toContain("works-new");
+    const g = sidebarModel("/works", null, {}, (p) => p !== "rights.edit" && p !== "account.manage");
     expect(g.flatMap((x) => x.items).map((i) => i.key)).not.toContain("ws");
     expect(find(g, "op-o").children.map((c) => c.label)).toEqual(["내 조직", "위임 대행", "신탁·유통 연결"]);
-    expect(find(g, "works-list").badge).toEqual({ text: "1", tone: "gray" });
   });
 
-  it("crumbs", () => {
+  it("crumbs: 작품 관리 › 작품 워크스페이스 › 곡명 › 탭(› 아래 화면)", () => {
     expect(crumbsFor("/works/wrk_dynamite/stems", sidebarModel("/works/wrk_dynamite/stems", work, {}, all), "Dynamite")).toEqual(["작품 관리", "작품 워크스페이스", "Dynamite", "스템"]);
     expect(crumbsFor("/ops/confirmations", sidebarModel("/ops/confirmations", null, {}, all))).toEqual(["운영 관리", "확인·동의", "확인 요청 전체"]);
     expect(crumbsFor("/works", sidebarModel("/works", null, {}, all))).toEqual(["작품 관리", "작품 목록"]);
-    // 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 문서·계약이 지금 메뉴, 경로 끝에 한 칸 더.
+    expect(crumbsFor("/works/new", sidebarModel("/works/new", null, {}, all))).toEqual(["작품 관리", "새 곡 워크스페이스"]);
     const imp = "/works/wrk_dynamite/contracts/import";
-    expect(activeKey(imp)).toBe("ws-contracts");
     expect(crumbsFor(imp, sidebarModel(imp, work, {}, all), "Dynamite")).toEqual(["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"]);
     expect(crumbsFor("/works/wrk_dynamite/contracts/confirm", sidebarModel("/works/wrk_dynamite/contracts/confirm", work, {}, all), "Dynamite").at(-1)).toBe("권리 확인서");
   });
