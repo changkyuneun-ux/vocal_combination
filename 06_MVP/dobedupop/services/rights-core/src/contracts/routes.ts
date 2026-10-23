@@ -6,8 +6,10 @@ import { optFilter, pagedOr } from "../platform/paging.ts";
 import type { SignatureProvider } from "./esign.ts";
 import {
   approveTemplateVersion, authorTemplateVersion, cancelContract, completeContract, createContract, getContract, getTemplate, listContracts, listTemplates,
-  previewContract, providerSigned, signContract,
+  platformVerifySigner, previewContract, providerSigned, signContract,
 } from "./service.ts";
+import { approveFrame, listFrames, registerFrame } from "./frames.ts";
+import { getImport, listClaimConfirmations, listImports, previewConfirmation, sendConfirmation, setGaps, setValue, startImport } from "./imports.ts";
 
 export function esignOf(deps: Deps): SignatureProvider {
   if (deps.esign === undefined) throw new DomainError("ESIGN_NOT_CONFIGURED", 503, "e-signature provider is not configured");
@@ -34,6 +36,26 @@ export function contractRoutes(app: FastifyInstance, deps: Deps): void {
     return completeContract(tx, deps.clock, actor, deps.documents, esignOf(deps), req.params.id);
   }));
   app.post<P>("/contracts/:id/cancel", async (req) => withActor(deps, req, (tx, actor) => cancelContract(tx, deps.clock, actor, req.params.id)));
+  // 운영 원문 대조(결정 CT4): 권리 확인서의 위탁 작가 서명을 대신한다.
+  app.post<P>("/contracts/:id/platform-verify", async (req) => withActor(deps, req, (tx, actor) => platformVerifySigner(tx, deps.clock, actor, req.params.id, body(req))));
+  importRoutes(app, deps);
+}
+
+type K = { Params: { id: string; key: string; v: string } };
+/** 계약서 불러오기(3부-B, 결정 CT1~CT5): 읽기 틀, 불러오기 세션, 권리 확인서. */
+export function importRoutes(app: FastifyInstance, deps: Deps): void {
+  app.get("/reading-frames", async (req) => withActor(deps, req, async (tx) => pagedOr(req.query as Record<string, unknown>, await listFrames(tx))));
+  app.post("/reading-frames", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => registerFrame(tx, deps.clock, actor, body(req)))));
+  app.post<K>("/reading-frames/:id/versions/:v/approve", async (req) => withActor(deps, req, (tx, actor) => approveFrame(tx, deps.clock, actor, req.params.id, Number(req.params.v))));
+  app.get<K>("/scopes/:id/imports", async (req) => withActor(deps, req, (tx) => listImports(tx, deps.clock, req.params.id)));
+  app.post<K>("/scopes/:id/imports", async (req, reply) => reply.status(201).send(await withActor(deps, req, (tx, actor) => startImport(tx, deps.clock, actor, req.params.id, body(req)))));
+  app.get<K>("/scopes/:id/claim-confirmations", async (req) => withActor(deps, req, (tx) => listClaimConfirmations(tx, req.params.id)));
+  app.get<K>("/imports/:id", async (req) => withActor(deps, req, (tx) => getImport(tx, deps.clock, req.params.id)));
+  app.post<K>("/imports/:id/values/:key", async (req) => withActor(deps, req, (tx, actor) => setValue(tx, deps.clock, actor, req.params.id, req.params.key, body(req))));
+  app.post<K>("/imports/:id/gaps", async (req) => withActor(deps, req, (tx, actor) => setGaps(tx, deps.clock, actor, req.params.id, body(req))));
+  app.get<K>("/imports/:id/confirmation", async (req) => withActor(deps, req, (tx, actor) => previewConfirmation(tx, deps.clock, actor, req.params.id, (req.query as Record<string, unknown>).kind)));
+  app.post<K>("/imports/:id/confirmation", async (req, reply) =>
+    reply.status(201).send(await withActor(deps, req, (tx, actor) => sendConfirmation(tx, deps.clock, actor, esignOf(deps), req.params.id, body(req).kind))));
 }
 
 /** 서명 당사자 표면(포털·운영·실연자 앱): 나에게 온 계약 보기와 서명. 보이는 범위는 RLS(만든 테넌트·서명 당사자)가 정한다. */

@@ -81,3 +81,62 @@ export async function scopeReadiness(tx: Tx, scopeId: string, now: string): Prom
     return { items };
   });
 }
+
+/** IR 필요 정보 대조 한 줄(결정 CT-S4, 검토 문서 1.4 표). MISSING이 남으면 권리 확인서로 넘어가지 않는다. */
+export type IrGapRow = { group: "작품" | "녹음" | "실연" | "수령 위임"; need: string; source: string; state: "FILLED" | "MISSING" | "IN_PROGRESS"; count?: string };
+/** 불러오기가 채우는 것: 문서 종류, 확인된 곡명·작가 지분 합, 마스터 보유자, 빠진 것 입력 여부. */
+export type ImportFill = { kind: "PUBLISHING" | "MASTER_CONTRACT"; title: boolean; sharesBps: number | null; masterOwner: boolean; gaps: boolean };
+
+/**
+ * IR 필요 정보 대조(곡 단위): 작품(곡명·작가·지분 합 100%, 이용 범위·기간) · 녹음(마스터 보유자) · 실연(멤버 본인 확인) · 수령 위임.
+ * 불러오는 중이면 그 계약서가 채우는 것을 먼저 본다. 범위는 요청자에게 보여야 하고(RLS) 집계는 system 범위로 한다.
+ */
+export async function irGaps(tx: Tx, scopeId: string, now: string, imp: ImportFill | null = null): Promise<IrGapRow[]> {
+  const scope = (await tx.query("SELECT facts_scope_id, work_id FROM facts_scope WHERE facts_scope_id = $1", [scopeId])).rows[0];
+  if (scope === undefined) throw notFound("facts scope", scopeId);
+  return withSystemScope(tx, async () => {
+    const q = async (sql: string, p: unknown[]) => (await tx.query(sql, p)).rows;
+    const claims = await q("SELECT claim_id, version, edge, target_id, share_bps, status FROM right_claim WHERE facts_scope_id = $1 AND superseded_at IS NULL AND status <> 'SUPERSEDED'", [scopeId]);
+    const rows: IrGapRow[] = [];
+
+    const workSum = claims.filter((c) => c.edge === "WRITTEN_BY").reduce((a, c) => a + (c.share_bps as number), 0);
+    if (imp?.kind === "PUBLISHING" && imp.title && imp.sharesBps === 10000) rows.push({ group: "작품", need: "곡명 · 작가 · 지분 합 100%", source: "이 계약서", state: "FILLED" });
+    else if (imp?.kind !== "PUBLISHING" && workSum === 10000) rows.push({ group: "작품", need: "곡명 · 작가 · 지분 합 100%", source: "원곡 권리 › 작품", state: "FILLED" });
+    else rows.push({ group: "작품", need: "곡명 · 작가 · 지분 합 100%", source: imp?.kind === "PUBLISHING" ? "이 계약서(후보 값 확인)" : "작품 계약서 불러오기", state: "MISSING" });
+
+    if (imp?.kind === "PUBLISHING") {
+      rows.push(imp.gaps ? { group: "작품", need: "팬앱 이용 범위 · 기간", source: "아래 입력", state: "FILLED" }
+        : { group: "작품", need: "팬앱 이용 범위 · 기간", source: "원본 계약에 없음 → 아래 입력", state: "MISSING" });
+    } else {
+      const consent = (await q("SELECT 1 FROM consent_agreement WHERE facts_scope_id = $1 AND right_type = 'WORK' AND revoked_at IS NULL AND valid_from <= $2 AND valid_to > $2 LIMIT 1", [scopeId, now])).length > 0;
+      rows.push({ group: "작품", need: "팬앱 이용 범위 · 기간", source: "작품 이용허락", state: consent ? "FILLED" : "MISSING" });
+    }
+
+    const master = claims.filter((c) => c.edge === "CONTROLLED_BY");
+    if (imp?.kind === "MASTER_CONTRACT" && imp.masterOwner) rows.push({ group: "녹음", need: "녹음 · 마스터 보유자", source: "이 계약서", state: "FILLED" });
+    else if (master.length > 0) {
+      const ev = (await q(
+        `SELECT d.title, d.uploaded_at FROM record_evidence e JOIN source_document d ON d.document_id = e.document_id AND d.version = e.document_version
+          WHERE e.record_type = 'CLAIM' AND e.record_id = $1 AND e.record_version = $2 AND d.origin <> 'TEMPLATE_SIGNED' ORDER BY d.uploaded_at LIMIT 1`, [master[0]!.claim_id, master[0]!.version]))[0];
+      const label = (await q(
+        "SELECT completed_at FROM contract_envelope WHERE facts_scope_id = $1 AND template_id = 'tpl_claim_confirm_label' AND status = 'COMPLETED' LIMIT 1", [scopeId]))[0];
+      const day = (t: Date) => t.toISOString().slice(5, 10);
+      const src = ev === undefined ? "원곡 권리 › 녹음" : `${(ev.title as string).replace(/^.*?(녹음 계약서)$/, "$1")}(${day(ev.uploaded_at as Date)} 불러옴${label ? ", 레이블용 확인서 서명됨" : ""})`;
+      rows.push({ group: "녹음", need: "녹음 · 마스터 보유자", source: src, state: "FILLED" });
+    } else rows.push({ group: "녹음", need: "녹음 · 마스터 보유자", source: "녹음 계약서 불러오기", state: "MISSING" });
+
+    const owned = claims.filter((c) => c.edge === "OWNED_BY");
+    const openPerf = (await q(
+      `SELECT count(*)::int AS n FROM confirmation_request r JOIN right_claim c ON c.claim_id = r.record_id AND c.superseded_at IS NULL
+        WHERE r.facts_scope_id = $1 AND r.status = 'OPEN' AND r.record_type = 'CLAIM' AND c.edge IN ('OWNED_BY','PERFORMED_BY')`, [scopeId]))[0].n as number;
+    rows.push({ group: "실연", need: "슬롯·파트 담당 · 보이스 소유", source: "실연자 앱 확인(멤버 본인)",
+      state: owned.length > 0 && owned.every((c) => c.status === "VERIFIED") && openPerf === 0 ? "FILLED" : "IN_PROGRESS" });
+
+    const owners = [...new Set(owned.map((c) => c.target_id as string))];
+    const mandated = new Set((await q(
+      "SELECT DISTINCT from_party_id FROM mandate WHERE facts_scope_id = $1 AND right_kind = 'PERFORMER' AND status = 'VERIFIED' AND superseded_at IS NULL", [scopeId])).map((r) => r.from_party_id as string));
+    const done = owners.filter((o) => mandated.has(o)).length;
+    rows.push({ group: "수령 위임", need: "멤버 → 소속사", source: "수령 위임계약", state: owners.length > 0 && done === owners.length ? "FILLED" : "IN_PROGRESS", count: `${done} / ${owners.length}` });
+    return rows;
+  });
+}
