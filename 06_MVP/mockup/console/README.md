@@ -66,3 +66,13 @@
 | 점검 › 정합성 점검 전체 | `Ops-Validation.dc.html` |
 | 정산 › 명세·지급 / 발행 조합 | `Ops-Statements.dc.html` · `Ops-Issues.dc.html` |
 | 조직 › 내 조직 / 담당자 계정 / 위임 대행 / 신탁·유통 연결 | `Ops-Org.dc.html` · `Ops-Accounts.dc.html` · `Ops-Delegation.dc.html` · `Ops-Links.dc.html` |
+
+### 계약서 불러오기 → 권리 확인서(2026-10-23, CT1~CT5)
+
+같은 생성기(`tools/gen_ops_mockups.py`의 `ws_page`)로 만든다. 결정: `00_프로젝트_개요/계약서_불러오기와_목록_쪽나눔_검토_20261023.md`
+
+| 화면 | 파일 |
+| --- | --- |
+| 작품 워크스페이스 › 문서·계약 › 계약서 불러오기: 단계 5, 불러온 계약서(읽기 틀 일치), 후보 값(근거 쪽·조항, 기존 입력과 비교, 확인), IR 정보 대조, 빠진 것 입력 | `Song-Import.dc.html` |
+| 작품 워크스페이스 › 문서·계약 › 권리 확인서: 확인서 미리보기(작가용), 서명자, 서명하면 만들어지는 기록, 이 곡의 확인서 2부 | `Song-ClaimConfirm.dc.html` |
+| 운영 관리 › 계약 템플릿: 권리 확인서 2종 추가, 계약서 읽기 틀 목록 | `Ops-Templates.dc.html` |
