@@ -56,13 +56,13 @@
 
 ### 운영 관리 화면(2026-10-23) — 사이드 메뉴 운영 관리 아래
 
-여러 곡을 모아 보고 곡 워크스페이스로 이동만 한다. 생성기 `tools/gen_ops_mockups.py`(머리글·사이드 메뉴·표 마크업 공통)로 만들고, 내용을 고칠 때도 생성기를 고쳐 다시 만든다.
+여러 곡을 모아 보고 곡 워크스페이스로 이동만 한다. 목록 표는 10행 단위 쪽 나눔. 위임 대행·신탁·유통 연결은 MVP 빈 화면. 생성기 `tools/gen_ops_mockups.py`(머리글·사이드 메뉴·표 마크업 공통)로 만들고, 내용을 고칠 때도 생성기를 고쳐 다시 만든다.
 
 | 메뉴 | 파일 |
 | --- | --- |
 | 확인·동의 › 확인 요청 전체 | `Nav-Ops-Confirm.dc.html` |
 | 확인·동의 › 멤버 이용 동의 | `Ops-Consents.dc.html` |
 | 계약·문서 › 표준 계약 전체 / 원천 문서 / 계약 템플릿 | `Ops-Contracts.dc.html` · `Ops-Docs.dc.html` · `Ops-Templates.dc.html` |
-| 점검 › 정합성 점검 전체 / 플랫폼 열람 기록 | `Ops-Validation.dc.html` · `Ops-Inspections.dc.html` |
+| 점검 › 정합성 점검 전체 | `Ops-Validation.dc.html` |
 | 정산 › 명세·지급 / 발행 조합 | `Ops-Statements.dc.html` · `Ops-Issues.dc.html` |
 | 조직 › 내 조직 / 담당자 계정 / 위임 대행 / 신탁·유통 연결 | `Ops-Org.dc.html` · `Ops-Accounts.dc.html` · `Ops-Delegation.dc.html` · `Ops-Links.dc.html` |

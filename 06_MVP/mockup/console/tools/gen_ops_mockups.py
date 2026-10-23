@@ -60,10 +60,33 @@ def filters(placeholder, selects):
     return "\n".join(out)
 
 
-def table(cols, rows, foot=None, title=None, min_w=900):
+PAGE_SIZE = 10
+
+
+def pager(total):
+    """목록 표 아래 쪽 나눔 줄. 10행 단위, 첫 쪽을 보고 있는 모양."""
+    if total == 0:
+        return ""
+    pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+    btn = "min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; "
+    nums = "".join(
+        f'<button aria-current="page" style="{btn}border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button>' if n == 1
+        else f'<button style="{btn}border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a">{n}</button>' for n in range(1, pages + 1))
+    prev = f'<button disabled aria-label="이전 쪽" style="{btn}border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button>'
+    nxt_dis = pages == 1
+    nxt = (f'<button{" disabled" if nxt_dis else ""} aria-label="다음 쪽" style="{btn}border: 1px solid {"#e2e8f0" if nxt_dis else "#cbd5e1"}; background: #ffffff; color: {"#94a3b8" if nxt_dis else "#0f172a"}">›</button>')
+    return (f'<nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto">'
+            f'<span style="font-size: 13px; color: #475569; margin-right: 6px; font-family: \'IBM Plex Mono\', monospace">1–{min(total, PAGE_SIZE)} / {total}</span>{prev}{nums}{nxt}</nav>')
+
+
+def table(cols, rows, foot=None, title=None, min_w=900, empty=None, paged=True):
+    """paged=False: 항목 수가 정해진 표(확인 항목·규칙별 결과)는 쪽 나눔 줄을 두지 않는다."""
     th = "".join(f'<th style="padding: 8px 14px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">{c}</th>' for c in cols)
+    total = len(rows)
     body = []
-    for r in rows:
+    if total == 0 and empty:
+        body.append(f'<tr style="border-top: 1px solid #e2e8f0"><td colspan="{len(cols)}" style="padding: 28px 14px; text-align: center; color: #475569">{empty}</td></tr>')
+    for r in rows[:PAGE_SIZE]:
         tds = []
         for i, cell in enumerate(r):
             weight = "; font-weight: 600" if i == 0 else ""
@@ -72,7 +95,9 @@ def table(cols, rows, foot=None, title=None, min_w=900):
     head = ""
     if title:
         head = f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px"><h2 style="margin: 0; font-size: 17px">{title[0]}</h2><span style="font-size: 13px; color: #475569">{title[1]}</span></div>'
-    footer = f'<div style="padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">{foot}</div>' if foot else ""
+    pg = pager(total) if paged else ""
+    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569">'
+              f'<span style="flex: 1 1 320px">{foot or ""}</span>{pg}</div>') if (foot or pg) else ""
     return ('<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden">'
             + head + f'<div style="overflow-x: auto"><table style="width: 100%; min-width: {min_w}px; border-collapse: collapse; font-size: 14px">'
             + f"<thead><tr>{th}</tr></thead><tbody>" + "".join(body) + "</tbody></table></div>" + footer + "</section>")
@@ -251,23 +276,7 @@ page("Ops-Validation.dc.html", "운영 관리 — 정합성 점검 전체", "op-
             ["마스터 보유자 ↔ 녹음 권리 주장", "✓", "✓"], ["스템 실연자 ↔ 실연 주장", "✓", "✓"],
             ["파트 원곡 스템 · 보이스 누락", "✓ 원곡 스템 등록 중(발행 때 검사)", "✓"],
             ["확인 대기", '<span style="color: #92400e; font-weight: 600">! 경고 2</span>', "✓"],
-            ["멤버 이용 동의", "— 진행 중(발행 때 검사)", "✓"]], min_w=700), hint="곡 2 · 규칙 7")], height=1100)
-
-# ── 점검 › 플랫폼 열람 기록 ──
-page("Ops-Inspections.dc.html", "운영 관리 — 플랫폼 열람 기록", "op-inspections", "2026-05-01 09:00",
-     ["운영 관리", "점검", "플랫폼 열람 기록"], "플랫폼 열람 기록",
-     "플랫폼 운영이 빅히트 뮤직 데이터를 본 기록. 플랫폼은 사유를 남기고 보며, 빅히트는 언제든 확인할 수 있다",
-     [button("엑셀 다운로드")],
-     [stats([("열람", "5", "2026-01 ~ 05", False), ("사유 없는 열람", "0", "", False),
-             ("마스킹 해제", "0", "계좌 토큰 등", False), ("긴급 열람(break-glass)", "0", "", False)]),
-      filters("사유, 대상", [("기간", ["전체", "이번 달"]), ("구분", ["구분 전체", "온보딩 확인", "운영 대조", "정산"])]),
-      table(["시각", "누가", "구분", "본 것", "사유", "마스킹"],
-            [[mono("01-02 10:00"), sub("usr_admin", "플랫폼 운영 소속"), "온보딩 확인", "사업자 확인서 · 대표자 확인서", "KYB 확인(E03)", badge("유지", "gray")],
-             [mono("01-16 15:20"), sub("usr_admin", "플랫폼 운영 소속"), "운영 대조", "Dynamite 작품 퍼블리싱 계약서 v1", "위탁 작가 지분 원문 대조(E31)", badge("유지", "gray")],
-             [mono("01-20 09:00"), sub("usr_admin", "플랫폼 운영 소속"), "온보딩 확인", "Dynamite 녹음 계약서 v1", "권리 보유 증빙 확인 → 활성(P5)", badge("유지", "gray")],
-             [mono("04-01 09:05"), sub("sys_verifier", "검증 워커"), "정산", "정산 배치 bat_bts_2026_03", "독립 재계산", badge("유지", "gray")],
-             [mono("05-01 09:01"), sub("usr_admin", "플랫폼 운영 소속"), "정산", "지급 pay-2026-05 · 받는 당사자 2", "지급 실행", badge("유지", "gray")]],
-            foot="총괄 한 사람(usr_admin)이 두 소속을 오가며 일한다. 빅히트 데이터를 고칠 때는 빅히트 소속으로, 플랫폼 확인은 플랫폼 소속으로 — 플랫폼 소속으로 본 것만 여기 남는다.")])
+            ["멤버 이용 동의", "— 진행 중(발행 때 검사)", "✓"]], min_w=700, paged=False), hint="곡 2 · 규칙 7")], height=1100)
 
 # ── 정산 › 명세·지급 ──
 page("Ops-Statements.dc.html", "운영 관리 — 명세·지급", "op-statements", "2026-05-01 09:01",
@@ -310,7 +319,7 @@ page("Ops-Org.dc.html", "운영 관리 — 내 조직", "op-org", "2026-01-20 09
                             ("상태", "신청 01-01 → 확인됨 01-02 → 활성 01-20"), ("플랫폼 이용계약", "v1 반영 · 01-02")])),
       card("확인 항목(KYB)", table(["항목", "근거", "상태"],
            [["사업자 확인", "사업자 확인서", badge("확인됨", "ok")], ["대표자", "대표자 확인서", badge("확인됨", "ok")],
-            ["플랫폼 이용 계약", "플랫폼 이용계약 v1 서명본", badge("확인됨", "ok")], ["권리 보유 증빙", "Dynamite 녹음 계약서 v1", badge("확인됨", "ok")]], min_w=600),
+            ["플랫폼 이용 계약", "플랫폼 이용계약 v1 서명본", badge("확인됨", "ok")], ["권리 보유 증빙", "Dynamite 녹음 계약서 v1", badge("확인됨", "ok")]], min_w=600, paged=False),
            hint="플랫폼이 확인한다. 빅히트는 조회만"),
       card("우리 당사자", table(["당사자", "역할", "쓰인 곳"],
            [["빅히트 뮤직(레이블)", "녹음 권리 · 마스터 보유", "Dynamite · 푸른 계절"], ["빅히트 뮤직 매니지먼트(소속사)", "실연 수익 수령 위임", "멤버 7 · 블루노트 · 하람"]], min_w=600),
@@ -326,27 +335,20 @@ page("Ops-Accounts.dc.html", "운영 관리 — 담당자 계정", "op-accounts"
             foot="MVP는 총괄 한 사람이 전부 처리한다(RD1). 직무 분리는 꺼져 있다(RD6). 역할은 기능 → 권한 → 역할 데이터로 되어 있어, 나중에 역할을 나눠 담당자를 초대할 수 있다(테넌트 자체 역할은 상용 단계, RD8).", min_w=860),
       note("멤버(실연자)는 이 목록에 없다. 멤버는 실연자 앱에서 본인 계정으로 확인·동의한다.")])
 
-# ── 조직 › 위임 대행 ──
+# ── 조직 › 위임 대행 (MVP 빈 화면) ──
 page("Ops-Delegation.dc.html", "운영 관리 — 위임 대행", "op-delegation", "2026-01-20 09:00",
      ["운영 관리", "조직", "위임 대행"], "위임 대행",
-     "다른 조직이 빅히트 뮤직을 대신해 업무를 하도록 맡긴 것. 맡긴 업무의 권한만 대행 조직에 열린다",
-     [button("+ 업무 맡기기", primary=True)],
-     [table(["대행 조직", "맡긴 업무", "열리는 권한", "기간", "상태"], [],
-            foot="맡긴 업무 없음.", title=("맡긴 업무", "0건"), min_w=860),
-      card("맡길 수 있는 업무", table(["업무", "열리는 권한", "예"],
-           [["권리 입력 · " + mono("RIGHTS_ENTRY"), mono("rights.edit"), "곡·녹음·스템 등록을 입력 대행사에 맡김"]], min_w=600),
-           hint="업무 → 권한은 데이터(delegable_task_permission)"),
-      note("실연 수익 수령 위임(멤버 → 소속사)은 위임 대행이 아니다. 그것은 권리 주장이고 계약·문서에서 다룬다.")])
+     "다른 조직이 빅히트 뮤직을 대신해 업무를 하도록 맡긴 것",
+     [],
+     [table(["대행 조직", "맡긴 업무", "열리는 권한", "기간", "상태"], [], min_w=860,
+            empty="맡긴 업무가 없습니다. MVP에서는 쓰지 않는 메뉴입니다.")])
 
-# ── 조직 › 신탁·유통 연결 ──
+# ── 조직 › 신탁·유통 연결 (MVP 빈 화면) ──
 page("Ops-Links.dc.html", "운영 관리 — 신탁·유통 연결", "op-links", "2026-01-20 09:00",
      ["운영 관리", "조직", "신탁·유통 연결"], "신탁·유통 연결",
-     "참여 기관(신탁단체·유통 파트너)과 양쪽이 확인한 연결. 참여 기관은 권리를 만들지 않고 이 연결로만 권리·정산에 닿는다",
-     [button("+ 연결 제안", primary=True)],
-     [table(["작가", "신탁단체", "회원번호", "신탁 범위", "기간", "근거", "상태"],
-            [[sub("최유진", "푸른 계절 · " + EX), "가상 신탁단체", mono("IPI-DEMO-0001"), "팬앱", mono("2025-11-01 ~"), "신탁 계약서", badge("ACTIVE", "ok")]],
-            foot="Dynamite 작가 2명은 플랫폼 위탁이라 신탁 연결이 없다. 한 작가는 한 신탁단체에만 연결된다.", title=("신탁 연결", "우리 곡 작가 ↔ 신탁단체")),
-      table(["유통 파트너", "유통 계약", "기간", "상태"], [],
-            foot="유통 연결 없음 — MVP 팬앱은 플랫폼이 직접 판매한다.", title=("유통 연결", "빅히트 뮤직 ↔ 유통 파트너"), min_w=700)])
+     "참여 기관(신탁단체·유통 파트너)과 양쪽이 확인한 연결",
+     [],
+     [table(["상대 기관", "구분", "대상", "기간", "상태"], [], min_w=860,
+            empty="연결이 없습니다. MVP에서는 쓰지 않는 메뉴입니다.")])
 
 print("ok")

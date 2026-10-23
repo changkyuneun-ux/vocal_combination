@@ -273,17 +273,8 @@
       "expand": "fill",
       "is_interactive": true
     },
-    "Ops-Inspections.dc.html": {
-      "x": 1520,
-      "y": 16600,
-      "w": 1440,
-      "h": 1000,
-      "title": "운영 관리 › 점검 › 플랫폼 열람 기록",
-      "expand": "fill",
-      "is_interactive": true
-    },
     "Ops-Statements.dc.html": {
-      "x": 3040,
+      "x": 1520,
       "y": 16600,
       "w": 1440,
       "h": 1000,
@@ -292,7 +283,7 @@
       "is_interactive": true
     },
     "Ops-Issues.dc.html": {
-      "x": 4560,
+      "x": 3040,
       "y": 16600,
       "w": 1440,
       "h": 1000,
@@ -447,7 +438,7 @@
       "y": 15250,
       "w": 420,
       "fill": "blue",
-      "text": "운영 관리 화면은 여러 곡을 모아 보고 곡 워크스페이스로 이동만 한다(처리는 워크스페이스에서). 조직 묶음은 빅히트 뮤직 자체 정보. '예시 데이터'는 두 번째 곡(푸른 계절)을 보여 주려는 가짜 행이고 데모 시드에는 없다. 화면마다 데모 시계가 다르다(그 시점의 상태)."
+      "text": "운영 관리 화면은 여러 곡을 모아 보고 곡 워크스페이스로 이동만 한다(처리는 워크스페이스에서). 조직 묶음은 빅히트 뮤직 자체 정보. '예시 데이터'는 두 번째 곡(푸른 계절)을 보여 주려는 가짜 행이고 데모 시드에는 없다. 화면마다 데모 시계가 다르다(그 시점의 상태). 목록 표는 10행 단위 쪽 나눔(모든 화면 같은 기준, 한 쪽이어도 줄을 둔다). 위임 대행·신탁·유통 연결은 MVP 빈 화면. 플랫폼 열람 기록은 빅히트 메뉴에서 뺐다(플랫폼 콘솔 쪽)."
     }
   },
   "order": [
@@ -484,7 +475,6 @@
     "Ops-Docs.dc.html",
     "Ops-Templates.dc.html",
     "Ops-Validation.dc.html",
-    "Ops-Inspections.dc.html",
     "Ops-Statements.dc.html",
     "Ops-Issues.dc.html",
     "Ops-Org.dc.html",

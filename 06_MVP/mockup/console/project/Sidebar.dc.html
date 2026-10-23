@@ -44,7 +44,7 @@ body{margin:0}
 <p style="margin: 8px 10px 0; font-size: 11px; color: #475569; line-height: 1.5">메뉴는 빅히트 뮤직 소속의 권한으로 걸러 보인다. 플랫폼 운영 메뉴는 따로다.</p>
 </nav>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-consents","op-contracts-all","op-docs","op-templates","op-validation","op-inspections","op-statements","op-issues","op-org","op-accounts","op-delegation","op-links"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-consents","op-contracts-all","op-docs","op-templates","op-validation","op-statements","op-issues","op-org","op-accounts","op-delegation","op-links"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
 class Component extends DCLogic {
   state = { closed: {} };
   renderVals() {
@@ -81,7 +81,7 @@ class Component extends DCLogic {
     const g2 = [
       item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '9', 'warn'), leaf('op-consents', '멤버 이용 동의', '7')], { open: onOps ? undefined : true }),
       item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '8', 'warn'), leaf('op-docs', '원천 문서', '13'), leaf('op-templates', '계약 템플릿')], { open: onOps ? undefined : true }),
-      item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2', 'warn'), leaf('op-inspections', '플랫폼 열람 기록')]),
+      item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2', 'warn')]),
       item('op-s', '정산', [leaf('op-statements', '명세·지급'), leaf('op-issues', '발행 조합')]),
       item('op-o', '조직', [leaf('op-org', '내 조직'), leaf('op-accounts', '담당자 계정'), leaf('op-delegation', '위임 대행'), leaf('op-links', '신탁·유통 연결')]),
     ];
