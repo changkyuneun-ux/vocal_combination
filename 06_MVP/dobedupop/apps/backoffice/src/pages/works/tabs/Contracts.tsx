@@ -7,7 +7,7 @@ import type { DocumentRow, PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { PageNav, PagedTableFoot } from "../../../components/PageNav.tsx";
 import { paginate } from "../../../api/paged.ts";
-import { currentClaims } from "../model.ts";
+import { currentClaims, groupContracts } from "../model.ts";
 import { useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
@@ -38,11 +38,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const ourTurn = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && own.has(s.partyId));
   const platformMade = (c: Contract) => !c.signatures.some((s) => own.has(s.partyId));
   // 같은 템플릿·같은 상태의 서명 대기 계약 여럿은 한 줄로(시안 "실연 수익 수령 위임 · 지민 외 5명").
-  const groups: Contract[][] = [];
-  for (const c of contracts) {
-    const g = c.status !== "COMPLETED" && c.status !== "CANCELLED" ? groups.find((x) => x[0]!.templateId === c.templateId && x[0]!.status === c.status && !platformMade(c)) : undefined;
-    if (g) g.push(c); else groups.push([c]);
-  }
+  const groups = groupContracts(contracts, own);
   const status = (c: Contract): [string, string] => c.status === "COMPLETED" ? [`반영 · ${c.records.length ? "기록 확정" : "원천 문서"}`, "p-ok"]
     : c.status === "SIGNED" ? ["서명 완료 · 반영 전", "p-warn"] : c.status === "CANCELLED" ? ["취소", "p-todo"] : [`서명 대기${platformMade(c) ? " · 플랫폼이 작성(위탁 작가)" : ""}`, "p-warn"];
   const signLine = (c: Contract) => [...c.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
@@ -71,7 +67,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
           <div className="p-card-head"><h2>표준 계약 {contracts.length}</h2><span className="p-badge sm muted">작성 → 서명 → 반영 → 원천 문서</span><span style={{ marginLeft: "auto" }} />
             <button type="button" className="p-btn mid primary" disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => document.getElementById("newc")?.scrollIntoView()}>+ 계약 만들기</button></div>
           <ErrorPanel error={list.error ?? w.err} />
-          <div className="p-scroll"><table className="p-table" style={{ minWidth: 760 }} aria-label="이 곡의 표준 계약">
+          <div className="p-scroll"><table className="p-table" style={{ minWidth: 680 }} aria-label="이 곡의 표준 계약">
             <thead><tr>{["계약", "템플릿", "서명 당사자", "상태", ""].map(th)}</tr></thead>
             <tbody>{paginate(groups, pg1).rows.flatMap((g) => {
               if (g.length === 1) return [row(g[0]!)];
@@ -102,7 +98,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
           <table className="p-table"><tbody>{paginate(documents, pg2).rows.map((d, i) => (
             <tr key={`${d.documentId}@${d.version}`} style={i === 0 ? { borderTop: 0 } : undefined}>
               <td style={td}>{d.title} v{d.version} (PDF)</td>
-              <td style={td}>당사자 {d.parties.length > 1 ? `${d.parties.length}명` : d.parties.map((p) => ctx.name(p)).join(", ")}{d.effectiveFrom ? ` · 효력 ${d.effectiveFrom.slice(0, 10)}` : ""}</td>
+              <td style={td}>당사자 {d.parties.length > 1 ? `${d.parties.length}명` : d.parties.map((p) => ctx.name(p)).join(", ")}{d.effectiveFrom ? <> · <span className="nw">효력 {d.effectiveFrom.slice(0, 10)}</span></> : ""}</td>
               <td style={td}>근거: {KIND_LABEL[d.kind] ?? d.kind}</td>
             </tr>
           ))}</tbody></table>

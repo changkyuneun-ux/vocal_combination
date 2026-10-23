@@ -109,7 +109,7 @@ export function WorksCatalog() {
           <thead><tr>
             <th style={{ width: 36 }}><input type="checkbox" aria-label="전체 선택" /></th>
             {["관리번호", "곡명 / 아티스트", "작사·작곡", "원곡 권리", "멤버 스템", "확인 대기"].map((h) => <th key={h}>{h}</th>)}
-            <th style={{ minWidth: 170 }}>진행</th><th>상태</th><th style={{ textAlign: "right" }}>관리</th>
+            <th style={{ minWidth: 130 }}>진행</th><th>상태</th><th style={{ textAlign: "right" }}>관리</th>
           </tr></thead>
           <tbody>
             {list.map((w) => (

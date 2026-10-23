@@ -147,6 +147,8 @@
 .p-table tbody tr.cont { border-top: 1px dashed var(--p-line); }
 .p-table tbody tr.sel { background: var(--p-accent-soft); }
 .p-table .r { text-align: right; } .p-table .nw { white-space: nowrap; }
+/* 날짜·Mono 값·이동 링크·상태 배지는 칸 안에서 줄을 바꾸지 않는다 */
+.p-table td a, .p-table td .p-mono, .p-table td .p-badge, .p-table td .p-linkbtn, .p-catbl td a, .p-catbl td .p-mono { white-space: nowrap; }
 .p-table .muted { color: var(--p-muted); } .p-table .b { font-weight: 600; }
 .p-table .sub { font-size: 12px; font-weight: 400; color: var(--p-muted); }
 .p-mono { font-family: var(--p-mono); }
@@ -161,7 +163,7 @@
 .p-kpi { padding: 12px 14px; border-radius: 10px; background: var(--p-surface); border: 1px solid var(--p-line); }
 .p-kpi .l { font-size: 12px; color: var(--p-muted); } .p-kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; } .p-kpi .n { font-size: 12px; color: var(--p-muted); }
 .p-catbl { padding: 10px 24px 0; overflow-x: auto; }
-.p-catbl table { width: 100%; min-width: 1180px; border-collapse: collapse; font-size: 14px; background: var(--p-surface); border: 1px solid var(--p-line); }
+.p-catbl table { width: 100%; min-width: 1040px; border-collapse: collapse; font-size: 14px; background: var(--p-surface); border: 1px solid var(--p-line); }
 .p-catbl thead tr { text-align: left; background: var(--p-head-bg); }
 .p-catbl th, .p-catbl td { padding: 10px 12px; }
 .p-catbl th { white-space: nowrap; }

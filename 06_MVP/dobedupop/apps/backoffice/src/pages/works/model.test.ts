@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultForm } from "../../api/policyForm.ts";
 import type { Claim, Mandate } from "../../api/types.ts";
 import type { SlotWithParts, StemRow } from "../../api/works.ts";
-import { memberProgress, previewLines, rightsBuckets, slotPartRows, slugId, stageBars, stemIdFor, stemMatrix, sungSeconds } from "./model.ts";
+import { groupContracts, memberProgress, previewLines, rightsBuckets, slotPartRows, slugId, stageBars, stemIdFor, stemMatrix, sungSeconds } from "./model.ts";
 
 const claim = (claimId: string, edge: string, sourceId: string, targetId: string, shareBps: number, status = "VERIFIED"): Claim => ({
   claimId, version: 1, factsScopeId: "fsc_d", sourceId, edge, targetId, shareBps, performerRole: null, roleDetail: null, status,
@@ -84,6 +84,24 @@ describe("works model", () => {
   it("sung seconds add vocal part lengths to the singer", () => {
     expect(sungSeconds(slotPartRows([chorus, intro]))).toEqual({ pty_jungkook: 9, pty_jimin: 9 });
     expect(sungSeconds(slotPartRows([chorus]), (r) => (r.original === "pty_jimin" ? "pty_jin" : r.original))).toEqual({ pty_jungkook: 9, pty_jin: 9 });
+  });
+
+  it("contract groups: pending mandates we sign are one row; completed, cancelled and platform-made are single rows", () => {
+    const c = (id: string, templateId: string, status: string, parties: string[], scope = "fsc_d") => ({ contractId: id, factsScopeId: scope, templateId, status, signatures: parties.map((partyId) => ({ partyId })) });
+    const own = new Set(["pty_agency", "pty_label"]);
+    const list = [
+      c("platform", "tpl_platform_contract", "COMPLETED", ["pty_label"]),
+      c("work_ds", "tpl_work_license", "SENT", ["pty_ds"]), c("work_ja", "tpl_work_license", "SENT", ["pty_ja"]),
+      c("m_jk", "tpl_performer_mandate", "COMPLETED", ["pty_jungkook", "pty_agency"]),
+      ...["jimin", "v", "jin", "rm", "jhope", "suga"].map((m) => c(`m_${m}`, "tpl_performer_mandate", "SENT", [`pty_${m}`, "pty_agency"])),
+      c("m_other_song", "tpl_performer_mandate", "SENT", ["pty_x", "pty_agency"], "fsc_other"),
+    ];
+    const g = groupContracts(list, own);
+    expect(g.map((x) => x.map((y) => y.contractId))).toEqual([
+      ["platform"], ["work_ds"], ["work_ja"], ["m_jk"], ["m_jimin", "m_v", "m_jin", "m_rm", "m_jhope", "m_suga"], ["m_other_song"],
+    ]);
+    // 다 반영되면 한 건씩
+    expect(groupContracts(list.map((x) => ({ ...x, status: "COMPLETED" })), own).every((x) => x.length === 1)).toBe(true);
   });
 
   it("ids: slug from title with a numeric tail when taken, stem id from slot/part/member", () => {

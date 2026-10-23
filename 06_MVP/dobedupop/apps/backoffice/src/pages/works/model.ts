@@ -135,7 +135,22 @@ export function slugId(prefix: string, title: string, taken: Set<string> = new S
   return id;
 }
 
-export type ChangeLine = { at: string; who: string; what: string };
+type ContractLike = { factsScopeId: string; templateId: string; status: string; signatures: { partyId: string }[] };
+/**
+ * 표준 계약 묶음 규칙(시안 Song-Contracts·Ops-Contracts "실연 수익 수령 위임 · 지민 외 5명"): 같은 곡·같은 템플릿·같은 상태의
+ * 서명 진행 중(SENT·SIGNED) 계약 중 우리 쪽이 서명하는 것은 한 줄로 묶는다. 반영·취소된 계약과 플랫폼이 작성한 계약(우리 서명 없음)은 한 건씩.
+ */
+export function groupContracts<C extends ContractLike>(cs: C[], own: Set<string>): C[][] {
+  const groups: C[][] = [];
+  const groupable = (c: C) => (c.status === "SENT" || c.status === "SIGNED") && c.signatures.some((s) => own.has(s.partyId));
+  for (const c of cs) {
+    const g = groupable(c) ? groups.find((x) => groupable(x[0]!) && x[0]!.factsScopeId === c.factsScopeId && x[0]!.templateId === c.templateId && x[0]!.status === c.status) : undefined;
+    if (g) g.push(c); else groups.push([c]);
+  }
+  return groups;
+}
+
+export type ChangeLine ={ at: string; who: string; what: string };
 /**
  * 최근 변경(시안 Song-Rights "최근 변경", Catalog "변경 이력"): 곡 단위 감사 로그 조회가 없어 주장·위임의 버전 기록(recordedAt)에서 만든다.
  * 같은 분·같은 종류는 한 줄로 묶는다. 새 순.

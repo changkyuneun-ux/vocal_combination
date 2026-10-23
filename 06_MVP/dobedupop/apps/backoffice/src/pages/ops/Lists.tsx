@@ -8,6 +8,7 @@ import type { IssueRow, Paged } from "../../api/types.ts";
 import type { ConsentRow, DocumentRow, PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { useParties } from "../works/data.tsx";
+import { groupContracts } from "../works/model.ts";
 import { B, Card, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
 
 
@@ -57,9 +58,13 @@ export function OpsContracts() {
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const own = new Set((mine.data ?? []).map((x) => x.partyId));
   const [scope, setScope] = useState(""), [tpl, setTpl] = useState(""), [status, setStatus] = useState("");
-  const p = usePaged<Contract>("ops-contracts", "/contracts", { filters: { scope, template: tpl, status } });
   const all = useGet<Contract[]>(["work-contracts", "all"], "/contracts");
   const rows = all.data ?? [];
+  // 같은 곡·템플릿·상태의 서명 진행 중 계약은 곡 탭(문서·계약)과 같은 규칙(groupContracts)으로 한 줄로 묶고, 묶은 줄을 10줄씩 나눈다.
+  const filtered = [...rows].filter((c) => (scope === "" || c.factsScopeId === scope) && (tpl === "" || c.templateId === tpl) && (status === "" || c.status === status))
+    .sort((a, b) => (a.factsScopeId < b.factsScopeId ? -1 : a.factsScopeId > b.factsScopeId ? 1 : a.createdAt < b.createdAt ? -1 : 1));
+  const [page, setPage] = useState(1);
+  const grouped = paginate(groupContracts(filtered, own), page);
   const title = (c: Contract) => `${(templates.data ?? []).find((t) => t.templateId === c.templateId && t.version === c.templateVersion)?.title ?? c.templateId} v${c.templateVersion}`;
   const other = (c: Contract) => c.signatures.find((s) => !own.has(s.partyId))?.displayName;
   const platformMade = (c: Contract) => !c.signatures.some((s) => own.has(s.partyId));
@@ -79,18 +84,24 @@ export function OpsContracts() {
         { name: "템플릿", value: tpl, options: tplOpts, onChange: setTpl },
         { name: "상태", value: status, options: [["", "전체"], ["SENT", "서명 대기"], ["COMPLETED", "반영"]], onChange: setStatus },
       ]} />
-      <ErrorPanel error={p.error} />
-      <TableCard label="표준 계약" cols={["곡", "계약", "템플릿", "서명 당사자", "건수", "상태", ""]} count={p.rows.length} empty="표준 계약이 없습니다."
-        page={p.page} total={p.total} onPage={p.setPage} foot={`표준 계약 ${rows.length}건. 이 화면은 조회와 이동만 한다.`}>
-        {p.rows.map((c) => {
+      <ErrorPanel error={all.error} />
+      <TableCard label="표준 계약" cols={["곡", "계약", "템플릿", "서명 당사자", "건수", "상태", ""]} count={grouped.rows.length} empty="표준 계약이 없습니다."
+        page={page} total={grouped.total} onPage={setPage} foot={`표준 계약 ${rows.length}건. 이 화면은 조회와 이동만 한다.`}>
+        {grouped.rows.map((g) => {
+          const c = g[0]!;
           const w = by.get(c.factsScopeId);
           const [t, tone] = st(c);
+          const many = g.length > 1;
+          const sign = (x: Contract) => [...x.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
+          const membersDone = g.every((x) => x.signatures.filter((s) => !own.has(s.partyId)).every((s) => s.signedAt));
+          const oursDone = g.every((x) => x.signatures.filter((s) => own.has(s.partyId)).every((s) => s.signedAt));
           return (
             <tr key={c.contractId}>
-              <td>{w?.title ?? c.factsScopeId}</td><td>{c.title}{other(c) ? ` · ${other(c)}` : ""}</td><td>{title(c)}</td>
-              <td>{platformMade(c) ? <Sub main={c.signatures.map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ")} small="플랫폼이 작성(위탁 작가) · 조회만" />
-                : [...c.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ")}</td>
-              <td>1</td><td><B tone={tone}>{t}</B></td>
+              <td>{w?.title ?? c.factsScopeId}</td>
+              <td>{c.title}{other(c) ? ` · ${other(c)}` : ""}{many ? ` 외 ${g.length - 1}명` : ""}</td><td>{title(c)}</td>
+              <td>{many ? `멤버 ${membersDone ? "✓" : "대기"} · 소속사 ${oursDone ? "✓" : "대기"}`
+                : platformMade(c) ? <Sub main={sign(c)} small="플랫폼이 작성(위탁 작가) · 조회만" /> : sign(c)}</td>
+              <td>{g.length}</td><td><B tone={tone}>{t}</B></td>
               <td>{w && <Link to={`/works/${encodeURIComponent(w.workId)}/contracts`}>곡 워크스페이스 › 문서·계약 →</Link>}</td>
             </tr>
           );

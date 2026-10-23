@@ -266,7 +266,7 @@ function MandateBucket({ ctx }: { ctx: WsCtx }) {
           const signed = xs.filter((m) => m.status === "VERIFIED");
           return (
             <tr key={to} style={{ borderTop: 0 }}><td>멤버 {xs.length}명 → <b>{ctx.name(to)}</b></td><td>실연 몫 {pctText(xs[0]!.shareBps)}</td>
-              <td>{xs[0]!.validFrom.slice(0, 10)} ~ {xs[0]!.validTo?.slice(0, 10) ?? "—"}</td>
+              <td className="nw">{xs[0]!.validFrom.slice(0, 10)} ~ {xs[0]!.validTo?.slice(0, 10) ?? "—"}</td>
               <td className={signed.length === owners.length ? "p-ok" : "p-warn"}>서명 {signed.length}/{owners.length}{signed.length > 0 && signed.length < 3 ? `(${signed.map((m) => ctx.name(m.fromPartyId)).join(", ")})` : ""}</td>
               <td className="r"><Link to={contracts}>계약 보기</Link></td></tr>
           );
