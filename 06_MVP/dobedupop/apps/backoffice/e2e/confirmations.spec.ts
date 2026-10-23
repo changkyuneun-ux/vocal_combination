@@ -1,10 +1,11 @@
-import { advance, as, expect, ok, prepareSettled, test } from "./fixtures.ts";
+import { advance, as, BACKEND, expect, ok, prepareSettled, test } from "./fixtures.ts";
 
 /**
  * 근거 연결과 확인(원천 문서 설계 S3): 계약서를 올리고 조항을 표시해 권리 주장에 연결한다. 플랫폼 밖 작가의 지분 주장은
- * ASSERTED로 등록되면 확인 요청이 가고, 기한(14일)이 지나면 운영이 원문을 대조해 확인한다.
+ * ASSERTED로 등록되면 확인 요청이 간다. 기한(14일)이 지나도 플랫폼은 원문 대조로 확정하지 않는다(결정 WD3) — 운영 화면에 확인 버튼이 없고
+ * 요청은 확인 대기로 남는다(정합성 경고가 차단으로 오른다). 확정은 작가 본인의 확인·서명으로만 된다.
  */
-test("조항 표시·기록 연결, 기한 뒤 플랫폼 확인", async ({ page, request }) => {
+test("조항 표시·기록 연결, 기한 뒤에도 플랫폼 확정은 없다", async ({ page, request }) => {
   const s = await prepareSettled(request);
   await ok(request, "usr_editor", "POST", "/parties", { partyId: "pty_e2e_writer", partyType: "AUTHOR", displayName: "작가 E" });
 
@@ -42,11 +43,12 @@ test("조항 표시·기록 연결, 기한 뒤 플랫폼 확인", async ({ page,
 
   await advance(page, "+30일");
   await page.goto("/confirmations");
-  await as(page, "usr_ops"); // 플랫폼 확인은 운영(SPACE_OPS)이 한다
+  await as(page, "usr_ops");
   const row = page.getByRole("row").filter({ hasText: "c_e2e_writer" });
   await expect(row).toContainText("확인 대기");
-  await page.getByLabel("사유").fill("계약서 p.3 대조");
-  await row.getByRole("button", { name: "플랫폼 확인" }).click();
-  await page.getByLabel("요청 상태").selectOption("");
-  await expect(page.getByRole("row").filter({ hasText: "c_e2e_writer" })).toContainText("플랫폼 대조 확인");
+  await expect(row.getByRole("button", { name: "플랫폼 확인" })).toHaveCount(0);
+  const reqs = await ok<{ recordId: string; requestId: number; status: string }[]>(request, "usr_ops", "GET", "/confirmations?status=OPEN");
+  const req = reqs.find((r) => r.recordId === "c_e2e_writer")!;
+  expect((await request.post(`${BACKEND}/ops/confirmations/${req.requestId}/platform-verify`, { headers: { "x-actor": "usr_ops" }, data: { reason: "계약서 p.3 대조" } })).status()).toBe(404);
+  expect((await request.post(`${BACKEND}/ops/confirmations/${req.requestId}/confirm`, { headers: { "x-actor": "usr_ops" }, data: {} })).status()).toBe(403);
 });

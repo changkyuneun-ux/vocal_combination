@@ -6,7 +6,7 @@ import { optFilter, pagedOr } from "../platform/paging.ts";
 import type { SignatureProvider } from "./esign.ts";
 import {
   approveTemplateVersion, authorTemplateVersion, cancelContract, completeContract, createContract, getContract, getTemplate, listContracts, listTemplates,
-  previewContract, providerSigned, signContract,
+  previewContract, providerSigned, resendContract, signContract,
 } from "./service.ts";
 import { approveFrame, listFrames, registerFrame } from "./frames.ts";
 import { getImport, listClaimConfirmations, listImports, previewConfirmation, sendConfirmation, setGaps, setValue, startImport } from "./imports.ts";
@@ -36,6 +36,7 @@ export function contractRoutes(app: FastifyInstance, deps: Deps): void {
     return completeContract(tx, deps.clock, actor, deps.documents, esignOf(deps), req.params.id);
   }));
   app.post<P>("/contracts/:id/cancel", async (req) => withActor(deps, req, (tx, actor) => cancelContract(tx, deps.clock, actor, req.params.id)));
+  app.post<P>("/contracts/:id/resend", async (req) => withActor(deps, req, (tx, actor) => resendContract(tx, deps.clock, actor, req.params.id)));
   importRoutes(app, deps);
 }
 

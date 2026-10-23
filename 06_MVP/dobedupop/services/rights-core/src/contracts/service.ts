@@ -457,6 +457,22 @@ export async function completeContract(tx: Tx, clock: Clock, actor: Actor, store
   return getContract(tx, contractId);
 }
 
+/**
+ * 다시 보내기(시안 Song-Contracts "다시 보내기"): 계정 없는 당사자에게 전자서명 링크를 다시 보낸다(결정 WD2). 계약을 만든 테넌트의 작성자만,
+ * 서명 대기 중이고 아직 서명하지 않은 계정 없는 당사자가 있을 때. 개발용 공급자는 보낸 기록만 남긴다.
+ */
+export async function resendContract(tx: Tx, clock: Clock, actor: Actor, contractId: string) {
+  requireDrafter(actor);
+  const c = await getContract(tx, contractId);
+  if (c.ownerTenantId !== actor.tenantId) throw new DomainError("NOT_OWNER", 403, `${contractId} belongs to ${c.ownerTenantId}`);
+  if (c.status !== "SENT") throw conflict("CONTRACT_NOT_OPEN", `contract ${contractId} is ${c.status}`);
+  const pending = c.signatures.filter((x) => x.signedAt === undefined).map((x) => x.partyId);
+  const linked = [...(await noAccountParties(tx, pending)).keys()];
+  if (linked.length === 0) throw conflict("NOTHING_TO_RESEND", `${contractId} has no pending signer without an account`);
+  await audit(tx, clock, { actor: actor.userId, action: "CONTRACT_RESENT", entityType: "contract_envelope", entityId: contractId, after: { parties: linked } });
+  return { ...c, resentTo: linked };
+}
+
 export async function cancelContract(tx: Tx, clock: Clock, actor: Actor, contractId: string) {
   requireDrafter(actor);
   const c = await getContract(tx, contractId);

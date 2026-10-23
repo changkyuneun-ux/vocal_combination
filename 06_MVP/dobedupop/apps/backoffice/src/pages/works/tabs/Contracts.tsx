@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { api, type ApiError } from "../../../api/client.ts";
 import { toAnswers, usableTemplates, type Contract, type FormValue, type Template } from "../../../api/contracts.ts";
 import { useGet } from "../../../api/hooks.ts";
-import type { DocumentRow, PartyRow } from "../../../api/works.ts";
+import { orgPartyIds, type DocumentRow, type PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { PageNav, PagedTableFoot } from "../../../components/PageNav.tsx";
 import { paginate } from "../../../api/paged.ts";
@@ -23,10 +23,11 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const list = useGet<Contract[]>(["work-contracts", ctx.scopeId], `/contracts?scope=${encodeURIComponent(ctx.scopeId)}`);
   const docs = useGet<DocumentRow[]>(["documents"], "/documents");
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
+  const parties = useParties();
   const w = useWrite();
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [pg1, setPg1] = useState(1), [pg2, setPg2] = useState(1);
-  const own = new Set((mine.data ?? []).map((p) => p.partyId));
+  const own = orgPartyIds(mine.data);
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const tplTitle = (c: Contract) => `${(templates.data ?? []).find((t) => t.templateId === c.templateId && t.version === c.templateVersion)?.title ?? c.templateId} v${c.templateVersion}`;
   // 시안 순서: 먼저 만든 계약부터(플랫폼 → 녹음 → 작품 → 수령 위임).
@@ -36,11 +37,13 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const documents = (docs.data ?? []).filter((d) => !ctrDocs.has(d.documentId) && d.parties.some((p) => scopeParties.has(p)));
   const other = (c: Contract) => c.signatures.find((s) => !own.has(s.partyId))?.displayName;
   const ourTurn = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && own.has(s.partyId));
-  const platformMade = (c: Contract) => !c.signatures.some((s) => own.has(s.partyId));
+  // 작가(사람 당사자, 계정 없음)에게 빅히트가 보낸 전자서명 링크로 서명을 기다리는 계약(결정 WD2, 시안 "전자서명 링크 보냄 · 다시 보내기").
+  const authorIds = new Set(parties.items.filter((p) => p.partyType === "AUTHOR").map((p) => p.partyId));
+  const eSignLink = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && authorIds.has(s.partyId));
   // 같은 템플릿·같은 상태의 서명 대기 계약 여럿은 한 줄로(시안 "실연 수익 수령 위임 · 지민 외 5명").
   const groups = groupContracts(contracts, own);
   const status = (c: Contract): [string, string] => c.status === "COMPLETED" ? [`반영 · ${c.records.length ? "기록 확정" : "원천 문서"}`, "p-ok"]
-    : c.status === "SIGNED" ? ["서명 완료 · 반영 전", "p-warn"] : c.status === "CANCELLED" ? ["취소", "p-todo"] : [`서명 대기${platformMade(c) ? " · 플랫폼이 작성(위탁 작가)" : ""}`, "p-warn"];
+    : c.status === "SIGNED" ? ["서명 완료 · 반영 전", "p-warn"] : c.status === "CANCELLED" ? ["취소", "p-todo"] : [`서명 대기${eSignLink(c) ? ` · 전자서명 링크 보냄 ${c.createdAt.slice(5, 10)}` : ""}`, "p-warn"];
   const signLine = (c: Contract) => [...c.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
   const row = (c: Contract, child = false) => {
     const [t, cls] = status(c);
@@ -51,7 +54,8 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
         <td style={td}>{signLine(c)}</td>
         <td style={{ ...td, whiteSpace: "nowrap" }} className={cls}>{t}</td>
         <td style={{ ...td, whiteSpace: "nowrap" }}>
-          {platformMade(c) ? <span className="p-todo">조회만</span> : <>
+          {eSignLink(c) ? <button type="button" className="p-linkbtn" disabled={!ctx.can("contract.draft")}
+            onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/resend`), "전자서명 링크를 다시 보냈습니다")}>다시 보내기</button> : <>
             {ourTurn(c) && ctx.can("contract.sign_org") && <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/sign`), "우리 쪽 서명을 했습니다")}>소속사 서명</button>}
             {c.status === "SIGNED" && ctx.can("contract.draft") && <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/complete`), "기록에 반영했습니다(서명본은 원천 문서)")}>반영</button>}
             {(c.status === "COMPLETED" || c.status === "CANCELLED" || (!ourTurn(c) && c.status === "SENT")) && <Link to="/contracts">보기</Link>}

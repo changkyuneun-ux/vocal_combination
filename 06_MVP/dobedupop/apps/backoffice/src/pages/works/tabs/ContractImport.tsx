@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { api } from "../../../api/client.ts";
 import { useGet } from "../../../api/hooks.ts";
-import { IMPORT_STEPS, TERRITORY, USAGE, stepNo, valueText, type ImportValue, type ImportView, type IrGapRow } from "../../../api/imports.ts";
+import { ACTIONS, AUDIENCE, IMPORT_STEPS, MEDIA, TERRITORIES, managerName, stepNo, valueText, type Gaps as GapValues, type ImportValue, type ImportView, type IrGapRow } from "../../../api/imports.ts";
 import type { DocumentRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { B, Card, Kv, Mono, Sub, TableCard } from "../../ops/common.tsx";
@@ -53,7 +53,7 @@ export function ContractImportTab({ ctx }: { ctx: WsCtx }) {
   const confirmed = v.values.filter((x) => x.confirmed).length;
   const filled = v.values.filter((x) => x.value !== null).length;
   const parties = v.document.parties;
-  const managed = parties.length > 0 && parties.every((p) => p.offPlatform);
+  const manager = parties.length > 0 && parties.every((p) => p.manager !== null && p.manager === parties[0]!.manager) ? managerName(parties[0]!.manager) : null;
   const locked = v.step === "CONFIRM_SENT" || v.step === "DONE";
   const toConfirm = `${base}/confirm?import=${v.importId}`;
   return (
@@ -65,7 +65,7 @@ export function ContractImportTab({ ctx }: { ctx: WsCtx }) {
           ["문서", <>{v.document.title} v{v.document.version} ({v.document.mime === "application/pdf" ? "PDF" : v.document.mime}){v.frame?.pages ? ` · ${v.frame.pages}쪽` : ""} · <a href={docFile(v.document)} target="_blank" rel="noreferrer">원문 보기</a></>],
           ["읽기 틀", v.frame ? <><B tone="ok">양식 일치</B> {v.frame.title} v{v.frame.version} — 값 {filled}개를 후보로 채움</> : <B tone="muted">읽기 틀 없음 — 사람이 조항을 표시한다</B>],
           ["원천 문서", <><Mono>{v.document.documentId}</Mono> · sha256 <Mono>{short(v.document.sha256)}</Mono> · {mmddhm(v.document.uploadedAt)} 저장(원본 보존)</>],
-          ["당사자", `${parties.map((p) => p.name).join(" · ")}${v.document.kind === "PUBLISHING" ? `(작가${managed ? ", 플랫폼 위탁" : ""})` : ""}`],
+          ["당사자", `${parties.map((p) => p.name).join(" · ")}${v.document.kind === "PUBLISHING" ? `(작가${manager ? `, ${manager} 관리 당사자` : ""})` : ""}`],
         ]} />
       </Card>
       <TableCard title={["② 후보 값", `${confirmed} / ${v.values.length} 확인함`]} cols={["항목", "후보 값", "근거(쪽·조항)", "기존 입력과", "확인"]} count={v.values.length} paged={false} minW={860}
@@ -109,38 +109,50 @@ function CandidateRow({ x, locked, onConfirm }: { x: ImportValue; locked: boolea
   );
 }
 
-/** ④ 빠진 것 입력(시안 field()·chips()): 팬앱 이용 범위 · 이용 지역 · 기간 끝. */
-function Gaps({ v, locked, busy, onSave }: { v: ImportView; locked: boolean; busy: boolean; onSave: (g: { usage: string[]; territory: string; validTo: string }, next: boolean) => void }) {
-  const [usage, setUsage] = useState<string[]>(v.gaps?.usage ?? []);
-  const [territory, setTerritory] = useState(v.gaps?.territory ?? "WORLD");
-  const [validTo, setValidTo] = useState(v.gaps?.validTo ?? "");
-  useEffect(() => { if (v.gaps) { setUsage(v.gaps.usage); setTerritory(v.gaps.territory); setValidTo(v.gaps.validTo); } }, [v.gaps?.validTo, v.gaps?.territory, v.gaps?.usage.join()]); // eslint-disable-line react-hooks/exhaustive-deps
-  const g = { usage, territory, validTo };
+/** ④ 빠진 것 입력(시안 field()·chips(), 2026-10-23 정정): 이용 행위 · 지역 · 매체·공개 대상 · 기간 끝. 어휘는 동의 기록과 같다. */
+function Chips({ opts, on, locked, onToggle }: { opts: [string, string][]; on: string[]; locked: boolean; onToggle: (k: string) => void }) {
+  return (
+    <div className="p-row" style={{ gap: 6 }}>
+      {opts.map(([k, l]) => <button key={k} type="button" className={`p-chip2${on.includes(k) ? " on" : ""}`} aria-pressed={on.includes(k)} disabled={locked} onClick={() => onToggle(k)}>{l}</button>)}
+    </div>
+  );
+}
+
+function Gaps({ v, locked, busy, onSave }: { v: ImportView; locked: boolean; busy: boolean; onSave: (g: GapValues, next: boolean) => void }) {
+  const blank: GapValues = { actions: [], territories: [], media: [], audience: [], validTo: "" };
+  const [g, setG] = useState<GapValues>(v.gaps ?? blank);
+  useEffect(() => { if (v.gaps) setG(v.gaps); }, [JSON.stringify(v.gaps)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (k: keyof Omit<GapValues, "validTo">) => (code: string) => setG((x) => ({ ...x, [k]: x[k].includes(code) ? x[k].filter((y) => y !== code) : [...x[k], code] }));
   const valuesDone = v.values.every((x) => x.confirmed);
+  const filled = g.actions.length > 0 && g.territories.length > 0 && g.media.length > 0 && g.audience.length > 0 && g.validTo !== "";
+  // 매체·공개 대상은 한 칸(시안): 칩을 누르면 그 어휘가 속한 쪽에 들어간다.
+  const mediaAudience: [string, string][] = [...MEDIA, ...AUDIENCE];
   return (
     <>
       <Card title="④ 빠진 것 입력" hint="원본 계약에 없는 값">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-          <div className="p-gap-field" role="group" aria-labelledby="gap-usage">
-            <span id="gap-usage" className="l">팬앱 이용 범위</span>
-            <div className="p-row" style={{ gap: 6 }}>
-              {USAGE.map(([k, l]) => <button key={k} type="button" className={`p-chip2${usage.includes(k) ? " on" : ""}`} aria-pressed={usage.includes(k)} disabled={locked}
-                onClick={() => setUsage((u) => (u.includes(k) ? u.filter((x) => x !== k) : [...u, k]))}>{l}</button>)}
-            </div>
+          <div className="p-gap-field" role="group" aria-labelledby="gap-actions">
+            <span id="gap-actions" className="l">이용 행위</span>
+            <Chips opts={ACTIONS} on={g.actions} locked={locked} onToggle={toggle("actions")} />
             <span className="h">멤버 이용 동의·팩 이용 범위와 같아야 한다</span>
           </div>
-          <label className="p-gap-field"><span className="l">이용 지역</span>
-            <select className="p-select" value={territory} disabled={locked} onChange={(e) => setTerritory(e.target.value)}>{TERRITORY.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-          </label>
+          <div className="p-gap-field" role="group" aria-labelledby="gap-territories">
+            <span id="gap-territories" className="l">지역</span>
+            <Chips opts={TERRITORIES} on={g.territories} locked={locked} onToggle={toggle("territories")} />
+          </div>
+          <div className="p-gap-field" role="group" aria-labelledby="gap-media">
+            <span id="gap-media" className="l">매체 · 공개 대상</span>
+            <Chips opts={mediaAudience} on={[...g.media, ...g.audience]} locked={locked} onToggle={(k) => (MEDIA.some(([m]) => m === k) ? toggle("media")(k) : toggle("audience")(k))} />
+          </div>
           <label className="p-gap-field"><span className="l">기간 끝</span>
-            <input className="p-input p-mono" value={validTo} placeholder="YYYY-MM-DD" disabled={locked} onChange={(e) => setValidTo(e.target.value)} />
+            <input className="p-input p-mono" value={g.validTo} placeholder="YYYY-MM-DD" disabled={locked} onChange={(e) => setG((x) => ({ ...x, validTo: e.target.value }))} />
             <span className="h">원본 계약 기간을 넘지 않게</span>
           </label>
         </div>
       </Card>
       <div className="p-row" style={{ justifyContent: "flex-end", gap: 8 }}>
-        <button type="button" className="p-btn wide" disabled={locked || busy || usage.length === 0 || validTo === ""} onClick={() => onSave(g, false)}>임시 저장</button>
-        <button type="button" className="p-btn wide primary" disabled={busy || (!locked && (!valuesDone || usage.length === 0 || validTo === ""))}
+        <button type="button" className="p-btn wide" disabled={locked || busy || !filled} onClick={() => onSave(g, false)}>임시 저장</button>
+        <button type="button" className="p-btn wide primary" disabled={busy || (!locked && (!valuesDone || !filled))}
           title={valuesDone ? undefined : "후보 값을 모두 확인해야 한다"} onClick={() => onSave(g, true)}>권리 확인서 만들기 →</button>
       </div>
     </>

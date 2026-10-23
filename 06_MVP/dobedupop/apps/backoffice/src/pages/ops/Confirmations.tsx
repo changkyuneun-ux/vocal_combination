@@ -9,7 +9,7 @@ import { useParties } from "../works/data.tsx";
 import { slotPartRows } from "../works/model.ts";
 import { B, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
 
-const STATUS: Record<string, [string, "ok" | "warn" | "bad" | "muted"]> = { OPEN: ["대기", "warn"], CONFIRMED: ["확인됨", "ok"], PLATFORM_VERIFIED: ["운영 대조 확인", "ok"], DECLINED: ["거절", "bad"], SUPERSEDED: ["새 버전으로 대체", "muted"] };
+const STATUS: Record<string, [string, "ok" | "warn" | "bad" | "muted"]> = { OPEN: ["대기", "warn"], CONFIRMED: ["확인됨", "ok"], PLATFORM_VERIFIED: ["운영 대조 확인(지난 기록)", "ok"], DECLINED: ["거절", "bad"], SUPERSEDED: ["새 버전으로 대체", "muted"] };
 const DAY = 86_400_000;
 
 /** 확인 기록을 사람이 읽는 말로: 작가 지분 50% · David Stewart, 보이스 소유 · 정국, 실연 · Chorus 1 파트 2. */
@@ -56,7 +56,7 @@ export function OpsConfirmations() {
   const month = now.slice(0, 7);
   const confirmed = rows.filter((r) => (r.status === "CONFIRMED" || r.status === "PLATFORM_VERIFIED") && (r.decidedAt ?? "").slice(0, 7) === month);
   const ptype = (id: string) => parties.items.find((x) => x.partyId === id)?.partyType;
-  const who = (id: string) => (ptype(id) === "MEMBER" ? `${parties.names.get(id) ?? id}(실연자 앱)` : ptype(id) === "AUTHOR" ? "플랫폼 위탁 작가(운영 대조)" : parties.names.get(id) ?? id);
+  const who = (id: string) => (ptype(id) === "MEMBER" ? `${parties.names.get(id) ?? id}(실연자 앱)` : ptype(id) === "AUTHOR" ? "작가(전자서명 링크)" : parties.names.get(id) ?? id);
   return (
     <OpsPage title="확인 요청 전체" desc="빅히트 뮤직의 모든 곡에서 상대 당사자에게 보낸 확인 요청. 곡 하나의 확인은 작품 워크스페이스 › 확인·동의에서"
       actions={<CsvButton name="confirmations" head={["곡", "기록", "상대", "요청", "기한", "상태"]} rows={rows.map((r) => [by.get(r.factsScopeId)?.title ?? r.factsScopeId, r.recordId, r.counterpartyId, r.requestedAt, r.dueAt, r.status])} />}>
@@ -68,12 +68,12 @@ export function OpsConfirmations() {
       ]} />
       <Filters placeholder="곡명, 기록, 상대 당사자" selects={[
         { name: "곡", value: scope, options, onChange: setScope },
-        { name: "상대", value: kind, options: [["", "상대 전체"], ["MEMBER", "멤버(실연자 앱)"], ["AUTHOR", "플랫폼 위탁 작가(운영 대조)"]], onChange: setKind },
+        { name: "상대", value: kind, options: [["", "상대 전체"], ["MEMBER", "멤버(실연자 앱)"], ["AUTHOR", "작가(전자서명 링크)"]], onChange: setKind },
         { name: "상태", value: status, options: [["OPEN", "대기"], ["CONFIRMED", "확인됨"], ["DECLINED", "거절"], ["ALL", "전체"]], onChange: setStatus },
       ]} />
       <ErrorPanel error={p.error} />
       <TableCard label="확인 요청" cols={["곡", "기록", "확인할 상대", "요청", "기한", "상태", ""]} count={p.rows.length} empty="확인 요청이 없습니다."
-        page={p.page} total={p.total} onPage={p.setPage} foot="멤버 확인은 실연자 앱에서 본인이, 플랫폼 위탁 작가는 운영이 원문 대조로 확인한다. 이 화면은 조회와 이동만 한다.">
+        page={p.page} total={p.total} onPage={p.setPage} foot="멤버 확인은 실연자 앱에서 본인이, 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 확인한다. 이 화면은 조회와 이동만 한다.">
         {p.rows.map((r) => {
           const w = by.get(r.factsScopeId);
           const soonDue = r.status === "OPEN" && Date.parse(r.dueAt) - Date.parse(now) <= 3 * DAY;

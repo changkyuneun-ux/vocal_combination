@@ -54,3 +54,8 @@ export const postStem = (body: { stemId: string; slotId: string; partNo: number;
 /** 녹음 등록 + 녹음 권리 주장(결정 ID2). */
 export const postRecording = (body: { recordingId: string; workId: string; masterOwnerPartyId: string; versionTitle: string; isrc?: string; masterClaim: { evidenceDocuments?: { documentId: string; version: number }[] } }) =>
   api<unknown>("POST", "/recordings", body);
+
+/** 사람 당사자(작가·멤버 등). 권리 테넌트가 관리해도 확인·서명은 본인이 한다(결정 WD2) — "자기 당사자"(기관)에 넣지 않는다. */
+export const PERSON_PARTY_TYPES = ["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"];
+/** 내 기관 당사자(레이블·소속사 등): 바로 확정·기관 서명을 할 수 있는 당사자. */
+export const orgPartyIds = (rows: PartyRow[] | undefined) => new Set((rows ?? []).filter((p) => !PERSON_PARTY_TYPES.includes(p.partyType)).map((p) => p.partyId));

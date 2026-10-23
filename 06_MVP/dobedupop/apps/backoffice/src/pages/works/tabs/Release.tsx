@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { authorsPending } from "../model.ts";
 import { useGet } from "../../../api/hooks.ts";
 import { activatePack } from "../../../api/issuance.ts";
 import { activateVersion, approveVersion } from "../../../api/policy.ts";
@@ -40,7 +41,7 @@ export function ReleaseTab({ ctx }: { ctx: WsCtx }) {
     { ok: item("consents")?.ok ?? "warn", label: `멤버 팬앱 이용 동의 ${(item("consents")?.detail ?? "").replace("보이스 ", "").replace(" 동의", "")}`, note: "없으면 그 멤버 스템 발행 거부" },
     { ok: licenses.length > 0 ? true : "warn", label: "작품·녹음 이용허락 반영", note: `작품 ${licenses.filter((c) => c.templateId === "tpl_work_license").length} · 녹음 ${licenses.filter((c) => c.templateId === "tpl_master_license").length}` },
     { ok: item("audio")?.ok ?? "warn", label: `스템 오디오 ${item("audio")?.detail ?? ""}`, note: "" },
-    { ok: item("confirmations")?.ok ?? "warn", label: item("confirmations")?.detail ?? "확인 대기", note: "기한이 지나면 차단" },
+    { ok: item("confirmations")?.ok ?? "warn", label: authorsPending(ctx) > 0 ? `확인 대기 ${authorsPending(ctx)}(작가 지분 서명)` : item("confirmations")?.detail ?? "확인 대기", note: "기한이 지나면 차단" },
   ];
   const sig = (role: string) => d?.approvals.filter((a) => a.role === role) ?? [];
   const who = (role: string) => sig(role).map((a) => `${a.userId} · 서명 ${role}`).join(", ") || `서명 ${role}`;

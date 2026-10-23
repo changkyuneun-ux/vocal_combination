@@ -2,10 +2,10 @@ import { Fragment, useState } from "react";
 import { Link } from "react-router";
 import { post } from "../../../api/registry.ts";
 import { useGet } from "../../../api/hooks.ts";
-import { deleteCatalog, postSlot, postSlotPart, putSlotPart, type DocumentRow, type PartKind, type PartyRow } from "../../../api/works.ts";
+import { orgPartyIds, deleteCatalog, postSlot, postSlotPart, putSlotPart, type DocumentRow, type PartKind, type PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { mmss, pctText, recentChanges, rightsBuckets, shortAt, type Bucket, type BucketRow, type PartRow } from "../model.ts";
-import { useParties, useWrite } from "../data.tsx";
+import { useMe, useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 import { usePackAndPolicy } from "./Policy.tsx";
 
@@ -69,20 +69,23 @@ type Draft = { claimId?: string; partyId: string; shareBps: number; roleDetail: 
 /** 작품·녹음 갈래(시안 카드 + 표). "수정"은 그 행을, "+ 추가"는 새 행을 표 안에서 편집한다. 갈래 합계 100%일 때만 저장. */
 function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, extraNote }: { ctx: WsCtx; bucket: Bucket; editable: boolean; sourceId: string; addLabel: string; partyTypes: string[]; note: string; extraNote?: string }) {
   const parties = useParties();
+  const me = useMe();
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const docs = useGet<DocumentRow[]>(["documents"], "/documents");
   const ev = useEvidenceTitles(ctx.scopeId);
   const w = useWrite();
   const rows = bucket.rows.filter((r) => r.sourceId === sourceId);
   const [edits, setEdits] = useState<Record<string, Draft>>({});
-  const own = new Set((mine.data ?? []).map((p) => p.partyId));
+  const own = orgPartyIds(mine.data);
   const isWork = bucket.key === "work";
   const draftOf = (r: BucketRow): Draft => ({ claimId: r.claimId, partyId: r.partyId, shareBps: r.shareBps, roleDetail: r.roleDetail ?? "LYRICS_COMPOSITION", doc: "" });
   const editing = Object.keys(edits).length > 0;
   const total = rows.reduce((a, r) => a + (edits[r.claimId]?.shareBps ?? r.shareBps), 0) + Object.entries(edits).filter(([k]) => k.startsWith("new")).reduce((a, [, d]) => a + d.shareBps, 0);
   const choices = parties.items.filter((p) => partyTypes.includes(p.partyType) || own.has(p.partyId));
   const set = (k: string, patch: Partial<Draft>) => setEdits((e) => ({ ...e, [k]: { ...e[k]!, ...patch } }));
-  const subOf = (p: string) => (own.has(p) ? "자기 당사자" : parties.items.find((x) => x.partyId === p)?.partyType === "AUTHOR" ? "플랫폼 위탁 작가" : "");
+  // 작가는 레이블이 관리하는 당사자다(결정 WD1). 확인은 작가 본인의 전자서명으로(WD2). 관리 주체 이름은 소속 목록에서.
+  const managerOf = (p: string) => { const t = parties.items.find((x) => x.partyId === p)?.tenantId; return (me.data?.memberships ?? []).find((m) => m.tenantId === t)?.name ?? "레이블"; };
+  const subOf = (p: string) => (parties.items.find((x) => x.partyId === p)?.partyType === "AUTHOR" ? `작가 · ${managerOf(p)} 관리` : own.has(p) ? "자기 당사자" : "");
   const save = () => void w.run(async () => {
     for (const d of Object.values(edits)) {
       const doc = (docs.data ?? []).find((x) => x.documentId === d.doc);
@@ -125,7 +128,7 @@ function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, ex
               <td>{isWork ? roleText(r.roleDetail) : "마스터 보유"}</td>
               <td className="r">{pctText(r.shareBps)}</td>
               <td>{ev.get(r.claimId) ?? <span className="p-todo">없음</span>}</td>
-              <td className={r.status === "VERIFIED" ? "p-ok" : "p-warn"}>{r.status === "VERIFIED" ? "확정" : r.partyId && subOf(r.partyId) === "플랫폼 위탁 작가" ? "운영 원문 대조 대기" : "확인 대기"}</td>
+              <td className={r.status === "VERIFIED" ? "p-ok" : "p-warn"}>{r.status === "VERIFIED" ? "확정" : r.partyId && parties.items.find((x) => x.partyId === r.partyId)?.partyType === "AUTHOR" ? "작가 서명 대기" : "확인 대기"}</td>
               <td className="r nw">{editable ? <><button type="button" className="p-linkbtn" onClick={() => setEdits((e) => ({ ...e, [r.claimId]: draftOf(r) }))}>수정</button> · <button type="button" className="p-linkbtn" disabled title={NO_CLAIM_DELETE}>삭제</button></> : null}</td>
             </tr>
           ))}
@@ -285,7 +288,7 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
   const docs = useGet<DocumentRow[]>(["documents"], "/documents");
   const w = useWrite();
   const [fix, setFix] = useState<{ bucket: "work" | "master"; rows: Draft[]; from: string; doc: string } | null>(null);
-  const own = new Set((mine.data ?? []).map((p) => p.partyId));
+  const own = orgPartyIds(mine.data);
   const { policy } = usePackAndPolicy(ctx.scopeId);
   const v = policy?.latestVersion ?? 1;
   const ir = `IR v${v}`;

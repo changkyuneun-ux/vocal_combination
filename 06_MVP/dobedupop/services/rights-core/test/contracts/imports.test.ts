@@ -17,7 +17,7 @@ import { devIdentityProvider } from "../../src/performer/identity.ts";
 import { STEPS, type Driver } from "../../src/scenario/dynamite-personas.ts";
 import { MASTER_FRAME, PUBLISHING_CLAUSES, PUBLISHING_FRAME } from "../../src/scenario/dynamite-frames.ts";
 
-// 계약서 불러오기(3부-B, 결정 CT1~CT5; 3부-C 플랫폼 위탁 폐지 WD1~WD4): Dynamite를 멤버 확인 단계까지 돌린 뒤(작가 지분은 아직 확인 대기),
+// 계약서 불러오기(3부-B, 결정 CT1~CT5; 3부-C 플랫폼 위탁 폐지 WD1~WD4): Dynamite를 표준 계약 단계까지 돌린 뒤(작가용 권리 확인서는 보내지 않아 작가 지분이 확인 대기),
 // 퍼블리싱 계약서를 읽기 틀로 불러와 권리 확인서를 보내고, 계정 없는 작가가 전자서명 링크로 서명하면 작가 지분이 확정된다.
 const { db, adminUrl, drop } = await freshDb();
 /** 트리거 확인용(권한 밖의 갱신·삭제도 트리거가 막는지): 관리자 연결. */
@@ -45,8 +45,8 @@ const driver: Driver = {
   providerSigned: (id, party) => db.tx((tx) => withSystemScope(tx, () => providerSigned(tx, clock, devSignatureProvider, id, party))),
 };
 for (const st of STEPS) {
-  await st.run(driver, {}, {});
-  if (st.id === "members") break;
+  await st.run(driver, {}, { authorsConfirmLater: true });
+  if (st.id === "contracts") break;
 }
 const call = async (channel: "portal" | "ops", actor: string, method: "GET" | "POST", path: string, status: number, body?: object): Promise<any> => {
   const r = await driver.call(channel, actor, method, path, body);
@@ -120,7 +120,7 @@ test("candidates: a different value needs a choice; all confirmed moves to the g
   for (const k of ["title", "author2"]) await call("portal", BH, "POST", `/imports/${importId}/values/${k}`, 200, { confirm: true });
   const gapsStep = await call("portal", BH, "POST", `/imports/${importId}/values/effectiveFrom`, 200, { confirm: true });
   assert.equal(gapsStep.step, "GAPS");
-  assert.deepEqual(gapsStep.ir.map((r: any) => `${r.group}|${r.state}`), ["작품|FILLED", "작품|MISSING", "녹음|FILLED", "실연|FILLED", "수령 위임|IN_PROGRESS"]);
+  assert.deepEqual(gapsStep.ir.map((r: any) => `${r.group}|${r.state}`), ["작품|FILLED", "작품|MISSING", "녹음|FILLED", "실연|FILLED", "수령 위임|FILLED"]);
   const blocked = await driver.call("portal", BH, "POST", `/imports/${importId}/confirmation`, { kind: "AUTHOR" });
   assert.equal(blocked.status, 409);
   assert.equal((blocked.body as any).code, "IMPORT_GAPS");
@@ -163,8 +163,10 @@ test("send → both authors sign by e-signature link (no operator check) → com
   assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/sign`, { partyId: "pty_david_stewart" })).status, 403);
   assert.equal((await driver.call("portal", "usr_bh_admin", "POST", `/contracts/${c.contractId}/complete`, {})).status, 403, "not a drafter");
   assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/complete`, {})).status, 403, "the platform does not complete contracts");
-  // 작가는 빅히트가 보낸 전자서명 링크로 서명한다(공급자 통지).
+  // 작가는 빅히트가 보낸 전자서명 링크로 서명한다(공급자 통지). 빅히트는 링크를 다시 보낼 수 있다.
+  assert.deepEqual((await call("portal", BH, "POST", `/contracts/${c.contractId}/resend`, 200)).resentTo.sort(), ["pty_david_stewart", "pty_jessica_agombar"]);
   for (const a of ["pty_david_stewart", "pty_jessica_agombar"]) await driver.providerSigned(c.contractId, a);
+  assert.equal((await driver.call("portal", BH, "POST", `/contracts/${c.contractId}/resend`, {})).status, 409, "nothing left to sign");
   const signed = await call("portal", BH, "GET", `/contracts/${c.contractId}`, 200);
   assert.equal(signed.status, "SIGNED");
   assert.deepEqual(signed.signatures.map((s: any) => s.method), ["DEV_ESIGN", "DEV_ESIGN"]);

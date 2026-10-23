@@ -1,7 +1,7 @@
 import type { APIRequestContext } from "@playwright/test";
 import { ok } from "./fixtures.ts";
 
-/** 빅히트 권리 테넌트 온보딩(Dynamite onboard 단계와 같은 API): 테넌트 확인됨, 관리자·담당자, 멤버 2·작가 2, 레이블·소속사 당사자. */
+/** 빅히트 권리 테넌트 온보딩(Dynamite onboard 단계와 같은 API): 테넌트 확인됨, 관리자·담당자, 멤버 2, 레이블·소속사·작가 2(빅히트 관리) 당사자. */
 export async function onboardBighit(request: APIRequestContext): Promise<void> {
   await ok(request, "usr_ops", "POST", "/users", { userId: "usr_rights", displayName: "온보딩", roles: ["ONBOARDING"], tenantId: "tnt_platform" }).catch(() => undefined);
   await ok(request, "usr_rights", "POST", "/tenants", { tenantId: "tnt_bighit", tenantType: "LABEL", name: "빅히트 뮤직", businessNo: "BRN-E2E", country: "KR", representative: "대표" });
@@ -15,10 +15,11 @@ export async function onboardBighit(request: APIRequestContext): Promise<void> {
   for (const [partyId, name] of [["pty_jungkook", "정국"], ["pty_jimin", "지민"]] as const) {
     await ok(request, "usr_rights", "POST", "/parties", { partyId, partyType: "MEMBER", displayName: name, tenantId: "tnt_platform_default" });
   }
-  for (const [partyId, name] of [["pty_david_stewart", "David Stewart"], ["pty_jessica_agombar", "Jessica Agombar"]] as const) {
-    await ok(request, "usr_rights", "POST", "/parties", { partyId, partyType: "AUTHOR", displayName: name });
-  }
   for (const [partyId, partyType, displayName] of [["pty_bighit_label", "LABEL", "빅히트 레이블"], ["pty_bighit_agency", "AGENCY", "빅히트 소속사"]] as const) {
     await ok(request, "usr_bh_rights", "POST", "/portal/parties", { partyId, partyType, displayName });
+  }
+  // 작가 2명은 빅히트가 관리하는 당사자(결정 WD1): 빅히트가 등록한다(플랫폼은 권리자를 만들지 않는다).
+  for (const [partyId, name] of [["pty_david_stewart", "David Stewart"], ["pty_jessica_agombar", "Jessica Agombar"]] as const) {
+    await ok(request, "usr_bh_rights", "POST", "/portal/parties", { partyId, partyType: "AUTHOR", displayName: name });
   }
 }

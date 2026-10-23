@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useActor } from "../../app/actor.ts";
 import { useClock } from "../../api/clock.ts";
-import { api } from "../../api/client.ts";
+import { api, type ApiError } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
 import { paginate, usePaged } from "../../api/paged.ts";
 import { ROLE_LABEL, type AccountRow, type Me, type TenantDetail } from "../../api/admin.ts";
@@ -68,7 +69,7 @@ export function OpsValidation() {
           return (
             <tr key={i.issueId}>
               <td>{w?.title ?? i.scopeId}</td><td>{ruleName(i.rule)}</td><td><B tone={i.severity === "BLOCK" ? "bad" : "warn"}>{i.severity === "BLOCK" ? "차단" : "경고"}</B></td>
-              <td>{subject(i.subjectId)}</td><td>{i.message}{i.dueAt ? ` · 기한 ${i.dueAt.slice(5, 10)} 지나면 차단` : ""}</td>
+              <td>{subject(i.subjectId)}</td><td>{i.rule === "DOC_CONFIRMATION_PENDING" && subject(i.subjectId).startsWith("작가 지분") ? "작가 서명 대기" : i.message}{i.dueAt ? ` · 기한 ${i.dueAt.slice(5, 10)} 지나면 차단` : ""}</td>
               <td>{w && <Link to={`/works/${encodeURIComponent(w.workId)}/${i.rule === "DOC_CONFIRMATION_PENDING" ? "confirm" : "policy"}`}>곡 워크스페이스 › {i.rule === "DOC_CONFIRMATION_PENDING" ? "확인·동의" : "분배 규칙·팩"} →</Link>}</td>
             </tr>
           );
@@ -83,7 +84,8 @@ export function OpsValidation() {
   );
 }
 
-type Statement = { partyId: string; from: string; to: string; settled: string; payoutNet: string; payoutGross: string };
+type Statement = { partyId: string; from: string; to: string; settled: string; payoutNet: string; payoutGross: string; withholding: string };
+const TYPE_ORDER = ["LABEL", "AGENCY", "AUTHOR"];
 /** 운영 관리 › 정산 › 명세·지급(시안 Ops-Statements). */
 export function OpsStatements() {
   const clock = useClock();
@@ -92,36 +94,44 @@ export function OpsStatements() {
   const [period, setPeriod] = useState("all");
   const from = period === "all" ? "2026-01-01T00:00:00.000Z" : `${period}-01T00:00:00.000Z`;
   const to = period === "all" ? now : new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 1)).toISOString();
-  const parties = mine.data ?? [];
-  const st0 = useGet<Statement>(["stmt", parties[0]?.partyId, from, to], `/parties/${encodeURIComponent(parties[0]?.partyId ?? "")}/statements?from=${from}&to=${to}`, { enabled: !!parties[0] });
-  const st1 = useGet<Statement>(["stmt", parties[1]?.partyId, from, to], `/parties/${encodeURIComponent(parties[1]?.partyId ?? "")}/statements?from=${from}&to=${to}`, { enabled: !!parties[1] });
-  const sts = [st0.data, st1.data].filter((x): x is Statement => !!x);
+  // 받는 당사자: 빅히트가 관리하는 당사자 전부 — 레이블·소속사와 작가(결정 WD4, 시안 Ops-Statements 작가 2행).
+  const parties = [...(mine.data ?? [])].sort((a, b) => TYPE_ORDER.indexOf(a.partyType) - TYPE_ORDER.indexOf(b.partyType));
+  const actor = useActor();
+  const stq = useQueries({ queries: parties.map((x) => ({ queryKey: ["stmt", x.partyId, from, to, actor],
+    queryFn: () => api<Statement>("GET", `/parties/${encodeURIComponent(x.partyId)}/statements?from=${from}&to=${to}`, undefined, { actorOverride: actor }) })) });
+  const sts = stq.flatMap((q) => (q.data ? [q.data] : []));
+  const stErr = (stq.find((q) => q.error)?.error ?? null) as ApiError | null;
+  // 작가의 작품 몫(시안 "작품 몫 50%"): 보이는 곡의 작가 지분.
+  const { works } = useScopes();
+  const facts = useGet<{ claims: { edge: string; targetId: string; shareBps: number; supersededAt: string | null }[] }>(["work-facts", works[0]?.scopeId], `/scopes/${encodeURIComponent(works[0]?.scopeId ?? "")}/facts`, { enabled: !!works[0]?.scopeId });
+  const workShare = (party: string) => (facts.data?.claims ?? []).filter((c) => c.edge === "WRITTEN_BY" && c.targetId === party && c.supersededAt === null).reduce((a, c) => a + c.shareBps, 0);
   const issues = useGet<Paged<IssueRow>>(["work-issues", "all"], "/issues?limit=200");
   const [page, setPage] = useState(1), [page2, setPage2] = useState(1);
-  const rows = paginate(parties.slice(0, 2), page);
+  const rows = paginate(parties, page);
   const vcs = paginate(issues.data?.items ?? [], page2);
   const sum = sts.reduce((a, s) => a + BigInt(s.payoutNet), 0n).toString();
-  const role = (t: string) => (t === "LABEL" ? "녹음 몫" : t === "AGENCY" ? "실연 몫(멤버 수령 위임)" : "권리 몫");
+  const role = (x: PartyRow) => (x.partyType === "LABEL" ? "녹음 몫" : x.partyType === "AGENCY" ? "실연 몫(멤버 수령 위임)" : x.partyType === "AUTHOR" ? `작품 몫 ${workShare(x.partyId) / 100}%` : "권리 몫");
+  const kinds = [["LABEL", "레이블"], ["AGENCY", "소속사"], ["AUTHOR", "작가"]].map(([t, l]) => [l, parties.filter((x) => x.partyType === t).length] as const).filter(([, n]) => n > 0);
   const months = Array.from({ length: Number(now.slice(5, 7)) }, (_, i) => `${now.slice(0, 4)}-${String(i + 1).padStart(2, "0")}`).reverse();
   return (
     <OpsPage title="명세·지급" desc="빅히트 뮤직 당사자가 받는 정산 명세와 지급. 금액은 플랫폼이 확정한 정산 배치에서 온다"
       actions={<button type="button" className="p-btn wide" disabled title="명세 PDF 내려받기는 다음 단계">명세 내려받기(PDF)</button>}>
       <Stats items={[
         { label: "이번 지급", value: formatKrw(sum), note: period === "all" ? "누적" : period },
-        { label: "받는 당사자", value: parties.length, note: parties.map((x) => role(x.partyType).split("(")[0]).join(" · ") },
+        { label: "받는 당사자", value: parties.length, note: kinds.map(([l, n]) => (l === "작가" ? `${l} ${n}` : l)).join(" · ") },
         { label: "정산 기간", value: period === "all" ? "전체" : `${period.slice(0, 4)}년 ${Number(period.slice(5))}월`, note: `${from.slice(0, 10)} ~ ${to.slice(0, 10)}` },
         { label: "보류", value: "—", note: "보류 내역은 운영 화면에서" },
       ]} />
       <Filters placeholder="당사자" selects={[{ name: "기간", value: period, options: [["all", "전체 기간"], ...months.map((m): [string, string] => [m, `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`])], onChange: setPeriod }]} />
-      <ErrorPanel error={st0.error ?? st1.error} />
+      <ErrorPanel error={stErr} />
       <TableCard label="명세" cols={["받는 당사자", "역할", "정산 기간", "지급(원)", "계좌", "상태", ""]} count={rows.rows.length} empty="받는 당사자가 없습니다."
-        page={page} total={rows.total} onPage={setPage} foot="작가의 작품 몫은 플랫폼 위탁이라 이 명세에 보이지 않는다(다른 관리 주체). 멤버별 기여분은 실연자 앱에서 본인이 본다.">
+        page={page} total={rows.total} onPage={setPage} foot={`작가는 빅히트가 관리하는 당사자다. 작가 지급액은 원천징수 뒤 금액(원천징수 합계 ${sts.filter((x) => parties.find((y) => y.partyId === x.partyId)?.partyType === "AUTHOR").reduce((a, x) => a + Number(x.withholding), 0).toLocaleString()}원). 계좌·세금 정보는 빅히트가 등록하고 플랫폼은 지급만 실행한다. 멤버별 기여분은 실연자 앱에서 본인이 본다.`}>
         {rows.rows.map((x) => {
           const s = sts.find((y) => y.partyId === x.partyId);
           const paid = s !== undefined && BigInt(s.payoutNet) > 0n;
           return (
             <tr key={x.partyId}>
-              <td>{x.displayName}</td><td>{role(x.partyType)}</td><td>{period === "all" ? "전체" : period}</td><td><Mono>{s ? Number(s.payoutNet).toLocaleString() : "—"}</Mono></td>
+              <td>{x.partyType === "AUTHOR" ? <Sub main={`${x.displayName}(작가)`} small={s && Number(s.withholding) > 0 ? `${Number(s.withholding) / Number(s.payoutGross) >= 0.2 ? "해외 · " : ""}원천징수` : undefined} /> : x.displayName}</td><td>{role(x)}</td><td>{period === "all" ? "전체" : period}</td><td><Mono>{s ? Number(s.payoutNet).toLocaleString() : "—"}</Mono></td>
               <td><span title="계좌는 끝 4자리만 운영 화면에서 보인다">—</span></td><td><B tone={paid ? "ok" : "muted"}>{paid ? "PAID" : "대기"}</B></td>
               <td><Link to="/statements">명세 보기</Link></td>
             </tr>

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { api, type ApiError } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
-import { currentApp } from "../../app/apps.ts";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { Instant } from "../../components/Instant.tsx";
@@ -12,7 +11,7 @@ type Request = {
   requestedBy: string; requestedAt: string; dueAt: string; status: string; decidedAt?: string; decidedBy?: string; reason?: string; disputeId?: string;
 };
 const STATUS: Record<string, [string, string]> = {
-  OPEN: ["확인 대기", "warn"], CONFIRMED: ["확인됨", "ok"], DECLINED: ["거절(분쟁)", "bad"], PLATFORM_VERIFIED: ["플랫폼 대조 확인", "ok"], SUPERSEDED: ["기록이 바뀜", "muted"],
+  OPEN: ["확인 대기", "warn"], CONFIRMED: ["확인됨", "ok"], DECLINED: ["거절(분쟁)", "bad"], PLATFORM_VERIFIED: ["플랫폼 대조 확인(지난 기록)", "ok"], SUPERSEDED: ["기록이 바뀜", "muted"],
 };
 
 /**
@@ -34,7 +33,7 @@ export function ConfirmationsPage() {
           <select aria-label="요청 상태" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="OPEN">확인 대기</option><option value="">전체</option>
           </select>
-          <input aria-label="사유" placeholder="거절·플랫폼 확인 사유" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <input aria-label="사유" placeholder="거절 사유" value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
         <ErrorPanel error={q.error ?? err} />
         <DataTable rows={q.data ?? []} empty="확인 요청이 없습니다." columns={[
@@ -46,8 +45,6 @@ export function ConfirmationsPage() {
           { key: "act", label: "", render: (r) => (r.status !== "OPEN" ? (r.disputeId ? <code>{r.disputeId}</code> : null) : <>
             <button type="button" className="btn tiny" onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/confirm`))}>확인</button>
             <button type="button" className="btn tiny" disabled={reason.trim() === ""} onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/decline`, { reason }))}>거절</button>
-            {currentApp() === "ops" && <button type="button" className="btn tiny" disabled={reason.trim() === ""}
-              onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/platform-verify`, { reason }))}>플랫폼 확인</button>}
           </>) },
         ]} />
       </Section>

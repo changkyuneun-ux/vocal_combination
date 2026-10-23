@@ -8,16 +8,16 @@ import { usableTemplates } from "../../api/contracts.ts";
 import { useGet } from "../../api/hooks.ts";
 import { paginate, usePaged } from "../../api/paged.ts";
 import type { IssueRow, Paged } from "../../api/types.ts";
-import type { ConsentRow, DocumentRow, PartyRow } from "../../api/works.ts";
+import { orgPartyIds, type ConsentRow, type DocumentRow, type PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
-import { useParties } from "../works/data.tsx";
+import { useMe, useParties } from "../works/data.tsx";
 import { groupContracts } from "../works/model.ts";
 import type { ReadingFrame } from "../../api/imports.ts";
 import { B, Card, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
 
 /**
  * 우리 곡의 표준 계약 전부: 곡을 지정한 목록(곡 탭과 같은 캐시)을 곡마다 읽어 합친다.
- * 곡을 지정해야 플랫폼이 위탁 작가와 맺은 작품 이용허락(조회만)도 보인다 — 곡 지정 없는 /contracts는 우리가 만들었거나 서명할 계약만.
+ * 곡을 지정해 곡 범위의 계약을 다 본다 — 곡 지정 없는 /contracts는 우리가 만들었거나 서명할 계약만.
  */
 function useSongContracts() {
   const actor = useActor();
@@ -85,7 +85,8 @@ export function OpsContracts() {
   const { by, options } = useScopes();
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
-  const own = new Set((mine.data ?? []).map((x) => x.partyId));
+  const parties = useParties();
+  const own = orgPartyIds(mine.data);
   const [scope, setScope] = useState(""), [tpl, setTpl] = useState(""), [status, setStatus] = useState("");
   const all = useSongContracts();
   const rows = all.rows;
@@ -96,7 +97,11 @@ export function OpsContracts() {
   const grouped = paginate(groupContracts(filtered, own), page);
   const title = (c: Contract) => `${(templates.data ?? []).find((t) => t.templateId === c.templateId && t.version === c.templateVersion)?.title ?? c.templateId} v${c.templateVersion}`;
   const other = (c: Contract) => c.signatures.find((s) => !own.has(s.partyId))?.displayName;
-  const platformMade = (c: Contract) => !c.signatures.some((s) => own.has(s.partyId));
+  // 작가(계정 없음)에게 빅히트가 보낸 전자서명 링크(결정 WD2): 시안 "작가(전자서명 링크) 대기 / 빅히트가 보냄 · 01-02".
+  const authorIds = new Set(parties.items.filter((p) => p.partyType === "AUTHOR").map((p) => p.partyId));
+  const eSignLink = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && authorIds.has(s.partyId));
+  const me = useMe();
+  const orgShort = (me.me?.memberships ?? []).find((m) => m.tenantId === me.me?.tenantId)?.name ?? "";
   const st = (c: Contract): [string, "ok" | "warn" | "muted"] => (c.status === "COMPLETED" ? ["반영", "ok"] : c.status === "CANCELLED" ? ["취소", "muted"] : ["서명 대기", "warn"]);
   const pending = rows.filter((c) => c.status === "SENT" || c.status === "SIGNED");
   const tplOpts: [string, string][] = [["", "템플릿 전체"], ...usableTemplates(templates.data ?? []).map((t): [string, string] => [t.templateId, `${t.title} v${t.version}`])];
@@ -129,7 +134,7 @@ export function OpsContracts() {
               <td>{w?.title ?? c.factsScopeId}</td>
               <td>{c.title}{other(c) ? ` · ${other(c)}` : ""}{many ? ` 외 ${g.length - 1}명` : ""}</td><td>{title(c)}</td>
               <td>{many ? `멤버 ${membersDone ? "✓" : "대기"} · 소속사 ${oursDone ? "✓" : "대기"}`
-                : platformMade(c) ? <Sub main={sign(c)} small="플랫폼이 작성(위탁 작가) · 조회만" /> : sign(c)}</td>
+                : eSignLink(c) ? <Sub main={((n) => `작가${n > 1 ? ` ${n}` : ""}(전자서명 링크) 대기`)(c.signatures.filter((s) => authorIds.has(s.partyId) && !s.signedAt).length)} small={`${orgShort}가 보냄 · ${c.createdAt.slice(5, 10)}`} /> : sign(c)}</td>
               <td>{g.length}</td><td><B tone={tone}>{t}</B></td>
               <td>{w && <Link to={`/works/${encodeURIComponent(w.workId)}/contracts`}>곡 워크스페이스 › 문서·계약 →</Link>}</td>
             </tr>
@@ -185,10 +190,10 @@ export function OpsDocuments() {
 const TPL_USE: Record<string, [string, string, string]> = {
   // 시안 Ops-Templates의 줄 순서
   tpl_platform_contract: ["테넌트 온보딩", "권리 테넌트", "플랫폼 이용 확정"], tpl_master_license: ["원곡 권리 › 녹음", "레이블", "녹음 이용 동의"],
-  tpl_work_license: ["원곡 권리 › 작품", "작가(위탁이면 플랫폼이 작성)", "작품 이용 동의"], tpl_performer_mandate: ["원곡 권리 › 수령 위임", "멤버(실연자 앱) → 소속사", "수령 위임"],
+  tpl_work_license: ["원곡 권리 › 작품", "작가(계정 없으면 전자서명 링크)", "작품 이용 동의"], tpl_performer_mandate: ["원곡 권리 › 수령 위임", "멤버(실연자 앱) → 소속사", "수령 위임"],
   tpl_performer_consent: ["확인·동의", "멤버(실연자 앱) 본인", "실연 이용 동의"],
   tpl_claim_confirm_label: ["문서·계약 › 계약서 불러오기", "레이블", "마스터 보유 주장"],
-  tpl_claim_confirm_author: ["문서·계약 › 계약서 불러오기", "작가 전원(위탁이면 운영 원문 대조)", "작가 지분 주장"],
+  tpl_claim_confirm_author: ["문서·계약 › 계약서 불러오기", "작가 전원(전자서명 링크)", "작가 지분 주장"],
 };
 const DOC_KIND: Record<string, string> = { PUBLISHING: "작품 퍼블리싱 계약", MASTER_CONTRACT: "녹음 계약" };
 const IR_ITEM: Record<string, string> = { WORK_TITLE: "곡명", AUTHOR: "작가", AUTHOR_SHARE: "작가 · 작가별 지분", EFFECTIVE_FROM: "효력 시작", RECORDING: "녹음", MASTER_OWNER: "마스터 보유자" };

@@ -76,7 +76,7 @@ export function TrustForm({ side, onDone }: { side: "RIGHTS" | "PARTICIPANT" | "
         <label className="field"><span>신탁 시작일</span><input type="date" aria-label="신탁 시작일" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
       </div>
       <div><button type="submit" className="btn primary" disabled={f.author === "" || (side !== "PARTICIPANT" && f.cmo === "")}>{side === "PARTICIPANT" ? "신탁 연결 요청" : "신탁 연결 제안"}</button></div>
-      <p className="muted small">{side === "PARTICIPANT" ? "작가의 관리 주체(권리 테넌트·플랫폼·본인)가 확인하면 활성이 됩니다." : "신탁단체가 확인하면 활성이 되고, 그 작가의 작품 몫은 신탁단체가 받도록 위임이 자동으로 기록됩니다(정책이 작품 몫을 위임대로 보내야 합니다)."}</p>
+      <p className="muted small">{side === "PARTICIPANT" ? "작가의 관리 주체(권리 테넌트·본인)가 확인하면 활성이 됩니다." : "신탁단체가 확인하면 활성이 되고, 그 작가의 작품 몫은 신탁단체가 받도록 위임이 자동으로 기록됩니다(정책이 작품 몫을 위임대로 보내야 합니다)."}</p>
       <ErrorPanel error={err} />
       {done && <p role="status">연결 <code>{done}</code>을(를) 만들었습니다. 상대가 확인하면 활성이 됩니다.</p>}
     </form>
@@ -158,7 +158,7 @@ export function LinksPage() {
       <Section title="연결">
         <p className="muted">
           {side === "PARTICIPANT" ? "참여 기관은 권리를 만들지 않고, 양쪽이 확인한 연결로만 권리·정산에 닿습니다. 연결된 기록 중 위임받은 일에 필요한 항목만 보입니다."
-            : side === "PLATFORM" ? "플랫폼은 위탁 관리하는 작가(플랫폼 밖 당사자)의 관리 주체로서만 신탁 연결을 제안·확인합니다."
+            : side === "PLATFORM" ? "플랫폼은 연결의 쪽이 아닙니다. 신탁 연결은 작가를 관리하는 권리 테넌트(또는 본인)와 신탁단체가 제안·확인합니다."
             : "신탁단체·유통 파트너와의 연결입니다. 한쪽이 제안하고 다른 쪽이 확인해야 활성이 됩니다. 끊으면 그 뒤 발행·정산부터 반영됩니다."}
         </p>
         <ErrorPanel error={links.error} />

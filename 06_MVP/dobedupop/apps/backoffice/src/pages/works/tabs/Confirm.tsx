@@ -65,7 +65,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
       </section>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
         <section className="p-card">
-          <div className="p-card-head"><h2>작가 지분 확인</h2><span className="p-badge sm warn">운영이 원문 대조</span></div>
+          <div className="p-card-head"><h2>작가 지분 확인</h2><span className="p-badge sm warn">전자서명 링크</span></div>
           <table className="p-table"><tbody>{paginate(work, pg2).rows.map((c, i) => {
             const q = mine.filter((x) => x.recordId === c.claimId).sort((a, b) => b.requestId - a.requestId)[0];
             const done = c.status === "VERIFIED";
@@ -73,11 +73,11 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
               <tr key={c.claimId} style={i === 0 ? { borderTop: 0 } : undefined}>
                 <td style={{ padding: "9px 14px" }}>{ctx.name(c.targetId)} · {ROLE_DETAIL[c.roleDetail ?? ""] ?? c.roleDetail ?? ""} {pctText(c.shareBps)}</td>
                 <td style={{ padding: "9px 14px" }}>{ev.get(c.claimId) ?? "근거 없음"}</td>
-                <td style={{ padding: "9px 14px", whiteSpace: "nowrap" }} className={done ? "p-ok" : "p-warn"}>{done ? "확정" : q ? `대기 · 기한 ${Number(q.dueAt.slice(5, 7))}/${Number(q.dueAt.slice(8, 10))} 뒤 운영 대조` : "대기"}</td>
+                <td style={{ padding: "9px 14px", whiteSpace: "nowrap" }} className={done ? "p-ok" : "p-warn"}>{done ? "확정" : q ? `서명 대기 · 기한 ${Number(q.dueAt.slice(5, 7))}/${Number(q.dueAt.slice(8, 10))}` : "서명 대기"}</td>
               </tr>
             );
           })}</tbody></table>
-          <PagedTableFoot note="플랫폼 위탁 작가라 빅히트는 조회만 한다. 대조가 끝나면 확정으로 바뀐다(P5 E31)."><PageNav page={pg2} total={work.length} onPage={setPg2} /></PagedTableFoot>
+          <PagedTableFoot note="계정 없는 작가는 빅히트가 보낸 전자서명 링크로 서명한다. 서명하면 확정된다. 다시 보내기는 문서·계약에서."><PageNav page={pg2} total={work.length} onPage={setPg2} /></PagedTableFoot>
         </section>
         <section className="p-card">
           <div className="p-card-head"><h2>확인이 IR 생성·출시에 주는 영향</h2></div>

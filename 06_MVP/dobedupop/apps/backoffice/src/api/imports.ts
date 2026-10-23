@@ -9,9 +9,9 @@ export type ImportStep = "VALUES" | "GAPS" | "READY" | "CONFIRM_SENT" | "DONE";
 export type ImportView = {
   importId: string; factsScopeId: string; workId: string; step: ImportStep; contractId: string | null; createdBy: string; createdAt: string;
   document: { documentId: string; version: number; title: string; kind: string; mime: string; sha256: string; uploadedAt: string; effectiveFrom: string | null; effectiveTo: string | null;
-    parties: { partyId: string; name: string; offPlatform: boolean }[] };
+    parties: { partyId: string; name: string; noAccount: boolean; manager: string | null }[] };
   frame: { frameId: string; version: number; title: string; pages: number | null; documentKind: string } | null;
-  values: ImportValue[]; gaps: { usage: string[]; territory: string; validTo: string } | null; ir: IrGapRow[]; missing: string[];
+  values: ImportValue[]; gaps: Gaps | null; ir: IrGapRow[]; missing: string[];
 };
 export type ReadingFrame = {
   frameId: string; version: number; ownerTenantId: string; title: string; documentKind: string; pages: number | null;
@@ -22,10 +22,16 @@ export type ConfirmationPreview = {
   html: string; signers: string[]; labels: Record<string, string>; answers: Record<string, unknown>;
   records: { type: string; edge?: string; rightType?: string }[];
   template: { templateId: string; version: number; title: string; clauses: { clauseId: string; heading: string; text: string }[] };
-  signerParties: { partyId: string; name: string; offPlatform: boolean }[];
+  signerParties: { partyId: string; name: string; noAccount: boolean; manager: string | null }[];
 };
-export const USAGE: [string, string][] = [["COMBINE", "조합"], ["PURCHASE", "구매"], ["LISTEN", "감상"], ["RESALE", "재판매"]];
-export const TERRITORY: [string, string][] = [["WORLD", "전 세계"], ["KR", "대한민국"]];
+/** 빠진 것 입력(시안 Song-Import 2026-10-23 정정): 동의 기록과 같은 어휘 — 이용 행위·지역·매체·공개 대상. */
+export type Gaps = { actions: string[]; territories: string[]; media: string[]; audience: string[]; validTo: string };
+export const ACTIONS: [string, string][] = [["PREVIEW", "미리듣기"], ["COMBINE", "조합 생성"], ["PERSONAL_HOLD", "개인 보관"], ["SHARE_LINK", "링크 공유"], ["DOWNLOAD", "내려받기"]];
+export const TERRITORIES: [string, string][] = [["KR", "대한민국"], ["JP", "일본"], ["US", "미국"]];
+export const MEDIA: [string, string][] = [["FAN_APP", "팬앱"], ["EXTERNAL_SNS", "외부 SNS"]];
+export const AUDIENCE: [string, string][] = [["FAN_COMMUNITY", "팬 커뮤니티"], ["PUBLIC", "전체 공개"]];
+/** 관리 테넌트 이름 → 시안의 짧은 이름("빅히트 뮤직 — 레이블" → "빅히트 뮤직"). */
+export const managerName = (m: string | null) => (m ?? "").replace(/\s*—.*$/, "");
 export const IMPORT_STEPS = ["계약서 불러오기", "후보 값 확인", "IR 정보 대조", "빠진 것 입력", "권리 확인서 서명"];
 /** 단계 → 지금 칸(1부터). 확인서를 보냈으면 5. */
 export function stepNo(step: ImportStep | null): number {

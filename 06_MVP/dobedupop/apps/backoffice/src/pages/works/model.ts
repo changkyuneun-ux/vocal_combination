@@ -170,13 +170,13 @@ export function recentChanges(claims: Claim[], mandates: Mandate[], name: (p: st
       else if (c.edge === "WRITTEN_BY") add(c.recordedAt, org, "work", c.claimId, c.status === "VERIFIED" ? "확정" : "확인 요청");
       else if (c.edge === "OWNED_BY" || c.edge === "PERFORMED_BY") add(c.recordedAt, org, "perf", owner);
     } else if (c.status === "VERIFIED") {
-      add(c.recordedAt, c.edge === "WRITTEN_BY" ? "운영" : `${name(owner)}(본인)`, c.edge === "WRITTEN_BY" ? "workok" : "self", c.claimId);
+      add(c.recordedAt, c.edge === "WRITTEN_BY" ? "작가(전자서명)" : `${name(owner)}(본인)`, c.edge === "WRITTEN_BY" ? "workok" : "self", c.claimId);
     }
   }
   for (const m of mandates) if (m.version === 1) add(m.recordedAt, org, "mandate", m.mandateId, m.status === "VERIFIED" ? "반영" : "확인 요청");
   const text = (g: { kind: string; who: string; n: Set<string>; extra: string }) => ({
     master: `녹음 마스터 ${g.extra}`, work: `작가 지분 ${g.n.size}건 등록 → ${g.extra}`, perf: `멤버 ${g.n.size}명 실연자 등록 → 확인 요청`,
-    workok: `작가 지분 ${g.n.size}건 원문 대조 확인`, self: `${g.who.replace("(본인)", "")} 본인 확인`, mandate: `수령 위임 ${g.n.size}건 ${g.extra}`,
+    workok: `작가 지분 ${g.n.size}건 작가 서명 확인`, self: `${g.who.replace("(본인)", "")} 본인 확인`, mandate: `수령 위임 ${g.n.size}건 ${g.extra}`,
   } as Record<string, string>)[g.kind]!;
   return [...groups.values()].sort((a, b) => (a.at < b.at ? 1 : -1)).map((g) => ({ at: g.at, who: g.who, what: text(g) }));
 }
@@ -185,3 +185,8 @@ export const shortAt = (iso: string) => `${iso.slice(5, 10)} ${iso.slice(11, 16)
 
 /** 스템 id 규칙:stm_<슬롯 id에서 slt_ 뺀 것>_p<파트>_<멤버 party에서 pty_ 뺀 것>. */
 export const stemIdFor = (slotId: string, partNo: number, partyId: string) => `stm_${slotId.replace(/^slt_/, "")}_p${partNo}_${partyId.replace(/^pty_/, "")}`;
+
+/** 작가 서명 대기: 작가 지분 주장 중 아직 확인(작가 전자서명)되지 않은 것 수(시안 "작가 지분 서명 남음 2"). */
+export function authorsPending(ctx: { facts: { claims: Claim[] } }): number {
+  return currentClaims(ctx.facts.claims).filter((c) => c.edge === "WRITTEN_BY" && c.status === "ASSERTED").length;
+}

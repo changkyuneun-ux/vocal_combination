@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
 import { post } from "../../api/registry.ts";
-import { postRecording, type DocumentRow, type PartyRow } from "../../api/works.ts";
+import { orgPartyIds, postRecording, type DocumentRow, type PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { currentClaims, pctText, slugId } from "./model.ts";
 import { useFacts, useOverview, useParties, useWrite } from "./data.tsx";
@@ -30,7 +30,7 @@ export function NewWork() {
   const facts = useFacts(work?.scopeId);
   const step = Number(params.get("step") ?? (workId ? "2" : "1"));
   const go = (n: number, wid = workId) => setParams({ ...(wid && { work: wid }), step: String(n) });
-  const own = new Set((mine.data ?? []).map((p) => p.partyId));
+  const own = orgPartyIds(mine.data);
 
   const [s1, setS1] = useState({ title: "", version: "Original", owner: "", doc: "" });
   const [authors, setAuthors] = useState<Author[]>([{ partyId: "", roleDetail: "LYRICS_COMPOSITION", share: "100", doc: "" }]);
@@ -181,7 +181,7 @@ export function NewWork() {
         <aside className="p-box" style={{ flex: "1 1 300px", maxWidth: 360 }}>
           <strong>저장하면</strong>
           <span>· 레이블 마스터 100% → 바로 확정(우리 당사자)</span>
-          <span>· 작가 지분 {authors.length}건 → 확인 요청(플랫폼 위탁 작가, 운영이 원문 대조)</span>
+          <span>· 작가 지분 {authors.length}건 → 확인 요청(작가 전자서명 링크)</span>
           <span>· 단계마다 저장된다. 나가도 "입력 중"으로 남고 이어서 한다</span>
           <span style={{ color: "var(--p-muted)", fontSize: 13, paddingTop: 6, borderTop: "1px solid var(--p-line)" }}>당사자가 명부에 없으면: 우리 당사자는 조직 › 당사자에서, 외부 작가·멤버는 플랫폼에 등록을 요청한다.</span>
         </aside>

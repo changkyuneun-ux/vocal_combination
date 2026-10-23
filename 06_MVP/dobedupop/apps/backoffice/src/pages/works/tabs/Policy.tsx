@@ -7,7 +7,7 @@ import { compilePolicy } from "../../../api/policy.ts";
 import { defaultForm, type PolicyForm } from "../../../api/policyForm.ts";
 import type { PackDetailData, PackRow, PolicyRow, PolicyVersionDetail } from "../../../api/types.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
-import { currentClaims, previewLines, slugId, sungSeconds } from "../model.ts";
+import { authorsPending, currentClaims, previewLines, slugId, sungSeconds } from "../model.ts";
 import { useReadiness, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
@@ -111,7 +111,7 @@ export function PolicyTab({ ctx }: { ctx: WsCtx }) {
             <ErrorPanel error={v.error} />
             <div className="p-row" style={{ padding: "10px 16px", fontSize: 14, gap: 16 }}>
               {(v.data?.issues ?? []).filter((i) => i.status === "OPEN" && i.severity === "BLOCK").slice(0, 2).map((i, k) => <span key={k} className="p-bad">차단: {i.message}</span>)}
-              {item("confirmations")?.ok !== true && <span>경고: {item("confirmations")?.detail}</span>}
+              {item("confirmations")?.ok !== true && <span>경고: {authorsPending(ctx) > 0 ? `작가 지분 서명 남음 ${authorsPending(ctx)}(기한 전)` : item("confirmations")?.detail}</span>}
               <span>스템 오디오 {item("audio")?.detail}</span><span>멤버 이용 동의 {item("consents")?.detail.replace("보이스 ", "").replace(" 동의", "")}</span>
               <Link to={`/validation?scope=${encodeURIComponent(ctx.scopeId)}`} style={{ marginLeft: "auto" }}>점검 결과 전체</Link>
             </div>

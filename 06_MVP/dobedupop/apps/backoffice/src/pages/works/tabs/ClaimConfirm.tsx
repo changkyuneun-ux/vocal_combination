@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { api } from "../../../api/client.ts";
 import type { Contract } from "../../../api/contracts.ts";
 import { useGet } from "../../../api/hooks.ts";
-import { ROLE_DETAIL, type ConfirmationPreview } from "../../../api/imports.ts";
+import { ROLE_DETAIL, managerName, type ConfirmationPreview } from "../../../api/imports.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { B, Card, Kv, Mono, TableCard } from "../../ops/common.tsx";
 import { currentClaims } from "../model.ts";
@@ -15,7 +15,7 @@ type CC = { kind: "LABEL" | "AUTHOR"; templateId: string; contract: (Contract & 
 type Share = { partyId: string; shareBps: number; roleDetail: string | null };
 
 /** 조항 본문: {{변수}}를 값으로, 작가 지분 표는 표로, 문서 id·해시는 Mono로(시안 Song-ClaimConfirm 미리보기). */
-function ClauseBody({ text, labels, shares, names, offPlatform }: { text: string; labels: Record<string, string>; shares: Share[]; names: (p: string) => string; offPlatform: (p: string) => boolean }) {
+function ClauseBody({ text, labels, shares, names, manager }: { text: string; labels: Record<string, string>; shares: Share[]; names: (p: string) => string; manager: (p: string) => string | null }) {
   const parts = text.split(/(\{\{\w+\}\})/);
   const mono = (s: string): ReactNode[] => s.split(/(doc_[A-Za-z0-9_.-]+|[0-9a-f]{4}…[0-9a-f]{4})/).map((x, i) => (i % 2 === 1 ? <Mono key={i}>{x}</Mono> : x));
   return (
@@ -26,7 +26,7 @@ function ClauseBody({ text, labels, shares, names, offPlatform }: { text: string
         if (m[1] === "authors") {
           return (
             <table key={i} className="p-share-tbl"><thead><tr><th>작가</th><th>역할</th><th>지분</th><th>수령</th></tr></thead>
-              <tbody>{shares.map((s) => <tr key={s.partyId}><td>{names(s.partyId)}</td><td>{ROLE_DETAIL[s.roleDetail ?? ""] ?? s.roleDetail ?? "—"}</td><td className="p-mono">{(s.shareBps / 100).toFixed(2)}%</td><td>{offPlatform(s.partyId) ? "플랫폼 위탁" : "본인"}</td></tr>)}</tbody>
+              <tbody>{shares.map((s) => <tr key={s.partyId}><td>{names(s.partyId)}</td><td>{ROLE_DETAIL[s.roleDetail ?? ""] ?? s.roleDetail ?? "—"}</td><td className="p-mono">{(s.shareBps / 100).toFixed(2)}%</td><td>{manager(s.partyId) ? `작가 본인(${managerName(manager(s.partyId))} 관리)` : "본인"}</td></tr>)}</tbody>
             </table>
           );
         }
@@ -42,7 +42,7 @@ const sigState = (c: CC["contract"]): [string, "ok" | "warn" | "muted"] =>
 
 /**
  * 작품 워크스페이스 › 문서·계약 › 권리 확인서(시안 Song-ClaimConfirm): 확인서 미리보기, 서명, 서명하면 만들어지는 기록, 이 곡의 확인서 2부.
- * 위탁 작가는 서명 대신 운영이 원문을 대조한다(결정 CT4). 서명이 끝나면 기록 반영으로 주장이 서명본을 근거로 VERIFIED가 된다(CT5).
+ * 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 서명한다(결정 WD2). 서명이 끝나면 기록 반영으로 주장이 서명본을 근거로 VERIFIED가 된다(CT5).
  */
 export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
   const imp = useImport(ctx.scopeId);
@@ -58,7 +58,7 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
   const mine = (list.data ?? []).find((x) => x.kind === kind)?.contract ?? null;
   const contract = mine !== null && mine.contractId === v.contractId ? mine : null;
   const p = pv.data;
-  const off = new Map((p?.signerParties ?? []).map((s) => [s.partyId, s.offPlatform]));
+  const mgr = new Map((p?.signerParties ?? []).map((s) => [s.partyId, s.noAccount ? s.manager : null]));
   const names = (id: string) => p?.signerParties.find((s) => s.partyId === id)?.name ?? ctx.name(id);
   const shares = (p?.answers.authors as Share[] | undefined) ?? [];
   const claims = p?.records.filter((r) => r.type === "CLAIM") ?? [];
@@ -72,10 +72,10 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
   const author = (list.data ?? []).find((x) => x.kind === "AUTHOR")?.contract ?? null;
   const holder = ctx.facts.recordings[0]?.masterOwnerPartyId;
   const authorsN = kind === "AUTHOR" && shares.length > 0 ? shares.length : currentClaims(ctx.facts.claims).filter((c) => c.edge === "WRITTEN_BY").length;
-  const managed = (kind === "AUTHOR" ? shares.map((s) => s.partyId) : []).every((x) => off.get(x));
+  const linked = kind === "AUTHOR" && shares.length > 0 && shares.every((s) => mgr.get(s.partyId));
   const ccRows: [string, string, string, CC["contract"], "LABEL" | "AUTHOR"][] = [
     ["레이블용", `마스터 보유 · ${holder ? ctx.name(holder) : "—"}`, holder ? ctx.name(holder) : "—", label, "LABEL"],
-    ["작가용", `작가 지분 ${authorsN} · 작품 이용 범위`, `작가 ${authorsN}${managed ? "(운영 원문 대조)" : ""}`, author, "AUTHOR"],
+    ["작가용", `작가 지분 ${authorsN} · 작품 이용 범위`, `작가 ${authorsN}${linked ? "(전자서명 링크)" : ""}`, author, "AUTHOR"],
   ];
   return (
     <>
@@ -88,7 +88,7 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
               {contract === null ? <B tone="blue">미리보기</B> : <B tone={sigState(contract)[1]}>{sigState(contract)[0]}</B>}</div>
             {(p?.template.clauses ?? []).map((c, i) => (
               <div key={c.clauseId} className="p-clause"><strong>제{i + 1}조 {c.heading}</strong>
-                <ClauseBody text={c.text} labels={p!.labels} shares={shares} names={names} offPlatform={(id) => off.get(id) ?? false} /></div>
+                <ClauseBody text={c.text} labels={p!.labels} shares={shares} names={names} manager={(id) => mgr.get(id) ?? null} /></div>
             ))}
           </article>
         </div>
@@ -98,8 +98,8 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
               {(p?.signerParties ?? []).map((s) => {
                 const sig = contract?.signatures.find((x) => x.partyId === s.partyId);
                 return (
-                  <tr key={s.partyId}><td>{s.name}</td><td>{s.offPlatform ? "플랫폼 위탁 → 운영 원문 대조(CT4)" : "전자서명"}</td>
-                    <td>{sig?.signedAt ? <B tone="ok">{sig.method === "PLATFORM_VERIFY" ? "대조됨" : "서명됨"}</B> : <B tone="warn">대기</B>}</td></tr>
+                  <tr key={s.partyId}><td>{s.name}</td><td>{s.noAccount ? "전자서명 링크(계정 없음) · 이메일" : "전자서명"}</td>
+                    <td>{sig?.signedAt ? <B tone="ok">서명됨</B> : <B tone="warn">대기</B>}</td></tr>
                 );
               })}
             </TableCard>
@@ -107,7 +107,7 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
           <Card title="서명하면 만들어지는 기록">
             <Kv pairs={[
               ["권리 주장", <>{kind === "AUTHOR" ? `작가 지분 ${claims.length}건(WRITTEN_BY)` : `마스터 보유 ${claims.length}건(CONTROLLED_BY)`} <B tone="ok">VERIFIED</B></>],
-              ...(consents.length > 0 ? [["이용 동의", <>작품 이용 동의 {consents.length}건 <B tone="ok">VERIFIED</B></>] as [string, ReactNode]] : []),
+              ...(consents.length > 0 ? [["이용 동의", <>작품 이용 동의 {consents.length}건(작가마다 1건) <B tone="ok">VERIFIED</B></>] as [string, ReactNode]] : []),
               ["원천 문서", "확인서 서명본 + 원본 계약 근거 연결"],
               ["확인 요청", waiting > 0 ? `상대 확인 14일 대기 없음 — 경고 ${waiting}건이 닫힌다` : "상대 확인 14일 대기 없음"],
             ]} />
@@ -129,7 +129,7 @@ export function ClaimConfirmTab({ ctx }: { ctx: WsCtx }) {
         <Link className="p-btn wide" to={`${base}/import?import=${v.importId}`}>← 입력으로</Link>
         {contract === null ? <button type="button" className="p-btn wide primary" disabled={w.busy || !p || !ctx.can("contract.draft")} onClick={() => void send()}>서명 요청 보내기</button>
           : contract.status === "COMPLETED" ? null
-            : <button type="button" className="p-btn wide primary" disabled={w.busy || contract.status !== "SIGNED"} title={contract.status === "SIGNED" ? undefined : "서명(위탁 작가는 운영 원문 대조)이 끝나야 반영한다"} onClick={() => void complete()}>기록 반영</button>}
+            : <button type="button" className="p-btn wide primary" disabled={w.busy || contract.status !== "SIGNED"} title={contract.status === "SIGNED" ? undefined : "서명자 전원이 전자서명해야 반영한다"} onClick={() => void complete()}>기록 반영</button>}
       </div>
       {w.notice && <p className="p-sub" role="status">{w.notice}</p>}
     </>

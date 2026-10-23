@@ -86,6 +86,9 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
   assert.ok(mine.some((p) => p.partyId === "pty_david_stewart"), JSON.stringify(mine));
   const ds = await driver.call("portal", "usr_bh_rights", "GET", "/parties/pty_david_stewart/statements?from=2026-01-01T00:00:00.000Z&to=2026-05-02T00:00:00.000Z");
   assert.equal(ds.status, 200);
+  // 다른 테넌트(참여 기관 신탁단체 관리자)는 작가 명세를 볼 수 없다.
+  const other = await driver.call("partner", "usr_cmo_admin", "GET", "/parties/pty_david_stewart/statements?from=2026-01-01T00:00:00.000Z&to=2026-05-02T00:00:00.000Z");
+  assert.ok([403, 404].includes(other.status), String(other.status));
   // 작가 지분은 작가가 전자서명한 권리 확인서로 확정됐다(플랫폼 대조 없음, WD2·WD3).
   assert.deepEqual((await db.pool.query("SELECT DISTINCT status FROM confirmation_request WHERE record_id IN ('c_work_ds','c_work_ja')")).rows.map((x) => x.status), ["SUPERSEDED"]);
   assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM confirmation_request WHERE status = 'PLATFORM_VERIFIED'")).rows[0].n, 0);

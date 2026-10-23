@@ -9,7 +9,7 @@ import { COMBINATIONS, FAN_ONLY, MEMBERS, NAMES, POLICY_TEXT, SLOTS, SOLO_ASSIGN
  * Driver가 채널 호출과 시계·작업을 맡는다(시험은 inject, 데모 시드는 게이트웨이 HTTP). 사용자 계정 발급과 플랫폼 밖 서명 통지만
  * 아직 API가 없거나(사용자 관리 — M3) 외부 공급자 몫이라 Driver가 대신한다.
  */
-export type Channel = "ops" | "portal" | "performer" | "fan";
+export type Channel = "ops" | "portal" | "performer" | "fan" | "partner";
 export type Reply = { status: number; body: any };
 export type Driver = {
   call(channel: Channel, actor: string | null, method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<Reply>;
@@ -23,7 +23,11 @@ export type Driver = {
   providerSigned(contractId: string, partyId: string): Promise<void>;
 };
 
-export type PersonaOpts = { purchases?: Partial<Record<string, number>>; log?: (s: string) => void };
+export type PersonaOpts = {
+  purchases?: Partial<Record<string, number>>; log?: (s: string) => void;
+  /** 작가용 권리 확인서를 표준 계약 단계에서 보내지 않는다 — 계약서 불러오기로 보낼 때(E2E·시험). 작가 지분 확인 요청이 열린 채로 남는다. */
+  authorsConfirmLater?: boolean;
+};
 
 export const TENANT = "tnt_bighit";
 export const P = {
@@ -157,7 +161,7 @@ export const STEPS: Step[] = [
   {
     id: "contracts", title: "표준 계약과 전자서명: 플랫폼 계약·녹음/작품 이용허락·권리 확인서·실연 수령 위임", persona: "빅히트 권리 편집·멤버·작가(전자서명 링크)", app: "portal",
     detail: "빅히트가 플랫폼 계약·녹음 이용허락에 서명하고, 멤버별 수익 수령 위임계약을 멤버(실연자 앱)·소속사가 서명한다. 해외 작가에게는 빅히트가 작품 이용허락과 작가용 권리 확인서를 보내고 작가가 전자서명 링크로 서명한다. 반영하면 서명본이 원천 문서가 되고 작가 지분·이용 동의가 확정된다(작가 확인 요청이 닫힌다).",
-    async run(d) {
+    async run(d, _s, o) {
       const { portal, ops, performer } = helpers(d);
       const contract = (contractId: string, templateId: string, answers: Record<string, unknown>) => portal(P.rights, "POST", "/contracts", { contractId, templateId, factsScopeId: SCOPE, answers });
       const complete = (id: string) => portal(P.rights, "POST", `/contracts/${id}/complete`, {});
@@ -174,21 +178,23 @@ export const STEPS: Step[] = [
         await d.providerSigned(id, a);
         await complete(id);
       }
-      // 작가용 권리 확인서(결정 CT5): 작가 지분 표 전체에 작가 전원이 서명하면 작가 지분 주장이 서명본을 근거로 확정된다.
-      await contract("ctr_claim_confirm_authors", "tpl_claim_confirm_author", {
-        subject: "작품 「Dynamite」, 녹음 Vocal Recombination(빅히트 뮤직 — 레이블)",
-        authors: AUTHORS.map((partyId) => ({ partyId, shareBps: 5000, roleDetail: "LYRICS_COMPOSITION" })),
-        usage: "이용 행위 미리듣기·조합 생성·개인 보관·링크 공유, 지역 대한민국, 매체 팬앱, 공개 대상 팬 커뮤니티", period: "2026-01-01 ~ 2027-01-01",
-        source: "Dynamite 작품 퍼블리싱 계약서 v1(doc_dynamite_publishing)", ...USAGE, ...PERIOD,
-      });
-      for (const a of AUTHORS) await d.providerSigned("ctr_claim_confirm_authors", a);
-      await complete("ctr_claim_confirm_authors");
       for (const m of MEMBERS) {
         const id = `ctr_mandate_${m.key}`;
         await contract(id, "tpl_performer_mandate", { performer: `pty_${m.key}`, agency: "pty_bighit_agency", shareBps: 10000, ...PERIOD });
         await performer(P.member(m.key), "POST", `/contracts/${id}/sign`, {});
         await portal(P.rights, "POST", `/contracts/${id}/sign`, {});
         await complete(id);
+      }
+      if (!o.authorsConfirmLater) {
+        // 작가용 권리 확인서(결정 CT5): 작가 지분 표 전체에 작가 전원이 서명하면 작가 지분 주장이 서명본을 근거로 확정된다.
+        await contract("ctr_claim_confirm_authors", "tpl_claim_confirm_author", {
+          subject: "작품 「Dynamite」, 녹음 Vocal Recombination(빅히트 뮤직 — 레이블)",
+          authors: AUTHORS.map((partyId) => ({ partyId, shareBps: 5000, roleDetail: "LYRICS_COMPOSITION" })),
+          usage: "이용 행위 미리듣기·조합 생성·개인 보관·링크 공유, 지역 대한민국, 매체 팬앱, 공개 대상 팬 커뮤니티", period: "2026-01-01 ~ 2027-01-01",
+          source: "Dynamite 작품 퍼블리싱 계약서 v1(doc_dynamite_publishing)", ...USAGE, ...PERIOD,
+        });
+        for (const a of AUTHORS) await d.providerSigned("ctr_claim_confirm_authors", a);
+        await complete("ctr_claim_confirm_authors");
       }
     },
   },
