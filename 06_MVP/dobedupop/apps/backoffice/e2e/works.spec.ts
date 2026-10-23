@@ -78,7 +78,7 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
 
   // 스템: 두 보컬 파트의 원곡 스템(권리 주장 함께)
   await page.getByRole("navigation", { name: "워크스페이스 탭" }).getByRole("link", { name: "스템", exact: true }).click();
-  for (const who of ["파트 2 정국", "파트 3 지민"]) {
+  for (const who of ["파트 2 (정국) 정국", "파트 3 (지민) 지민"]) {
     await page.getByRole("button", { name: `${who} 없음` }).click();
     await page.getByRole("button", { name: "스템 저장" }).click();
     await expect(page.getByRole("button", { name: `${who} 원곡` })).toBeVisible();
@@ -87,25 +87,24 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
 
   // 문서·계약: 수령 위임 2건(멤버마다 한 건)
   await page.getByRole("navigation", { name: "워크스페이스 탭" }).getByRole("link", { name: "문서·계약", exact: true }).click();
-  await page.getByRole("button", { name: "+ 계약 만들기" }).click();
   await page.getByLabel("계약 종류").selectOption("tpl_performer_mandate");
-  await page.getByRole("checkbox", { name: "정국", exact: true }).check();
-  await page.getByRole("checkbox", { name: "지민", exact: true }).check();
+  await page.getByLabel("위임하는 실연자").selectOption("pending");
   await page.getByLabel("수령하는 소속사").selectOption("pty_bighit_agency");
   await page.getByLabel("위임 비율").fill("100");
   await page.getByLabel("시작일").fill("2026-01-01");
   await page.getByLabel("종료일").fill("2026-12-31");
-  await page.getByRole("button", { name: "미리보기" }).click();
+  await expect(page.getByLabel("미리보기")).toBeVisible();
   await page.getByRole("button", { name: "서명 요청 2건 보내기" }).click();
-  await expect(page.getByRole("table", { name: "이 곡의 표준 계약" }).getByRole("row")).toHaveCount(3);
+  // 같은 템플릿의 서명 대기 2건은 한 줄로 묶인다(시안 "… 외 N명").
+  await expect(page.getByRole("table", { name: "이 곡의 표준 계약" })).toContainText("외 1명");
 
   // 분배 규칙·팩: 팩 만들기 → 표준 템플릿 → 미리보기 → 컴파일(정책 편집자)
   await page.getByRole("navigation", { name: "워크스페이스 탭" }).getByRole("link", { name: "분배 규칙·팩", exact: true }).click();
   await page.getByRole("button", { name: "팩 만들기" }).click();
   await expect(page.getByText("청구권자를 원곡 권리대로 선언했습니다")).toBeVisible();
   await actAs(page, "usr_bh_policy", page.url().replace(/^https?:\/\/[^/]+/, ""));
-  await page.getByLabel("표준 템플릿").selectOption("ptpl_indie_standard");
   await page.getByRole("button", { name: "표준 템플릿으로" }).click();
+  await page.getByRole("button", { name: "텍스트로 보기" }).click();
   await expect(page.getByLabel("분배 규칙 MDRL")).not.toHaveValue("");
   await expect(page.getByLabel("미리보기 근사")).toContainText("정국 기여");
   await page.getByRole("button", { name: "컴파일(IR 생성) → 승인으로" }).click();
@@ -123,7 +122,7 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
   const release = page.url().replace(/^https?:\/\/[^/]+/, "").replace(/rights$/, "release");
   await actAs(page, "usr_bh_approver", release);
   await page.getByRole("button", { name: "승인", exact: true }).click();
-  await expect(page.getByRole("button", { name: "승인됨" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "활성화", exact: true })).toBeVisible();
   await actAs(page, "usr_bh_activator", release);
   await expect(page.getByRole("button", { name: "활성화", exact: true })).toBeDisabled();
   await expect(page.getByRole("note")).toContainText("활성화할 수 없다");

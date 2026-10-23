@@ -114,9 +114,9 @@ export function previewLines(form: PolicyForm, price: number, sung: Record<strin
     { label: `플랫폼 ${p(form.tier1.platformBps)}`, won: price * b(form.tier1.platformBps), level: 0 },
     { label: `운영 ${p(form.tier1.opsBps)}`, won: price * b(form.tier1.opsBps), level: 0 },
     { label: `권리자 ${p(form.tier1.rightsBps)}`, won: rights, level: 0 },
-    { label: `녹음 ${p(form.master.bps)} → 마스터 보유자`, won: master, level: 1 },
+    { label: `녹음 ${p(form.master.bps)} → 레이블`, won: master, level: 1 },
     { label: `작품 ${p(form.work.bps)} → 작가 ${authors}명 각`, won: authors > 0 ? work / authors : 0, level: 1 },
-    { label: `실연 ${p(form.performer.bps)}${form.performer.viaMandate ? " → 수령 위임대로" : ""}`, won: perf, level: 1 },
+    { label: `실연 ${p(form.performer.bps)} → ${form.performer.viaMandate ? "소속사(위임)" : "멤버"}`, won: perf, level: 1 },
   ];
   for (const [who, s] of Object.entries(sung)) {
     lines.push({ label: `· ${names[who] ?? who} 기여 ${s.toFixed(1)}초`, won: (n > 0 ? (perf * fixed) / n : 0) + (total > 0 ? (perf * usage * s) / total : 0), level: 1 });

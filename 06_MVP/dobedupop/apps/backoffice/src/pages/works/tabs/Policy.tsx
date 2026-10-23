@@ -1,29 +1,28 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { api, type Paged } from "../../../api/client.ts";
 import { useGet } from "../../../api/hooks.ts";
 import { createPack, setClaimants, type Declared } from "../../../api/issuance.ts";
 import { compilePolicy } from "../../../api/policy.ts";
 import { defaultForm, type PolicyForm } from "../../../api/policyForm.ts";
-import type { PackDetailData, PackRow, PolicyRow } from "../../../api/types.ts";
+import type { PackDetailData, PackRow, PolicyRow, PolicyVersionDetail } from "../../../api/types.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
-import { Section } from "../../../components/Section.tsx";
-import { PolicyFormEditor } from "../../policy/PolicyFormEditor.tsx";
 import { currentClaims, previewLines, slugId, sungSeconds } from "../model.ts";
-import { useWrite } from "../data.tsx";
+import { useReadiness, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
 export const RELEASE_STEPS = ["① 정합성 점검", "② 팩(상품)", "③ 분배 규칙", "④ 승인", "⑤ 활성화", "⑥ 출시"] as const;
+/** 출시 단계 칸(시안: 완료 = 초록, 지금 = 2px 주색, 남음 = 점선). */
 export function ReleaseSteps({ now }: { now: number }) {
-  return <ol className="steps" aria-label="출시 단계">{RELEASE_STEPS.map((s, i) => <li key={s} className={i < now ? "done" : i === now ? "now" : ""} aria-current={i === now ? "step" : undefined}>{s}</li>)}</ol>;
+  return <ol className="p-steps" aria-label="출시 단계">{RELEASE_STEPS.map((s, i) => <li key={s} className={i < now ? "done" : i === now ? "now" : ""} aria-current={i === now ? "step" : undefined}>{s}</li>)}</ol>;
 }
 
 type Validation = { counts: { block: number; warn: number }; issues: { status: string; severity: string; rule: string; message: string }[] };
-type PolicyTemplate = { templateId: string; version: number; title: string; description: string; status: string; form: Omit<PolicyForm, "packId"> };
+type PolicyTemplate = { templateId: string; version: number; title: string; status: string; form: Omit<PolicyForm, "packId"> };
 
 /** 이 곡의 팩과 분배 규칙(팩이 여럿이면 활성 → 먼저 만든 순). */
 export function usePackAndPolicy(scopeId: string) {
-  const packs = useGet<Paged<PackRow>>(["work-packs"], "/packs?limit=200");
+  const packs = useGet<Paged<PackRow>>(["work-packs"], "/packs?limit=200", { enabled: scopeId !== "" });
   const pack = (packs.data?.items ?? []).filter((p) => p.factsScopeId === scopeId).sort((a, b) => (a.status === "ACTIVE" ? -1 : b.status === "ACTIVE" ? 1 : a.createdAt < b.createdAt ? -1 : 1))[0];
   const detail = useGet<PackDetailData>(["work-packs", pack?.packId], `/packs/${encodeURIComponent(pack?.packId ?? "")}`, { enabled: !!pack });
   const policies = useGet<Paged<PolicyRow>>(["work-policies", pack?.packId], `/policies?pack=${encodeURIComponent(pack?.packId ?? "")}`, { enabled: !!pack });
@@ -43,119 +42,139 @@ export function proposeClaimants(ctx: WsCtx): Declared[] {
     ...uniq(cur.filter((c) => c.edge === "WRITTEN_BY").map((c) => c.targetId)).map((party) => ({ role: "WORK_AUTHOR", party })),
   ];
 }
-const ROLE_KO: Record<string, string> = { MASTER_OWNER: "마스터", AGENCY: "수령 위임", PERFORMER_FEATURED: "주 실연", WORK_AUTHOR: "작품" };
+const claimantText = (xs: { role: string }[]) => {
+  const n = (r: string) => xs.filter((x) => x.role === r).length;
+  return [n("MASTER_OWNER") && "레이블(마스터)", n("AGENCY") && "소속사(수령 위임)", n("PERFORMER_FEATURED") && `멤버 ${n("PERFORMER_FEATURED")}(주 실연)`, n("WORK_AUTHOR") && `작가 ${n("WORK_AUTHOR")}(작품)`].filter(Boolean).join(" · ");
+};
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return <div style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr)", gap: 10, alignItems: "center", padding: "8px 0", borderTop: "1px solid var(--p-head-bg)", fontSize: 14 }}><span className="p-todo">{label}</span><div>{children}</div></div>;
+}
+function Pct({ label, bps, onChange }: { label: string; bps: number | undefined; onChange: (bps: number) => void }) {
+  return <input aria-label={label} className="p-input sm" style={{ width: 64, textAlign: "right" }} value={bps === undefined ? "" : bps / 100} onChange={(e) => onChange(Math.round(Number(e.target.value) * 100))} />;
+}
+const sumOk = (n: number) => <span className={n === 10000 ? "p-ok" : "p-bad"}>합계 {n / 100}%</span>;
 
 /**
- * 분배 규칙·팩 탭(시안 Song-Policy, P6): ① 정합성 점검 요약 ② 팩(청구권자는 원곡 권리에서 자동 제안) ③ 분배 규칙 폼(기존 폼, 엔진 미리보기 포함),
- * 오른쪽에 예시 조합 근사 미리보기와 컴파일(IR 생성) 확인. 컴파일하면 이 곡의 권리·스템이 facts로 고정되고 권리·스템 탭은 조회만 된다.
+ * 분배 규칙·팩 탭(시안 Song-Policy.dc.html): 출시 단계 · ① 정합성 점검 · ② 팩(상품) · ③ 분배 규칙 — 팬앱 매출(폼), 오른쪽 미리보기(2px 주색)와 컴파일.
  */
 export function PolicyTab({ ctx }: { ctx: WsCtx }) {
   const nav = useNavigate();
   const v = useGet<Validation>(["readiness", "validation", ctx.scopeId], `/scopes/${encodeURIComponent(ctx.scopeId)}/validation`);
+  const ready = useReadiness(ctx.scopeId);
   const templates = useGet<PolicyTemplate[]>(["policy-templates"], "/policy-templates?status=APPROVED");
   const { pack, detail, policy, error } = usePackAndPolicy(ctx.scopeId);
+  const latest = useGet<PolicyVersionDetail>(["policy-version", policy?.policyId, policy?.latestVersion], `/policies/${encodeURIComponent(policy?.policyId ?? "")}/versions/${policy?.latestVersion ?? 0}`, { enabled: !!policy });
   const w = useWrite();
   const slug = ctx.scopeId.replace(/^fsc_/, "");
-  const [packForm, setPackForm] = useState({ code: slug.toUpperCase().replace(/_/g, "-").slice(0, 24) + "-FAN", title: `${ctx.work.title} 팬앱 전용 보컬 조합` });
-  const [text, setText] = useState("");
-  const [showText, setShowText] = useState(false);
-  const [tpl, setTpl] = useState("");
+  const [packForm, setPackForm] = useState({ code: `${slug.toUpperCase().replace(/_/g, "-").slice(0, 24)}-FAN`, title: `${ctx.work.title} 팬앱 전용 보컬 조합` });
+  const [form, setForm] = useState<PolicyForm>(() => ({ ...defaultForm(""), events: ["PRIMARY", "TRAFFIC"] }));
+  const [text, setText] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [example, setExample] = useState(0);
+  // 컴파일한 규칙이 있으면 그 폼으로 연다.
+  useEffect(() => {
+    if (!latest.data?.sourceText) return;
+    void api<{ form: PolicyForm | null }>("POST", "/policies/form/parse", { sourceText: latest.data.sourceText }).then((r) => { if (r.form) setForm(r.form); }, () => undefined);
+  }, [latest.data?.sourceText]);
+  const set = (patch: (f: PolicyForm) => void) => { setText(null); setForm((f) => { const n = structuredClone(f); patch(n); return n; }); };
   const proposed = proposeClaimants(ctx);
-  const declared = detail.data?.claimants ?? [];
-  const policyId = policy?.policyId ?? `pol_${slug}`;
+  const declared = (detail.data?.claimants ?? []).map((c) => ({ role: c.claimantRole }));
   const blocks = v.data?.counts.block ?? 0, warns = v.data?.counts.warn ?? 0;
-  // 예시 조합: 원곡 배치, 그리고 보컬 파트가 둘 이상인 첫 슬롯의 파트 2를 다른 멤버가(근사).
+  const item = (k: string) => ready.data?.items.find((i) => i.key === k);
+  const authors = currentClaims(ctx.facts.claims).filter((c) => c.edge === "WRITTEN_BY").length;
+  const masterName = currentClaims(ctx.facts.claims).filter((c) => c.edge === "CONTROLLED_BY").map((c) => ctx.name(c.targetId)).join(", ");
   const vocal = ctx.rows.filter((r) => r.kind === "VOCAL");
   const swapRow = vocal.find((r) => r.partNo === 2) ?? vocal[0];
-  const swapTo = ctx.members.find((m) => m.partyId !== swapRow?.original && !vocal.some((r) => r.slotId === swapRow?.slotId && r.original === m.partyId))?.partyId;
-  const examples = [{ label: "원곡 배치", singer: (r: typeof vocal[number]) => r.original },
-    ...(swapRow && swapTo ? [{ label: `${swapRow.section} ${ctx.name(swapRow.original!)} 파트를 ${ctx.name(swapTo)}이`, singer: (r: typeof vocal[number]) => (r === swapRow ? swapTo : r.original) }] : [])];
-  const lines = useMemo(() => {
-    const sung = sungSeconds(ctx.rows, examples[example]?.singer);
-    const authors = currentClaims(ctx.facts.claims).filter((c) => c.edge === "WRITTEN_BY").length;
-    return previewLines({ ...defaultForm(pack?.packId ?? ""), packId: pack?.packId ?? "" }, 3300, sung, authors, Object.fromEntries(ctx.members.map((m) => [m.partyId, m.name])));
-  }, [ctx, example, pack?.packId]);
+  const swapTo = ctx.members.find((m) => !vocal.some((r) => r.slotId === swapRow?.slotId && r.original === m.partyId))?.partyId;
+  const examples = [{ label: "원곡 배치", singer: (r: (typeof vocal)[number]) => r.original },
+    ...(swapRow && swapTo ? [{ label: `${swapRow.section} ${ctx.name(swapRow.original!)} 파트를 ${ctx.name(swapTo)}이`, singer: (r: (typeof vocal)[number]) => (r === swapRow ? swapTo : r.original) }] : [])];
+  const lines = useMemo(() => previewLines({ ...form, packId: pack?.packId ?? "" }, 3300, sungSeconds(ctx.rows, examples[example]?.singer), authors,
+    Object.fromEntries(ctx.members.map((m) => [m.partyId, m.name]))), [form, example, ctx]); // eslint-disable-line
+  const p = form.performer;
+  const t1 = form.tier1.platformBps + form.tier1.opsBps + form.tier1.rightsBps;
+  const t2 = form.master.bps + p.bps + form.work.bps;
   const step = blocks > 0 ? 0 : !pack ? 1 : !ctx.sealed ? 2 : 3;
+  const std = (templates.data ?? []).find((x) => (x.form.performer?.bps ?? 0) > 0) ?? templates.data?.[0];
+  const sourceFor = async () => text ?? (await api<{ sourceText: string }>("POST", "/policies/form/text", { form: { ...form, packId: pack!.packId } })).sourceText;
+  const won = (n: number) => `${n.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}원`;
   return (
     <>
       <ReleaseSteps now={step} />
-      <div className="ws-grid">
-        <div>
-          <Section title="① 정합성 점검">
+      <div className="p-cols">
+        <div className="main" style={{ gap: 14 }}>
+          <section className="p-card">
+            <div className="p-card-head"><h2>① 정합성 점검</h2><span className={`p-badge sm ${blocks > 0 ? "bad" : warns > 0 ? "warn" : "ok"}`}>차단 {blocks} · 경고 {warns}</span></div>
             <ErrorPanel error={v.error} />
-            <p><span className={blocks > 0 ? "mark-bad" : "mark-ok"}>차단 {blocks}</span> · <span className={warns > 0 ? "mark-warn" : "mark-ok"}>경고 {warns}</span></p>
-            <ul className="plain small">{(v.data?.issues ?? []).filter((i) => i.status === "OPEN" && i.severity === "BLOCK").slice(0, 5).map((i, k) => <li key={k}><span className="mark-bad">✕</span> {i.message}</li>)}</ul>
-            <Link to={`/validation?scope=${encodeURIComponent(ctx.scopeId)}`}>점검 결과 전체</Link>
-          </Section>
-          <Section title="② 팩(상품)" actions={pack && <span className={`badge ${pack.status === "ACTIVE" ? "ok" : "info"}`}>{pack.status === "ACTIVE" ? "활성" : pack.status === "PAUSED" ? "일시정지" : "초안"}</span>}>
+            <div className="p-row" style={{ padding: "10px 16px", fontSize: 14, gap: 16 }}>
+              {(v.data?.issues ?? []).filter((i) => i.status === "OPEN" && i.severity === "BLOCK").slice(0, 2).map((i, k) => <span key={k} className="p-bad">차단: {i.message}</span>)}
+              {item("confirmations")?.ok !== true && <span>경고: {item("confirmations")?.detail}</span>}
+              <span>스템 오디오 {item("audio")?.detail}</span><span>멤버 이용 동의 {item("consents")?.detail.replace("보이스 ", "").replace(" 동의", "")}</span>
+              <Link to={`/validation?scope=${encodeURIComponent(ctx.scopeId)}`} style={{ marginLeft: "auto" }}>점검 결과 전체</Link>
+            </div>
+          </section>
+          <section className="p-card">
+            <div className="p-card-head"><h2>② 팩(상품)</h2><span className={`p-badge sm ${pack?.status === "ACTIVE" ? "ok" : "muted"}`}>{!pack ? "만들기 전" : pack.status === "ACTIVE" ? "활성" : pack.status === "PAUSED" ? "일시정지" : "초안"}</span></div>
             <ErrorPanel error={error ?? w.err} />
-            {w.notice && <p role="status" className="muted">{w.notice}</p>}
-            {!pack ? (ctx.can("pack.edit") ? (
-              <div className="inline-form" aria-label="팩 만들기">
-                <label className="field"><span>팩 코드</span><input value={packForm.code} maxLength={32} onChange={(e) => setPackForm({ ...packForm, code: e.target.value })} /></label>
-                <label className="field"><span>팩 이름</span><input value={packForm.title} onChange={(e) => setPackForm({ ...packForm, title: e.target.value })} /></label>
-                <button type="button" className="btn primary" disabled={w.busy || packForm.code.trim() === ""} onClick={() => void w.run(async () => {
-                  const packId = slugId("pak", `${slug}_fan`);
-                  await createPack({ packId, packCode: packForm.code.trim(), title: packForm.title, factsScopeId: ctx.scopeId });
-                  await setClaimants(packId, proposed);
-                }, "팩을 만들고 청구권자를 원곡 권리대로 선언했습니다")}>팩 만들기</button>
-              </div>
-            ) : <p className="muted">팩이 없습니다(팩 편집 권한 필요).</p>) : (
-              <dl className="kv">
-                <dt>팩 코드 · 이름</dt><dd><code>{pack.packCode}</code> · {pack.title}</dd>
-                <dt>이용 범위</dt><dd>팬앱 조합·구매·감상(멤버 이용 동의 범위와 같아야 한다)</dd>
-                <dt>청구권자</dt><dd>{declared.length === 0 ? "선언 전" : declared.map((c) => `${ctx.name(c.partyId)}(${ROLE_KO[c.claimantRole] ?? c.claimantRole})`).join(" · ")}
-                  {ctx.can("pack.edit") && !ctx.sealed && <> · <button type="button" className="btn tiny" onClick={() => void w.run(() => setClaimants(pack.packId, proposed), "청구권자를 원곡 권리대로 다시 선언했습니다")}>원곡 권리대로 다시 선언</button></>}</dd>
-              </dl>
-            )}
-          </Section>
-          {pack && (
-            <Section title="③ 분배 규칙 — 팬앱 매출" actions={<>
-              <select aria-label="표준 템플릿" value={tpl} onChange={(e) => setTpl(e.target.value)}>
-                <option value="">표준 템플릿 고르기</option>{(templates.data ?? []).map((t) => <option key={t.templateId} value={t.templateId}>{t.title}</option>)}
-              </select>
-              <button type="button" className="btn" disabled={tpl === ""} onClick={() => void w.run(async () => {
-                const t = templates.data!.find((x) => x.templateId === tpl)!;
-                const r = await api<{ sourceText: string }>("POST", "/policies/form/text", { form: { ...t.form, packId: pack.packId } });
-                setText(r.sourceText); setShowText(true);
-              }, "표준 템플릿을 규칙 텍스트로 넣었습니다(폼에 반영하려면 \"편집기에서 불러오기\")")}>표준 템플릿으로</button>
-              <button type="button" className="btn" aria-pressed={showText} onClick={() => setShowText(!showText)}>텍스트로 보기</button>
-            </>}>
-              <PolicyFormEditor packId={pack.packId} text={text} baseText={undefined} onText={setText} />
-              {showText && <label className="field"><span>MDRL</span><textarea className="mdrl" aria-label="분배 규칙 MDRL" value={text} onChange={(e) => setText(e.target.value)} /></label>}
-            </Section>
-          )}
+            <div style={{ padding: "6px 16px 12px" }}>
+              <Row label="팩 코드 · 이름">{pack ? <><span className="p-mono">{pack.packCode}</span> · {pack.title}</> : (
+                <div className="p-row"><input aria-label="팩 코드" className="p-input sm p-mono" value={packForm.code} maxLength={32} onChange={(e) => setPackForm({ ...packForm, code: e.target.value })} />
+                  <input aria-label="팩 이름" className="p-input sm" style={{ flex: "1 1 240px" }} value={packForm.title} onChange={(e) => setPackForm({ ...packForm, title: e.target.value })} />
+                  <button type="button" className="p-btn sm primary" disabled={!ctx.can("pack.edit") || w.busy} title={ctx.can("pack.edit") ? undefined : "팩 편집 권한이 필요하다"} onClick={() => void w.run(async () => {
+                    const packId = slugId("pak", `${slug}_fan`);
+                    await createPack({ packId, packCode: packForm.code.trim(), title: packForm.title, factsScopeId: ctx.scopeId });
+                    await setClaimants(packId, proposed);
+                  }, "팩을 만들고 청구권자를 원곡 권리대로 선언했습니다")}>팩 만들기</button></div>
+              )}</Row>
+              <Row label="이용 범위">팬앱 조합·구매·감상(멤버 이용 동의 범위와 같아야 한다)</Row>
+              <Row label="청구권자(원곡 권리에서 자동)">{claimantText(pack ? declared : proposed)} {pack && <button type="button" className="p-linkbtn" disabled={!ctx.can("pack.edit") || ctx.sealed} title={ctx.sealed ? "IR 생성 뒤에는 정책 재고정과 함께" : undefined}
+                onClick={() => void w.run(() => setClaimants(pack.packId, proposed), "청구권자를 원곡 권리대로 다시 선언했습니다")}>고치기</button>}</Row>
+            </div>
+            {w.notice && <div className="p-card-foot" role="status">{w.notice}</div>}
+          </section>
+          <section className="p-card">
+            <div className="p-card-head"><h2>③ 분배 규칙 — 팬앱 매출</h2><span style={{ marginLeft: "auto" }} />
+              <button type="button" className="p-btn mid" disabled={!std || ctx.sealed} title={std ? `${std.title} 값으로 채운다` : "승인된 표준 템플릿이 없다"} onClick={() => std && set((f) => Object.assign(f, structuredClone(std.form), { packId: f.packId }))}>표준 템플릿으로</button>
+              <button type="button" className="p-btn mid" aria-pressed={text !== null} disabled={!pack} onClick={() => void (text !== null ? setText(null) : sourceFor().then(setText, (e) => w.setErr(e)))}>텍스트로 보기</button></div>
+            <div style={{ padding: "6px 16px 12px" }}>
+              <Row label="매출 종류">{([["PRIMARY", "구매"], ["TRAFFIC", "감상(구독·광고 풀)"], ["RESALE", "재판매"]] as const).map(([e, l], i) => (
+                <label key={e} style={{ marginLeft: i ? 12 : 0 }}><input type="checkbox" checked={form.events.includes(e)} onChange={(x) => set((f) => { f.events = x.target.checked ? [...f.events, e] : f.events.filter((y) => y !== e); })} /> {l}</label>))}</Row>
+              <Row label="1단계">플랫폼 <Pct label="1단계 플랫폼" bps={form.tier1.platformBps} onChange={(b) => set((f) => { f.tier1.platformBps = b; })} /> % · 운영 <Pct label="1단계 운영" bps={form.tier1.opsBps} onChange={(b) => set((f) => { f.tier1.opsBps = b; })} /> % · 권리자 <Pct label="1단계 권리자" bps={form.tier1.rightsBps} onChange={(b) => set((f) => { f.tier1.rightsBps = b; })} /> % {sumOk(t1)}</Row>
+              <Row label="2단계(권리자 몫 안)">녹음 <Pct label="2단계 녹음" bps={form.master.bps} onChange={(b) => set((f) => { f.master.bps = b; })} /> % · 실연 <Pct label="2단계 실연" bps={p.bps} onChange={(b) => set((f) => { f.performer.bps = b; })} /> % · 작품 <Pct label="2단계 작품" bps={form.work.bps} onChange={(b) => set((f) => { f.work.bps = b; })} /> % {sumOk(t2)}</Row>
+              <Row label="녹음 몫">마스터 보유자대로({masterName || "—"})</Row>
+              <Row label="실연 몫">혼합 — 참여 멤버 고정 <Pct label="실연 고정" bps={p.fixedBps} onChange={(b) => set((f) => { f.performer.mode = "HYBRID"; f.performer.fixedBps = b; })} /> % + 부른 시간 <Pct label="실연 부른 시간" bps={p.usageBps} onChange={(b) => set((f) => { f.performer.mode = "HYBRID"; f.performer.usageBps = b; })} /> % · 주 실연 가중 <Pct label="주 실연 가중" bps={p.featuredWeightBps} onChange={(b) => set((f) => { f.performer.featuredWeightBps = b; })} /> % · 1인 상한 <Pct label="1인 상한" bps={p.capBps} onChange={(b) => set((f) => { f.performer.capBps = b; })} /> % · <label><input type="checkbox" checked={p.viaMandate} onChange={(e) => set((f) => { f.performer.viaMandate = e.target.checked; })} /> 수령 위임대로</label></Row>
+              <Row label="작품 몫">작가 지분대로 · <label><input type="checkbox" checked={form.work.viaMandate} onChange={(e) => set((f) => { f.work.viaMandate = e.target.checked; })} /> 수령 위임대로(신탁)</label></Row>
+              {text !== null && <textarea aria-label="분배 규칙 MDRL" readOnly className="p-input p-mono" style={{ width: "100%", minHeight: 260, fontSize: 13, marginTop: 8 }} value={text} />}
+            </div>
+          </section>
         </div>
-        <aside aria-label="미리보기와 컴파일">
-          <Section title="미리보기 · 구매 1건 3,300원">
-            <label className="field"><span>예시 조합</span>
-              <select value={example} onChange={(e) => setExample(Number(e.target.value))}>{examples.map((x, i) => <option key={x.label} value={i}>{x.label}</option>)}</select>
-            </label>
-            <div className="lines" aria-label="미리보기 근사">{lines.map((l) => (
-              <div key={l.label} className={l.level === 1 ? "sub" : ""}><span>{l.label}</span><span>{l.won.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}원</span></div>
-            ))}</div>
-            <p className="muted small">근사값 — 표준 비율(권리자 70 · 녹음 40 · 실연 45 · 작품 15, 실연 고정 40 + 부른 시간 60)과 파트 길이로 계산. 실제 원 단위 배분과 반올림은 왼쪽 폼의 엔진 미리보기가 계산한다.</p>
-          </Section>
-          {pack && !ctx.sealed && ctx.can("policy.edit") && (
-            <div className="note-box warn">
-              <span><b>컴파일하면 IR이 생성된다.</b> 이 곡의 권리·스템 정보가 facts로 고정되고, 원곡 권리·스템 탭은 조회만 된다(바로잡기는 새 버전).</span>
-              {!confirming ? (
-                <button type="button" className="btn primary" disabled={text === ""} title={text === "" ? "폼에서 \"MDRL로 만들기\"를 누르거나 표준 템플릿을 고른다" : undefined} onClick={() => setConfirming(true)}>컴파일(IR 생성) → 승인으로</button>
+        <aside className="p-panel form" aria-labelledby="pv" style={{ flex: "1 1 400px", maxWidth: 470, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--p-line)" }}><h2 id="pv" style={{ margin: 0, fontSize: 18 }}>미리보기 · 구매 1건 3,300원</h2>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, marginTop: 8 }}>예시 조합<select className="p-select sm" value={example} onChange={(e) => setExample(Number(e.target.value))}>{examples.map((x, i) => <option key={x.label} value={i}>{x.label}</option>)}</select></label></div>
+          <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }} aria-label="미리보기 근사">
+            {lines.map((l, i) => <div key={l.label} style={{ display: "flex", justifyContent: "space-between", ...(i === 2 ? { fontWeight: 600, paddingTop: 6, borderTop: "1px solid var(--p-line)" } : l.level === 1 ? { color: "var(--p-fg-2)", fontSize: 13 } : {}) }}>
+              <span>{l.level === 1 ? `　${l.label}` : l.label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{won(l.won)}</span></div>)}
+            <div style={{ fontSize: 12, color: "var(--p-muted)", paddingTop: 6, borderTop: "1px solid var(--p-line)" }}>부른 시간은 MV 분석 슬롯·추정 파트 경계 기준. 실제 원 단위 배분과 반올림은 엔진 미리보기(/policies/preview)가 계산한다. 실연 몫은 수령 위임대로 소속사가 받는다.</div>
+          </div>
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--p-line)", display: "flex", flexDirection: "column", gap: 8 }}>
+            {ctx.sealed ? (
+              <div className="p-box info" style={{ padding: "10px 12px", borderRadius: 8, fontSize: 13 }}>IR 생성됨 — 승인·출시 탭에서 승인·활성화·출시한다. <Link to={`/works/${encodeURIComponent(ctx.work.workId)}/release`}>승인·출시로 →</Link></div>
+            ) : <>
+              <div className="p-box warn" style={{ padding: "10px 12px", borderRadius: 8, fontSize: 13 }}><span><b>컴파일하면 IR이 생성된다.</b> 이 곡의 권리·스템 정보가 facts로 고정되고, 원곡 권리·스템 탭은 조회만 된다(바로잡기는 새 버전).</span></div>
+              {confirming ? (
+                <div role="alertdialog" aria-label="컴파일 확인" className="p-row" style={{ justifyContent: "flex-end" }}>
+                  <span className="p-sub" style={{ marginRight: "auto" }}>정말 컴파일할까요? 되돌릴 수 없습니다.</span>
+                  <button type="button" className="p-btn mid" onClick={() => setConfirming(false)}>취소</button>
+                  <button type="button" className="p-btn mid primary" disabled={w.busy} onClick={() => void w.run(async () => { await compilePolicy(policy?.policyId ?? `pol_${slug}`, pack!.packId, await sourceFor()); setConfirming(false); nav(`/works/${encodeURIComponent(ctx.work.workId)}/release`); }, "컴파일했습니다 — IR 생성")}>컴파일</button>
+                </div>
               ) : (
-                <div role="alertdialog" aria-label="컴파일 확인" className="stack">
-                  <span>정말 컴파일할까요? 되돌릴 수 없습니다.</span>
-                  <div className="row-actions">
-                    <button type="button" className="btn primary" disabled={w.busy} onClick={() => void w.run(async () => { await compilePolicy(policyId, pack.packId, text); setConfirming(false); nav(`/works/${encodeURIComponent(ctx.work.workId)}/release`); }, "컴파일했습니다 — IR 생성")}>컴파일</button>
-                    <button type="button" className="btn" onClick={() => setConfirming(false)}>취소</button>
-                  </div>
+                <div className="p-row" style={{ justifyContent: "flex-end" }}>
+                  <button type="button" className="p-btn mid" disabled title="분배 규칙 초안 저장 API가 없다 — 컴파일하면 버전이 남는다">초안 저장</button>
+                  <button type="button" className="p-btn mid primary" disabled={!pack || !ctx.can("policy.edit") || t1 !== 10000 || t2 !== 10000} title={!pack ? "팩을 먼저 만든다" : !ctx.can("policy.edit") ? "분배 규칙 편집 권한이 필요하다" : t1 !== 10000 || t2 !== 10000 ? "단계마다 합계 100%여야 한다" : undefined} onClick={() => setConfirming(true)}>컴파일(IR 생성) → 승인으로</button>
                 </div>
               )}
-              {text === "" && <span className="small">규칙 텍스트가 비었다 — 폼의 "MDRL로 만들기" 또는 표준 템플릿</span>}
-            </div>
-          )}
-          {ctx.sealed && <div className="note-box"><span>IR 생성됨 — 승인·출시 탭에서 승인·활성화·출시한다.</span><Link to={`/works/${encodeURIComponent(ctx.work.workId)}/release`}>승인·출시로 →</Link></div>}
+            </>}
+          </div>
         </aside>
       </div>
     </>

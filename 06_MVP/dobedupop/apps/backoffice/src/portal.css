@@ -41,6 +41,8 @@
 
 /* 공통 테마의 button 기본값(굵기 600·높이 38px·inline-flex)을 포털 안에서 시안 기본값으로 되돌린다 */
 .p-shell button { font-weight: 400; min-height: 0; line-height: normal; display: inline-block; gap: 0; transition: none; }
+.p-shell input, .p-shell select, .p-shell textarea { min-height: 0; line-height: normal; border-color: var(--p-input-line); }
+.p-shell input[type="checkbox"] { width: 13px; height: 13px; accent-color: var(--p-accent); vertical-align: -1px; }
 .p-shell .p-tabs > button:hover, .p-shell .p-linkbtn:hover { background: none; }
 
 /* ── 틀: 상단 머리글 한 줄, 사이드바 없음 ─────────────────────────────────── */
