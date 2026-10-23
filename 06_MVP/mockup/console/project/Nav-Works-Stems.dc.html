@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>작품 관리 — 스템</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1d4ed8}a:hover{color:#1e3a8a}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: #f8fafc; min-height: 100vh; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: #1e3a8a; color: #ffffff">
+<strong style="font-size: 16px">dobedupop</strong>
+<span style="font-size: 14px; color: #dbeafe">빅히트 뮤직 ▾</span>
+<span style="font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #1d4ed8">권리 테넌트</span>
+<div style="flex: 1 1 40px"></div>
+<span style="font-size: 13px; color: #dbeafe"><b>/</b> 검색</span>
+<span style="font-size: 14px; padding: 6px 12px; border-radius: 8px; background: #92400e; font-family: 'IBM Plex Mono', monospace">2026-01-05 09:00</span>
+<span style="font-size: 14px; color: #dbeafe">총괄 · usr_admin</span>
+</header>
+<div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch">
+<dc-import name="Sidebar" active="ws-stems" hint-size="260px,1000px"></dc-import>
+<main style="flex: 999 1 640px; min-width: 0; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="위치" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: #475569"><span>작품 관리</span><span>›</span><a href="#">작품 워크스페이스</a><span>›</span><span>Dynamite</span><span>›</span><strong style="color: #0f172a">스템</strong></nav>
+<div role="status" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; font-size: 13px"><strong>IR 생성 준비</strong><span style="color: #166534">✓ 합계 100%</span><span style="color: #166534">✓ 근거 문서</span><span style="color: #92400e">! 원곡 스템 34 중 2 등록</span><span style="color: #92400e">! 확인 대기</span><span style="color: #475569">· 위임 서명 1/7</span></div>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end">
+<div><h1 style="margin: 0; font-size: 26px">Dynamite · 스템</h1><div style="font-size: 13px; color: #475569">녹음 Vocal Recombination · 빅히트 뮤직(레이블)</div></div>
+<span style="font-size: 13px; padding: 5px 12px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 600">IR 생성 전 — 등록·조회·수정 가능</span>
+</div>
+<div role="tablist" aria-label="워크스페이스 탭" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; font-size: 14px"><a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">원곡 권리</a><span style="padding: 8px 14px; font-weight: 600; border-bottom: 2px solid #1d4ed8">스템</span><a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">확인·동의</a><a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">문서·계약</a><a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">분배 규칙·팩</a><a href="#" style="padding: 8px 14px; text-decoration: none; color: #475569">승인·출시</a><span style="padding: 8px 14px; color: #475569">변경 기록</span></div>
+
+<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><h2 style="margin: 0; font-size: 17px">슬롯 12 — 원곡 흐름 0:00~3:18</h2><span style="font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-weight: 600">MV 분석 시각 · 파트 경계 추정</span></div>
+<div style="display: flex; gap: 3px">
+<sc-for list="{{secs}}" as="s" hint-placeholder-count="12"><div style="{{s.box}}"><span style="font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden">{{s.name}}</span></div></sc-for>
+</div>
+</section>
+
+<section style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><h2 style="margin: 0; font-size: 17px">스템 — 슬롯·보컬 파트 × 부른 멤버</h2><span style="font-size: 13px; color: #475569">앞 슬롯 5개 표시(전체는 스템 화면과 같다)</span><button style="margin-left: auto; font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 0; background: #1d4ed8; color: #ffffff">+ 스템 추가</button></div>
+<div style="overflow-x: auto">
+<table style="border-collapse: separate; border-spacing: 3px; font-size: 13px; min-width: 700px">
+<thead><tr><th style="padding: 6px 8px; text-align: left; color: #475569; font-weight: 500">슬롯 · 파트 (원곡 담당) ↓ · 부른 멤버 →</th>
+<sc-for list="{{singers}}" as="m" hint-placeholder-count="7"><th style="padding: 6px 8px">{{m}}</th></sc-for></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<tr><th style="{{r.headStyle}}">{{r.label}}</th>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="7"><td style="{{c.style}}">{{c.label}}</td></sc-for></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const singers = ['정국', '지민', '뷔', '진', 'RM', '제이홉', '슈가'];
+    const SLOTS = [['Intro', 0, 4, []], ['Intro Chorus', 4, 13, ['정국']], ['Verse 1', 13, 30, ['정국']], ['Pre-Chorus 1', 30, 39, ['지민', '뷔']], ['Chorus 1', 39, 57, ['정국', '지민']], ['Verse 2 (Rap)', 57, 83, ['RM', '제이홉', '슈가']],
+      ['Pre-Chorus 2', 83, 91, ['진', '뷔']], ['Chorus 2', 91, 109, ['정국', '지민']], ['Dance Break', 109, 127, []], ['Chorus 3 (전조)', 127, 145, ['지민', '정국', '진']], ['Chorus 4 & Outro', 145, 180, ['정국', '지민', '뷔', '진']], ['Outro Fade-out', 180, 198, []]];
+    const secs = SLOTS.map(([name, a, b, who], i) => ({ name: (i + 1) + ' ' + name,
+      box: 'flex: ' + (b - a) + ' 1 0; min-width: 0; padding: 6px; border-radius: 6px; overflow: hidden; ' + (who.length === 0 ? 'background: #f1f5f9; color: #334155; border: 1px dashed #94a3b8' : 'background: #dbeafe; color: #1e3a8a') }));
+    const base = 'padding: 6px 4px; min-width: 56px; text-align: center; border-radius: 5px; ';
+    const rows = [];
+    SLOTS.slice(0, 5).forEach(([name, a, b, who], si) => {
+      who.forEach((orig, pi) => rows.push({
+        label: (pi === 0 ? (si + 1) + ' ' + name : '') + ' · 파트 ' + (pi + 1) + ' (' + orig + ')',
+        headStyle: 'padding: 6px 8px; text-align: left; white-space: nowrap; font-weight: ' + (pi === 0 ? '600' : '400') + '; color: ' + (pi === 0 ? '#0f172a' : '#475569'),
+        cells: singers.map((s) => s === orig ? { label: '원곡', style: base + (si === 1 ? 'background: #1d4ed8; color: #ffffff; font-weight: 600' : 'background: #93c5fd; color: #1e3a8a; font-weight: 600') }
+          : si === 1 ? { label: '등록', style: base + 'background: #dbeafe; border: 1px solid #93c5fd; color: #1e3a8a' } : { label: '—', style: base + 'background: #f8fafc; border: 1px dashed #cbd5e1; color: #94a3b8' }),
+      }));
+      rows.push({ label: (who.length === 0 ? (si + 1) + ' ' + name + ' · ' : ' · ') + '반주 파트(권리 부담 없음)', headStyle: 'padding: 6px 8px; text-align: left; white-space: nowrap; color: #475569; font-weight: ' + (who.length === 0 ? '600' : '400'),
+        cells: singers.map((s, i) => (i === 0 ? { label: si === 0 ? '원곡 등록' : '원곡', style: base + 'background: #e2e8f0; color: #334155' } : { label: '', style: base })) });
+    });
+    return { singers, secs, rows };
+  }
+}
+</script>
+</body>
+</html>
