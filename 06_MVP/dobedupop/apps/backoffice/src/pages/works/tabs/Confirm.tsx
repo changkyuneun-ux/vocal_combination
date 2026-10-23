@@ -5,6 +5,7 @@ import type { ConfirmationRow, ConsentRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { currentClaims, memberProgress, pctText } from "../model.ts";
 import type { WsCtx } from "../Workspace.tsx";
+import { useEvidenceTitles } from "./Rights.tsx";
 
 const ROLE_DETAIL: Record<string, string> = { LYRICS_COMPOSITION: "작사·작곡", LYRICS: "작사", COMPOSITION: "작곡" };
 const NO_REMIND = "확인 요청 다시 알림 API가 없다";
@@ -18,6 +19,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
   const consents = useGet<ConsentRow[]>(["work-consents", ctx.scopeId], `/consents?scope=${encodeURIComponent(ctx.scopeId)}`);
   const confs = useGet<ConfirmationRow[]>(["work-confirmations"], "/confirmations");
   const now = clock.data?.now ?? ctx.now;
+  const ev = useEvidenceTitles(ctx.scopeId);
   const rows = memberProgress(ctx.members, ctx.facts.claims, ctx.rows, ctx.facts.stems, consents.data ?? [], ctx.facts.mandates, now);
   const mine = (confs.data ?? []).filter((c) => c.factsScopeId === ctx.scopeId);
   const work = currentClaims(ctx.facts.claims).filter((c) => c.edge === "WRITTEN_BY");
@@ -64,7 +66,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
             return (
               <tr key={c.claimId} style={i === 0 ? { borderTop: 0 } : undefined}>
                 <td style={{ padding: "9px 14px" }}>{ctx.name(c.targetId)} · {ROLE_DETAIL[c.roleDetail ?? ""] ?? c.roleDetail ?? ""} {pctText(c.shareBps)}</td>
-                <td style={{ padding: "9px 14px" }}>{c.evidenceDigest ? "근거 문서 연결" : "근거 없음"}</td>
+                <td style={{ padding: "9px 14px" }}>{ev.get(c.claimId) ?? "근거 없음"}</td>
                 <td style={{ padding: "9px 14px" }} className={done ? "p-ok" : "p-warn"}>{done ? "확정" : q ? `대기 · 기한 ${Number(q.dueAt.slice(5, 7))}/${Number(q.dueAt.slice(8, 10))} 뒤 운영 대조` : "대기"}</td>
               </tr>
             );

@@ -47,6 +47,9 @@ const claimantText = (xs: { role: string }[]) => {
   return [n("MASTER_OWNER") && "레이블(마스터)", n("AGENCY") && "소속사(수령 위임)", n("PERFORMER_FEATURED") && `멤버 ${n("PERFORMER_FEATURED")}(주 실연)`, n("WORK_AUTHOR") && `작가 ${n("WORK_AUTHOR")}(작품)`].filter(Boolean).join(" · ");
 };
 
+/** 멤버 순서(시안: 정국 · 지민 · 뷔 · 진 · RM · 제이홉 · 슈가)대로 다시 담는다. */
+const ordered = (sung: Record<string, number>, order: string[]) => Object.fromEntries([...order.filter((k) => k in sung), ...Object.keys(sung).filter((k) => !order.includes(k))].map((k) => [k, sung[k]!]));
+
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return <div style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr)", gap: 10, alignItems: "center", padding: "8px 0", borderTop: "1px solid var(--p-head-bg)", fontSize: 14 }}><span className="p-todo">{label}</span><div>{children}</div></div>;
 }
@@ -89,7 +92,7 @@ export function PolicyTab({ ctx }: { ctx: WsCtx }) {
   const swapTo = ctx.members.find((m) => !vocal.some((r) => r.slotId === swapRow?.slotId && r.original === m.partyId))?.partyId;
   const examples = [{ label: "원곡 배치", singer: (r: (typeof vocal)[number]) => r.original },
     ...(swapRow && swapTo ? [{ label: `${swapRow.section} ${ctx.name(swapRow.original!)} 파트를 ${ctx.name(swapTo)}이`, singer: (r: (typeof vocal)[number]) => (r === swapRow ? swapTo : r.original) }] : [])];
-  const lines = useMemo(() => previewLines({ ...form, packId: pack?.packId ?? "" }, 3300, sungSeconds(ctx.rows, examples[example]?.singer), authors,
+  const lines = useMemo(() => previewLines({ ...form, packId: pack?.packId ?? "" }, 3300, ordered(sungSeconds(ctx.rows, examples[example]?.singer), ctx.members.map((m) => m.partyId)), authors,
     Object.fromEntries(ctx.members.map((m) => [m.partyId, m.name]))), [form, example, ctx]); // eslint-disable-line
   const p = form.performer;
   const t1 = form.tier1.platformBps + form.tier1.opsBps + form.tier1.rightsBps;

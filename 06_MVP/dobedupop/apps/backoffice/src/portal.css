@@ -46,7 +46,7 @@
 .p-shell .p-tabs > button:hover, .p-shell .p-linkbtn:hover { background: none; }
 
 /* ── 틀: 상단 머리글 한 줄, 사이드바 없음 ─────────────────────────────────── */
-.p-shell { font-family: var(--p-font); color: var(--p-fg); background: var(--p-bg); min-height: 100vh; display: flex; flex-direction: column; }
+.p-shell { font-family: var(--p-font); color: var(--p-fg); background: var(--p-bg); min-height: 100vh; }
 .p-header { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 24px; background: var(--p-header-bg); color: var(--p-header-fg); }
 .p-header .p-brand { font-size: 16px; font-weight: 700; }
 .p-header .p-org { font-size: 14px; color: var(--p-header-muted); }
@@ -65,7 +65,7 @@
 .p-devstrip button, .p-devstrip a { font: inherit; font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--p-warn-line); background: var(--p-surface); color: var(--p-demo-dark); text-decoration: none; min-height: 0; cursor: pointer; }
 .p-devstrip input { font: inherit; font-size: 12px; padding: 1px 4px; }
 
-.p-main { max-width: 1360px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+.p-main { max-width: 1360px; box-sizing: content-box; margin: 0 auto; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
 .p-main.gap14 { gap: 14px; }
 .p-full { width: 100%; box-sizing: border-box; }
 
@@ -115,6 +115,7 @@
 .p-input.sm, .p-select.sm { padding: 6px 8px; border-radius: 6px; }
 .p-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--p-muted); }
 .p-field.lg { font-size: 14px; font-weight: 600; color: var(--p-fg); gap: 6px; }
+.p-field input, .p-field select { font-weight: 400; }
 
 /* ── 카드·표 ──────────────────────────────────────────────────────────── */
 .p-card { background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 12px; overflow: hidden; }

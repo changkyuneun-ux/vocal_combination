@@ -63,7 +63,7 @@ export function ReleaseTab({ ctx }: { ctx: WsCtx }) {
       <div className="p-cols">
         <div className="main" style={{ gap: 14 }}>
           <section className="p-card">
-            <div className="p-card-head"><h2>승인 흐름 — 분배 규칙 {policy.policyId} v{version}</h2><span className="p-badge sm muted" title="직무 분리 설정 조회 API가 없어 운영 설정을 따른다">직무 분리는 운영 설정 — 서명은 단계별로 남음</span></div>
+            <div className="p-card-head"><h2>승인 흐름 — 분배 규칙 {policy.policyId} v{version}</h2><span className="p-badge sm warn" title="직무 분리 설정 조회 API가 없어 운영 설정을 따른다">직무 분리는 운영 설정 — 서명은 단계별로 남음</span></div>
             <ErrorPanel error={error ?? pv.error ?? w.err} />
             <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
               {flow.map(([t, s, n], i) => (

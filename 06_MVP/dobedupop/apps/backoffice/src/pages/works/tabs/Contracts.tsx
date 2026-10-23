@@ -42,7 +42,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   }
   const status = (c: Contract): [string, string] => c.status === "COMPLETED" ? [`반영 · ${c.records.length ? "기록 확정" : "원천 문서"}`, "p-ok"]
     : c.status === "SIGNED" ? ["서명 완료 · 반영 전", "p-warn"] : c.status === "CANCELLED" ? ["취소", "p-todo"] : [`서명 대기${platformMade(c) ? " · 플랫폼이 작성(위탁 작가)" : ""}`, "p-warn"];
-  const signLine = (c: Contract) => c.signatures.map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
+  const signLine = (c: Contract) => [...c.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
   const row = (c: Contract, child = false) => {
     const [t, cls] = status(c);
     return (

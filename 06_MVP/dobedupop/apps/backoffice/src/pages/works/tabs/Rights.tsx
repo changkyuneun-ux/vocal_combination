@@ -7,6 +7,7 @@ import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { mmss, pctText, recentChanges, rightsBuckets, shortAt, type Bucket, type BucketRow, type PartRow } from "../model.ts";
 import { useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
+import { usePackAndPolicy } from "./Policy.tsx";
 
 const ROLE_DETAIL: [string, string][] = [["LYRICS_COMPOSITION", "작사·작곡"], ["LYRICS", "작사"], ["COMPOSITION", "작곡"]];
 const roleText = (r: string | null) => ROLE_DETAIL.find(([k]) => k === r)?.[1] ?? r ?? "—";
@@ -18,7 +19,7 @@ const NO_CLAIM_DELETE = "권리 주장 삭제 API가 없다 — 지분 0%나 새
 
 type Summary = { lines: { records: { type: string; id: string }[]; evidence: { title: string; version: number }[] }[] };
 /** 주장 → 근거 문서 이름(권리 요약 줄의 근거 문서). */
-function useEvidenceTitles(scopeId: string) {
+export function useEvidenceTitles(scopeId: string) {
   const s = useGet<Summary>(["readiness", "summary", scopeId], `/scopes/${encodeURIComponent(scopeId)}/summary`);
   const m = new Map<string, string>();
   for (const l of s.data?.lines ?? []) for (const r of l.records) if (l.evidence.length) m.set(r.id, l.evidence.map((e) => `${e.title} v${e.version}`).join(", "));
@@ -146,7 +147,8 @@ function PerformerBucket({ ctx }: { ctx: WsCtx }) {
   const [draft, setDraft] = useState<PartDraft | null>(null);
   const [slotForm, setSlotForm] = useState<{ label: string; start: string; end: string } | null>(null);
   const editable = ctx.can("rights.edit");
-  const owned = rightsBuckets(ctx.facts.claims, ctx.names)[2]!.rows;
+  const order = ctx.members.map((m) => m.partyId);
+  const owned = [...rightsBuckets(ctx.facts.claims, ctx.names)[2]!.rows].sort((a, b) => order.indexOf(a.partyId) - order.indexOf(b.partyId));
   const counts = { VOCAL: 0, GROUP: 0, INSTRUMENT: 0 };
   for (const r of ctx.rows) counts[r.kind]++;
   const state = (r: PartRow): [string, string] => {
@@ -284,7 +286,12 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
   const w = useWrite();
   const [fix, setFix] = useState<{ bucket: "work" | "master"; rows: Draft[]; from: string; doc: string } | null>(null);
   const own = new Set((mine.data ?? []).map((p) => p.partyId));
-  const ir = "IR";
+  const { policy } = usePackAndPolicy(ctx.scopeId);
+  const v = policy?.latestVersion ?? 1;
+  const ir = `IR v${v}`;
+  const order = ctx.members.map((m) => m.partyId);
+  const recordedAt = (r: BucketRow) => ctx.facts.claims.find((c) => c.claimId === r.claimId && c.version === r.version)?.recordedAt ?? "";
+  const inIr = (r: BucketRow) => ctx.work.sealedThrough !== null && recordedAt(r) <= ctx.work.sealedThrough;
   const start = (b: Bucket) => setFix({ bucket: b.key as "work" | "master", rows: [...b.rows.map((r) => ({ claimId: r.claimId, partyId: r.partyId, shareBps: r.shareBps, roleDetail: r.roleDetail ?? "LYRICS_COMPOSITION", doc: "" })), { partyId: "", shareBps: 0, roleDetail: "LYRICS_COMPOSITION", doc: "" }], from: new Date().toISOString().slice(0, 10), doc: "" });
   const total = fix ? fix.rows.reduce((a, r) => a + r.shareBps, 0) : 0;
   const save = () => void w.run(async () => {
@@ -303,7 +310,7 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
   return (
     <>
       <div className="p-box irs" role="status">
-        <span style={{ flex: "1 1 520px" }}>분배 규칙을 만들 때 이 곡의 권리가 {ir}로 고정됐다. 이미 발행된 조합과 정산은 그 {ir}을 쓴다. 바로잡을 것이 있으면 <b>새 버전</b>으로 기록하고, 분배 규칙을 다시 고정(재고정)해야 다음 발행부터 반영된다.</span>
+        <span style={{ flex: "1 1 520px" }}>분배 규칙({policy?.policyId ?? "—"} v{v})을 만들 때 이 곡의 권리가 {ir}로 고정됐다. 이미 발행된 조합과 정산은 v{v}을 쓴다. 바로잡을 것이 있으면 <b>새 버전</b>으로 기록하고, 분배 규칙을 다시 고정(재고정)해야 다음 발행부터 반영된다.</span>
         {ctx.can("rights.edit") && <button type="button" className="p-btn wide ir" onClick={() => start(buckets[1]!)}>새 버전으로 바로잡기</button>}
       </div>
       {buckets.map((b) => (
@@ -311,9 +318,9 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
           <div className="p-card-head"><h2>{b.title}</h2><span className="note">수정·삭제 닫힘</span></div>
           <table className="p-table">
             <thead><tr><th>권리자</th><th className="r">지분</th><th>버전</th><th>{ir}</th><th>상태</th></tr></thead>
-            <tbody>{b.rows.map((r) => (
+            <tbody>{(b.key === "performer" ? [...b.rows].sort((x, y) => order.indexOf(x.partyId) - order.indexOf(y.partyId)) : b.rows).map((r) => (
               <tr key={r.claimId}><td>{r.name}{b.key === "performer" ? ` · ${r.sourceId}` : ""}</td><td className="r">{pctText(r.shareBps)}</td><td>v{r.version}</td>
-                <td>{ctx.work.sealedThrough && r.version === 1 ? "포함" : "다음 재고정부터"}</td><td className={r.status === "VERIFIED" ? "p-ok" : "p-warn"}>{r.status === "VERIFIED" ? "확정" : "확인 대기"}</td></tr>
+                <td>{inIr(r) ? "포함" : "다음 재고정부터"}</td><td className={r.status === "VERIFIED" ? "p-ok" : "p-warn"}>{r.status === "VERIFIED" ? "확정" : "확인 대기"}</td></tr>
             ))}</tbody>
           </table>
         </section>
