@@ -73,7 +73,6 @@ class Component extends DCLogic {
     const g1 = [
       item('works-list', '작품 목록', null),
       item('ws', '작품 워크스페이스', [leaf('ws', 'Dynamite', '확인 대기')], { open: true }),
-      item('recent', '최근 연 작품', [leaf('r1', '밤의 정류장'), leaf('r2', '푸른 계절')]),
     ];
     // 운영 관리 화면에서는 지금 화면이 든 묶음만, 작품 화면에서는 확인·동의 · 계약·문서를 펼친다
     const onOps = active.startsWith('op-');
