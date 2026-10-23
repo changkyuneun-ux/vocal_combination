@@ -35,6 +35,11 @@ export function useRecordText(scopeIds: string[]) {
       }
       const m = f.mandates.find((x) => x.mandateId === recordId);
       if (m) return `수령 위임 · ${name(m.fromPartyId)} → ${name(m.toPartyId)}`;
+      const a = (f.partAssignments ?? []).find((x) => x.assignmentId === recordId);
+      if (a) {
+        const r = slotPartRows(f.slots).find((x) => x.slotId === a.slotId && x.partNo === a.partNo);
+        return `원곡 파트 담당 · ${r ? `${r.section} 파트 ${r.partNo}` : `${a.slotId} 파트 ${a.partNo}`} · ${name(a.previousPartyId)} → ${name(a.partyId)}`;
+      }
     }
     return recordId;
   };

@@ -23,10 +23,12 @@ export type SlotPart = { partNo: number; kind: PartKind; role: string | null; st
 export type SlotWithParts = { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number; sectionLabel: string | null; parts: SlotPart[] };
 export type StemRow = { stemId: string; slotId: string; partNo: number; recordingId: string; performerPartyId: string | null; rightsBearing: boolean; createdAt?: string };
 /** GET /scopes/:id/facts — 곡의 카탈로그와 기록 전부(파트 포함). */
-export type WorkFacts = { recordings: Recording[]; slots: SlotWithParts[]; stems: StemRow[]; voices: Voice[]; claims: Claim[]; mandates: Mandate[]; disputes: Dispute[] };
+/** IR 생성 뒤 원곡 파트 담당 바로잡기의 현재 버전(파트의 originalPartyId는 v1 그대로). */
+export type PartAssignment = { assignmentId: string; version: number; slotId: string; partNo: number; partyId: string; previousPartyId: string; status: string; validFrom: string; recordedAt: string };
+export type WorkFacts = { recordings: Recording[]; slots: SlotWithParts[]; stems: StemRow[]; voices: Voice[]; claims: Claim[]; mandates: Mandate[]; disputes: Dispute[]; partAssignments?: PartAssignment[] };
 export type ScopeInfo = { factsScopeId: string; workId: string; lastVersion: number; createdAt: string; sealedThrough: string | null; latestFactsSeal: { digest: string; knownAt: string | null } | null };
 export type ConfirmationRow = {
-  requestId: number; recordType: "CLAIM" | "MANDATE"; recordId: string; recordVersion: number; factsScopeId: string; counterpartyId: string;
+  requestId: number; recordType: "CLAIM" | "MANDATE" | "PART"; recordId: string; recordVersion: number; factsScopeId: string; counterpartyId: string;
   requestedBy: string; requestedAt: string; dueAt: string; status: string; decidedAt?: string;
 };
 export type ConsentRow = { consentId: string; factsScopeId: string; partyId: string; rightType: string; assetId: string; validFrom: string; validTo: string; status: string };

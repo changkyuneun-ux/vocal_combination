@@ -101,7 +101,7 @@ test("/scopes/:id, /scopes/:id/facts", async () => {
   const pv = await ok("/policies/pol_nova/versions/1");
   assert.equal(s.latestFactsSeal.digest, pv.factsDigest);
   const f = await ok(`/scopes/${SCOPE}/facts`);
-  assert.deepEqual(Object.keys(f).sort(), ["claims", "disputes", "mandates", "recordings", "slots", "stems", "voices"]);
+  assert.deepEqual(Object.keys(f).sort(), ["claims", "disputes", "mandates", "partAssignments", "recordings", "slots", "stems", "voices"]);
   assert.ok(f.recordings.length > 0 && f.slots.length > 0 && f.stems.length > 0 && f.claims.length > 0);
   const ids = f.stems.map((x: any) => x.stemId);
   assert.deepEqual(ids, [...ids].sort());

@@ -129,9 +129,13 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
     }
   }
   // 6. 확인 대기와 지급 정보(WARN): 정산은 맞지만 운영 위험.
-  for (const r of await q("SELECT request_id, record_type, record_id, counterparty_id, due_at FROM confirmation_request WHERE facts_scope_id = $1 AND status = 'OPEN'", [scopeId])) {
-    out.push({ rule: "DOC_CONFIRMATION_PENDING", severity: "WARN", subjectType: "RECORD", subjectId: rec(r.record_type, r.record_id), dueAt: iso(r.due_at)!,
-      related: [{ requestId: Number(r.request_id) }], message: `${rec(r.record_type, r.record_id)}가 ${r.counterparty_id}의 확인을 기다린다`, hint: "상대 당사자에게 확인을 독촉하거나, 플랫폼 밖이면 기한 뒤 원문 대조로 확인한다" });
+  // 기록마다 한 줄(파트 담당 바로잡기는 상대가 둘일 수 있다 — 0046).
+  const pendingRows = await q("SELECT request_id, record_type, record_id, counterparty_id, due_at FROM confirmation_request WHERE facts_scope_id = $1 AND status = 'OPEN' ORDER BY request_id", [scopeId]);
+  for (const key of [...new Set(pendingRows.map((r) => rec(r.record_type, r.record_id)))]) {
+    const rs = pendingRows.filter((r) => rec(r.record_type, r.record_id) === key);
+    const due = rs.map((r) => iso(r.due_at)!).sort()[0]!;
+    out.push({ rule: "DOC_CONFIRMATION_PENDING", severity: "WARN", subjectType: "RECORD", subjectId: key, dueAt: due,
+      related: rs.map((r) => ({ requestId: Number(r.request_id) })), message: `${key}가 ${rs.map((r) => r.counterparty_id).join(", ")}의 확인을 기다린다`, hint: "상대 당사자에게 확인을 독촉하거나, 플랫폼 밖이면 기한 뒤 원문 대조로 확인한다" });
   }
   // 실연 몫 전부를 확정된 위임(VERIFIED, 합 100%)으로 넘긴 실연자는 직접 받지 않는다(예: 소속사가 멤버 몫을 받는다) — 지급 정보가 필요 없다.
   const performerOnly = (p: string) => claims.every((c) => c.target_id !== p || c.edge === "OWNED_BY");
@@ -185,7 +189,7 @@ export async function checkScope(tx: Tx, scopeId: string, now: string): Promise<
     }
   }
   const parts = await q(
-    `SELECT p.slot_id, p.part_no, p.kind, p.original_party_id FROM slot_part p JOIN part_slot sl ON sl.slot_id = p.slot_id
+    `SELECT p.slot_id, p.part_no, p.kind, p.original_party_id FROM slot_part_current p JOIN part_slot sl ON sl.slot_id = p.slot_id
        JOIN recording_version r ON r.recording_id = sl.recording_id JOIN facts_scope s ON s.work_id = r.work_id
       WHERE s.facts_scope_id = $1 AND p.kind IN ('VOCAL','GROUP') ORDER BY p.slot_id, p.part_no`, [scopeId]);
   const voiceOwners = new Set(voices.flatMap((v) => ownersOf(v.voice_id)));

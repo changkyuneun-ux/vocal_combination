@@ -74,7 +74,7 @@ export function Workspace() {
   return (
     <main className="p-main">
       {sealed ? (
-        <div className="p-ready" role="status"><strong>IR v{pp.policy?.latestVersion ?? 1}</strong><span>facts · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
+        <div className="p-ready" role="status" aria-label="IR 고정 상태"><strong>IR 상태</strong><span className="p-irt">IR v{pp.policy?.latestVersion ?? 1}</span><span className="p-todo">facts v{pp.policy?.latestVersion ?? 1} · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
       ) : (
         <div className="p-ready" role="status" aria-label="IR 생성 준비">
           <strong>IR 생성 준비</strong>
@@ -85,7 +85,7 @@ export function Workspace() {
         {subPage ? <div><h1>{subPage.title}</h1><div className="p-desc">{subPage.desc}</div></div>
           : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-desc">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
         <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
-          {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 권리 정보 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
+          {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
         </span>
       </div>
       <nav className="p-tabs" aria-label="워크스페이스 탭">

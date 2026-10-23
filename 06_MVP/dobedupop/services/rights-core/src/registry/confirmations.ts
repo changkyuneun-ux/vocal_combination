@@ -6,6 +6,7 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import { notifyUser } from "../performer/notifications.ts";
 import { openDispute } from "./disputes.ts";
 import { currentClaim, currentMandate, recordClaim, recordMandate } from "./service.ts";
+import { currentAssignment, reviseAssignment, type PartAssignment } from "./part-assignment.ts";
 import { hasPermission } from "../platform/permissions.ts";
 
 /** 확인 기한(결정 D5): 14일. 지나면 정합성 경고가 차단으로 오를 뿐이다 — 확정은 상대 당사자의 확인·서명으로만 된다(결정 WD3). */
@@ -13,8 +14,9 @@ export const CONFIRMATION_DAYS = 14;
 /** 돈의 흐름을 바꾸는 주장(지분·권리자 지정). 크레딧 표기(CONTRIBUTED_BY)는 확인 대상이 아니다. 위임은 언제나 대상이다. */
 const CONFIRM_EDGES = new Set(["CONTROLLED_BY", "WRITTEN_BY", "OWNED_BY", "PERFORMED_BY"]);
 
-type RecordType = "CLAIM" | "MANDATE";
-export const needsConfirmation = (type: RecordType, edge?: string) => type === "MANDATE" || (edge !== undefined && CONFIRM_EDGES.has(edge));
+/** PART: IR 생성 뒤 원곡 파트 담당 바로잡기(0046) — 상대는 바뀐 멤버 둘(새 담당·이전 담당)이고 모두 확인해야 VERIFIED. */
+type RecordType = "CLAIM" | "MANDATE" | "PART";
+export const needsConfirmation = (type: RecordType, edge?: string) => type !== "CLAIM" || (edge !== undefined && CONFIRM_EDGES.has(edge));
 
 /**
  * 상대 당사자: 이 기록으로 권리를 얻거나 내주는 쪽.
@@ -68,7 +70,7 @@ async function currentOf(tx: Tx, type: RecordType, id: string) {
   });
 }
 
-async function notifyParty(tx: Tx, clock: Clock, partyId: string, title: string, body: string, ref: unknown): Promise<void> {
+export async function notifyParty(tx: Tx, clock: Clock, partyId: string, title: string, body: string, ref: unknown): Promise<void> {
   // 본인 계정과, 그 파티가 기관(레이블·출판사 등)이면 그 테넌트 사용자에게 알린다.
   const users = await withSystemScope(tx, async () => (await tx.query(
     `SELECT DISTINCT u.user_id FROM user_account u JOIN party p ON p.party_id = $1
@@ -78,6 +80,7 @@ async function notifyParty(tx: Tx, clock: Clock, partyId: string, title: string,
 
 /** 확인 요청: ASSERTED 상태의 확인 대상 기록에 요청을 만들고 상대에게 알린다. 같은 기록에 열린 요청은 하나다. */
 export async function requestConfirmation(tx: Tx, clock: Clock, actor: Actor, type: RecordType, recordId: string) {
+  if (type === "PART") throw invalid("NOT_REQUESTABLE", "part assignment confirmations are sent when the new version is recorded");
   const r = await currentOf(tx, type, recordId);
   if (r.status !== "ASSERTED") throw conflict("NOT_ASSERTED", `${type} ${recordId} is ${r.status}; only ASSERTED records are confirmed`);
   if (!needsConfirmation(type, (r as { edge?: string }).edge)) throw invalid("NO_CONFIRMATION_NEEDED", `${type} ${recordId} does not need confirmation`);
@@ -94,6 +97,21 @@ export async function requestConfirmation(tx: Tx, clock: Clock, actor: Actor, ty
   return getConfirmation(tx, Number(id));
 }
 
+/** 파트 담당 바로잡기의 확인 요청(상대마다 하나). 같은 (기록, 상대)에 열린 요청이 있으면 그것을 돌려준다. */
+export async function requestPartConfirmation(tx: Tx, clock: Clock, actor: Actor, a: PartAssignment, counterparty: string) {
+  const open = (await tx.query("SELECT request_id FROM confirmation_request WHERE record_type = 'PART' AND record_id = $1 AND counterparty_id = $2 AND status = 'OPEN'", [a.assignmentId, counterparty])).rows[0];
+  if (open !== undefined) return getConfirmation(tx, Number(open.request_id));
+  const now = clock.now();
+  const due = new Date(Date.parse(now) + CONFIRMATION_DAYS * 86_400_000).toISOString();
+  const id = (await tx.query(
+    `INSERT INTO confirmation_request (record_type, record_id, record_version, facts_scope_id, counterparty_id, requested_by, requested_at, due_at)
+     VALUES ('PART',$1,$2,$3,$4,$5,$6,$7) RETURNING request_id`, [a.assignmentId, a.version, a.factsScopeId, counterparty, actor.userId, now, due])).rows[0].request_id;
+  await notifyParty(tx, clock, counterparty, "원곡 파트 담당 확인 요청",
+    `${a.slotId} 파트 ${a.partNo}의 원곡 담당을 ${a.previousPartyId} → ${a.partyId}로 바로잡았습니다. ${due.slice(0, 10)}까지 확인해 주세요.`, { requestId: Number(id) });
+  await audit(tx, clock, { actor: actor.userId, action: "CONFIRMATION_REQUESTED", entityType: "part_assignment", entityId: a.assignmentId, after: { counterparty, version: a.version } });
+  return getConfirmation(tx, Number(id));
+}
+
 async function openRequest(tx: Tx, requestId: number) {
   const q = (await tx.query("SELECT * FROM confirmation_request WHERE request_id = $1 FOR UPDATE", [requestId])).rows[0];
   if (q === undefined) throw notFound("confirmation request", String(requestId));
@@ -105,6 +123,18 @@ async function openRequest(tx: Tx, requestId: number) {
 async function verifyRecord(tx: Tx, clock: Clock, q: any): Promise<boolean> {
   return withSystemScope(tx, async () => {
     const type = q.record_type as RecordType;
+    if (type === "PART") {
+      const cur = await currentAssignment(tx, q.record_id, true);
+      if (cur.version !== q.record_version) {
+        await tx.query("UPDATE confirmation_request SET status = 'SUPERSEDED', decided_at = $2 WHERE request_id = $1", [q.request_id, clock.now()]);
+        return false;
+      }
+      // 바뀐 멤버 모두가 확인해야 VERIFIED(이 요청은 이미 CONFIRMED로 바뀌었다).
+      const waiting = (await tx.query("SELECT count(*)::int AS n FROM confirmation_request WHERE record_type = 'PART' AND record_id = $1 AND record_version = $2 AND status <> 'CONFIRMED'",
+        [q.record_id, q.record_version])).rows[0].n as number;
+      if (waiting === 0) await reviseAssignment(tx, clock, cur, "VERIFIED");
+      return true;
+    }
     const cur = type === "CLAIM" ? await currentClaim(tx, q.record_id) : await currentMandate(tx, q.record_id);
     if (cur.version !== q.record_version) {
       await tx.query("UPDATE confirmation_request SET status = 'SUPERSEDED', decided_at = $2 WHERE request_id = $1", [q.request_id, clock.now()]);
@@ -136,6 +166,19 @@ export async function declineRequest(tx: Tx, clock: Clock, actor: Actor, request
   if (typeof reason !== "string" || reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
   const q = await openRequest(tx, requestId);
   if (!(await actsFor(tx, actor, q.counterparty_id))) throw new DomainError("NOT_COUNTERPARTY", 403, `${actor.userId} does not act for ${q.counterparty_id}`);
+  if (q.record_type === "PART") {
+    // 파트 담당은 분쟁 표 대상이 아니다: 기록을 DISPUTED 새 버전으로 남기고(지금 담당 계산에서 빠진다) 같은 버전의 다른 요청은 닫는다.
+    await tx.query("UPDATE confirmation_request SET status = 'DECLINED', decided_by = $2, decided_at = $3, reason = $4 WHERE request_id = $1",
+      [requestId, actor.userId, clock.now(), reason.trim()]);
+    await withSystemScope(tx, async () => {
+      await tx.query("UPDATE confirmation_request SET status = 'SUPERSEDED', decided_at = $3 WHERE record_type = 'PART' AND record_id = $1 AND record_version = $2 AND status = 'OPEN'",
+        [q.record_id, q.record_version, clock.now()]);
+      const cur = await currentAssignment(tx, q.record_id, true);
+      if (cur.version === q.record_version) await reviseAssignment(tx, clock, cur, "DISPUTED", `확인 거절: ${reason.trim()}`);
+    });
+    await audit(tx, clock, { actor: actor.userId, action: "CONFIRMATION_DECLINED", entityType: "confirmation_request", entityId: String(requestId) });
+    return getConfirmation(tx, requestId);
+  }
   const disputeId = `dsp_cfm_${requestId}`;
   // 요청을 먼저 닫는다(분쟁 개시가 기록의 새 버전을 만들면 열린 요청은 SUPERSEDED가 되므로).
   await tx.query("UPDATE confirmation_request SET status = 'DECLINED', decided_by = $2, decided_at = $3, reason = $4, dispute_id = $5 WHERE request_id = $1",

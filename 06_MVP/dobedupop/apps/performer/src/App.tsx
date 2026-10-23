@@ -224,7 +224,7 @@ function Confirmations() {
       {open.length === 0 && <p className="muted">확인할 요청이 없습니다.</p>}
       {open.map((r) => (
         <article key={r.requestId} className="card" data-confirmation={r.recordId}>
-          <div className="row"><strong>{r.recordType === "CLAIM" ? "권리 주장" : "위임"} {r.recordId}</strong><span className="muted small">{r.dueAt.slice(0, 10)}까지</span></div>
+          <div className="row"><strong>{r.recordType === "CLAIM" ? "권리 주장" : r.recordType === "PART" ? "원곡 파트 담당" : "위임"} {r.recordId}</strong><span className="muted small">{r.dueAt.slice(0, 10)}까지</span></div>
           <p className="small">{r.requestedBy}님이 나를 당사자로 등록했습니다. 내용이 맞으면 확인해 주세요.</p>
           <div className="row">
             <button onClick={() => void act(() => api("POST", `/confirmations/${r.requestId}/confirm`))}>확인</button>

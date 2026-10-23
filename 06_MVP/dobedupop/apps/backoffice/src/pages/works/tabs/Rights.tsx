@@ -8,6 +8,7 @@ import { mmss, pctText, recentChanges, rightsBuckets, shortAt, type Bucket, type
 import { useMe, useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 import { usePackAndPolicy } from "./Policy.tsx";
+import { B, Mono, Note, Sub, TableCard } from "../../ops/common.tsx";
 
 const ROLE_DETAIL: [string, string][] = [["LYRICS_COMPOSITION", "작사·작곡"], ["LYRICS", "작사"], ["COMPOSITION", "작곡"]];
 const roleText = (r: string | null) => ROLE_DETAIL.find(([k]) => k === r)?.[1] ?? r ?? "—";
@@ -280,87 +281,195 @@ function MandateBucket({ ctx }: { ctx: WsCtx }) {
   );
 }
 
-/** IR 생성 뒤(시안 Song-Locked.dc.html): 조회만 + 새 버전으로 바로잡기. 슬롯·파트는 CATALOG_SEALED라 고치지 않는다. */
+/**
+ * IR 생성 뒤(시안 Song-Locked·Song-Locked-Fix·Song-Locked-FixPerf): 조회만 + 새 버전 만들기.
+ * "새 버전으로 바로잡기"를 누르면 위쪽 안내 띠 자리에 편집 상자가 열린다(편집 중에는 안내 띠를 숨기고, 취소·저장하면 다시 띠).
+ * 권리자 유형: 작품(작가만 · 퍼블리싱 계약) · 녹음(레이블만 · 녹음 계약) · 실연(이 곡의 멤버만 · 실연 동의·수령 위임) — 모두 빅히트가 관리하는 당사자·문서.
+ * 실연은 %가 아니다: 원곡 파트 담당(POST /part-assignments, 봉인 v1은 그대로)과 보이스 소유(OWNED_BY 새 버전)를 바로잡고 바뀐 멤버가 실연자 앱에서 확인한다.
+ */
+type FixKind = "work" | "master" | "perf";
+const FIX_TYPES: [FixKind, string][] = [["work", "작품 · 작사·작곡"], ["master", "녹음 · 마스터"], ["perf", "실연 · 보이스·파트 담당"]];
+type Fix = { kind: FixKind; rows: Draft[]; part: string; member: string; voiceOwner: string; from: string; doc: string };
+const DOC_KINDS: Record<FixKind, string[]> = { work: ["PUBLISHING"], master: ["MASTER_CONTRACT"], perf: ["PERFORMER_CONSENT", "MANDATE"] };
+const DOC_LABEL: Record<FixKind, [string, string]> = {
+  work: ["근거 문서(작품 계약만)", "작품 퍼블리싱 계약·권리 확인서(작가용)만 보인다"],
+  master: ["근거 문서(녹음 계약만)", "녹음 계약·권리 확인서(레이블용)만 보인다"],
+  perf: ["근거 문서(실연 관련만)", "실연 이용 동의·수령 위임·녹음 세션 기록만 보인다"],
+};
+const partKey = (slotId: string, partNo: number) => `${slotId}#${partNo}`;
+const statusBadge = (s: string) => <B tone={s === "VERIFIED" ? "ok" : s === "DISPUTED" ? "bad" : "warn"}>{s === "VERIFIED" ? "확정" : s === "DISPUTED" ? "분쟁" : "확인 대기"}</B>;
+
 function LockedRights({ ctx }: { ctx: WsCtx }) {
   const buckets = rightsBuckets(ctx.facts.claims, ctx.names);
-  const parties = useParties();
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const docs = useGet<DocumentRow[]>(["documents"], "/documents");
   const w = useWrite();
-  const [fix, setFix] = useState<{ bucket: "work" | "master"; rows: Draft[]; from: string; doc: string } | null>(null);
+  const [fix, setFix] = useState<Fix | null>(null);
   const own = orgPartyIds(mine.data);
   const { policy } = usePackAndPolicy(ctx.scopeId);
   const v = policy?.latestVersion ?? 1;
   const ir = `IR v${v}`;
   const order = ctx.members.map((m) => m.partyId);
   const recordedAt = (r: BucketRow) => ctx.facts.claims.find((c) => c.claimId === r.claimId && c.version === r.version)?.recordedAt ?? "";
-  const inIr = (r: BucketRow) => ctx.work.sealedThrough !== null && recordedAt(r) <= ctx.work.sealedThrough;
-  const start = (b: Bucket) => setFix({ bucket: b.key as "work" | "master", rows: [...b.rows.map((r) => ({ claimId: r.claimId, partyId: r.partyId, shareBps: r.shareBps, roleDetail: r.roleDetail ?? "LYRICS_COMPOSITION", doc: "" })), { partyId: "", shareBps: 0, roleDetail: "LYRICS_COMPOSITION", doc: "" }], from: new Date().toISOString().slice(0, 10), doc: "" });
-  const total = fix ? fix.rows.reduce((a, r) => a + r.shareBps, 0) : 0;
+  const inIr = (at: string) => ctx.work.sealedThrough !== null && at <= ctx.work.sealedThrough;
+  const vocal = ctx.rows.filter((r) => r.kind === "VOCAL");
+  const assigns = ctx.facts.partAssignments ?? [];
+  /** 지금 담당(바로잡기 반영, 분쟁 중인 바로잡기는 빼고). */
+  const ownerOf = (slotId: string, partNo: number) => {
+    const a = assigns.find((x) => x.slotId === slotId && x.partNo === partNo && x.status !== "DISPUTED");
+    return a?.partyId ?? vocal.find((r) => r.slotId === slotId && r.partNo === partNo)?.original ?? "";
+  };
+  const voiceClaims = [...buckets[2]!.rows].sort((x, y) => order.indexOf(x.partyId) - order.indexOf(y.partyId));
+  const draftsOf = (k: FixKind): Draft[] => {
+    if (k === "perf") return [];
+    const b = buckets.find((x) => x.key === k)!;
+    return [...b.rows.map((r) => ({ claimId: r.claimId, partyId: r.partyId, shareBps: r.shareBps, roleDetail: r.roleDetail ?? "LYRICS_COMPOSITION", doc: "" })), { partyId: "", shareBps: 0, roleDetail: "LYRICS_COMPOSITION", doc: "" }];
+  };
+  const start = (k: FixKind) => {
+    const first = vocal[0];
+    setFix({ kind: k, rows: draftsOf(k), part: first ? partKey(first.slotId, first.partNo) : "", member: first ? ownerOf(first.slotId, first.partNo) : "", voiceOwner: "",
+      from: new Date().toISOString().slice(0, 10), doc: "" });
+  };
+  // 권리자 목록: 고른 유형으로 거른다(빅히트가 관리하는 당사자만).
+  const holders = (k: FixKind) => (mine.data ?? []).filter((p) => (k === "work" ? p.partyType === "AUTHOR" : p.partyType === "LABEL"));
+  const docOpts = (k: FixKind) => (docs.data ?? []).filter((d) => DOC_KINDS[k].includes(d.kind));
+  const total = fix && fix.kind !== "perf" ? fix.rows.reduce((a, r) => a + r.shareBps, 0) : 0;
+  const curPart = fix ? vocal.find((r) => partKey(r.slotId, r.partNo) === fix.part) : undefined;
+  const curOwner = curPart ? ownerOf(curPart.slotId, curPart.partNo) : "";
+  const curVoice = voiceClaims.find((c) => c.partyId === curOwner);
+  const perfChanged = fix !== null && fix.kind === "perf" && ((curPart !== undefined && fix.member !== curOwner) || fix.voiceOwner !== "");
+  const evidence = () => {
+    const d = (docs.data ?? []).find((x) => x.documentId === fix!.doc);
+    return d ? { evidenceDocuments: [{ documentId: d.documentId, version: d.version }] } : {};
+  };
+  const dateOk = fix !== null && /^\d{4}-\d{2}-\d{2}$/.test(fix.from) && !Number.isNaN(Date.parse(fix.from));
+  const validFrom = () => new Date(`${fix!.from}T00:00:00.000Z`).toISOString();
   const save = () => void w.run(async () => {
-    const b = buckets.find((x) => x.key === fix!.bucket)!;
-    const sourceId = b.key === "work" ? ctx.work.workId : ctx.recordingId!;
-    const doc = (docs.data ?? []).find((x) => x.documentId === fix!.doc);
-    for (const d of fix!.rows.filter((r) => r.partyId !== "" && (r.claimId === undefined ? r.shareBps > 0 : b.rows.find((x) => x.claimId === r.claimId)?.shareBps !== r.shareBps))) {
-      await post("/claims", {
-        claimId: d.claimId ?? `c_${b.key}_${sourceId.replace(/^(wrk|rcd)_/, "")}_${d.partyId.replace(/^pty_/, "")}`, factsScopeId: ctx.scopeId, sourceId, edge: b.edge, targetId: d.partyId,
-        shareBps: d.shareBps, ...(b.key === "work" && { roleDetail: d.roleDetail }), status: own.has(d.partyId) ? "VERIFIED" : "ASSERTED", validFrom: new Date(`${fix!.from}T00:00:00.000Z`).toISOString(),
-        ...(doc && { evidenceDocuments: [{ documentId: doc.documentId, version: doc.version }] }),
-      });
+    if (fix!.kind === "perf") {
+      if (curPart && fix!.member !== curOwner) await post("/part-assignments", { slotId: curPart.slotId, partNo: curPart.partNo, partyId: fix!.member, validFrom: validFrom(), ...evidence() });
+      if (fix!.voiceOwner !== "" && curVoice) {
+        await post("/claims", { claimId: curVoice.claimId, factsScopeId: ctx.scopeId, sourceId: curVoice.sourceId, edge: "OWNED_BY", targetId: fix!.voiceOwner, shareBps: 10000, status: "ASSERTED", validFrom: validFrom(), ...evidence() });
+      }
+    } else {
+      const b = buckets.find((x) => x.key === fix!.kind)!;
+      const sourceId = b.key === "work" ? ctx.work.workId : ctx.recordingId!;
+      for (const d of fix!.rows.filter((r) => r.partyId !== "" && (r.claimId === undefined ? r.shareBps > 0 : b.rows.find((x) => x.claimId === r.claimId)?.shareBps !== r.shareBps))) {
+        await post("/claims", {
+          claimId: d.claimId ?? `c_${b.key}_${sourceId.replace(/^(wrk|rcd)_/, "")}_${d.partyId.replace(/^pty_/, "")}`, factsScopeId: ctx.scopeId, sourceId, edge: b.edge, targetId: d.partyId,
+          shareBps: d.shareBps, ...(b.key === "work" && { roleDetail: d.roleDetail }), status: own.has(d.partyId) ? "VERIFIED" : "ASSERTED", validFrom: validFrom(), ...evidence(),
+        });
+      }
     }
     setFix(null);
   }, "새 버전을 기록했습니다 — 확인이 끝나면 분배 규칙을 재고정한다");
+  const setRow = (i: number, d: Partial<Draft>) => setFix({ ...fix!, rows: fix!.rows.map((x, k) => (k === i ? { ...x, ...d } : x)) });
+  // 작가는 사람 당사자라 언제나 본인 확인(전자서명 링크). 레이블은 빅히트 관리면 바로 확정.
+  const confirmBadge = (partyId: string) => (partyId !== "" && own.has(partyId) ? <B tone="ok">바로 확정</B>
+    : <B tone="warn">{fix?.kind === "work" ? "작가 전자서명 링크로 확인" : "상대 관리 주체 확인"}</B>);
+  const memberName = (p: string) => ctx.name(p);
+  const fixBox = fix && (
+    <section className="p-card" aria-label="새 버전 만들기" style={{ border: "2px solid var(--p-ir)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="p-row" style={{ gap: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>새 버전 만들기</h2>
+        <label className="p-field lg">권리자 유형
+          <select className="p-select" style={{ fontWeight: 700 }} value={fix.kind} onChange={(e) => start(e.target.value as FixKind)}>{FIX_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+        <span className="p-sub">권리자·근거 문서 목록은 고른 유형으로 걸러진다. v{v}은 그대로 남는다</span>
+      </div>
+      {fix.kind === "perf" ? (
+        <TableCard cols={["바로잡을 것", `지금(v${v})`, "새 값", "저장하면"]} count={2} paged={false} minW={700} label="실연 바로잡기"
+          foot="실연은 %가 아니다 — 멤버 몫은 조합마다 부른 시간으로 계산된다. 여기서는 원곡 파트 담당과 보이스 소유만 바로잡는다.">
+          <tr>
+            <td><select className="p-select" aria-label="바로잡을 파트" style={{ fontWeight: 600, width: "100%" }} value={fix.part}
+              onChange={(e) => { const r = vocal.find((x) => partKey(x.slotId, x.partNo) === e.target.value)!; setFix({ ...fix, part: e.target.value, member: ownerOf(r.slotId, r.partNo), voiceOwner: "" }); }}>
+              {vocal.map((r) => <option key={partKey(r.slotId, r.partNo)} value={partKey(r.slotId, r.partNo)}>{r.slotNo} {r.section} · 파트 {r.partNo} 원곡 담당</option>)}</select></td>
+            <td>{memberName(curOwner)}</td>
+            <td><select className="p-select" aria-label="새 원곡 담당" style={{ width: 160 }} value={fix.member} onChange={(e) => setFix({ ...fix, member: e.target.value })}>
+              {ctx.members.map((m) => <option key={m.partyId} value={m.partyId}>{m.name}</option>)}</select>
+              <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--p-muted)" }}>이 곡의 멤버 {ctx.members.length}명만</div></td>
+            <td>{fix.member !== curOwner ? <B tone="warn">{memberName(fix.member)}·{memberName(curOwner)} 실연자 앱 확인</B> : <B tone="muted">바꾸지 않음</B>}</td>
+          </tr>
+          <tr>
+            <td>보이스 소유</td>
+            <td>{curVoice ? <><Mono>{curVoice.sourceId}</Mono> → {memberName(curOwner)}</> : "—"}</td>
+            <td><select className="p-select" aria-label="새 보이스 소유자" style={{ width: 160 }} value={fix.voiceOwner} disabled={!curVoice} onChange={(e) => setFix({ ...fix, voiceOwner: e.target.value })}>
+              <option value="">바꾸지 않음</option>{ctx.members.filter((m) => m.partyId !== curOwner).map((m) => <option key={m.partyId} value={m.partyId}>{m.name}</option>)}</select></td>
+            <td>{fix.voiceOwner !== "" ? <B tone="warn">{memberName(fix.voiceOwner)} 실연자 앱 확인</B> : <B tone="muted">바꾸지 않음</B>}</td>
+          </tr>
+        </TableCard>
+      ) : (
+        <TableCard cols={[fix.kind === "work" ? "권리자(작가만)" : "권리자(레이블만)", "지분(%)", "저장하면"]} count={fix.rows.length} paged={false} minW={700} label="지분 바로잡기"
+          foot={`합계 100%여야 저장된다(지금 ${pctText(total)}).`}>
+          {fix.rows.map((r, i) => {
+            const was = buckets.find((b) => b.key === fix.kind)!.rows.find((x) => x.claimId === r.claimId);
+            return (
+              <tr key={r.claimId ?? `new${i}`}>
+                <td>{was ? <>{was.name} · v{was.version} {pctText(was.shareBps)} → v{was.version + 1}</>
+                  : <select className="p-select" aria-label="(새) 권리자" style={{ width: "100%" }} value={r.partyId} onChange={(e) => setRow(i, { partyId: e.target.value })}>
+                    <option value="">{fix.kind === "work" ? "(새) 작가 — 빅히트 관리 작가 명부에서" : "(새) 공동 보유 레이블 — 빅히트 관리 명부에서"}</option>
+                    {holders(fix.kind).filter((p) => !fix.rows.some((x) => x.partyId === p.partyId)).map((p) => <option key={p.partyId} value={p.partyId}>{p.displayName}</option>)}</select>}</td>
+                <td><input className="p-input" aria-label={r.claimId ? "새 지분" : "지분"} type="number" style={{ width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                  value={r.shareBps / 100} onChange={(e) => setRow(i, { shareBps: Math.round(Number(e.target.value) * 100) })} /></td>
+                <td>{confirmBadge(r.partyId)}</td>
+              </tr>
+            );
+          })}
+        </TableCard>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+        <label className="p-field lg">효력 시작<input className="p-input" inputMode="numeric" placeholder="YYYY-MM-DD" style={{ fontVariantNumeric: "tabular-nums" }}
+          aria-invalid={!dateOk || undefined} value={fix.from} onChange={(e) => setFix({ ...fix, from: e.target.value })} /></label>
+        <label className="p-field lg">{DOC_LABEL[fix.kind][0]}
+          <select className="p-select" aria-label="근거 문서" value={fix.doc} onChange={(e) => setFix({ ...fix, doc: e.target.value })}>
+            <option value="">고르기</option>{docOpts(fix.kind).map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title} v{d.version}</option>)}</select>
+          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--p-muted)" }}>{DOC_LABEL[fix.kind][1]}{fix.kind === "work" && <> · <Link to="/documents" style={{ fontWeight: 600, textDecoration: "none" }}>+ 새 문서 올리기</Link></>}</span></label>
+      </div>
+      <Note>{fix.kind === "perf"
+        ? `저장하면: 새 버전 기록 → 바뀐 멤버들이 실연자 앱에서 확인 → ⑧ "재고정 필요" → 분배 규칙 재고정 → 다음 발행부터 IR v${v + 1}. 이미 발행된 조합의 몫은 그대로.`
+        : `저장하면: 새 버전 기록 → ${fix.kind === "work" ? "작가 서명이" : "상대 확인이"} 끝나면 ⑧ "재고정 필요" → 분배 규칙 재고정 → 다음 발행부터 IR v${v + 1}. 이미 발행된 조합과 정산은 v${v} 그대로.`}</Note>
+      {w.err && <ErrorPanel error={w.err} />}
+      <div className="p-row" style={{ justifyContent: "flex-end" }}>
+        <button type="button" className="p-btn" onClick={() => setFix(null)}>취소</button>
+        {fix.kind === "perf"
+          ? <button type="button" className="p-btn primary" disabled={!perfChanged || !dateOk || w.busy} title={!perfChanged ? "바꾼 값이 없다" : !dateOk ? "효력 시작을 YYYY-MM-DD로" : undefined} onClick={save}>새 버전 저장</button>
+          : <button type="button" className="p-btn primary" disabled={total !== 10000 || !dateOk || w.busy} title={total !== 10000 ? `합계 100%여야 저장(지금 ${pctText(total)})` : !dateOk ? "효력 시작을 YYYY-MM-DD로" : undefined} onClick={save}>새 버전 저장</button>}
+      </div>
+    </section>
+  );
+  const partsOf = (p: string) => vocal.filter((r) => r.original === p).length;
+  const partsNext = (p: string) => vocal.filter((r) => ownerOf(r.slotId, r.partNo) === p).length;
   return (
     <>
-      <div className="p-box irs" role="status">
-        <span style={{ flex: "1 1 520px" }}>분배 규칙({policy?.policyId ?? "—"} v{v})을 만들 때 이 곡의 권리가 {ir}로 고정됐다. 이미 발행된 조합과 정산은 v{v}을 쓴다. 바로잡을 것이 있으면 <b>새 버전</b>으로 기록하고, 분배 규칙을 다시 고정(재고정)해야 다음 발행부터 반영된다.</span>
-        {ctx.can("rights.edit") && <button type="button" className="p-btn wide ir" onClick={() => start(buckets[1]!)}>새 버전으로 바로잡기</button>}
-      </div>
-      {buckets.map((b) => (
-        <section key={b.key} className="p-card" aria-label={b.title}>
-          <div className="p-card-head"><h2>{b.title}</h2><span className="note">수정·삭제 닫힘</span></div>
-          <table className="p-table">
-            <thead><tr><th>권리자</th><th className="r">지분</th><th>버전</th><th>{ir}</th><th>상태</th></tr></thead>
-            <tbody>{(b.key === "performer" ? [...b.rows].sort((x, y) => order.indexOf(x.partyId) - order.indexOf(y.partyId)) : b.rows).map((r) => (
-              <tr key={r.claimId}><td>{r.name}{b.key === "performer" ? ` · ${r.sourceId}` : ""}</td><td className="r">{pctText(r.shareBps)}</td><td>v{r.version}</td>
-                <td>{inIr(r) ? "포함" : "다음 재고정부터"}</td><td className={r.status === "VERIFIED" ? "p-ok" : "p-warn"}>{r.status === "VERIFIED" ? "확정" : "확인 대기"}</td></tr>
-            ))}</tbody>
-          </table>
-        </section>
-      ))}
-      {fix && (
-        <section className="p-card irline" aria-label="새 버전 만들기">
-          <div className="p-card-head"><h2>새 버전 만들기 —</h2>
-            <select className="p-select sm" aria-label="바로잡을 갈래" value={fix.bucket} onChange={(e) => start(buckets.find((b) => b.key === e.target.value)!)}><option value="master">녹음 · 마스터</option><option value="work">작품 · 작사·작곡</option></select>
-            <span className="note">이전 버전은 그대로 남는다</span></div>
-          <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) 100px minmax(0, 1.4fr) minmax(0, 1.4fr)", gap: 8, alignItems: "center" }}>
-              {fix.rows.map((r, i) => (
-                <Fragment key={r.claimId ?? `new${i}`}>
-                  {r.claimId ? <span><b>{ctx.name(r.partyId)}</b> v{buckets.find((b) => b.key === fix.bucket)!.rows.find((x) => x.claimId === r.claimId)?.version} {pctText(buckets.find((b) => b.key === fix.bucket)!.rows.find((x) => x.claimId === r.claimId)?.shareBps ?? 0)} → 새 버전</span>
-                    : <select className="p-select" aria-label="(새) 권리자" value={r.partyId} onChange={(e) => setFix({ ...fix, rows: fix.rows.map((x, k) => (k === i ? { ...x, partyId: e.target.value } : x)) })}>
-                      <option value="">(새) 권리자 — 명부에서</option>{parties.items.map((p) => <option key={p.partyId} value={p.partyId}>{p.displayName}</option>)}</select>}
-                  <input className="p-input" aria-label={r.claimId ? "새 지분" : "지분"} type="number" value={r.shareBps / 100} onChange={(e) => setFix({ ...fix, rows: fix.rows.map((x, k) => (k === i ? { ...x, shareBps: Math.round(Number(e.target.value) * 100) } : x)) })} />
-                  {i === 0 ? <label className="p-field">효력 시작<input className="p-input sm" type="date" value={fix.from} onChange={(e) => setFix({ ...fix, from: e.target.value })} /></label> : <span className="p-warn" style={{ fontSize: 13 }}>{r.claimId || own.has(r.partyId) ? "" : "확인 요청 → 상대 관리 주체"}</span>}
-                  {i === 0 ? <label className="p-field">근거 문서<select className="p-select sm" value={fix.doc} onChange={(e) => setFix({ ...fix, doc: e.target.value })}><option value="">고르기</option>{(docs.data ?? []).map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title} v{d.version}</option>)}</select></label> : <span />}
-                </Fragment>
-              ))}
-            </div>
-            <div className="p-hint">저장하면: 새 버전 기록 → 확인이 끝나면 ⑧ "재고정 필요" → 분배 규칙 재고정(청구권자가 바뀌면 새 버전 승인·활성화) → 다음 발행부터 새 IR</div>
-            {w.err && <ErrorPanel error={w.err} />}
-            <div className="p-row" style={{ justifyContent: "flex-end" }}>
-              <button type="button" className="p-btn wide" onClick={() => setFix(null)}>취소</button>
-              <button type="button" className="p-btn big ir" style={{ fontWeight: 600 }} disabled={total !== 10000 || w.busy} title={total !== 10000 ? `합계 100%여야 저장(지금 ${pctText(total)})` : undefined} onClick={save}>새 버전 저장</button>
-            </div>
-          </div>
+      {fixBox || (
+        <div className="p-box irs" role="status">
+          <span style={{ flex: "1 1 520px" }}>분배 규칙({policy?.policyId ?? "—"} v{v})을 만들 때 이 곡의 권리가 {ir}로 고정됐다. 이미 발행된 조합과 정산은 v{v}을 쓴다. 바로잡을 것이 있으면 <b>새 버전</b>으로 기록하고, 분배 규칙을 다시 고정(재고정)해야 다음 발행부터 반영된다.</span>
+          {ctx.can("rights.edit") && <button type="button" className="p-btn ir" onClick={() => start("work")}>새 버전으로 바로잡기</button>}
+        </div>
+      )}
+      {w.notice && !fix && <p className="p-sub" role="status">{w.notice}</p>}
+      <TableCard title={["작품 · 작사·작곡", "수정·삭제 닫힘"]} cols={["권리자", "역할", "지분", "버전", ir, "상태"]} count={buckets[0]!.rows.length} paged={false} minW={760}>
+        {buckets[0]!.rows.map((r) => <tr key={r.claimId}><td>{r.name}</td><td>{roleText(r.roleDetail)}</td><td><Mono>{pctText(r.shareBps)}</Mono></td><td>v{r.version}</td><td>{inIr(recordedAt(r)) ? "포함" : "다음 재고정부터"}</td><td>{statusBadge(r.status)}</td></tr>)}
+      </TableCard>
+      <TableCard title={["녹음 · 마스터", "수정·삭제 닫힘"]} cols={["권리자", "지분", "버전", ir, "상태"]} count={buckets[1]!.rows.length} paged={false} minW={760}>
+        {buckets[1]!.rows.map((r) => <tr key={r.claimId}><td>{r.name}</td><td><Mono>{pctText(r.shareBps)}</Mono></td><td>v{r.version}</td><td>{inIr(recordedAt(r)) ? "포함" : "다음 재고정부터"}</td><td>{statusBadge(r.status)}</td></tr>)}
+      </TableCard>
+      <TableCard title={["실연 · 멤버 보이스·파트 담당", "수정·삭제 닫힘 · 지분 없음(조합마다 부른 시간으로 계산)"]} cols={["멤버", "보이스", "원곡 파트 담당", "버전", ir, "상태"]} count={voiceClaims.length} paged={false} minW={760}>
+        {voiceClaims.map((r) => {
+          const pending = assigns.filter((a) => a.status !== "DISPUTED" && (a.partyId === r.partyId || a.previousPartyId === r.partyId));
+          return (
+            <tr key={r.claimId}><td>{r.name}</td><td><Mono>{r.sourceId}</Mono></td>
+              <td>{pending.length > 0 ? <Sub main={`파트 ${partsOf(r.partyId)}`} small={`다음 재고정부터 파트 ${partsNext(r.partyId)}`} /> : `파트 ${partsOf(r.partyId)}`}</td>
+              <td>v{r.version}</td><td>{inIr(recordedAt(r)) ? "포함" : "다음 재고정부터"}</td>
+              <td>{statusBadge(pending.some((a) => a.status === "ASSERTED") ? "ASSERTED" : r.status)}</td></tr>
+          );
+        })}
+      </TableCard>
+      {!fix && (
+        <section className="p-box" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: "14px 16px" }}>
+          <div><b>스템</b><br />IR 생성 뒤 새 스템 추가는 된다(다음 IR에 들어감). 기존 스템은 삭제 대신 "쓰지 않음"으로</div>
+          <div><b>파트 길이</b><br />바꾸면 새 파트 버전. 이미 발행된 조합의 몫은 그대로</div>
+          <div><b>멤버 동의 철회</b><br />권리 화면이 아니라 실연자 앱에서. 철회하면 새 발행이 막히고 기존 조합 노출이 멈춘다</div>
         </section>
       )}
-      {w.notice && <p className="p-sub" role="status">{w.notice}</p>}
-      <section className="p-box" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: "14px 16px" }}>
-        <div><b>스템</b><br />IR 생성 뒤 새 스템 추가는 된다(다음 IR에 들어감). 기존 스템은 삭제 대신 "쓰지 않음"으로</div>
-        <div><b>파트 길이</b><br />바꾸면 새 파트 버전. 이미 발행된 조합의 몫은 그대로</div>
-        <div><b>멤버 동의 철회</b><br />권리 화면이 아니라 실연자 앱에서. 철회하면 새 발행이 막히고 기존 조합 노출이 멈춘다</div>
-      </section>
     </>
   );
 }

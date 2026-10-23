@@ -100,6 +100,8 @@ async function scopeFactsRows(tx: Tx, scopeId: string, workId: string) {
   const claims = await q("SELECT * FROM right_claim WHERE facts_scope_id = $1 ORDER BY claim_id, version", [scopeId]);
   const mandates = await q("SELECT * FROM mandate WHERE facts_scope_id = $1 ORDER BY mandate_id, version", [scopeId]);
   const disputes = await q("SELECT * FROM dispute WHERE facts_scope_id = $1 ORDER BY dispute_id", [scopeId]);
+  // 봉인 뒤 원곡 파트 담당 바로잡기(0046): 현재 버전. 파트의 originalPartyId는 v1(봉인 때 값) 그대로다.
+  const assigns = await q("SELECT * FROM part_assignment WHERE facts_scope_id = $1 AND superseded_at IS NULL ORDER BY slot_id, part_no", [scopeId]);
   return {
     recordings: recordings.map((r) => ({
       recordingId: r.recording_id as string, workId: r.work_id as string, masterOwnerPartyId: r.master_owner_party_id as string,
@@ -133,5 +135,10 @@ async function scopeFactsRows(tx: Tx, scopeId: string, workId: string) {
       recordedAt: ts(r.recorded_at)!, supersededAt: ts(r.superseded_at), visibility: r.visibility as string | null, sourceRef: r.source_ref as string | null,
     })),
     disputes: disputes.map(disputeOut),
+    partAssignments: assigns.map((r) => ({
+      assignmentId: r.assignment_id as string, version: r.version as number, slotId: r.slot_id as string, partNo: r.part_no as number,
+      partyId: r.party_id as string, previousPartyId: r.previous_party_id as string, status: r.status as string,
+      validFrom: ts(r.valid_from)!, recordedAt: ts(r.recorded_at)!,
+    })),
   };
 }

@@ -1,3 +1,4 @@
+import { recordPartAssignment, type PartAssignmentInput } from "./part-assignment.ts";
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
 import type { Actor } from "../platform/actor.ts";
@@ -147,6 +148,12 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     const perf = { claimId: `c_perf_${b.stemId}`, factsScopeId: scopeId, sourceId: b.stemId, edge: "PERFORMED_BY", targetId: voiceId, shareBps: 10000, performerRole: "FEATURED", status: "ASSERTED", validFrom };
     await recordWithConfirmation(tx, actor, "CLAIM", perf, () => reg.recordClaim(tx, deps.clock, perf as reg.ClaimDraft));
   };
+  // IR 생성 뒤 원곡 파트 담당 바로잡기(0046): 새 버전 + 바뀐 멤버 확인 요청, 다음 재고정부터 반영.
+  created<PartAssignmentInput>("/part-assignments", async (tx, b, actor) => {
+    const out = await recordPartAssignment(tx, deps.clock, actor, b);
+    await revalidate(tx, deps.clock, out.factsScopeId);
+    return out;
+  });
   created<reg.ClaimDraft>("/claims", (tx, b, actor) => recordWithConfirmation(tx, actor, "CLAIM", b, () => reg.recordClaim(tx, deps.clock, withEvidence(b, actor))), ["claimId", "factsScopeId", "sourceId", "edge", "targetId", "shareBps", "status", "validFrom"]);
   created<reg.MandateDraft>("/mandates", (tx, b, actor) => recordWithConfirmation(tx, actor, "MANDATE", b, () => reg.recordMandate(tx, deps.clock, withEvidence(b, actor))), ["mandateId", "factsScopeId", "fromPartyId", "toPartyId", "rightKind", "shareBps", "status", "validFrom"]);
   created<any>("/disputes", (tx, b) => openDispute(tx, deps.clock, b));

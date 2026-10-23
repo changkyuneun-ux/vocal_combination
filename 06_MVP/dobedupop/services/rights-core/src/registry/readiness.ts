@@ -46,7 +46,7 @@ export async function scopeReadiness(tx: Tx, scopeId: string, now: string): Prom
       `SELECT p.slot_id, p.part_no, p.kind, p.original_party_id,
               EXISTS (SELECT 1 FROM stem st WHERE st.slot_id = p.slot_id AND st.part_no = p.part_no
                        AND (p.kind = 'GROUP' OR st.performer_party_id = p.original_party_id)) AS has_original
-         FROM slot_part p JOIN part_slot sl ON sl.slot_id = p.slot_id JOIN recording_version r ON r.recording_id = sl.recording_id
+         FROM slot_part_current p JOIN part_slot sl ON sl.slot_id = p.slot_id JOIN recording_version r ON r.recording_id = sl.recording_id
         WHERE r.work_id = $1 AND p.kind IN ('VOCAL','GROUP')`, [scope.work_id]);
     const missing = parts.filter((p) => !p.has_original).length;
     items.push({ key: "originalStems", ok: parts.length === 0 ? "warn" : missing === 0, label: "원곡 스템",
