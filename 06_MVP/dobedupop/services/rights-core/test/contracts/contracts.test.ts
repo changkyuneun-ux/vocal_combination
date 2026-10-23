@@ -40,10 +40,10 @@ const json = async (method: "GET" | "POST", url: string, actor: string, status: 
 };
 const usage = { actions: ["PREVIEW", "COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validFrom: "2026-02-01", validTo: "2027-02-01" };
 
-test("five standard templates are approved at v1", async () => {
+test("five standard templates and the two rights confirmations (CT5) are approved at v1", async () => {
   const t = await json("GET", "/contract-templates", "usr_rights", 200);
   assert.deepEqual(t.map((x: any) => `${x.templateId}@${x.version} ${x.status}`).sort(), [
-    "tpl_master_license@1 APPROVED", "tpl_performer_consent@1 APPROVED", "tpl_performer_mandate@1 APPROVED", "tpl_platform_contract@1 APPROVED", "tpl_work_license@1 APPROVED",
+    "tpl_claim_confirm_author@1 APPROVED", "tpl_claim_confirm_label@1 APPROVED", "tpl_master_license@1 APPROVED", "tpl_performer_consent@1 APPROVED", "tpl_performer_mandate@1 APPROVED", "tpl_platform_contract@1 APPROVED", "tpl_work_license@1 APPROVED",
   ]);
 });
 

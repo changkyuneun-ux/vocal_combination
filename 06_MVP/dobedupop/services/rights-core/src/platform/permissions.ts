@@ -50,6 +50,7 @@ export const PERMISSIONS = {
   "delegation.set": d("⑦", "admin", [R], ["TENANT_ADMIN"], "플랫폼에 맡길 업무 정하기"),
   "org.view_while_inactive": d("⑦", "view", [R, A], ["TENANT_ADMIN"], "신청·정지 상태 조직에 열람으로 로그인"),
   "legal.template": d("⑦", "admin", [P], ["LEGAL"], "계약·분배 규칙 표준 템플릿 작성·승인"),
+  "contract.frame_approve": d("⑦", "admin", [P], ["LEGAL"], "계약서 읽기 틀 승인"),
   "party.register_platform": d("①", "admin", [P], ["ONBOARDING", "RIGHTS_EDITOR"], "플랫폼 위탁 당사자 등록"),
   // ① 권리 등록
   "rights.edit": d("①", "decide", [R], ["RIGHTS_EDITOR"], "곡·녹음·스템·권리 주장·위임·원천 문서 등록"),

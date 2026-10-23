@@ -13,7 +13,7 @@ const KEYS: Record<string, "OWNER" | "PARTY" | "SELF" | "LINK" | "ORG" | "PUBLIC
   snapshot_member_pct: "OWNER", issue_seal: "OWNER", source_document: "OWNER", document_clause: "OWNER", record_clause: "OWNER", record_evidence: "OWNER",
   validation_issue: "OWNER", validation_check: "OWNER", contract_envelope: "OWNER", contract_signature: "OWNER", stem_audio: "OWNER", reference_audio: "OWNER",
   combination_render: "OWNER", exposure_hold: "OWNER", decision_cache: "OWNER", decision_epoch: "OWNER", confirmation_request: "OWNER", issue_rejection: "OWNER",
-  consent_agreement: "OWNER", slot_part: "OWNER",
+  consent_agreement: "OWNER", slot_part: "OWNER", contract_reading_frame: "OWNER", contract_import: "OWNER", import_value: "OWNER",
   allocation_line: "PARTY", payout_instruction: "PARTY", party_payout_profile: "PARTY", ledger_account: "PARTY", posting: "PARTY",
   notification: "SELF", push_subscription: "SELF", identity_challenge: "SELF", play_event: "SELF",
   participant_link: "LINK", partner_asset: "LINK",

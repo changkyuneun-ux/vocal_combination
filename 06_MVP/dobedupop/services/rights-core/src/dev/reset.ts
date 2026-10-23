@@ -12,7 +12,7 @@ export function assertDevDbName(name: string, allowed: string = DEV_DB_NAME): vo
 /**
  * 마이그레이션이 넣는 시드 행(migrations/*.sql의 INSERT INTO 전부). 초기화가 TRUNCATE 뒤에 같은 값으로 다시 넣는다.
  * 목록: 0014_holds_payout.sql의 payout_policy 'default', 0017·0018의 플랫폼·개인 기본 테넌트(0030의 validation_enforced 값 포함), 0032의 표준 계약 템플릿, 0038의 표준 분배 규칙 템플릿,
- * 0039의 권한·역할·역할–권한·위임 업무 권한, 0040의 직무 분리 규칙, 0041의 총괄 역할. migrations-dev의 dev_clock은 아래에서 따로 넣는다.
+ * 0039의 권한·역할·역할–권한·위임 업무 권한, 0040의 직무 분리 규칙, 0041의 총괄 역할, 0044의 읽기 틀 승인 권한·권리 확인서 템플릿. migrations-dev의 dev_clock은 아래에서 따로 넣는다.
  */
 export const MIGRATION_SEED_SQL: readonly string[] = [
   `INSERT INTO payout_policy VALUES ('default', 10000, 30, '{"DOMESTIC_INDIVIDUAL":330,"DOMESTIC_CORP":0,"FOREIGN":2200,"EXEMPT":0}')`,
@@ -29,6 +29,8 @@ export const MIGRATION_SEED_SQL: readonly string[] = [
   ...migrationInserts("0040_sod_rules.sql"),
   // 0041: 총괄 역할과 그 권한.
   ...migrationInserts("0041_super_roles.sql"),
+  // 0044: 읽기 틀 승인 권한과 권리 확인서 템플릿 2종.
+  ...migrationInserts("0044_contract_import.sql"),
 ];
 
 /** 마이그레이션 파일의 줄 첫머리 INSERT 문 전부(파일 순서). */
