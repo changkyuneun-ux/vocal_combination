@@ -78,8 +78,18 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
   assert.ok(BigInt(r.statements.agency.settled) > 0n);
   // 멤버는 실연자 앱에서 위임 전 자기 기여분(참고값)을 본다.
   assert.ok(JSON.stringify(r.contributions).includes("vc_bts_orig"));
-  // 격리: 빅히트는 작가(플랫폼 밖 당사자)·다른 멤버의 명세를 볼 수 없고, 멤버는 운영·포털 채널에 들어갈 수 없다.
-  assert.equal((await driver.call("portal", "usr_bh_rights", "GET", "/parties/pty_david_stewart/statements?from=2026-01-01T00:00:00.000Z&to=2026-05-02T00:00:00.000Z")).status, 404);
+  // 데모 구매 수로 돌린 지급 금액 고정은 dynamite-payout.test.ts에 있다(이 시험은 구매 수를 줄여 돈다).
+  // 작가는 빅히트 관리 당사자다(결정 WD1·WD4): 관리 테넌트, 지급 정보 등록자, 명세는 빅히트가 본다.
+  assert.deepEqual((await db.pool.query("SELECT party_id, tenant_id FROM party WHERE party_type = 'AUTHOR' ORDER BY party_id")).rows,
+    [{ party_id: "pty_david_stewart", tenant_id: "tnt_bighit" }, { party_id: "pty_jessica_agombar", tenant_id: "tnt_bighit" }]);
+  const mine = (await driver.call("portal", "usr_bh_rights", "GET", "/my/parties")).body as { partyId: string }[];
+  assert.ok(mine.some((p) => p.partyId === "pty_david_stewart"), JSON.stringify(mine));
+  const ds = await driver.call("portal", "usr_bh_rights", "GET", "/parties/pty_david_stewart/statements?from=2026-01-01T00:00:00.000Z&to=2026-05-02T00:00:00.000Z");
+  assert.equal(ds.status, 200);
+  // 작가 지분은 작가가 전자서명한 권리 확인서로 확정됐다(플랫폼 대조 없음, WD2·WD3).
+  assert.deepEqual((await db.pool.query("SELECT DISTINCT status FROM confirmation_request WHERE record_id IN ('c_work_ds','c_work_ja')")).rows.map((x) => x.status), ["SUPERSEDED"]);
+  assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM confirmation_request WHERE status = 'PLATFORM_VERIFIED'")).rows[0].n, 0);
+  // 격리: 다른 멤버의 명세는 볼 수 없고, 멤버는 운영·포털 채널에 들어갈 수 없다.
   assert.equal((await driver.call("portal", "usr_member_jungkook", "GET", "/my/parties")).status, 403);
   assert.equal((await driver.call("ops", "usr_bh_rights", "GET", "/batches")).status, 403);
 });

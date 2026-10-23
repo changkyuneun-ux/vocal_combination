@@ -25,7 +25,7 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const bad = (m: string) => invalid("INVALID_DOCUMENT", m);
 
 function requireEditor(actor: Actor): void {
-  if (actor.scope !== "platform") requirePermission(actor, "rights.edit");
+  requirePermission(actor, "rights.edit");
 }
 
 function retentionUntil(effectiveTo: string | null): string | null {

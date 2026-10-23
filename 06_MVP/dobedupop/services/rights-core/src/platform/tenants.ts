@@ -171,8 +171,8 @@ export async function assertOwnerTenantActive(tx: Tx, factsScopeId: string, what
 }
 
 /**
- * 관리 이관(TN2, 결정 TD6): 당사자의 관리 주체를 옮긴다(플랫폼 온보딩·운영, 사유 필수). 넘겨받은 쪽은 과거 명세도 본다(명세는 당사자 열쇠).
- * 위탁 당사자가 가입하거나 권리 테넌트·신탁단체가 맡을 때, 해지한 테넌트의 당사자를 옮길 때 쓴다.
+ * 관리 이관(TN2): 당사자의 관리 주체를 옮긴다(플랫폼 온보딩·운영, 사유 필수). 넘겨받은 쪽은 과거 명세도 본다(명세는 당사자 열쇠).
+ * 개인이 가입하거나 권리 테넌트·신탁단체가 맡을 때, 해지한 테넌트의 당사자를 옮길 때 쓴다. 플랫폼으로는 옮기지 않는다(결정 WD1).
  */
 export async function transferParty(tx: Tx, clock: Clock, actor: Actor, partyId: string, b: { tenantId?: unknown; reason?: unknown }) {
   requirePermission(actor, "tenant.onboard");
@@ -185,6 +185,7 @@ export async function transferParty(tx: Tx, clock: Clock, actor: Actor, partyId:
     const t = await tenantRow(tx, b.tenantId as string);
     if (t.status === "TERMINATED") throw conflict("TENANT_INACTIVE", `${t.tenant_id} is TERMINATED`);
     if (p.tenant_id === t.tenant_id) throw conflict("NO_CHANGE", `${partyId} is already managed by ${t.tenant_id}`);
+    if (t.org_class === "PLATFORM") throw invalid("PARTY_NOT_ALLOWED", "the platform does not manage parties (WD1); without a successor the party stays unmanaged");
     const individual = ["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"].includes(p.party_type);
     if (t.org_class === "INDIVIDUAL" && !individual) throw invalid("PARTY_NOT_ALLOWED", `${p.party_type} is an organization`);
     if (t.org_class === "PARTICIPANT") {
@@ -197,9 +198,9 @@ export async function transferParty(tx: Tx, clock: Clock, actor: Actor, partyId:
   });
 }
 
-/** 관리 주체 종류(테넌트 정책 TR3): 권리 테넌트·본인·참여 기관·플랫폼 위탁. */
-export function managerKind(orgClass: string): "TENANT" | "SELF" | "PARTICIPANT" | "PLATFORM_TRUST" {
-  return orgClass === "RIGHTS" ? "TENANT" : orgClass === "INDIVIDUAL" ? "SELF" : orgClass === "PARTICIPANT" ? "PARTICIPANT" : "PLATFORM_TRUST";
+/** 관리 주체 종류(테넌트 정책 TR3, 결정 WD1): 권리 테넌트·본인·참여 기관. 그 밖(플랫폼 소속으로 남은 옛 당사자)은 관리 주체 없음(정지). */
+export function managerKind(orgClass: string): "TENANT" | "SELF" | "PARTICIPANT" | "NONE" {
+  return orgClass === "RIGHTS" ? "TENANT" : orgClass === "INDIVIDUAL" ? "SELF" : orgClass === "PARTICIPANT" ? "PARTICIPANT" : "NONE";
 }
 
 /**

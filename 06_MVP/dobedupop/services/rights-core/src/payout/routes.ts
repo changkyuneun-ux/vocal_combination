@@ -33,8 +33,8 @@ function secretMatches(given: unknown, expected: string): boolean {
  * POST /psp/webhook은 신원이 없다: 공유 비밀 헤더 x-psp-secret를 deps.pspSecret(env RC_PSP_SECRET)과 비교한다 — 설정이 없으면 503, 다르면 401.
  * 본문: providerEventId·providerRef는 1~200자 문자열, status는 PAID|FAILED(아니면 400).
  */
-export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
-  const d = () => ({ db: deps.db, clock: deps.clock, jobs: deps.jobs });
+/** 지급 정보 등록: 플랫폼(payout.profile_set)과, 자기가 관리하는 당사자에 대해 권리 테넌트(payout.profile_own, 결정 WD4). */
+export function payoutProfileRoutes(app: FastifyInstance, deps: Deps): void {
   app.put<{ Params: { id: string } }>("/parties/:id/payout-profile", async (req) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
     const b: any = req.body;
@@ -43,6 +43,11 @@ export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
       ...(b !== null && typeof b === "object" && "payoutAccountRef" in b ? { payoutAccountRef: b.payoutAccountRef } : {}),
     }));
   });
+}
+
+export function payoutRoutes(app: FastifyInstance, deps: Deps): void {
+  const d = () => ({ db: deps.db, clock: deps.clock, jobs: deps.jobs });
+  payoutProfileRoutes(app, deps);
   app.post("/payout-runs", async (req, reply) => {
     const actor = await withActor(deps, req, async (_tx, a) => a);
     requirePermission(actor, "payout.run");

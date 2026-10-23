@@ -6,9 +6,9 @@ import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts"
 import { notifyUser } from "../performer/notifications.ts";
 import { openDispute } from "./disputes.ts";
 import { currentClaim, currentMandate, recordClaim, recordMandate } from "./service.ts";
-import { requirePermission } from "../platform/permissions.ts";
+import { hasPermission } from "../platform/permissions.ts";
 
-/** 확인 기한(결정 D5): 14일. 상대가 플랫폼 밖이면 기한 뒤 플랫폼이 원문을 대조해 확인할 수 있다. */
+/** 확인 기한(결정 D5): 14일. 지나면 정합성 경고가 차단으로 오를 뿐이다 — 확정은 상대 당사자의 확인·서명으로만 된다(결정 WD3). */
 export const CONFIRMATION_DAYS = 14;
 /** 돈의 흐름을 바꾸는 주장(지분·권리자 지정). 크레딧 표기(CONTRIBUTED_BY)는 확인 대상이 아니다. 위임은 언제나 대상이다. */
 const CONFIRM_EDGES = new Set(["CONTROLLED_BY", "WRITTEN_BY", "OWNED_BY", "PERFORMED_BY"]);
@@ -32,19 +32,28 @@ export async function counterpartyOf(tx: Tx, type: RecordType, r: { edge?: strin
   return owner;
 }
 
-/** 요청자가 그 파티 자신인가(본인 계정이거나 그 파티가 속한 테넌트의 사용자). */
-async function actsFor(tx: Tx, actor: Actor, partyId: string): Promise<boolean> {
+/** 사람 당사자(개인). 관리 테넌트가 등록·관리해도 확인·서명은 본인이 한다(결정 WD2). */
+export const PERSON_PARTY_TYPES = ["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"] as const;
+
+/**
+ * 요청자가 그 파티 자신인가: 본인 계정이거나, 기관 당사자(레이블·소속사 등)면 그 파티가 속한 테넌트의 사용자.
+ * 사람 당사자(작가 등)는 관리 테넌트가 대신 확인하지 못한다 — 본인 계정이나 전자서명 링크로 본인이 한다(결정 WD2).
+ */
+export async function actsFor(tx: Tx, actor: Actor, partyId: string): Promise<boolean> {
   if (actor.partyId === partyId) return true;
   if (actor.scope !== "tenant") return false;
-  const t = await withSystemScope(tx, async () => (await tx.query("SELECT tenant_id FROM party WHERE party_id = $1", [partyId])).rows[0]?.tenant_id as string | undefined);
-  return t === actor.tenantId;
+  const p = await withSystemScope(tx, async () => (await tx.query("SELECT tenant_id, party_type FROM party WHERE party_id = $1", [partyId])).rows[0]);
+  return p !== undefined && p.tenant_id === actor.tenantId && !(PERSON_PARTY_TYPES as readonly string[]).includes(p.party_type);
 }
 
 /**
- * 확인 없이 VERIFIED로 기록해도 되는가: 플랫폼(계약서 옮겨 적기)과 상대 당사자 자신만. 그 밖에는 ASSERTED로 기록하고 확인을 요청해야 한다.
+ * 확인 없이 VERIFIED로 기록해도 되는가: 상대 당사자 자신만. 그 밖에는 ASSERTED로 기록하고 확인을 요청해야 한다.
+ * 플랫폼 운영은 권리를 확정하지 않는다(결정 WD3) — 운영 역할에는 rights.edit가 없어 이 경로에 오지 못한다(test/platform/no-platform-rights.test.ts).
+ * 남은 예외: 플랫폼 소유 시험·합성 곡의 레거시 권리 편집 계정(플랫폼 소속 RIGHTS_EDITOR, 새로 발급할 수 없다 — TR5).
  */
 export async function assertMayRecordVerified(tx: Tx, actor: Actor, type: RecordType, d: { status?: string; edge?: string; targetId?: string; fromPartyId?: string; factsScopeId: string }): Promise<void> {
-  if (d.status !== "VERIFIED" || actor.scope === "platform" || !needsConfirmation(type, d.edge)) return;
+  if (d.status !== "VERIFIED" || !needsConfirmation(type, d.edge)) return;
+  if (actor.scope === "platform" && hasPermission(actor, "rights.edit")) return;
   const cp = await counterpartyOf(tx, type, d);
   if (!(await actsFor(tx, actor, cp))) {
     throw new DomainError("CONFIRMATION_REQUIRED", 422, `record it as ASSERTED; ${cp} must confirm before it becomes VERIFIED`);
@@ -135,29 +144,6 @@ export async function declineRequest(tx: Tx, clock: Clock, actor: Actor, request
     disputeId, targetType: q.record_type === "CLAIM" ? "RIGHT_CLAIM" : "MANDATE", targetId: q.record_id, reason: `확인 거절: ${reason.trim()}`, openedBy: actor.userId,
   }));
   await audit(tx, clock, { actor: actor.userId, action: "CONFIRMATION_DECLINED", entityType: "confirmation_request", entityId: String(requestId), after: { disputeId } });
-  return getConfirmation(tx, requestId);
-}
-
-/**
- * 플랫폼 확인(결정 D5의 세 번째 길): 상대가 플랫폼 사용자가 아니고(그 파티에 연결된 계정·기관 테넌트가 없다), 기한이 지났고,
- * 기록에 근거 원천 문서가 있을 때만. 운영(confirmation.platform_verify)이 원문을 대조했다는 사유를 남긴다.
- */
-export async function platformVerify(tx: Tx, clock: Clock, actor: Actor, requestId: number, reason: unknown) {
-  requirePermission(actor, "confirmation.platform_verify");
-  if (typeof reason !== "string" || reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
-  const q = await openRequest(tx, requestId);
-  const now = clock.now();
-  if (iso(q.due_at)! > now) throw conflict("NOT_DUE", `request ${requestId} is open until ${iso(q.due_at)}`);
-  const onPlatform = await withSystemScope(tx, async () => (await tx.query(
-    `SELECT 1 FROM party p WHERE p.party_id = $1 AND (EXISTS (SELECT 1 FROM user_account u WHERE u.party_id = p.party_id)
-       OR p.tenant_id NOT IN ('tnt_platform', 'tnt_platform_default'))`, [q.counterparty_id])).rowCount ?? 0);
-  if (onPlatform > 0) throw conflict("COUNTERPARTY_ON_PLATFORM", `${q.counterparty_id} uses the platform and must confirm it`);
-  const evidence = await withSystemScope(tx, async () => (await tx.query(
-    "SELECT 1 FROM record_evidence WHERE record_type = $1 AND record_id = $2 AND record_version = $3", [q.record_type, q.record_id, q.record_version])).rowCount ?? 0);
-  if (evidence === 0) throw invalid("EVIDENCE_REQUIRED", `${q.record_type} ${q.record_id} has no source document to check against`);
-  await tx.query("UPDATE confirmation_request SET status = 'PLATFORM_VERIFIED', decided_by = $2, decided_at = $3, reason = $4 WHERE request_id = $1", [requestId, actor.userId, now, reason.trim()]);
-  if (!(await verifyRecord(tx, clock, q))) throw conflict("STALE_REQUEST", `${q.record_type} ${q.record_id} changed after the request; ask again`);
-  await audit(tx, clock, { actor: actor.userId, action: "CONFIRMATION_PLATFORM_VERIFIED", entityType: "confirmation_request", entityId: String(requestId), after: { reason: reason.trim() } });
   return getConfirmation(tx, requestId);
 }
 

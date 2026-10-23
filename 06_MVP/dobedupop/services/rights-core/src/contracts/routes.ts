@@ -6,7 +6,7 @@ import { optFilter, pagedOr } from "../platform/paging.ts";
 import type { SignatureProvider } from "./esign.ts";
 import {
   approveTemplateVersion, authorTemplateVersion, cancelContract, completeContract, createContract, getContract, getTemplate, listContracts, listTemplates,
-  platformVerifySigner, previewContract, providerSigned, signContract,
+  previewContract, providerSigned, signContract,
 } from "./service.ts";
 import { approveFrame, listFrames, registerFrame } from "./frames.ts";
 import { getImport, listClaimConfirmations, listImports, previewConfirmation, sendConfirmation, setGaps, setValue, startImport } from "./imports.ts";
@@ -36,8 +36,6 @@ export function contractRoutes(app: FastifyInstance, deps: Deps): void {
     return completeContract(tx, deps.clock, actor, deps.documents, esignOf(deps), req.params.id);
   }));
   app.post<P>("/contracts/:id/cancel", async (req) => withActor(deps, req, (tx, actor) => cancelContract(tx, deps.clock, actor, req.params.id)));
-  // 운영 원문 대조(결정 CT4): 권리 확인서의 위탁 작가 서명을 대신한다.
-  app.post<P>("/contracts/:id/platform-verify", async (req) => withActor(deps, req, (tx, actor) => platformVerifySigner(tx, deps.clock, actor, req.params.id, body(req))));
   importRoutes(app, deps);
 }
 

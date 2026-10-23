@@ -1,8 +1,8 @@
-import type { Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
 import type { Db, Tx } from "../platform/db.ts";
-import { conflict, invalid, notFound } from "../platform/errors.ts";
+import { conflict, DomainError, invalid, notFound } from "../platform/errors.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import { postEntry } from "../ledger/journal.ts";
 import { PAYOUT_KEY_PREFIX } from "./provider.ts";
@@ -25,7 +25,14 @@ const RUN_ID = /^[A-Za-z0-9.-]{1,100}$/;
  */
 export async function setPayoutProfile(tx: Tx, clock: Clock, actor: Actor,
   input: { partyId: string; taxType: string; payoutAccountRef?: string | null; kycVerified: boolean; accountHolderId?: string }) {
-  requirePermission(actor, "payout.profile_set");
+  // 권리 테넌트는 자기가 관리하는 당사자의 지급 정보를 등록한다(결정 WD4: 작가 지급 정보는 빅히트). 플랫폼은 payout.profile_set.
+  if (actor.scope === "tenant") {
+    requirePermission(actor, "payout.profile_own");
+    const own = await withSystemScope(tx, async () => (await tx.query("SELECT tenant_id FROM party WHERE party_id = $1", [input.partyId])).rows[0]?.tenant_id);
+    if (own !== actor.tenantId) throw new DomainError("NOT_MANAGER", 403, `${actor.tenantId} does not manage ${input.partyId}`);
+  } else {
+    requirePermission(actor, "payout.profile_set");
+  }
   if (!TAX_TYPES.includes(input.taxType as TaxType)) throw invalid("INVALID_TAX_TYPE", `taxType must be one of ${TAX_TYPES.join(", ")}`);
   if (typeof input.kycVerified !== "boolean") throw invalid("INVALID_KYC", "kycVerified must be a boolean");
   const ref = input.payoutAccountRef;

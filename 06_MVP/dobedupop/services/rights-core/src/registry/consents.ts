@@ -29,11 +29,13 @@ export type Consent = {
 
 /**
  * 누가 서명할 수 있나. 실연 동의는 실연자 본인(performer.self, 자기 파티)만 한다. 권리자 포털·대리 서명은 받지 않는다.
- * 녹음·작품 허락은 그 파티가 소속된 테넌트의 consent.record 권한자가 한다(파티 소속은 RLS가 확인한다).
- * 플랫폼은 종이 계약을 옮겨 적을 때만 서명을 대신 기록하며, 그때는 계약 원문 URI가 있어야 한다.
+ * 녹음·작품 허락은 그 파티를 관리하는 쪽의 consent.record 권한자가 한다(파티 소속은 RLS가 확인한다).
+ * 플랫폼 운영은 동의를 대신 기록하지 않는다(결정 WD1·WD3) — 운영 역할에는 consent.record가 없다.
+ * 남은 예외: 플랫폼 소유 시험·합성 곡의 레거시 권리 편집 계정(consent.record)이 종이 계약을 옮겨 적는 기록(계약 원문 URI 필수).
  */
 function authorize(actor: Actor, partyId: string, rightType: string, contractUri?: string): void {
   if (actor.scope === "platform") {
+    requirePermission(actor, "consent.record");
     if (contractUri === undefined) throw new DomainError("CONTRACT_REQUIRED", 422, "platform-recorded consent needs sourceContractUri");
     return;
   }
@@ -70,7 +72,7 @@ export async function signConsent(tx: Tx, clock: Clock, actor: Actor, raw: Conse
   const d: ConsentDraft = d0.sourceDocument !== undefined && d0.sourceContractUri === undefined
     ? { ...d0, sourceContractUri: `doc:${d0.sourceDocument.documentId}@${d0.sourceDocument.version}` } : d0;
   if (!opts.signedContract) authorize(actor, d.partyId, d.rightType, d.sourceContractUri);
-  // 실연자 본인 서명은 본인 인증을 마친 계정만(플랫폼의 계약서 옮겨 적기는 계약 원문이 근거다).
+  // 실연자 본인 서명은 본인 인증을 마친 계정만(레거시 계약서 옮겨 적기는 계약 원문이 근거다).
   if (!opts.signedContract && d.rightType === "PERFORMER" && actor.scope !== "platform" && !(await isIdentityVerified(tx, actor.userId))) {
     throw new DomainError("IDENTITY_REQUIRED", 403, `${actor.userId} must complete identity verification before signing`);
   }
@@ -160,7 +162,8 @@ export async function recordContractConsents(
   tx: Tx, clock: Clock, actor: Actor,
   input: { factsScopeId: string; scope: ConsentDraft["scope"]; validFrom: string; validTo: string; contractUri: string },
 ): Promise<string[]> {
-  if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "only platform operators can record contract consents");
+  if (actor.scope !== "platform") throw new DomainError("TENANT_FORBIDDEN", 403, "contract consents are transcribed only for platform-owned test songs");
+  requirePermission(actor, "consent.record");
   const grantors = await withSystemScope(tx, async () => (await tx.query(
     `SELECT DISTINCT CASE c.edge WHEN 'CONTROLLED_BY' THEN 'MASTER' WHEN 'WRITTEN_BY' THEN 'WORK' ELSE 'PERFORMER' END AS right_type,
             c.source_id AS asset_id, c.target_id AS party_id

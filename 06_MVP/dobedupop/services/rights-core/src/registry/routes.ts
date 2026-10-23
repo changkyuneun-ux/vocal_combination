@@ -15,8 +15,8 @@ import { scopeReadiness } from "./readiness.ts";
 import { linkClause } from "./evidence-links.ts";
 import { revalidate } from "../validation/service.ts";
 import { applyTrustOnClaim } from "../participants/links.ts";
-import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, platformVerify, requestConfirmation } from "./confirmations.ts";
-import { requirePermission } from "../platform/permissions.ts";
+import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest, listConfirmations, needsConfirmation, requestConfirmation } from "./confirmations.ts";
+import { hasPermission, requirePermission } from "../platform/permissions.ts";
 import { deleteCatalogRow, updateCatalogRow, type CatalogKind } from "./catalog.ts";
 
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
@@ -28,7 +28,8 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   };
   const q0 = (req: { query: unknown }) => req.query as Record<string, unknown>;
   /**
-   * 등록 권한: 권리 테넌트는 rights.edit. 플랫폼 운영은 권리를 등록하지 않고(결정 TD3) 당사자 등록만 party.register_platform(온보딩)으로 한다.
+   * 등록 권한: 권리 테넌트는 rights.edit. 플랫폼 운영은 권리를 등록하지 않고(결정 TD3) 당사자 등록만 party.register_platform(온보딩)으로 한다 —
+   * 그것도 개인(본인 관리)·참여 기관 당사자만이다. 플랫폼이 관리하는 당사자는 없다(결정 WD1).
    * (플랫폼 RIGHTS_EDITOR는 이제 발급할 수 없다. 기존 개발·시험 계정만 남아 있다.)
    */
   const created = <B>(path: string, fn: (tx: any, body: B, actor: Actor) => Promise<unknown>, required: readonly string[] = []) =>
@@ -44,9 +45,17 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
       return reply.status(201).send(out ?? {});
     });
   created<any>("/parties", async (tx, b, actor) => {
-    // 다른 테넌트 소속으로 파티를 만드는 것은 플랫폼 운영만 할 수 있다(권리자 온보딩 대행).
+    // 다른 테넌트 소속으로 파티를 만드는 것은 플랫폼 운영만 할 수 있다(개인·참여 기관 온보딩).
     if (b.tenantId !== undefined && b.tenantId !== actor.tenantId && actor.scope !== "platform") {
       throw new DomainError("TENANT_FORBIDDEN", 403, `${actor.userId} cannot register a party in tenant ${b.tenantId}`);
+    }
+    // 플랫폼 운영은 권리자를 만들지 않는다(결정 WD1): 플랫폼 소속·권리 테넌트 소속 당사자는 그 권리 테넌트가 등록한다.
+    // (플랫폼 소유 시험·합성 곡의 레거시 권리 편집 계정은 rights.edit이 있어 예외 — 새로 발급할 수 없다.)
+    if (actor.scope === "platform" && !hasPermission(actor, "rights.edit")) {
+      const cls = (await tx.query("SELECT org_class FROM tenant WHERE tenant_id = $1", [b.tenantId ?? actor.tenantId])).rows[0]?.org_class;
+      if (cls !== "INDIVIDUAL" && cls !== "PARTICIPANT") {
+        throw new DomainError("PLATFORM_NO_RIGHTS_PARTY", 403, "the platform registers only individual (self-managed) and participant parties; a rights tenant registers the parties it manages");
+      }
     }
     await reg.assertPartyAdmissible(tx, b.tenantId ?? actor.tenantId, b);
     return reg.registerParty(tx, deps.clock, b);
@@ -190,7 +199,7 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get<{ Params: { id: string } }>("/scopes/:id/facts", async (req) => withActor(deps, req, (tx) => q.getScopeFacts(tx, req.params.id)));
   // 조항 → 기록 근거 연결, 확인 요청(원천 문서 설계 S3).
   app.post<{ Params: { cid: string } }>("/clauses/:cid/links", async (req, reply) => reply.status(201).send(await withActor(deps, req, async (tx, actor) => {
-    if (actor.scope !== "platform") requirePermission(actor, "rights.edit");
+    requirePermission(actor, "rights.edit");
     const out = await linkClause(tx, deps.clock, actor, req.params.cid, (req.body ?? {}) as Record<string, unknown>);
     await revalidateRecord(tx, out.recordType, out.recordId);
     return out;
@@ -218,8 +227,6 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Params: { id: string } }>("/confirmations/:id/confirm", async (req) => withActor(deps, req, async (tx, actor) => decided(tx, await confirmRequest(tx, deps.clock, actor, Number(req.params.id)))));
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/decline", async (req) =>
     withActor(deps, req, async (tx, actor) => decided(tx, await declineRequest(tx, deps.clock, actor, Number(req.params.id), req.body?.reason))));
-  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/confirmations/:id/platform-verify", async (req) =>
-    withActor(deps, req, async (tx, actor) => decided(tx, await platformVerify(tx, deps.clock, actor, Number(req.params.id), req.body?.reason))));
   // 권리 요약(원천 문서 설계 S1): 사람이 읽는 문장 + 근거 문서 + 봉인 배지.
   app.get<{ Params: { id: string } }>("/scopes/:id/summary", async (req) => withActor(deps, req, (tx) => rightsSummary(tx, req.params.id)));
   // 포털 작품 목록·곡 워크스페이스(2부-B): 작품 개요(진행 단계)와 IR 생성 준비. 조회라 보이는 곡이면 된다(RLS).

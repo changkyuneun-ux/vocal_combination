@@ -10,7 +10,7 @@ import { sodEnabled } from "../platform/sod.ts";
 
 /**
  * 참여 기관의 연결(테넌트 정책 4절, 결정 TD10·TD11, 진행 TN9·TN10).
- * - 신탁 연결(TRUST): 작가 ↔ 신탁단체. 권리 테넌트(또는 위탁 당사자를 관리하는 플랫폼)가 등록 정보로 제안하면 신탁단체가 확인하고,
+ * - 신탁 연결(TRUST): 작가 ↔ 신탁단체. 작가를 관리하는 권리 테넌트가 등록 정보로 제안하면 신탁단체가 확인하고(플랫폼은 연결의 쪽이 아니다, 결정 WD1),
  *   신탁단체가 요청하면 작가의 관리 주체가 확인한다. 활성이 되면 그 작가가 작품 몫을 가진 곡마다 작가 → 신탁단체 작품 몫 위임을
  *   자동으로 기록한다(source_ref = link:<id>). 정책이 작품 몫을 위임대로 보내야(via mandate) 실제로 신탁단체가 받는다.
  * - 유통 연결(DISTRIBUTION): 권리 테넌트 ↔ 유통 파트너. 한쪽이 제안하고 다른 쪽이 확인한다. 상품 대응은 파트너가 제안하고 권리 테넌트가 확인한다.
@@ -57,14 +57,14 @@ export async function proposeLink(tx: Tx, clock: Clock, actor: Actor, b: Record<
       side = "PARTICIPANT";
       participant = actor.tenantId;
       requirePermission(actor, participantDecider(actor.tenantType));
-    } else if (actor.orgClass === "RIGHTS" || actor.scope === "platform") {
+    } else if (actor.orgClass === "RIGHTS") {
       side = "RIGHTS";
       if (typeof b.participantTenantId !== "string") throw invalid("BAD_REQUEST", "participantTenantId is required");
       participant = b.participantTenantId;
-      requirePermission(actor, actor.scope === "platform" ? "link.decide_platform" : "link.decide");
-      if (actor.scope !== "platform") rightsTenant = actor.tenantId;
+      requirePermission(actor, "link.decide");
+      rightsTenant = actor.tenantId;
     } else {
-      throw new DomainError("TENANT_FORBIDDEN", 403, "only rights tenants, participant organizations and the platform make links");
+      throw new DomainError("TENANT_FORBIDDEN", 403, "only rights tenants and participant organizations make links");
     }
     const pt = await tenantOf(tx, participant!);
     if (linkType === "TRUST") {
@@ -86,7 +86,6 @@ export async function proposeLink(tx: Tx, clock: Clock, actor: Actor, b: Record<
     } else {
       if (side! === "RIGHTS") {
         if (pt.tenant_type !== "B2B_PARTNER") throw invalid("NOT_A_PARTNER", `${participant!} is not a distribution partner`);
-        if (actor.scope === "platform") throw invalid("BAD_REQUEST", "a distribution contract is between a rights tenant and a partner");
       } else {
         if (actor.tenantType !== "B2B_PARTNER") throw invalid("NOT_A_PARTNER", "only distribution partners propose distribution links");
         if (typeof b.rightsTenantId !== "string") throw invalid("BAD_REQUEST", "rightsTenantId is required");
@@ -127,8 +126,8 @@ async function linkRow(tx: Tx, linkId: string, lock = false): Promise<LinkRow> {
 }
 
 /** 이 행위자가 연결의 어느 쪽인지(권한 있는 역할까지 확인). 어느 쪽도 아니면 undefined. */
-async function sideOf(tx: Tx, actor: Actor, l: LinkRow): Promise<Side | "PLATFORM" | undefined> {
-  if (actor.scope === "platform") return hasPermission(actor, "link.decide_platform") ? "PLATFORM" : undefined;
+async function sideOf(tx: Tx, actor: Actor, l: LinkRow): Promise<Side | undefined> {
+  if (actor.scope === "platform") return undefined;
   if (actor.tenantId === l.participant_tenant_id) {
     const pt = await tenantOf(tx, l.participant_tenant_id);
     return hasPermission(actor, participantDecider(pt.tenant_type)) ? "PARTICIPANT" : undefined;
@@ -143,7 +142,7 @@ async function sideOf(tx: Tx, actor: Actor, l: LinkRow): Promise<Side | "PLATFOR
 
 /**
  * 확인·거절: 제안하지 않은 쪽만 한다. 신탁단체가 요청한 신탁 연결은 작가의 관리 주체가 확인한다 — 권리 테넌트(그 작가를 관리하면),
- * 플랫폼 위탁 작가면 플랫폼 온보딩, 개인이면 본인. 확인하려면 참여 기관이 활성이어야 한다.
+ * 개인이면 본인. 확인하려면 참여 기관이 활성이어야 한다.
  */
 export async function decideLink(tx: Tx, clock: Clock, actor: Actor, linkId: string, accept: boolean, reason?: unknown) {
   return withSystemScope(tx, async () => {
@@ -151,9 +150,7 @@ export async function decideLink(tx: Tx, clock: Clock, actor: Actor, linkId: str
     if (l.status !== "PROPOSED") throw conflict("INVALID_STATE", `link ${linkId} is ${l.status}`);
     const side = await sideOf(tx, actor, l);
     const deciderSide: Side = l.proposed_side === "RIGHTS" ? "PARTICIPANT" : "RIGHTS";
-    // 플랫폼은 위탁 당사자(플랫폼 관리 작가)의 관리 주체로서만 권리 쪽을 대신한다.
-    const platformAsRights = side === "PLATFORM" && deciderSide === "RIGHTS" && l.link_type === "TRUST" && (await managerOf(tx, l.author_party_id!)).org_class === "PLATFORM";
-    if (side !== deciderSide && !platformAsRights) throw new DomainError("NOT_THE_COUNTERPARTY", 403, `link ${linkId} is decided by the ${deciderSide.toLowerCase()} side`);
+    if (side !== deciderSide) throw new DomainError("NOT_THE_COUNTERPARTY", 403, `link ${linkId} is decided by the ${deciderSide.toLowerCase()} side`);
     if (actor.userId === l.proposed_by && (await sodEnabled(tx, "link.propose-confirm"))) throw new DomainError("SAME_PERSON", 403, "the proposer cannot confirm the link");
     const now = clock.now();
     if (accept) {
@@ -170,7 +167,7 @@ export async function decideLink(tx: Tx, clock: Clock, actor: Actor, linkId: str
   });
 }
 
-/** 끊기: 양쪽 누구나 또는 플랫폼(사유 필요). 신탁 연결이면 자동 위임을 지금 시각으로 끝낸다(그 뒤 발행·정산부터). */
+/** 끊기: 양쪽 누구나(사유 필요). 신탁 연결이면 자동 위임을 지금 시각으로 끝낸다(그 뒤 발행·정산부터). */
 export async function endLink(tx: Tx, clock: Clock, actor: Actor, linkId: string, reason: unknown) {
   if (typeof reason !== "string" || reason.trim() === "") throw invalid("REASON_REQUIRED", "a reason is required to end a link");
   return withSystemScope(tx, async () => {

@@ -68,14 +68,14 @@ test("⑧ and the impact analysis show the stopped combinations", async () => {
 });
 
 test("re-consenting by the same party releases its holds and exposure resumes", async () => {
-  await json("POST", "/ops/consents", "usr_ops", 201, {
+  await json("POST", "/ops/consents", "usr_rights", 201, {
     consentId: "cst_b_again", factsScopeId: SCOPE, partyId: "pty_member_b", rightType: "PERFORMER", assetId: "vo_b",
     scope: { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] },
     validFrom: "2026-01-01T00:00:00.000Z", validTo: "2027-01-01T00:00:00.000Z", sourceContractUri: "contract://renewed",
   });
   assert.deepEqual(await json("GET", "/ops/exposure-holds", "usr_ops", 200), []);
   const all = await json("GET", "/ops/exposure-holds?all=1", "usr_ops", 200);
-  assert.ok(all.every((h: any) => h.releaseReason === "RECONSENT" && h.releasedBy === "usr_ops"));
+  assert.ok(all.every((h: any) => h.releaseReason === "RECONSENT" && h.releasedBy === "usr_rights"));
   assert.equal((await play("vc_x_ab")).statusCode, 201);
   assert.deepEqual((await json("GET", "/fan/combinations", "usr_fan_x", 200)).map((x: any) => x.exposure), ["OPEN", "OPEN"]);
 });

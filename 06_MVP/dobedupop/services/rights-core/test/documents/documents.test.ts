@@ -109,7 +109,7 @@ test("mandate evidence is sealed too (decision D4), and a dispute's new version 
 test("a consent can cite a source document instead of a contract URI", async () => {
   const r = await upload("usr_rights", pdf("work license"), { kind: "PUBLISHING", title: "Nova 퍼블리싱 계약", parties: "pty_author_b,pty_author_c" });
   const docId = r.json().documentId;
-  const c = await json("POST", "/ops/consents", "usr_ops", 201, {
+  const c = await json("POST", "/ops/consents", "usr_rights", 201, {
     consentId: "cst_doc_work", factsScopeId: SCOPE, partyId: "pty_author_c", rightType: "WORK", assetId: "wrk_nova",
     scope: { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"] },
     validFrom: "2026-01-01T00:00:00.000Z", validTo: "2027-01-01T00:00:00.000Z", sourceDocument: { documentId: docId, version: 1 },

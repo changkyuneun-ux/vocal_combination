@@ -27,7 +27,7 @@ await db.tx(async (tx) => {
   await createUser(tx, clock, { userId: "usr_cmo_new", displayName: "new cmo", roles: ["TRUST_OFFICER"], tenantId: "tnt_cmo_new" });
   await createUser(tx, clock, { userId: "usr_dist", displayName: "dist", roles: ["PARTNER_INTEGRATION"], tenantId: "tnt_dist" });
   for (const [id, type, name, tenant] of [["pty_cmo", "CMO", "신탁단체", "tnt_cmo"], ["pty_cmo_new", "CMO", "새 신탁단체", "tnt_cmo_new"],
-    ["pty_author", "AUTHOR", "해외 작가", "tnt_platform"], ["pty_author2", "AUTHOR", "레이블 작가", "tnt_lbl"], ["pty_lbl", "LABEL", "레이블", "tnt_lbl"]]) {
+    ["pty_author", "AUTHOR", "해외 작가", "tnt_lbl"], ["pty_author2", "AUTHOR", "레이블 작가", "tnt_lbl"], ["pty_lbl", "LABEL", "레이블", "tnt_lbl"]]) {
     await tx.query("INSERT INTO party (party_id, party_type, display_name, created_at, tenant_id) VALUES ($1,$2,$3,$4,$5)", [id, type, name, T0, tenant]);
   }
 });
@@ -92,15 +92,17 @@ test("a new work by a trusted author gets the trust mandate too; ending the link
   assert.deepEqual(await ok("partner", "usr_cmo", "GET", "/trust/works"), [], "after the link ends the CMO no longer sees the works");
 });
 
-test("a CMO may ask; the author's manager confirms (the label for its author, onboarding for platform-managed authors); only active CMOs", async () => {
+test("a CMO may ask; the author's manager (the label) confirms; the platform is not a side of a link (WD1); only active CMOs", async () => {
   await song("c", "pty_author2");
   await ok("partner", "usr_cmo", "POST", "/links", { linkId: "lnk_t2", linkType: "TRUST", authorPartyId: "pty_author2", validFrom: T0 });
   assert.equal(await code("partner", "usr_cmo", "POST", "/links/lnk_t2/confirm"), "NOT_THE_COUNTERPARTY");
   assert.equal((await ok("portal", "usr_lbl", "POST", "/links/lnk_t2/confirm")).status, "ACTIVE");
-  // 플랫폼 위탁 작가: 신탁단체가 요청하면 플랫폼 온보딩이 관리 주체로서 확인한다. 아직 활성이 아닌 신탁단체는 연결을 활성화하지 못한다.
+  // 플랫폼은 연결의 쪽이 아니다(플랫폼 위탁 당사자 없음, 결정 WD1): 제안도 확인도 못 한다. 아직 활성이 아닌 신탁단체는 연결을 활성화하지 못한다.
   await ok("partner", "usr_cmo_new", "POST", "/links", { linkId: "lnk_t3", linkType: "TRUST", authorPartyId: "pty_author", validFrom: T0 });
-  assert.equal(await code("ops", "usr_onb", "POST", "/links/lnk_t3/confirm"), "PARTICIPANT_NOT_ACTIVE");
-  assert.equal((await ok("ops", "usr_onb", "POST", "/links/lnk_t3/decline", { reason: "신탁 계약 확인 불가" })).status, "DECLINED");
+  assert.equal(await code("ops", "usr_onb", "POST", "/links/lnk_t3/confirm"), "NOT_THE_COUNTERPARTY");
+  assert.equal(await code("ops", "usr_onb", "POST", "/links", { linkId: "lnk_px", linkType: "TRUST", participantTenantId: "tnt_cmo", authorPartyId: "pty_author" }), "TENANT_FORBIDDEN");
+  assert.equal(await code("portal", "usr_lbl", "POST", "/links/lnk_t3/confirm"), "PARTICIPANT_NOT_ACTIVE");
+  assert.equal((await ok("portal", "usr_lbl", "POST", "/links/lnk_t3/decline", { reason: "신탁 계약 확인 불가" })).status, "DECLINED");
   // 신탁단체는 권리를 만들지 않는다: 포털에 못 들어오고, 연결은 작가에게만 건다.
   assert.equal(await code("portal", "usr_cmo", "GET", "/works"), "CHANNEL_FORBIDDEN");
   assert.equal(await code("partner", "usr_cmo", "POST", "/links", { linkId: "lnk_x", linkType: "TRUST", authorPartyId: "pty_lbl" }), "NOT_AN_AUTHOR");

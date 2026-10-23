@@ -9,24 +9,29 @@ import { requirePermission } from "../platform/permissions.ts";
 import { irGaps, type ImportFill, type IrGapRow } from "../registry/readiness.ts";
 import type { SignatureProvider } from "./esign.ts";
 import { applyFrame, getFrame, type Frame, type FrameField, type FrameValue } from "./frames.ts";
-import { createContract, listContracts, offPlatformParties, previewContract } from "./service.ts";
+import { createContract, listContracts, noAccountParties, previewContract } from "./service.ts";
 
 /**
  * 계약서 불러오기(3부-B, 결정 CT1~CT5): ① 원본 계약서(원천 문서)와 읽기 틀 → ② 후보 값(사람이 하나씩 확인) → ③ IR 정보 대조 →
- * ④ 빠진 것 입력 → ⑤ 권리 확인서(표준 계약) 서명. 원본은 플랫폼 밖으로 보내지 않는다. 값은 사람이 표시한 조항 인용 문장에서만 읽는다.
+ * ④ 빠진 것 입력 → ⑤ 권리 확인서(표준 계약) 서명. 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 서명한다(결정 WD2). 원본은 플랫폼 밖으로 보내지 않는다. 값은 사람이 표시한 조항 인용 문장에서만 읽는다.
  */
 export type Step = "VALUES" | "GAPS" | "READY" | "CONFIRM_SENT" | "DONE";
-export const USAGE = [["COMBINE", "조합"], ["PURCHASE", "구매"], ["LISTEN", "감상"], ["RESALE", "재판매"]] as const;
-export const TERRITORY = [["WORLD", "전 세계"], ["KR", "대한민국"]] as const;
+/** 빠진 것 입력의 어휘는 동의 기록과 같다(시안 Song-Import 2026-10-23 정정: 이용 행위·지역·매체·공개 대상). */
+export const ACTIONS = [["PREVIEW", "미리듣기"], ["COMBINE", "조합 생성"], ["PERSONAL_HOLD", "개인 보관"], ["SHARE_LINK", "링크 공유"], ["DOWNLOAD", "내려받기"]] as const;
+export const TERRITORIES = [["KR", "대한민국"], ["JP", "일본"], ["US", "미국"]] as const;
+export const MEDIA = [["FAN_APP", "팬앱"], ["EXTERNAL_SNS", "외부 SNS"]] as const;
+export const AUDIENCE = [["FAN_COMMUNITY", "팬 커뮤니티"], ["PUBLIC", "전체 공개"]] as const;
+const GAP_SETS = { actions: ACTIONS, territories: TERRITORIES, media: MEDIA, audience: AUDIENCE } as const;
+type GapKey = keyof typeof GAP_SETS;
+const GAP_KEYS = Object.keys(GAP_SETS) as GapKey[];
+const labelsOf = (k: GapKey, codes: string[]) => codes.map((c) => (GAP_SETS[k] as readonly (readonly [string, string])[]).find((x) => x[0] === c)![1]).join("·");
 /** 시안의 이용 범위 → 동의 기록의 이용 행위·지역(팬앱 전용, 팬 커뮤니티 공개). */
-const ACTION_OF: Record<string, string> = { COMBINE: "COMBINE", PURCHASE: "PERSONAL_HOLD", LISTEN: "PREVIEW", RESALE: "DOWNLOAD" };
-const TERRITORIES_OF: Record<string, string[]> = { WORLD: ["KR", "JP", "US"], KR: ["KR"] };
 const CLAUSE_TYPE: Record<string, string> = { WORK_TITLE: "OTHER", RECORDING: "OTHER", AUTHOR: "RIGHT_HOLDER", MASTER_OWNER: "RIGHT_HOLDER", AUTHOR_SHARE: "SHARE", EFFECTIVE_FROM: "PERIOD" };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const bad = (m: string) => invalid("INVALID_IMPORT", m);
 
 function requireDrafter(actor: Actor): void {
-  if (actor.scope !== "platform") requirePermission(actor, "contract.draft");
+  requirePermission(actor, "contract.draft");
 }
 
 type ValueRow = { key: string; seq: number; value: FrameValue | null; page: number | null; clause: string | null; quote: string | null; clauseRef: string | null;
@@ -174,9 +179,10 @@ export async function getImport(tx: Tx, clock: Clock, importId: string) {
   const { r, workId, doc, frame } = await loadImport(tx, importId);
   const vals = await latestValues(tx, importId);
   const parties = await partiesOf(tx, doc.parties as string[]);
-  const off = await offPlatformParties(tx, doc.parties as string[]);
+  const managed = await noAccountParties(tx, doc.parties as string[]);
   const g = (k: string) => vals.get(`gap.${k}`)?.value as unknown;
-  const gaps = g("usage") === undefined ? null : { usage: g("usage") as string[], territory: g("territory") as string, validTo: g("validTo") as string };
+  const gaps = g("actions") === undefined ? null
+    : { actions: g("actions") as string[], territories: g("territories") as string[], media: g("media") as string[], audience: g("audience") as string[], validTo: g("validTo") as string };
   const ir: IrGapRow[] = await irGaps(tx, r.facts_scope_id, clock.now(), fillOf(doc.kind, frame, vals, gaps !== null));
   const names = new Map(parties.map((p) => [p.partyId, p.name]));
   const fieldVals = (frame?.fields ?? []).map((f) => {
@@ -189,7 +195,7 @@ export async function getImport(tx: Tx, clock: Clock, importId: string) {
     importId, factsScopeId: r.facts_scope_id as string, workId, step: r.step as Step, contractId: r.contract_id as string | null, createdBy: r.created_by as string, createdAt: iso(r.created_at)!,
     document: { documentId: doc.document_id as string, version: doc.version as number, title: doc.title as string, kind: doc.kind as string, mime: doc.mime as string, sha256: doc.file_sha256 as string,
       uploadedAt: iso(doc.uploaded_at)!, effectiveFrom: iso(doc.effective_from) ?? null, effectiveTo: iso(doc.effective_to) ?? null,
-      parties: parties.map((p) => ({ ...p, offPlatform: off.has(p.partyId) })) },
+      parties: parties.map((p) => ({ ...p, noAccount: managed.has(p.partyId), manager: managed.get(p.partyId) ?? null })) },
     frame: frame && { frameId: frame.frameId, version: frame.version, title: frame.title, pages: frame.pages, documentKind: frame.documentKind },
     values: fieldVals, gaps, ir, missing: ir.filter((x) => x.state === "MISSING").map((x) => `${x.group}: ${x.need}`),
   };
@@ -271,22 +277,25 @@ export async function setValue(tx: Tx, clock: Clock, actor: Actor, importId: str
   return getImport(tx, clock, importId);
 }
 
-/** ④ 빠진 것 입력: 원본 계약에 없는 팬앱 이용 범위·지역·기간 끝. 기간 끝은 원본 계약 기간을 넘지 않는다. */
-export async function setGaps(tx: Tx, clock: Clock, actor: Actor, importId: string, b: { usage?: unknown; territory?: unknown; validTo?: unknown }) {
+/** ④ 빠진 것 입력: 원본 계약에 없는 이용 행위·지역·매체·공개 대상·기간 끝. 기간 끝은 원본 계약 기간을 넘지 않는다. */
+export async function setGaps(tx: Tx, clock: Clock, actor: Actor, importId: string, b: Record<string, unknown>) {
   requireDrafter(actor);
   const v = await getImport(tx, clock, importId);
   locked(v.step, importId);
   if (v.document.kind !== "PUBLISHING") throw invalid("NO_GAPS", "only publishing contracts need the fan-app usage input");
-  const codes = USAGE.map((u) => u[0] as string);
-  if (!Array.isArray(b.usage) || b.usage.length === 0 || !b.usage.every((u) => typeof u === "string" && codes.includes(u))) throw bad(`usage must be a non-empty subset of ${codes.join(", ")}`);
-  if (!TERRITORY.some((t) => t[0] === b.territory)) throw bad(`territory must be ${TERRITORY.map((t) => t[0]).join(" or ")}`);
+  const picked: Record<string, string[]> = {};
+  for (const k of GAP_KEYS) {
+    const codes = GAP_SETS[k].map((x) => x[0] as string);
+    const raw = b[k];
+    if (!Array.isArray(raw) || raw.length === 0 || !raw.every((u) => typeof u === "string" && codes.includes(u))) throw bad(`${k} must be a non-empty subset of ${codes.join(", ")}`);
+    picked[k] = codes.filter((c) => (raw as string[]).includes(c));
+  }
   if (typeof b.validTo !== "string" || !DATE.test(b.validTo) || Number.isNaN(Date.parse(`${b.validTo}T00:00:00.000Z`))) throw bad("validTo must be YYYY-MM-DD");
   const from = effectiveFrom(v);
   if (from !== null && b.validTo <= from) throw bad("validTo must be after the effective date");
   if (v.document.effectiveTo !== null && `${b.validTo}T00:00:00.000Z` > v.document.effectiveTo) throw invalid("BEYOND_ORIGINAL", `validTo must not pass the original contract period (${v.document.effectiveTo.slice(0, 10)})`);
   const owner = (await tx.query("SELECT owner_tenant_id FROM contract_import WHERE import_id = $1", [importId])).rows[0].owner_tenant_id as string;
-  const usage = codes.filter((c) => (b.usage as string[]).includes(c));
-  for (const [k, val] of [["usage", usage], ["territory", b.territory], ["validTo", b.validTo]] as const) {
+  for (const [k, val] of [...GAP_KEYS.map((k) => [k, picked[k]] as const), ["validTo", b.validTo] as const]) {
     await insertValue(tx, importId, owner, { key: `gap.${k}`, value: val as never, page: null, clause: null, quote: null, clauseRef: null, origin: "MANUAL", compared: null,
       confirmedBy: actor.userId, confirmedAt: clock.now() });
   }
@@ -322,12 +331,12 @@ async function confirmationBody(tx: Tx, v: ImportView, kind: "AUTHOR" | "LABEL")
     return { templateId: "tpl_claim_confirm_label", answers: { subject, holder: owner.partyId, recording: rec.recording_id, source, importId: v.importId, validFrom } };
   }
   const g = v.gaps!;
-  const usageText = `팬앱에서 ${g.usage.map((u) => USAGE.find((x) => x[0] === u)![1]).join("·")}, ${TERRITORY.find((t) => t[0] === g.territory)![1]}`;
+  const usageText = `이용 행위 ${labelsOf("actions", g.actions)}, 지역 ${labelsOf("territories", g.territories)}, 매체 ${labelsOf("media", g.media)}, 공개 대상 ${labelsOf("audience", g.audience)}`;
   return {
     templateId: "tpl_claim_confirm_author",
     answers: {
       subject, authors: v.values.filter((x) => x.irItem === "AUTHOR_SHARE").map((x) => x.value), usage: usageText, period: `${validFrom} ~ ${g.validTo}`, source, importId: v.importId,
-      actions: [...new Set(g.usage.map((u) => ACTION_OF[u]!))], territories: TERRITORIES_OF[g.territory]!, media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validFrom, validTo: g.validTo,
+      actions: g.actions, territories: g.territories, media: g.media, audience: g.audience, validFrom, validTo: g.validTo,
     },
   };
 }
@@ -342,11 +351,11 @@ export async function previewConfirmation(tx: Tx, clock: Clock, actor: Actor, im
   const v = await getImport(tx, clock, importId);
   const body = await confirmationBody(tx, v, kindOf(kind));
   const p = await previewContract(tx, actor, { ...body, factsScopeId: v.factsScopeId, contractId: `ctr_cc_${importId.replace(/^imp_/, "")}` });
-  const off = await offPlatformParties(tx, p.signers);
-  return { ...p, answers: body.answers, signerParties: (await partiesOf(tx, p.signers)).map((s) => ({ ...s, offPlatform: off.has(s.partyId) })) };
+  const managed = await noAccountParties(tx, p.signers);
+  return { ...p, answers: body.answers, signerParties: (await partiesOf(tx, p.signers)).map((s) => ({ ...s, noAccount: managed.has(s.partyId), manager: managed.get(s.partyId) ?? null })) };
 }
 
-/** ⑤ 서명 요청: 표준 계약 길 B(createContract)로 만들어 보낸다. 위탁 작가는 운영 원문 대조로 서명을 대신한다(결정 CT4). */
+/** ⑤ 서명 요청: 표준 계약 길 B(createContract)로 만들어 보낸다. 계정 없는 작가는 전자서명 공급자 링크로 서명한다(결정 WD2). */
 export async function sendConfirmation(tx: Tx, clock: Clock, actor: Actor, provider: SignatureProvider, importId: string, kind: unknown) {
   const v = await getImport(tx, clock, importId);
   locked(v.step, importId);

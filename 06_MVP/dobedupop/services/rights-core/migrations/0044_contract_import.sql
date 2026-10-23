@@ -120,7 +120,7 @@ GRANT UPDATE (step, contract_id) ON contract_import TO rc_app;
 INSERT INTO contract_template (template_id, version, kind, record_kind, title, variables, clauses, signer_vars, status, seeded, created_at, approved_at) VALUES
 ('tpl_claim_confirm_label', 1, 'MASTER_CONTRACT', 'CLAIM_CONFIRM', '권리 확인서 · 레이블용',
  '[{"name": "subject", "label": "대상", "type": "text"}, {"name": "holder", "label": "마스터 보유자", "type": "party"}, {"name": "recording", "label": "녹음", "type": "recording"},
-   {"name": "source", "label": "근거", "type": "text"}, {"name": "importId", "label": "불러오기", "type": "text"},
+   {"name": "source", "label": "근거", "type": "text"}, {"name": "importId", "label": "불러오기", "type": "text", "optional": true},
    {"name": "validFrom", "label": "효력 시작", "type": "date"}]'::jsonb,
  '[{"clauseId": "subject", "heading": "대상", "clauseType": "OTHER", "fields": ["subject"], "text": "{{subject}}"},
    {"clauseId": "holder", "heading": "마스터 보유", "clauseType": "RIGHT_HOLDER", "fields": ["holder", "recording"], "text": "{{holder}}가 녹음 {{recording}}의 마스터를 100% 보유함을 확인한다."},
@@ -130,7 +130,7 @@ INSERT INTO contract_template (template_id, version, kind, record_kind, title, v
 ('tpl_claim_confirm_author', 1, 'PUBLISHING', 'CLAIM_CONFIRM', '권리 확인서 · 작가용',
  '[{"name": "subject", "label": "대상", "type": "text"}, {"name": "authors", "label": "작가와 지분", "type": "shares"},
    {"name": "usage", "label": "이용 범위", "type": "text"}, {"name": "period", "label": "기간", "type": "text"},
-   {"name": "source", "label": "근거", "type": "text"}, {"name": "importId", "label": "불러오기", "type": "text"},
+   {"name": "source", "label": "근거", "type": "text"}, {"name": "importId", "label": "불러오기", "type": "text", "optional": true},
    {"name": "actions", "label": "이용 행위", "type": "multi", "options": [["PREVIEW", "미리듣기"], ["COMBINE", "조합 생성"], ["PERSONAL_HOLD", "개인 보관"], ["SHARE_LINK", "링크 공유"], ["DOWNLOAD", "내려받기"]]},
    {"name": "territories", "label": "지역", "type": "multi", "options": [["KR", "대한민국"], ["JP", "일본"], ["US", "미국"]]},
    {"name": "media", "label": "매체", "type": "multi", "options": [["FAN_APP", "팬앱"], ["EXTERNAL_SNS", "외부 SNS"]]},

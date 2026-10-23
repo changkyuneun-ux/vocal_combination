@@ -110,25 +110,27 @@ test("clause evidence: mark a clause in the contract and link it; a record witho
   assert.equal(old.find((r: any) => r.requestId === writerRequest).status, "SUPERSEDED", "the request was for version 1");
 });
 
-test("a counterparty off the platform: after the due date the platform verifies against the source document", async () => {
+test("no platform verification (WD3): the route is gone, the operator cannot confirm for the counterparty, and after the due date the request stays open as a block", async () => {
   const req = await json("POST", "/portal/confirmations", "usr_lbl", 201, { recordType: "CLAIM", recordId: "c_x_work" });
   assert.equal(req.recordVersion, 2);
-  assert.equal((await json("POST", `/ops/confirmations/${req.requestId}/platform-verify`, "usr_ops", 409, { reason: "원문 대조" })).code, "NOT_DUE");
-  assert.equal((await json("POST", `/ops/confirmations/${singerRequest}/platform-verify`, "usr_ops", 409, { reason: "x" }, later)).code, "REQUEST_CLOSED");
-  const v = await json("POST", `/ops/confirmations/${req.requestId}/platform-verify`, "usr_ops", 200, { reason: "퍼블리싱 계약 p.2 대조" }, later);
-  assert.equal(v.status, "PLATFORM_VERIFIED");
-  const rows = (await w.db.pool.query("SELECT version, status, evidence_digest IS NOT NULL AS ev FROM right_claim WHERE claim_id = 'c_x_work' ORDER BY version")).rows;
-  assert.deepEqual(rows.map((r) => [r.version, r.status, r.ev]), [[1, "ASSERTED", false], [2, "ASSERTED", true], [3, "VERIFIED", true]]);
-  const clauseLinks = (await w.db.pool.query("SELECT record_version FROM record_clause WHERE record_id = 'c_x_work' ORDER BY record_version")).rows;
-  assert.deepEqual(clauseLinks.map((r) => r.record_version), [2, 3], "the clause link carries to the verified version");
+  assert.equal((await call(later, "POST", `/ops/confirmations/${req.requestId}/platform-verify`, "usr_ops", { reason: "원문 대조" })).statusCode, 404);
+  assert.equal((await json("POST", `/ops/confirmations/${req.requestId}/confirm`, "usr_ops", 403, {}, later)).code, "NOT_COUNTERPARTY");
+  const open = (await json("GET", "/portal/confirmations?status=OPEN", "usr_lbl", 200, undefined, later)).find((r: any) => r.requestId === req.requestId);
+  assert.equal(open.status, "OPEN");
+  await json("GET", "/portal/scopes/fsc_x/validation", "usr_lbl", 200, undefined, later);
+  await json("POST", "/ops/validation/sweep", "usr_ops", 200, {}, later);
+  const issues = await json("GET", "/ops/validation-issues?status=OPEN", "usr_ops", 200, undefined, later);
+  const issue = issues.find((i: any) => i.rule === "DOC_CONFIRMATION_PENDING" && i.subjectId === "CLAIM:c_x_work");
+  assert.equal(issue.severity, "BLOCK", "overdue: the warning is now a block");
+  const rows = (await w.db.pool.query("SELECT status FROM right_claim WHERE claim_id = 'c_x_work' AND superseded_at IS NULL")).rows;
+  assert.deepEqual(rows.map((r) => r.status), ["ASSERTED"]);
 });
 
-test("the platform cannot verify for a counterparty who uses the platform, or without a source document", async () => {
-  await json("POST", "/portal/claims", "usr_lbl", 201, claim("c_x_voice2", "voc_s", "OWNED_BY", "pty_singer", "ASSERTED"));
-  const req = (await json("GET", "/portal/confirmations?status=OPEN", "usr_lbl", 200)).find((r: any) => r.recordId === "c_x_voice2");
-  assert.equal((await json("POST", `/ops/confirmations/${req.requestId}/platform-verify`, "usr_ops", 409, { reason: "x" }, later)).code, "COUNTERPARTY_ON_PLATFORM");
-  await w.db.tx((tx) => registerParty(tx, fixedClock("2026-01-01T00:00:00.000Z", 0), { partyId: "pty_writer2", partyType: "AUTHOR", displayName: "작가 W2" }));
-  await json("POST", "/portal/claims", "usr_lbl", 201, { ...claim("c_x_work2", "wrk_x", "WRITTEN_BY", "pty_writer2", "ASSERTED"), claimId: "c_x_work2" });
-  const req2 = (await json("GET", "/portal/confirmations?status=OPEN", "usr_lbl", 200)).find((r: any) => r.recordId === "c_x_work2");
-  assert.equal((await json("POST", `/ops/confirmations/${req2.requestId}/platform-verify`, "usr_ops", 422, { reason: "x" }, later)).code, "EVIDENCE_REQUIRED");
+test("a label cannot confirm for a person it manages (WD2): the author confirms by signing; the label confirms only its own organization", async () => {
+  await w.db.tx((tx) => registerParty(tx, fixedClock("2026-01-01T00:00:00.000Z", 0), { partyId: "pty_writer2", partyType: "AUTHOR", displayName: "작가 W2", tenantId: "tnt_lbl" }));
+  assert.equal((await json("POST", "/portal/claims", "usr_lbl", 422, claim("c_x_work2", "wrk_x", "WRITTEN_BY", "pty_writer2", "VERIFIED"))).code, "CONFIRMATION_REQUIRED");
+  await json("POST", "/portal/claims", "usr_lbl", 201, claim("c_x_work2", "wrk_x", "WRITTEN_BY", "pty_writer2", "ASSERTED"));
+  const req = (await json("GET", "/portal/confirmations?status=OPEN", "usr_lbl", 200)).find((r: any) => r.recordId === "c_x_work2");
+  assert.equal(req.counterpartyId, "pty_writer2");
+  assert.equal((await json("POST", `/portal/confirmations/${req.requestId}/confirm`, "usr_lbl", 403, {})).code, "NOT_COUNTERPARTY");
 });

@@ -8,6 +8,7 @@ import { storeGeneratedDocument, type DocumentKind, type DocumentRef } from "../
 import type { DocumentStore } from "../documents/store.ts";
 import { signConsent, type RightType } from "../registry/consents.ts";
 import { recordClaim, recordMandate } from "../registry/service.ts";
+import { PERSON_PARTY_TYPES } from "../registry/confirmations.ts";
 import { isIdentityVerified } from "../performer/identity.ts";
 import { revalidate } from "../validation/service.ts";
 import type { SignatureProvider } from "./esign.ts";
@@ -30,7 +31,7 @@ export type Template = {
 export type Share = { partyId: string; shareBps: number; roleDetail: string | null };
 type Answers = Record<string, string | string[] | number | Share[]>;
 export type PlannedRecord =
-  | { type: "CONSENT"; managed?: true; consentId: string; partyId: string; rightType: RightType; assetId: string; scope: { actions: string[]; territories: string[]; media: string[]; audience: string[] }; validFrom: string; validTo: string }
+  | { type: "CONSENT"; consentId: string; partyId: string; rightType: RightType; assetId: string; scope: { actions: string[]; territories: string[]; media: string[]; audience: string[] }; validFrom: string; validTo: string }
   | { type: "MANDATE"; mandateId: string; fromPartyId: string; toPartyId: string; rightKind: "PERFORMER"; shareBps: number; validFrom: string; validTo: string }
   /** 권리 확인서(CLAIM_CONFIRM, 결정 CT5): 권리 주장을 VERIFIED로 만든다. 같은 주장(곡·근원·관계·대상)이 있으면 그 주장의 새 버전이다. */
   | { type: "CLAIM"; edge: "WRITTEN_BY" | "CONTROLLED_BY"; sourceId: string; targetId: string; shareBps: number; roleDetail: string | null; validFrom: string };
@@ -111,11 +112,15 @@ export async function approveTemplateVersion(tx: Tx, clock: Clock, actor: Actor,
 
 /** 답 검사: 변수 형식과 참조(파티 존재, 녹음은 곡의 녹음, 보이스는 곡의 보이스). 날짜는 UTC 0시로 바꾼다. */
 const ROLE_DETAIL: Record<string, string> = { LYRICS_COMPOSITION: "작사·작곡", LYRICS: "작사", COMPOSITION: "작곡", ARRANGEMENT: "편곡" };
-/** 플랫폼 밖 당사자(위탁): 연결된 계정도, 기관 테넌트도 없다. 이 당사자는 서명 대신 운영이 원문을 대조한다(결정 CT4). */
-const OFF_PLATFORM_SQL = `SELECT p.party_id FROM party p WHERE p.party_id = ANY($1) AND p.tenant_id IN ('tnt_platform', 'tnt_platform_default')
-   AND NOT EXISTS (SELECT 1 FROM user_account u WHERE u.party_id = p.party_id)`;
-export async function offPlatformParties(tx: Tx, parties: string[]): Promise<Set<string>> {
-  return new Set(await withSystemScope(tx, async () => (await tx.query(OFF_PLATFORM_SQL, [parties])).rows.map((r) => r.party_id as string)));
+/**
+ * 계정 없는 당사자: 연결된 계정이 없다. 관리 테넌트가 보낸 계약을 전자서명 공급자 링크(이메일)로 본인이 서명한다(결정 WD2).
+ * 값은 당사자 → 관리 테넌트 이름(시안 "작가 본인(빅히트 관리)").
+ */
+export async function noAccountParties(tx: Tx, parties: string[]): Promise<Map<string, string>> {
+  const rows = await withSystemScope(tx, async () => (await tx.query(
+    `SELECT p.party_id, t.name FROM party p JOIN tenant t ON t.tenant_id = p.tenant_id
+      WHERE p.party_id = ANY($1) AND NOT EXISTS (SELECT 1 FROM user_account u WHERE u.party_id = p.party_id)`, [parties])).rows);
+  return new Map(rows.map((r) => [r.party_id as string, r.name as string]));
 }
 
 async function parseAnswers(tx: Tx, t: Template, scopeId: string, raw: unknown): Promise<{ answers: Answers; labels: Record<string, string>; html: Record<string, string> }> {
@@ -166,13 +171,13 @@ async function parseAnswers(tx: Tx, t: Template, scopeId: string, raw: unknown):
       if (sum !== 10000) throw invalid("SHARES_NOT_100", `${v.label} must add up to 100% (now ${sum / 100}%)`);
       const names = await withSystemScope(tx, async () => (await tx.query("SELECT party_id, display_name FROM party WHERE party_id = ANY($1)", [rows.map((r) => r.partyId)])).rows);
       for (const r of rows) if (!names.some((n) => n.party_id === r.partyId)) throw bad(`${v.name}: ${r.partyId} is not a known party`);
-      const off = await offPlatformParties(tx, rows.map((r) => r.partyId));
+      const managed = await noAccountParties(tx, rows.map((r) => r.partyId));
       const name = (p: string) => names.find((n) => n.party_id === p)!.display_name as string;
       answers[v.name] = rows;
       labels[v.name] = rows.map((r) => `${name(r.partyId)} ${(r.shareBps / 100).toFixed(2)}%`).join(", ");
       const td = (c: string, mono = false) => `<td${mono ? ' class="mono"' : ""}>${esc(c)}</td>`;
       html[v.name] = `<table><thead><tr><th>작가</th><th>역할</th><th>지분</th><th>수령</th></tr></thead><tbody>${rows.map((r) =>
-        `<tr>${td(name(r.partyId))}${td(ROLE_DETAIL[r.roleDetail ?? ""] ?? r.roleDetail ?? "—")}${td(`${(r.shareBps / 100).toFixed(2)}%`, true)}${td(off.has(r.partyId) ? "플랫폼 위탁" : "본인")}</tr>`).join("")}</tbody></table>`;
+        `<tr>${td(name(r.partyId))}${td(ROLE_DETAIL[r.roleDetail ?? ""] ?? r.roleDetail ?? "—")}${td(`${(r.shareBps / 100).toFixed(2)}%`, true)}${td(managed.has(r.partyId) ? `작가 본인(${managed.get(r.partyId)!.replace(/\s*—.*$/, "")} 관리)` : "본인")}</tr>`).join("")}</tbody></table>`;
     } else if (v.type === "multi") {
       const allowed = (v.options ?? []).map((o) => o[0]);
       if (!Array.isArray(x) || !x.every((y) => typeof y === "string" && allowed.includes(y))) throw bad(`${v.name} must be a subset of ${allowed.join(", ")}`);
@@ -211,7 +216,7 @@ function plan(t: Template, contractId: string, a: Answers): PlannedRecord[] {
       const shares = a.authors as Share[];
       return [
         ...shares.map((s): PlannedRecord => ({ type: "CLAIM", edge: "WRITTEN_BY", sourceId: a.work as string, targetId: s.partyId, shareBps: s.shareBps, roleDetail: s.roleDetail, validFrom: a.validFrom as string })),
-        ...shares.map((s, i): PlannedRecord => ({ type: "CONSENT", managed: true, consentId: `cns_${contractId}_${i + 1}`, partyId: s.partyId, rightType: "WORK", assetId: a.work as string, scope: usage, ...period })),
+        ...shares.map((s, i): PlannedRecord => ({ type: "CONSENT", consentId: `cns_${contractId}_${i + 1}`, partyId: s.partyId, rightType: "WORK", assetId: a.work as string, scope: usage, ...period })),
       ];
     }
     default: return [];
@@ -267,10 +272,9 @@ async function apply(tx: Tx, clock: Clock, actor: Actor, scopeId: string, record
       }
       out.push({ type: "CLAIM", id: claimId, version: rec.version });
     } else if (r.type === "CONSENT") {
-      const { type: _t, managed, ...c } = r;
+      const { type: _t, ...c } = r;
       const sign = () => signConsent(tx, clock, actor, { ...c, factsScopeId: scopeId, ...(doc === null ? { sourceContractUri: "contract:dry-run" } : { sourceDocument: doc }) }, { signedContract: true });
-      // 권리 확인서의 위탁 작가 동의는 플랫폼이 관리 주체로 남긴다(작품 이용허락을 플랫폼이 맺는 것과 같다).
-      await (managed ? withSystemScope(tx, sign) : sign());
+      await sign();
       out.push({ type: "CONSENT", id: r.consentId });
     } else {
       const { type: _t, ...m } = r;
@@ -281,8 +285,9 @@ async function apply(tx: Tx, clock: Clock, actor: Actor, scopeId: string, record
   return out;
 }
 
+/** 계약 작성·반영은 권리를 가진 쪽(contract.draft)만 한다. 플랫폼 운영은 계약을 맺지 않는다(결정 WD1). */
 function requireDrafter(actor: Actor): void {
-  if (actor.scope !== "platform") requirePermission(actor, "contract.draft");
+  requirePermission(actor, "contract.draft");
 }
 
 async function prepare(tx: Tx, b: { contractId?: unknown; templateId?: unknown; templateVersion?: unknown; factsScopeId?: unknown; answers?: unknown }) {
@@ -404,7 +409,9 @@ export async function signContract(tx: Tx, clock: Clock, actor: Actor, provider:
     if (mine.length > 0 && !(await isIdentityVerified(tx, actor.userId))) throw new DomainError("IDENTITY_REQUIRED", 403, `${actor.userId} must complete identity verification before signing`);
   } else {
     requirePermission(actor, "contract.sign_org");
-    const owned = (await withSystemScope(tx, async () => (await tx.query("SELECT party_id FROM party WHERE party_id = ANY($1) AND tenant_id = $2", [pending, actor.tenantId])).rows))
+    // 기관 서명: 그 테넌트의 기관 당사자만. 사람 당사자(작가 등)는 관리 테넌트가 대신 서명하지 못한다 — 본인 계정이나 전자서명 링크로(결정 WD2).
+    const owned = (await withSystemScope(tx, async () => (await tx.query(
+      "SELECT party_id FROM party WHERE party_id = ANY($1) AND tenant_id = $2 AND party_type <> ALL($3)", [pending, actor.tenantId, [...PERSON_PARTY_TYPES]])).rows))
       .map((r) => r.party_id as string);
     mine = pending.filter((p) => owned.includes(p));
   }
@@ -412,23 +419,6 @@ export async function signContract(tx: Tx, clock: Clock, actor: Actor, provider:
   if (mine.length === 0) throw new DomainError("NOT_A_SIGNER", 403, `${actor.userId} cannot sign ${contractId} for any pending party`);
   for (const p of mine) await markSigned(tx, clock, contractId, p, provider.name, actor.userId);
   return getContract(tx, contractId);
-}
-
-/**
- * 운영 원문 대조(결정 CT4): 권리 확인서의 서명 당사자가 플랫폼 밖(위탁 작가)이면 서명 대신 운영이 원본 계약서와 확인서 값을 대조해 확인한다.
- * 권리 확인서(CLAIM_CONFIRM)에만, 플랫폼 밖 당사자에게만 쓴다. 사유를 남긴다.
- */
-export async function platformVerifySigner(tx: Tx, clock: Clock, actor: Actor, contractId: string, b: { partyId?: unknown; reason?: unknown }) {
-  requirePermission(actor, "confirmation.platform_verify");
-  if (typeof b.partyId !== "string") throw new DomainError("BAD_REQUEST", 400, "partyId is required");
-  if (typeof b.reason !== "string" || b.reason.trim() === "") throw new DomainError("BAD_REQUEST", 400, "reason is required");
-  const c = await withSystemScope(tx, () => getContract(tx, contractId));
-  const t = await getTemplate(tx, c.templateId, c.templateVersion);
-  if (t.recordKind !== "CLAIM_CONFIRM") throw conflict("NOT_CLAIM_CONFIRM", `${contractId} is not a rights confirmation; its parties sign it`);
-  if (!(await offPlatformParties(tx, [b.partyId])).has(b.partyId)) throw conflict("COUNTERPARTY_ON_PLATFORM", `${b.partyId} uses the platform and must sign it`);
-  await markSigned(tx, clock, contractId, b.partyId, "PLATFORM_VERIFY", actor.userId);
-  await audit(tx, clock, { actor: actor.userId, action: "CONTRACT_PLATFORM_VERIFIED", entityType: "contract_envelope", entityId: contractId, after: { partyId: b.partyId, reason: b.reason.trim() } });
-  return withSystemScope(tx, () => getContract(tx, contractId));
 }
 
 /** 공급자 통지: 플랫폼 밖 당사자(예: 해외 작가)가 공급자 화면에서 서명했다. 개발용 공급자는 개발 도구가 이 통지를 흉내 낸다. */
@@ -443,7 +433,7 @@ export async function providerSigned(tx: Tx, clock: Clock, provider: SignaturePr
 export async function completeContract(tx: Tx, clock: Clock, actor: Actor, store: DocumentStore, provider: SignatureProvider, contractId: string) {
   requireDrafter(actor);
   const c = await getContract(tx, contractId);
-  if (actor.scope !== "platform" && c.ownerTenantId !== actor.tenantId) throw new DomainError("NOT_OWNER", 403, `${contractId} belongs to ${c.ownerTenantId}`);
+  if (c.ownerTenantId !== actor.tenantId) throw new DomainError("NOT_OWNER", 403, `${contractId} belongs to ${c.ownerTenantId}`);
   if (c.status !== "SIGNED") throw conflict("CONTRACT_NOT_SIGNED", `contract ${contractId} is ${c.status}`);
   const t = await getTemplate(tx, c.templateId, c.templateVersion);
   const ref = await withSystemScope(tx, async () => (await tx.query("SELECT provider_ref FROM contract_envelope WHERE contract_id = $1", [contractId])).rows[0].provider_ref as string);
@@ -470,7 +460,7 @@ export async function completeContract(tx: Tx, clock: Clock, actor: Actor, store
 export async function cancelContract(tx: Tx, clock: Clock, actor: Actor, contractId: string) {
   requireDrafter(actor);
   const c = await getContract(tx, contractId);
-  if (actor.scope !== "platform" && c.ownerTenantId !== actor.tenantId) throw new DomainError("NOT_OWNER", 403, `${contractId} belongs to ${c.ownerTenantId}`);
+  if (c.ownerTenantId !== actor.tenantId) throw new DomainError("NOT_OWNER", 403, `${contractId} belongs to ${c.ownerTenantId}`);
   if (c.status !== "SENT" && c.status !== "SIGNED") throw conflict("CONTRACT_NOT_OPEN", `contract ${contractId} is ${c.status}`);
   await withSystemScope(tx, () => tx.query("UPDATE contract_envelope SET status = 'CANCELLED' WHERE contract_id = $1", [contractId]));
   await audit(tx, clock, { actor: actor.userId, action: "CONTRACT_CANCELLED", entityType: "contract_envelope", entityId: contractId });

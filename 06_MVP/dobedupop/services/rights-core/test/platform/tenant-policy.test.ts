@@ -105,8 +105,10 @@ test("roles: operators get no rights-decision roles; the first administrator is 
   assert.deepEqual((await ok("portal", "usr_lbl_admin", "GET", "/users")).items.map((u: any) => u.userId), ["usr_lbl_admin", "usr_lbl_rights"]);
   // 운영은 관리자가 있는 조직 계정의 역할을 바꾸지 않는다.
   assert.equal(await code("ops", "usr_ops", "PUT", "/users/usr_lbl_rights/roles", { roles: [] }), "TENANT_HAS_ADMIN");
-  // 온보딩 담당은 당사자를 등록하지만 권리 데이터(곡)는 등록하지 않는다.
-  await ok("ops", "usr_onb", "POST", "/parties", { partyId: "pty_foreign_author", partyType: "AUTHOR", displayName: "해외 작가" });
+  // 온보딩 담당은 개인(본인 관리) 당사자만 등록한다 — 플랫폼 소속(위탁) 당사자는 없다(결정 WD1). 권리 데이터(곡)는 등록하지 않는다.
+  assert.equal(await code("ops", "usr_onb", "POST", "/parties", { partyId: "pty_trust_author", partyType: "AUTHOR", displayName: "위탁 작가" }), "PLATFORM_NO_RIGHTS_PARTY");
+  assert.equal(await code("ops", "usr_onb", "POST", "/parties", { partyId: "pty_lbl_author", partyType: "AUTHOR", displayName: "레이블 작가", tenantId: "tnt_lbl" }), "PLATFORM_NO_RIGHTS_PARTY");
+  await ok("ops", "usr_onb", "POST", "/parties", { partyId: "pty_foreign_author", partyType: "AUTHOR", displayName: "해외 작가", tenantId: "tnt_platform_default" });
   assert.equal(await code("ops", "usr_onb", "POST", "/works", { workId: "wrk_ops", title: "x" }), "ROLE_REQUIRED");
   // 조직 관리자는 자기 조직 계정만 잠근다.
   await ok("portal", "usr_lbl_admin", "PUT", "/users/usr_lbl_rights/disabled", { disabled: true });
@@ -189,10 +191,11 @@ test("independent artist (TN12) and party transfer (TN2): a verified performer b
   assert.deepEqual([r.party.from, r.party.to, r.party.managerKind], ["tnt_platform_default", "tnt_suga", "TENANT"]);
   // 실연자 앱은 그대로(개인 소속, 본인 당사자).
   assert.equal((await ok("performer", "usr_suga", "GET", "/me")).partyId, "pty_suga");
-  // 관리 이관: 위탁 작가를 레이블이 맡는다(사유 필수).
+  // 관리 이관: 개인 작가를 레이블이 맡는다(사유 필수). 플랫폼으로는 옮기지 않는다(결정 WD1).
   assert.equal(await code("ops", "usr_onb", "POST", "/parties/pty_foreign_author/manager", { tenantId: "tnt_lbl" }), "REASON_REQUIRED");
   assert.equal((await ok("ops", "usr_onb", "POST", "/parties/pty_foreign_author/manager", { tenantId: "tnt_lbl", reason: "작가가 레이블 퍼블리싱과 계약" })).to, "tnt_lbl");
   assert.equal(await code("ops", "usr_onb", "POST", "/parties/pty_lbl/manager", { tenantId: "tnt_platform_default", reason: "x" }), "PARTY_NOT_ALLOWED");
+  assert.equal(await code("ops", "usr_onb", "POST", "/parties/pty_foreign_author/manager", { tenantId: "tnt_platform", reason: "x" }), "PARTY_NOT_ALLOWED");
 });
 
 test("public registry (TD8): individuals show only to their manager and to tenants whose songs name them; exact ids still resolve", async () => {

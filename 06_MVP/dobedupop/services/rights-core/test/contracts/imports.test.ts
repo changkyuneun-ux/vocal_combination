@@ -17,7 +17,8 @@ import { devIdentityProvider } from "../../src/performer/identity.ts";
 import { STEPS, type Driver } from "../../src/scenario/dynamite-personas.ts";
 import { MASTER_FRAME, PUBLISHING_CLAUSES, PUBLISHING_FRAME } from "../../src/scenario/dynamite-frames.ts";
 
-// 계약서 불러오기(3부-B, 결정 CT1~CT5): Dynamite를 표준 계약 단계까지 돌린 뒤, 퍼블리싱 계약서를 읽기 틀로 불러와 권리 확인서로 작가 지분을 확정한다.
+// 계약서 불러오기(3부-B, 결정 CT1~CT5; 3부-C 플랫폼 위탁 폐지 WD1~WD4): Dynamite를 멤버 확인 단계까지 돌린 뒤(작가 지분은 아직 확인 대기),
+// 퍼블리싱 계약서를 읽기 틀로 불러와 권리 확인서를 보내고, 계정 없는 작가가 전자서명 링크로 서명하면 작가 지분이 확정된다.
 const { db, adminUrl, drop } = await freshDb();
 /** 트리거 확인용(권한 밖의 갱신·삭제도 트리거가 막는지): 관리자 연결. */
 const asAdmin = async (sql: string) => { const c = new pg.Client({ connectionString: adminUrl }); await c.connect(); try { await c.query(sql); } finally { await c.end(); } };
@@ -45,7 +46,7 @@ const driver: Driver = {
 };
 for (const st of STEPS) {
   await st.run(driver, {}, {});
-  if (st.id === "contracts") break;
+  if (st.id === "members") break;
 }
 const call = async (channel: "portal" | "ops", actor: string, method: "GET" | "POST", path: string, status: number, body?: object): Promise<any> => {
   const r = await driver.call(channel, actor, method, path, body);
@@ -104,7 +105,7 @@ test("import: a frame of another document kind is refused; marked clauses fill f
     ["effectiveFrom", { date: "2026-01-01" }, "NEW", false],
   ]);
   assert.equal(v.values[1].quote, "작가 갑의 지분은 50퍼센트");
-  assert.equal(v.document.parties.every((p: any) => p.offPlatform), true, "both authors are platform-managed");
+  assert.deepEqual(v.document.parties.map((p: any) => [p.noAccount, p.manager]), [[true, "빅히트 뮤직"], [true, "빅히트 뮤직"]], "both authors: no account, managed by BigHit");
   await assert.rejects(asAdmin("UPDATE import_value SET quote = 'x'"), /append-only/);
 });
 
@@ -119,28 +120,30 @@ test("candidates: a different value needs a choice; all confirmed moves to the g
   for (const k of ["title", "author2"]) await call("portal", BH, "POST", `/imports/${importId}/values/${k}`, 200, { confirm: true });
   const gapsStep = await call("portal", BH, "POST", `/imports/${importId}/values/effectiveFrom`, 200, { confirm: true });
   assert.equal(gapsStep.step, "GAPS");
-  assert.deepEqual(gapsStep.ir.map((r: any) => `${r.group}|${r.state}`), ["작품|FILLED", "작품|MISSING", "녹음|FILLED", "실연|FILLED", "수령 위임|FILLED"]);
+  assert.deepEqual(gapsStep.ir.map((r: any) => `${r.group}|${r.state}`), ["작품|FILLED", "작품|MISSING", "녹음|FILLED", "실연|FILLED", "수령 위임|IN_PROGRESS"]);
   const blocked = await driver.call("portal", BH, "POST", `/imports/${importId}/confirmation`, { kind: "AUTHOR" });
   assert.equal(blocked.status, 409);
   assert.equal((blocked.body as any).code, "IMPORT_GAPS");
-  assert.equal((await driver.call("portal", BH, "POST", `/imports/${importId}/gaps`, { usage: ["COMBINE"], territory: "WORLD", validTo: "2025-12-31" })).status, 422, "before the effective date");
-  const ready = await call("portal", BH, "POST", `/imports/${importId}/gaps`, 200, { usage: ["LISTEN", "COMBINE", "PURCHASE"], territory: "WORLD", validTo: "2030-12-31" });
+  assert.equal((await driver.call("portal", BH, "POST", `/imports/${importId}/gaps`, { actions: ["COMBINE"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validTo: "2025-12-31" })).status, 422, "before the effective date");
+  const ready = await call("portal", BH, "POST", `/imports/${importId}/gaps`, 200, { actions: ["PERSONAL_HOLD", "PREVIEW", "COMBINE"], territories: ["KR", "JP", "US"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validTo: "2030-12-31" });
   assert.equal(ready.step, "READY");
-  assert.deepEqual(ready.gaps, { usage: ["COMBINE", "PURCHASE", "LISTEN"], territory: "WORLD", validTo: "2030-12-31" });
+  assert.deepEqual(ready.gaps, { actions: ["PREVIEW", "COMBINE", "PERSONAL_HOLD"], territories: ["KR", "JP", "US"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validTo: "2030-12-31" });
+  assert.equal((await driver.call("portal", BH, "POST", `/imports/${importId}/gaps`, { actions: ["RESELL"], territories: ["KR"], media: ["FAN_APP"], audience: ["FAN_COMMUNITY"], validTo: "2030-12-31" })).status, 422, "the consent vocabulary only");
   assert.deepEqual(ready.missing, []);
 });
 
 test("author confirmation: preview fills the five clauses; shares must add up to 100%; the label kind needs a master contract", async () => {
   const p = await call("portal", BH, "GET", `/imports/${importId}/confirmation?kind=AUTHOR`, 200);
   assert.deepEqual(p.signers.sort(), ["pty_david_stewart", "pty_jessica_agombar"]);
-  assert.deepEqual(p.signerParties.map((s: any) => s.offPlatform), [true, true]);
+  assert.deepEqual(p.signerParties.map((s: any) => s.noAccount), [true, true]);
   assert.deepEqual(p.records.map((r: any) => `${r.type} ${r.edge ?? r.rightType}`), ["CLAIM WRITTEN_BY", "CLAIM WRITTEN_BY", "CONSENT WORK", "CONSENT WORK"]);
-  assert.equal(p.labels.usage, "팬앱에서 조합·구매·감상, 전 세계");
+  assert.equal(p.labels.usage, "이용 행위 미리듣기·조합 생성·개인 보관, 지역 대한민국·일본·미국, 매체 팬앱, 공개 대상 팬 커뮤니티");
   assert.equal(p.labels.period, "2026-01-01 ~ 2030-12-31");
   assert.match(p.labels.subject, /^작품 「Dynamite」, 녹음 Vocal Recombination\(/);
   assert.match(p.labels.source, /^Dynamite 작품 퍼블리싱 계약서 v1 제3조\(doc_dynamite_publishing, sha256 [0-9a-f]{4}…[0-9a-f]{4}\)$/);
   assert.match(p.html, /지분의 합은 100%다\.<table>/);
-  assert.match(p.html, /플랫폼 위탁/);
+  assert.match(p.html, /작가 본인\(빅히트 뮤직 관리\)/);
+  assert.doesNotMatch(p.html, /위탁/);
   assert.equal((await driver.call("portal", BH, "GET", `/imports/${importId}/confirmation?kind=LABEL`)).status, 422);
   const not100 = await driver.call("portal", BH, "POST", "/contracts/preview", { templateId: "tpl_claim_confirm_author", factsScopeId: "fsc_dynamite", answers: { ...p.answers,
     authors: [{ partyId: "pty_david_stewart", shareBps: 5000 }, { partyId: "pty_jessica_agombar", shareBps: 4000 }] } });
@@ -148,24 +151,30 @@ test("author confirmation: preview fills the five clauses; shares must add up to
   assert.equal((not100.body as any).code, "SHARES_NOT_100");
 });
 
-test("send → operator checks both platform-managed authors against the original → complete: VERIFIED claims on the signed copy and the original, requests closed", async () => {
+test("send → both authors sign by e-signature link (no operator check) → complete: VERIFIED claims and consents recorded by BigHit, requests closed", async () => {
   const c = await call("portal", BH, "POST", `/imports/${importId}/confirmation`, 201, { kind: "AUTHOR" });
   assert.equal(c.status, "SENT");
   assert.deepEqual(c.signatures.map((s: any) => s.partyId).sort(), ["pty_david_stewart", "pty_jessica_agombar"]);
   assert.equal((await call("portal", BH, "GET", `/imports/${importId}`, 200)).step, "CONFIRM_SENT");
   assert.equal((await driver.call("portal", BH, "POST", `/imports/${importId}/values/title`, { confirm: true })).status, 409, "locked once sent");
   assert.equal((await driver.call("portal", BH, "POST", `/contracts/${c.contractId}/sign`, {})).status, 403, "the label cannot sign for the authors");
-  assert.equal((await driver.call("portal", BH, "POST", `/contracts/${c.contractId}/platform-verify`, { partyId: "pty_david_stewart", reason: "x" })).status, 403);
-  assert.equal((await driver.call("ops", "usr_ops", "POST", "/contracts/ctr_master_license/platform-verify", { partyId: "pty_bighit_label", reason: "x" })).status, 409, "only rights confirmations");
-  for (const a of ["pty_david_stewart", "pty_jessica_agombar"]) {
-    await call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/platform-verify`, 200, { partyId: a, reason: "퍼블리싱 계약서 원문 제3조 대조(지분 50%)" });
-  }
+  // 플랫폼 원문 대조는 없다(결정 WD3): 경로가 없고, 운영은 작가 대신 서명하지 못한다. 빅히트도 작가(사람 당사자)를 대신 서명하지 못한다.
+  assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/platform-verify`, { partyId: "pty_david_stewart", reason: "x" })).status, 404);
+  assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/sign`, { partyId: "pty_david_stewart" })).status, 403);
+  assert.equal((await driver.call("portal", "usr_bh_admin", "POST", `/contracts/${c.contractId}/complete`, {})).status, 403, "not a drafter");
+  assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/complete`, {})).status, 403, "the platform does not complete contracts");
+  // 작가는 빅히트가 보낸 전자서명 링크로 서명한다(공급자 통지).
+  for (const a of ["pty_david_stewart", "pty_jessica_agombar"]) await driver.providerSigned(c.contractId, a);
   const signed = await call("portal", BH, "GET", `/contracts/${c.contractId}`, 200);
   assert.equal(signed.status, "SIGNED");
-  assert.deepEqual(signed.signatures.map((s: any) => s.method), ["PLATFORM_VERIFY", "PLATFORM_VERIFY"]);
+  assert.deepEqual(signed.signatures.map((s: any) => s.method), ["DEV_ESIGN", "DEV_ESIGN"]);
   const done = await call("portal", BH, "POST", `/contracts/${c.contractId}/complete`, 200);
   assert.equal(done.status, "COMPLETED");
   assert.deepEqual(done.records.map((r: any) => `${r.type} ${r.id}`), ["CLAIM c_work_ds", "CLAIM c_work_ja", `CONSENT cns_${c.contractId}_1`, `CONSENT cns_${c.contractId}_2`]);
+  // 기록 주체는 빅히트다(작가 관리 테넌트, 결정 WD1) — 플랫폼 이름의 기록은 없다.
+  const owners = (await db.pool.query(`SELECT 'consent' AS t, owner_tenant_id FROM consent_agreement WHERE consent_id LIKE $1
+    UNION ALL SELECT 'claim', owner_tenant_id FROM right_claim WHERE claim_id IN ('c_work_ds','c_work_ja') AND superseded_at IS NULL ORDER BY 1`, [`cns_${c.contractId}_%`])).rows;
+  assert.deepEqual(owners.map((r) => `${r.t} ${r.owner_tenant_id}`), ["claim tnt_bighit", "claim tnt_bighit", "consent tnt_bighit", "consent tnt_bighit"]);
   const q = async (sql: string, p: unknown[] = []) => (await db.pool.query(sql, p)).rows;
   assert.deepEqual(await q("SELECT claim_id, version, status, share_bps FROM right_claim WHERE claim_id IN ('c_work_ds','c_work_ja') AND superseded_at IS NULL ORDER BY claim_id"),
     [{ claim_id: "c_work_ds", version: 2, status: "VERIFIED", share_bps: 5000 }, { claim_id: "c_work_ja", version: 2, status: "VERIFIED", share_bps: 5000 }]);
@@ -180,7 +189,7 @@ test("send → operator checks both platform-managed authors against the origina
   assert.deepEqual(cc.map((x: any) => `${x.kind} ${x.contract?.status ?? "-"}`), ["LABEL -", "AUTHOR COMPLETED"]);
 });
 
-test("label confirmation from the master contract: the label signs itself (no operator check) and the master claim gets the signed copy as evidence", async () => {
+test("label confirmation from the master contract: the label signs itself and the master claim gets the signed copy as evidence", async () => {
   await call("portal", BH, "POST", "/documents/doc_dynamite_master/versions/1/clauses", 201, { page: 1, quote: "대상 녹음은 「Vocal Recombination」", clauseType: "OTHER" });
   await call("portal", BH, "POST", "/documents/doc_dynamite_master/versions/1/clauses", 201, { page: 2, quote: "마스터 권리는 빅히트 뮤직 — 레이블가 보유한다", clauseType: "RIGHT_HOLDER" });
   const v = await call("portal", BH, "POST", "/scopes/fsc_dynamite/imports", 201, { documentId: "doc_dynamite_master", quotes: { effectiveFrom: "2026년 1월 1일부터 효력" } });
@@ -189,7 +198,6 @@ test("label confirmation from the master contract: the label signs itself (no op
   const ready = await call("portal", BH, "POST", `/imports/${v.importId}/values/effectiveFrom`, 200, { confirm: true });
   assert.equal(ready.step, "READY", "no usage input for a master contract");
   const c = await call("portal", BH, "POST", `/imports/${v.importId}/confirmation`, 201, { kind: "LABEL" });
-  assert.equal((await driver.call("ops", "usr_ops", "POST", `/contracts/${c.contractId}/platform-verify`, { partyId: "pty_bighit_label", reason: "x" })).status, 409, "the label is on the platform");
   await call("portal", BH, "POST", `/contracts/${c.contractId}/sign`, 200);
   const done = await call("portal", BH, "POST", `/contracts/${c.contractId}/complete`, 200);
   assert.deepEqual(done.records.map((r: any) => `${r.type} ${r.id}`), ["CLAIM c_master"]);

@@ -21,7 +21,7 @@ import { refundHook, revisionHook } from "../settlement/service.ts";
 import type { Jobs } from "../platform/jobs.ts";
 import type { PayoutProvider } from "../payout/provider.ts";
 import { ledgerRoutes } from "../ledger/routes.ts";
-import { payoutRoutes, pspWebhookRoutes } from "../payout/routes.ts";
+import { payoutProfileRoutes, payoutRoutes, pspWebhookRoutes } from "../payout/routes.ts";
 import { devRoutes, type DevDeps } from "../dev/routes.ts";
 import { fanRenderRoutes, fanRoutes, partnerRoutes, performerRoutes, portalRoutes } from "./channel-routes.ts";
 import { monitorRoutes } from "../monitor/routes.ts";
@@ -148,6 +148,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   channel("ops", (sub) => { all(sub); authRoutes(sub, deps); userAdminRoutes(sub, deps); monitorRoutes(sub, deps); stemAudioRoutes(sub, deps); audioOpsRoutes(sub, deps); fanRenderRoutes(sub, deps); opsHubRoutes(sub, deps, hubHooks); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); linkRoutes(sub, deps); });
   channel("portal", (sub) => {
     authRoutes(sub, deps); userAdminRoutes(sub, deps); platformRoutes(sub, deps); registryRoutes(sub, deps); policyRoutes(sub, deps); issuanceRoutes(sub, deps); sealRoutes(sub, deps); portalRoutes(sub, deps); stemAudioRoutes(sub, deps); documentRoutes(sub, deps); validationRoutes(sub, deps); contractRoutes(sub, deps); linkRoutes(sub, deps);
+    payoutProfileRoutes(sub, deps);
   });
   channel("performer", (sub) => { authRoutes(sub, deps); performerRoutes(sub, deps); });
   channel("fan", (sub) => { fanRoutes(sub, deps); fanRenderRoutes(sub, deps); });

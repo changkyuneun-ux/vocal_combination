@@ -55,6 +55,8 @@ export async function assertPartyAdmissible(tx: Tx, tenantId: string, p: PartyIn
   const t = (await tx.query("SELECT org_class, tenant_type, business_no FROM tenant WHERE tenant_id = $1", [tenantId])).rows[0];
   if (t === undefined) throw notFound("tenant", tenantId);
   if (t.org_class === "RIGHTS") {
+    // 사람 당사자(작가 등)는 테넌트가 관리해도 다른 사람이다 — 테넌트 사업자번호를 식별값으로 물려받지 않는다(결정 WD1).
+    if (["MEMBER", "ARTIST", "AUTHOR", "SESSION", "FAN"].includes(p.partyType)) return;
     if (p.legalId === undefined && t.business_no !== null) p.legalId = t.business_no;
     if (p.legalId !== undefined && t.business_no !== null && p.legalId !== t.business_no && p.managementDocumentId === undefined) {
       throw invalid("PARTY_OTHER_ENTITY", `${p.partyId} (${p.legalId}) is another legal entity than ${tenantId} (${t.business_no}); attach the management delegation contract (managementDocumentId) or register a separate tenant`);
