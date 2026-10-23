@@ -75,7 +75,7 @@ export function Workspace() {
         </div>
       )}
       <div className="p-title-row">
-        <div><h1>{work.title}</h1><div className="p-sub">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>
+        <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-sub">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>
         <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
           {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 권리 정보 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
         </span>
