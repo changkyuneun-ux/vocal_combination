@@ -173,8 +173,8 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/consents", async (req) =>
     withActor(deps, req, async (tx) => {
       const rows = await listConsents(tx, { ...(optFilter(q0(req), "scope") && { scope: optFilter(q0(req), "scope")! }), ...(optFilter(q0(req), "party") && { party: optFilter(q0(req), "party")! }) });
-      const status = optFilter(q0(req), "status"); // 쪽 번호 화면의 상태 필터(SIGNED | REVOKED)
-      return pagedOr(q0(req), status === undefined ? rows : rows.filter((r: { status: string }) => r.status === status));
+      const status = optFilter(q0(req), "status"), right = optFilter(q0(req), "right"); // 쪽 번호 화면의 필터(상태 SIGNED | REVOKED, 권리 PERFORMER 등)
+      return pagedOr(q0(req), rows.filter((r: { status: string; rightType: string }) => (status === undefined || r.status === status) && (right === undefined || r.rightType === right)));
     }));
   // 조회(로그인한 누구나)
   app.get("/parties", async (req) => withActor(deps, req, (tx, actor) => q.listParties(tx, {

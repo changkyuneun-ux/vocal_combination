@@ -43,7 +43,9 @@ import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx"
 import { WorksCatalog } from "../pages/works/Catalog.tsx";
 import { Workspace } from "../pages/works/Workspace.tsx";
 import { NewWork } from "../pages/works/NewWork.tsx";
-import { CollectPage } from "../pages/works/Collect.tsx";
+import { OpsConfirmations } from "../pages/ops/Confirmations.tsx";
+import { OpsConsents, OpsContracts, OpsDocuments, OpsIssues, OpsTemplates } from "../pages/ops/Lists.tsx";
+import { OpsAccounts, OpsDelegation, OpsLinks, OpsOrg, OpsStatements, OpsValidation } from "../pages/ops/Org.tsx";
 import type { AppKind } from "./apps.ts";
 
 export function Placeholder({ title }: { title: string }) {
@@ -84,9 +86,24 @@ const rightsRoutes: RouteDef[] = [
 /** 포털 작품 목록·곡 워크스페이스(2부-B, 결정 ED3). */
 const worksRoutes: RouteDef[] = [
   { path: "/works", title: "작품 관리", element: <WorksCatalog /> },
-  { path: "/collect", title: "모아 보기", element: <CollectPage /> },
   { path: "/works/new", title: "새 곡 워크스페이스", element: <NewWork /> },
   { path: "/works/:workId/:tab", title: "곡 워크스페이스", element: <Workspace /> },
+];
+
+/** 포털 운영 관리 화면 12(시안 Nav-Ops-Confirm·Ops-*). */
+const opsRoutesPortal: RouteDef[] = [
+  { path: "/ops/confirmations", title: "확인 요청 전체", element: <OpsConfirmations /> },
+  { path: "/ops/consents", title: "멤버 이용 동의", element: <OpsConsents /> },
+  { path: "/ops/contracts", title: "표준 계약 전체", element: <OpsContracts /> },
+  { path: "/ops/documents", title: "원천 문서", element: <OpsDocuments /> },
+  { path: "/ops/templates", title: "계약 템플릿", element: <OpsTemplates /> },
+  { path: "/ops/validation", title: "정합성 점검 전체", element: <OpsValidation /> },
+  { path: "/ops/statements", title: "명세·지급", element: <OpsStatements /> },
+  { path: "/ops/issues", title: "발행 조합", element: <OpsIssues /> },
+  { path: "/", title: "내 조직", element: <OpsOrg /> },
+  { path: "/accounts", title: "담당자 계정", element: <OpsAccounts /> },
+  { path: "/delegation", title: "위임 대행", element: <OpsDelegation /> },
+  { path: "/links", title: "신탁·유통 연결", element: <OpsLinks /> },
 ];
 
 /** 운영 백오피스 전용(매출·정산·원장·지급). 권리자 포털에는 없다. */
@@ -141,7 +158,8 @@ const orgRoutes: RouteDef[] = [
 
 export function routesFor(kind: AppKind): RouteDef[] {
   if (kind === "portal") {
-    return [...orgRoutes, ...worksRoutes, ...rightsRoutes, { path: "/inspections", title: "플랫폼 열람 기록", element: <PortalTransparency /> }, { path: "/delegation", title: "위임 대행", element: <DelegationPage /> }];
+    // 권리 테넌트 포털(3부-A, 디자인 가이드 4절): 작품 관리 + 운영 관리. 플랫폼 열람 기록은 두지 않는다. 기존 권리 화면은 이동 링크용으로 남긴다.
+    return [...worksRoutes, ...opsRoutesPortal, ...rightsRoutes];
   }
   if (kind === "partner") {
     // 참여 기관 화면(결정 TD12): 권리 등록·정책·발행 화면이 없다.

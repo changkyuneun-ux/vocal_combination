@@ -236,6 +236,36 @@
 .p-err { border: 1px solid var(--p-bad-line); background: var(--p-bad-soft); color: var(--p-bad); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .p-sr { position: absolute; left: -9999px; }
 
+/* ── 틀(3부-A): 머리글 + 사이드 메뉴 + 본문(시안 Sidebar·Nav-Works-Stems) ─────── */
+.p-shell2 { font-family: var(--p-font); color: var(--p-fg); background: var(--p-bg); min-height: 100vh; display: flex; flex-direction: column; }
+.p-header .p-tenant { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--p-accent); }
+.p-header .p-search { font-size: 13px; color: var(--p-header-muted); }
+.p-body { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: stretch; }
+.p-content { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; }
+.p-sb { width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: var(--p-surface); border-right: 1px solid var(--p-line); display: flex; flex-direction: column; gap: 6px; }
+.p-sb-group { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--p-head-bg); }
+.p-shell2 .p-sb-g { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: var(--p-fg); text-align: left; }
+.p-sb-g .label { flex: 1 1 auto; } .p-sb-g .hint { font-size: 11px; font-weight: 500; color: var(--p-muted); }
+.p-sb .chev { display: inline-block; width: 12px; font-size: 11px; color: var(--p-muted); transform: rotate(0deg); }
+.p-sb .chev[data-open="true"] { transform: rotate(90deg); }
+.p-sb .dot { display: inline-block; width: 12px; text-align: center; color: var(--p-faint); }
+.p-shell2 .p-sb-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 12px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; text-align: left; background: none; color: var(--p-fg); text-decoration: none; }
+.p-shell2 .p-sb-item.strong { font-weight: 600; }
+.p-shell2 .p-sb-item[aria-current="page"], .p-shell2 .p-sb-leaf[aria-current="page"] { background: var(--p-accent-soft); color: var(--p-accent-dark); font-weight: 600; box-shadow: inset 3px 0 0 var(--p-accent); }
+.p-sb-item .label, .p-sb-leaf .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-sb-kids { margin-left: 27px; padding-left: 8px; border-left: 1px solid var(--p-line); display: flex; flex-direction: column; gap: 1px; }
+.p-sb-work { display: flex; align-items: center; gap: 6px; padding: 6px 8px 4px; font-size: 13px; }
+.p-sb-work strong { flex: 1 1 auto; }
+.p-sb-work .p-sb-badge { padding: 1px 6px; }
+.p-shell2 .p-sb-leaf { display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; text-decoration: none; color: var(--p-fg-2); }
+.p-sb-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 600; background: var(--p-head-bg); color: var(--p-muted); }
+.p-sb-badge.warn { background: var(--p-warn-bg); color: var(--p-warn); }
+.p-sb-badge.ok { background: var(--p-ok-bg); color: var(--p-ok); } .p-sb-badge.ir { background: var(--p-ir-bg); color: var(--p-ir); } .p-sb-badge.bad { background: var(--p-bad-bg); color: var(--p-bad); }
+.p-sb-foot { margin: 8px 10px 0; font-size: 11px; color: var(--p-muted); line-height: 1.5; }
+.p-crumbs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: var(--p-muted); }
+.p-crumbs strong { color: var(--p-fg); }
+.p-content > .p-main { max-width: none; margin: 0; padding: 18px 24px 32px; gap: 14px; }
+
 /* ── 쪽 나눔 · 빈 목록(3부-A, 시안 pager()·table()) ─────────────────────── */
 .p-tfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--p-line); font-size: 13px; color: var(--p-muted); }
 .p-tfoot > .note { flex: 1 1 320px; }

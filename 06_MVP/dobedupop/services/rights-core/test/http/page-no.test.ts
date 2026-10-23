@@ -66,6 +66,7 @@ test("confirmations: pages of 10, scope and counterparty kind filters", async ()
 
 test("consents, contracts, documents, validation issues, issues, users: page responses", async () => {
   isPage(await json("GET", "/portal/consents?page=1&scope=fsc_a", 200), 1, 10, 0, 0);
+  isPage(await json("GET", "/portal/consents?page=1&right=PERFORMER&status=SIGNED", 200), 1, 10, 0, 0);
   isPage(await json("GET", "/portal/contracts?page=1&scope=fsc_a", 200), 1, 10, 0, 0);
   isPage(await json("GET", "/portal/documents?page=1", 200), 1, 10, 0, 0);
   const v = await json("GET", "/portal/validation-issues?page=1&scope=fsc_a", 200);

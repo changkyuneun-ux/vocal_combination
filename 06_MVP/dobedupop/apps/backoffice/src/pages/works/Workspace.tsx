@@ -11,6 +11,7 @@ import { ContractsTab } from "./tabs/Contracts.tsx";
 import { PolicyTab } from "./tabs/Policy.tsx";
 import { ReleaseTab } from "./tabs/Release.tsx";
 import { usePackAndPolicy } from "./tabs/Policy.tsx";
+import { Crumbs } from "../../app/PortalShell.tsx";
 
 /** 워크스페이스 탭이 같이 쓰는 곡 맥락. */
 export type WsCtx = {
@@ -65,7 +66,7 @@ export function Workspace() {
   };
   return (
     <main className="p-main">
-      <div className="p-crumb"><Link to={`/works?sel=${encodeURIComponent(workId)}&tab=${BACK_TAB[tab] ?? "overview"}`}>← 작품 목록</Link><span className="p-path">작품 › {work.title}</span></div>
+      <Crumbs linkWork={`/works/${encodeURIComponent(workId)}/rights`} />
       {sealed ? (
         <div className="p-ready" role="status"><strong>IR v{pp.policy?.latestVersion ?? 1}</strong><span>facts · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
       ) : (
