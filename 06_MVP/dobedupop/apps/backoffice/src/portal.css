@@ -235,3 +235,17 @@
 .p-lines > div.sub { color: var(--p-fg-2); font-size: 13px; }
 .p-err { border: 1px solid var(--p-bad-line); background: var(--p-bad-soft); color: var(--p-bad); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
 .p-sr { position: absolute; left: -9999px; }
+
+/* ── 쪽 나눔 · 빈 목록(3부-A, 시안 pager()·table()) ─────────────────────── */
+.p-tfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--p-line); font-size: 13px; color: var(--p-muted); }
+.p-tfoot > .note { flex: 1 1 320px; }
+.p-pager { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.p-pager .range { font-size: 13px; color: var(--p-muted); margin-right: 6px; font-family: var(--p-mono); }
+.p-pager .gap { color: var(--p-muted); padding: 0 2px; }
+.p-shell .p-pager button { min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid var(--p-line-strong); background: var(--p-surface); color: var(--p-fg); cursor: pointer; }
+.p-shell .p-pager button[aria-current="page"] { border: 0; background: var(--p-accent); color: var(--p-header-fg); font-weight: 600; }
+.p-shell .p-pager button:disabled { border-color: var(--p-line); color: var(--p-faint); background: var(--p-surface); cursor: not-allowed; opacity: 1; }
+.p-empty td { padding: 28px 14px !important; text-align: center; color: var(--p-muted); font-size: 14px; }
+.p-table.ops th { padding: 8px 14px; }
+.p-table.ops td { padding: 9px 14px; }
+.p-table.ops td:first-child { font-weight: 600; }
