@@ -1,7 +1,7 @@
 import { toBps } from "./policyForm.ts";
 
 /** 표준 계약(원천 문서 설계 S4) 화면용 타입과 변환. */
-export type TemplateVar = { name: string; label: string; type: "party" | "recording" | "voice" | "date" | "multi" | "bps"; options?: [string, string][]; optional?: boolean };
+export type TemplateVar = { name: string; label: string; type: "party" | "recording" | "voice" | "date" | "multi" | "bps" | "text" | "shares"; options?: [string, string][]; optional?: boolean };
 export type Template = {
   templateId: string; version: number; kind: string; recordKind: string; title: string; variables: TemplateVar[];
   clauses: { clauseId: string; heading: string; text: string }[]; signerVars: string[]; status: string; authoredBy?: string; approvedBy?: string;
@@ -9,7 +9,7 @@ export type Template = {
 export type Signature = { partyId: string; displayName: string; signerVar: string; signedAt?: string; method?: string; signedBy?: string };
 export type Contract = {
   contractId: string; templateId: string; templateVersion: number; factsScopeId: string; title: string; status: string; provider: string; sha256: string;
-  createdBy: string; createdAt: string; signatures: Signature[]; records: { type: string; id: string }[]; document?: { documentId: string; version: number }; html?: string;
+  createdBy: string; createdAt: string; signatures: Signature[]; records: { type: string; id: string }[]; document?: { documentId: string; version: number }; html?: string; completedAt?: string; answers?: Record<string, unknown>;
 };
 export type FormValue = string | string[];
 

@@ -16,6 +16,9 @@ const OPS: Record<string, string> = {
   "/ops/validation": "op-validation", "/ops/statements": "op-statements", "/ops/issues": "op-issues", "/": "op-org", "/accounts": "op-accounts", "/delegation": "op-delegation", "/links": "op-links",
 };
 
+/** 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 경로 끝에 한 칸 더. */
+const WS_SUB: [RegExp, string][] = [[/\/contracts\/import$/, "계약서 불러오기"], [/\/contracts\/confirm$/, "권리 확인서"]];
+
 /** 경로 → 지금 화면 키. */
 export function activeKey(path: string): string {
   if (path === "/works") return "works-list";
@@ -78,7 +81,7 @@ export function crumbsFor(path: string, groups: Group[], workTitle?: string): st
   for (const g of groups) for (const it of g.items) {
     if (it.current) return [g.label, it.label];
     const c = it.children.find((x) => x.current);
-    if (c) return it.key === "ws" ? [g.label, it.label, workTitle ?? "", c.label] : [g.label, it.label, c.label];
+    if (c) return it.key === "ws" ? [g.label, it.label, workTitle ?? "", c.label, ...WS_SUB.filter(([re]) => re.test(path)).map(([, l]) => l)] : [g.label, it.label, c.label];
   }
   return [];
 }

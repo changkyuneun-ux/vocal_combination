@@ -88,6 +88,7 @@ const worksRoutes: RouteDef[] = [
   { path: "/works", title: "작품 관리", element: <WorksCatalog /> },
   { path: "/works/new", title: "새 곡 워크스페이스", element: <NewWork /> },
   { path: "/works/:workId/:tab", title: "곡 워크스페이스", element: <Workspace /> },
+  { path: "/works/:workId/:tab/:sub", title: "곡 워크스페이스", element: <Workspace /> },
 ];
 
 /** 포털 운영 관리 화면 12(시안 Nav-Ops-Confirm·Ops-*). */

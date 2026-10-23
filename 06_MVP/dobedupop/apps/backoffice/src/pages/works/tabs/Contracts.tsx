@@ -65,6 +65,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
       <div style={{ flex: "999 1 720px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
         <section className="p-card">
           <div className="p-card-head"><h2>표준 계약 {contracts.length}</h2><span className="p-badge sm muted">작성 → 서명 → 반영 → 원천 문서</span><span style={{ marginLeft: "auto" }} />
+            <Link className="p-btn mid" to={`/works/${encodeURIComponent(ctx.work.workId)}/contracts/import`} aria-disabled={!ctx.can("contract.draft") || undefined}>계약서 불러오기</Link>
             <button type="button" className="p-btn mid primary" disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => document.getElementById("newc")?.scrollIntoView()}>+ 계약 만들기</button></div>
           <ErrorPanel error={list.error ?? w.err} />
           <div className="p-scroll"><table className="p-table" style={{ minWidth: 680 }} aria-label="이 곡의 표준 계약">
@@ -114,7 +115,8 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
 function NewContract({ ctx, own, contracts, onDone }: { ctx: WsCtx; own: Set<string>; contracts: Contract[]; onDone: () => void }) {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const parties = useParties();
-  const usable = usableTemplates(templates.data ?? []);
+  // 권리 확인서(CLAIM_CONFIRM)는 계약서 불러오기에서 만든다.
+  const usable = usableTemplates(templates.data ?? []).filter((t) => t.recordKind !== "CLAIM_CONFIRM");
   const [tid, setTid] = useState("");
   const t = usable.find((x) => x.templateId === tid);
   const [form, setForm] = useState<Record<string, FormValue>>({});

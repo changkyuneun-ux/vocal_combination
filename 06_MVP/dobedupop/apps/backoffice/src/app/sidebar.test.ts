@@ -52,5 +52,10 @@ describe("권리 테넌트 사이드 메뉴(시안 Sidebar.dc.html)", () => {
     expect(crumbsFor("/works/wrk_dynamite/stems", sidebarModel("/works/wrk_dynamite/stems", work, {}, all), "Dynamite")).toEqual(["작품 관리", "작품 워크스페이스", "Dynamite", "스템"]);
     expect(crumbsFor("/ops/confirmations", sidebarModel("/ops/confirmations", null, {}, all))).toEqual(["운영 관리", "확인·동의", "확인 요청 전체"]);
     expect(crumbsFor("/works", sidebarModel("/works", null, {}, all))).toEqual(["작품 관리", "작품 목록"]);
+    // 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 문서·계약이 지금 메뉴, 경로 끝에 한 칸 더.
+    const imp = "/works/wrk_dynamite/contracts/import";
+    expect(activeKey(imp)).toBe("ws-contracts");
+    expect(crumbsFor(imp, sidebarModel(imp, work, {}, all), "Dynamite")).toEqual(["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"]);
+    expect(crumbsFor("/works/wrk_dynamite/contracts/confirm", sidebarModel("/works/wrk_dynamite/contracts/confirm", work, {}, all), "Dynamite").at(-1)).toBe("권리 확인서");
   });
 });

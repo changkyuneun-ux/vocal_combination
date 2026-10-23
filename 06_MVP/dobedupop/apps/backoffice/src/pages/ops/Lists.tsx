@@ -12,6 +12,7 @@ import type { ConsentRow, DocumentRow, PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { useParties } from "../works/data.tsx";
 import { groupContracts } from "../works/model.ts";
+import type { ReadingFrame } from "../../api/imports.ts";
 import { B, Card, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
 
 /**
@@ -186,9 +187,17 @@ const TPL_USE: Record<string, [string, string, string]> = {
   tpl_platform_contract: ["테넌트 온보딩", "권리 테넌트", "플랫폼 이용 확정"], tpl_master_license: ["원곡 권리 › 녹음", "레이블", "녹음 이용 동의"],
   tpl_work_license: ["원곡 권리 › 작품", "작가(위탁이면 플랫폼이 작성)", "작품 이용 동의"], tpl_performer_mandate: ["원곡 권리 › 수령 위임", "멤버(실연자 앱) → 소속사", "수령 위임"],
   tpl_performer_consent: ["확인·동의", "멤버(실연자 앱) 본인", "실연 이용 동의"],
+  tpl_claim_confirm_label: ["문서·계약 › 계약서 불러오기", "레이블", "마스터 보유 주장"],
+  tpl_claim_confirm_author: ["문서·계약 › 계약서 불러오기", "작가 전원(위탁이면 운영 원문 대조)", "작가 지분 주장"],
 };
+const DOC_KIND: Record<string, string> = { PUBLISHING: "작품 퍼블리싱 계약", MASTER_CONTRACT: "녹음 계약" };
+const IR_ITEM: Record<string, string> = { WORK_TITLE: "곡명", AUTHOR: "작가", AUTHOR_SHARE: "작가 · 작가별 지분", EFFECTIVE_FROM: "효력 시작", RECORDING: "녹음", MASTER_OWNER: "마스터 보유자" };
+/** 읽기 틀이 읽는 항목(시안: "곡명 · 작가 · 작가별 지분 · 효력 시작"). */
+export function frameItems(f: Pick<ReadingFrame, "fields">): string {
+  return [...new Set(f.fields.flatMap((x) => (IR_ITEM[x.irItem] ?? x.irItem).split(" · ")))].join(" · ");
+}
 
-/** 운영 관리 › 계약·문서 › 계약 템플릿(시안 Ops-Templates의 표준 계약 템플릿 표 — 읽기 틀은 3부-B). */
+/** 운영 관리 › 계약·문서 › 계약 템플릿(시안 Ops-Templates): 표준 계약 템플릿(권리 확인서 2종 포함)과 계약서 읽기 틀. 읽기 틀 등록 폼은 시안이 없어 꺼 둔다. */
 export function OpsTemplates() {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const contracts = useSongContracts();
@@ -198,9 +207,16 @@ export function OpsTemplates() {
   const rank = (id: string) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
   const list = [...usableTemplates(templates.data ?? [])].sort((a, b) => rank(a.templateId) - rank(b.templateId));
   const { rows, total } = paginate(list, page);
+  const frames = useGet<ReadingFrame[]>(["reading-frames"], "/reading-frames");
+  // 읽기 틀은 틀마다 지금 쓰는 버전(승인 최신, 없으면 최신 초안) 한 줄.
+  // 순서: 최근 승인 먼저, 같으면 작품 퍼블리싱 → 녹음(시안 순서).
+  const latest = [...new Map((frames.data ?? []).filter((f) => f.status !== "RETIRED").map((f) => [f.frameId, f])).values()]
+    .sort((a, b) => (b.approvedAt ?? "").localeCompare(a.approvedAt ?? "") || (a.documentKind === "PUBLISHING" ? -1 : b.documentKind === "PUBLISHING" ? 1 : 0));
+  const [fp, setFp] = useState(1);
+  const fr = paginate(latest, fp);
   return (
     <OpsPage title="계약 템플릿" desc="표준 계약 템플릿(플랫폼 법무 관리, 빅히트는 골라 쓴다)과 계약서 읽기 틀(빅히트 등록 · 플랫폼 승인)"
-      actions={<button type="button" className="p-btn wide primary" disabled title="계약서 읽기 틀은 3부-B에서 만든다">+ 읽기 틀 등록</button>}>
+      actions={<button type="button" className="p-btn wide primary" disabled title="읽기 틀 등록 화면은 시안이 아직 없다(등록·승인 API는 있다)">+ 읽기 틀 등록</button>}>
       <ErrorPanel error={templates.error} />
       <TableCard title={["표준 계약 템플릿", "플랫폼 법무 관리"]} cols={["템플릿", "버전", "쓰는 곳", "서명", "조항", "서명하면", "쓴 계약"]} count={rows.length} empty="템플릿이 없습니다."
         page={page} total={total} onPage={setPage} foot="권리 확인서는 원본 계약을 대체하지 않고 확인·정리한다. 원본은 조항에 근거로 적힌다. 새 버전이 나와도 이미 서명된 계약은 서명 당시 버전에 고정된다.">
@@ -208,11 +224,24 @@ export function OpsTemplates() {
           const u = TPL_USE[t.templateId];
           return (
             <tr key={t.templateId}>
-              <td>{t.title}</td><td><Mono>v{t.version}</Mono></td><td>{u?.[0] ?? "—"}</td><td>{u?.[1] ?? t.signerVars.join(" · ")}</td><td>{t.clauses.length}</td><td>{u?.[2] ?? t.recordKind}</td>
+              <td>{t.recordKind === "CLAIM_CONFIRM" ? <Sub main={t.title} small="새 템플릿(CT5)" /> : t.title}</td><td><Mono>v{t.version}</Mono></td><td>{u?.[0] ?? "—"}</td><td>{u?.[1] ?? t.signerVars.join(" · ")}</td><td>{t.clauses.length}</td>
+              <td>{u?.[2] ?? t.recordKind}{t.recordKind === "CLAIM_CONFIRM" && <> <B tone="ok">VERIFIED</B></>}</td>
               <td>{t.templateId === "tpl_performer_consent" ? (consents.data ?? []).filter((c) => c.rightType === "PERFORMER").length : contracts.rows.filter((c) => c.templateId === t.templateId).length}</td>
             </tr>
           );
         })}
+      </TableCard>
+      <ErrorPanel error={frames.error} />
+      <TableCard title={["계약서 읽기 틀", "빅히트 등록 · 플랫폼 승인(CT2)"]} cols={["읽기 틀(계약 양식)", "쓰는 계약", "읽는 항목", "등록", "승인", "쓴 횟수"]} count={fr.rows.length}
+        empty="등록한 읽기 틀이 없습니다." page={fp} total={fr.total} onPage={setFp}
+        foot="읽기 틀은 계약 양식에서 값이 있는 위치(쪽·조항)를 IR 항목에 대응시킨 것이다. 같은 양식의 계약을 불러오면 값이 후보로 채워진다. 계약서는 플랫폼 밖으로 보내지 않는다(CT1). 처음 보는 양식은 사람이 조항을 표시한다.">
+        {fr.rows.map((f) => (
+          <tr key={f.frameId}>
+            <td><Sub main={f.title} small={`v${f.version}${f.pages ? ` · 쪽 ${f.pages}` : ""}`} /></td><td>{DOC_KIND[f.documentKind] ?? f.documentKind}</td><td>{frameItems(f)}</td>
+            <td><Sub main={f.authoredBy} small={mmdd(f.authoredAt)} /></td>
+            <td>{f.status === "APPROVED" ? <B tone="ok">플랫폼 승인 {f.approvedAt!.slice(5, 10)}</B> : <B tone="warn">승인 대기</B>}</td><td>{f.uses}</td>
+          </tr>
+        ))}
       </TableCard>
     </OpsPage>
   );

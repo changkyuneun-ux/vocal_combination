@@ -7,7 +7,7 @@ import type { Readiness, ScopeInfo, WorkFacts, WorkOverview } from "../../api/wo
 import type { PartyRow } from "../../api/works.ts";
 
 /** 작품 화면이 같이 쓰는 조회. 쓰기 뒤에는 WORKS_KEYS를 모두 다시 읽는다. */
-export const WORKS_KEYS = ["works-overview", "work-facts", "readiness", "scope-info", "parties", "work-contracts", "work-confirmations", "work-consents", "work-packs", "work-policies", "policy-version", "documents"];
+export const WORKS_KEYS = ["works-overview", "work-facts", "readiness", "scope-info", "parties", "work-contracts", "work-confirmations", "work-consents", "work-packs", "work-policies", "policy-version", "documents", "contract-imports", "claim-confirmations", "reading-frames"];
 
 export const useOverview = () => useGet<WorkOverview[]>(["works-overview"], "/works/overview");
 export function useWork(workId: string) {

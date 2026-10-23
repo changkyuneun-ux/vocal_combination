@@ -281,3 +281,27 @@
 .p-table.ops th { padding: 8px 14px; }
 .p-table.ops td { padding: 9px 14px; }
 .p-table.ops td:first-child { font-weight: 600; }
+
+/* 계약서 불러오기·권리 확인서(시안 Song-Import·Song-ClaimConfirm, gen_ops_mockups.py steps()·check()·chips()·field()) */
+.p-steps.imp { display: flex; flex-wrap: wrap; gap: 6px; }
+.p-steps.imp > li { flex: 1 1 140px; padding: 8px 12px; border-radius: 8px; font-size: 13px; border: 1px dashed var(--p-input-line); background: var(--p-surface); color: var(--p-muted); }
+.p-steps.imp > li.done { background: var(--p-ok-bg); border: 1px solid var(--p-ok-line); color: var(--p-ok); }
+.p-steps.imp > li.now { background: var(--p-surface); border: 2px solid var(--p-accent); color: var(--p-accent-dark); font-weight: 600; }
+.p-shell .p-check { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; min-height: 0; padding: 0; border-radius: 4px; border: 1px solid var(--p-input-line); background: var(--p-surface); color: var(--p-header-fg); font-size: 12px; line-height: 1; cursor: pointer; }
+.p-shell .p-check.on { width: 18px; height: 18px; border: 0; background: var(--p-accent); }
+.p-shell .p-check:disabled { cursor: not-allowed; opacity: 1; }
+.p-shell .p-chip2 { font: inherit; font-size: 13px; padding: 4px 10px; min-height: 0; border-radius: 999px; background: var(--p-surface); color: var(--p-muted); border: 1px solid var(--p-line-strong); cursor: pointer; line-height: normal; }
+.p-shell .p-chip2.on { background: var(--p-accent-chip); color: var(--p-accent-dark); border-color: var(--p-accent-line); font-weight: 600; }
+.p-gap-field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.p-shell .p-gap-field > .l { font-size: 14px; font-weight: 600; color: var(--p-fg); }
+.p-shell .p-gap-field > .h { font-size: 12px; font-weight: 400; color: var(--p-muted); }
+.p-gap-field .p-input, .p-gap-field .p-select { padding: 8px 10px; border-radius: 8px; }
+.p-doc { display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; border: 1px solid var(--p-line-strong); border-radius: 10px; background: var(--p-surface); }
+.p-doc h3 { margin: 0; font-size: 18px; }
+.p-clause { display: flex; flex-direction: column; gap: 4px; }
+.p-clause > strong { font-size: 14px; }
+.p-clause-body { font-size: 14px; color: var(--p-fg-2); line-height: 1.6; }
+.p-share-tbl { border-collapse: collapse; font-size: 14px; margin-top: 4px; }
+.p-share-tbl th { padding: 6px 12px; text-align: left; font-size: 13px; color: var(--p-muted); background: var(--p-bg); font-weight: 600; }
+.p-share-tbl td { padding: 6px 12px; }
+.p-share-tbl tbody tr { border-top: 1px solid var(--p-line); }

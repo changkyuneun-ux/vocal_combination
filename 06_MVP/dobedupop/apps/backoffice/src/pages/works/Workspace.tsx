@@ -10,6 +10,8 @@ import { ConfirmTab } from "./tabs/Confirm.tsx";
 import { ContractsTab } from "./tabs/Contracts.tsx";
 import { PolicyTab } from "./tabs/Policy.tsx";
 import { ReleaseTab } from "./tabs/Release.tsx";
+import { ContractImportTab } from "./tabs/ContractImport.tsx";
+import { ClaimConfirmTab } from "./tabs/ClaimConfirm.tsx";
 import { usePackAndPolicy } from "./tabs/Policy.tsx";
 import { Crumbs } from "../../app/PortalShell.tsx";
 
@@ -20,6 +22,12 @@ export type WsCtx = {
   /** 이 곡의 멤버(보이스 소유자와 파트 원곡 담당), 등록 순. */
   members: { partyId: string; name: string }[];
   now: string;
+};
+
+/** 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 제목·설명·본문. */
+const SUB_PAGES: Record<string, { title: string; desc: string; body: (c: WsCtx) => ReactNode }> = {
+  import: { title: "계약서 불러오기", desc: "원본 계약서에서 권리 정보 후보를 채우고, IR에 필요한 것 중 빠진 것을 입력한 뒤 권리 확인서로 서명한다", body: (c) => <ContractImportTab ctx={c} /> },
+  confirm: { title: "권리 확인서", desc: "불러온 계약서와 입력한 값으로 만든 표준 계약. 서명하면 권리 주장이 서명본을 근거로 바로 VERIFIED가 된다", body: (c) => <ClaimConfirmTab ctx={c} /> },
 };
 
 export const WS_TABS = [["rights", "원곡 권리"], ["stems", "스템"], ["confirm", "확인·동의"], ["contracts", "문서·계약"], ["policy", "분배 규칙·팩"], ["release", "승인·출시"]] as const;
@@ -42,7 +50,8 @@ export function membersOf(facts: WorkFacts, names: Map<string, string>): { party
  * IR 생성 전에는 등록·조회·수정, 생성 뒤에는 조회만(바로잡기는 새 버전).
  */
 export function Workspace() {
-  const { workId = "", tab = "rights" } = useParams();
+  const { workId = "", tab = "rights", sub } = useParams();
+  const subPage = tab === "contracts" && sub !== undefined ? SUB_PAGES[sub] : undefined;
   const { work, ...o } = useWork(workId);
   const scopeId = work?.scopeId ?? null;
   const facts = useFacts(scopeId);
@@ -65,7 +74,7 @@ export function Workspace() {
   };
   return (
     <main className="p-main">
-      <Crumbs linkWork={`/works/${encodeURIComponent(workId)}/rights`} />
+      <Crumbs linkWork={subPage ? undefined : `/works/${encodeURIComponent(workId)}/rights`} />
       {sealed ? (
         <div className="p-ready" role="status"><strong>IR v{pp.policy?.latestVersion ?? 1}</strong><span>facts · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
       ) : (
@@ -75,7 +84,8 @@ export function Workspace() {
         </div>
       )}
       <div className="p-title-row">
-        <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-sub">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>
+        {subPage ? <div><h1>{subPage.title}</h1><div className="p-sub">{subPage.desc}</div></div>
+          : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-sub">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
         <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
           {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 권리 정보 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
         </span>
@@ -86,7 +96,7 @@ export function Workspace() {
       </nav>
       <ErrorPanel error={facts.error ?? ready.error} />
       {!scopeId ? <p className="p-sub">이 곡에는 권리 범위가 없습니다. 새 곡 마법사로 범위·녹음을 만듭니다.</p>
-        : !ctx ? <p className="p-sub">불러오는 중…</p> : (body[tab] ?? body.rights!)(ctx)}
+        : !ctx ? <p className="p-sub">불러오는 중…</p> : subPage ? subPage.body(ctx) : (body[tab] ?? body.rights!)(ctx)}
     </main>
   );
 }
