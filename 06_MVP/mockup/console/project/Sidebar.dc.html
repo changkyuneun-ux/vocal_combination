@@ -8,31 +8,28 @@
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
 body{margin:0}
 </style>
 </helmet>
-<nav aria-label="권리 테넌트 메뉴" style="width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: #ffffff; border-right: 1px solid #e2e8f0; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; display: flex; flex-direction: column; gap: 6px">
+<nav aria-label="권리 테넌트 메뉴" style="width: 260px; min-height: 100%; box-sizing: border-box; padding: 12px 10px 24px; background: #ffffff; border-right: 1px solid #e2e8f0; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; display: flex; flex-direction: column; gap: 14px">
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
-<div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9">
-<button aria-expanded="{{g.expanded}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: #0f172a; text-align: left">
-<span aria-hidden="true" style="{{g.chevron}}">▸</span><span style="flex: 1 1 auto">{{g.label}}</span><span style="font-size: 11px; font-weight: 500; color: #475569">{{g.hint}}</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<button aria-expanded="{{g.expanded}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: #f1f5f9; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; color: #0f172a; text-align: left">
+<span aria-hidden="true" style="{{g.chevron}}">▸</span><span style="flex: 1 1 auto">{{g.label}}</span>
 </button>
 <sc-if value="{{g.open}}" hint-placeholder-val="{{true}}">
-<sc-for list="{{g.items}}" as="it" hint-placeholder-count="5">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
 <div style="display: flex; flex-direction: column">
 <button aria-expanded="{{it.expanded}}" aria-current="{{it.current}}" onClick="{{it.toggle}}" style="{{it.style}}">
 <span aria-hidden="true" style="{{it.chevron}}">{{it.glyph}}</span><span style="flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.label}}</span>
 <sc-if value="{{it.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{it.badgeStyle}}">{{it.badge}}</span></sc-if>
 </button>
 <sc-if value="{{it.open}}" hint-placeholder-val="{{false}}">
-<div style="margin-left: 27px; padding-left: 8px; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 1px">
-<sc-if value="{{it.hasWork}}" hint-placeholder-val="{{false}}">
-<div style="display: flex; align-items: center; gap: 6px; padding: 6px 8px 4px; font-size: 13px"><strong style="flex: 1 1 auto">Dynamite</strong><span style="font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600">확인 대기</span></div>
-</sc-if>
-<sc-for list="{{it.children}}" as="c" hint-placeholder-count="4">
-<a href="#" aria-current="{{c.current}}" style="{{c.style}}"><span style="flex: 1 1 auto">{{c.label}}</span><sc-if value="{{c.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{c.badgeStyle}}">{{c.badge}}</span></sc-if></a>
+<div style="margin-left: 26px; padding-left: 10px; border-left: 2px solid #e2e8f0; display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{it.children}}" as="c" hint-placeholder-count="3">
+<a href="#" aria-current="{{c.current}}" style="{{c.style}}"><span style="flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.label}}</span><sc-if value="{{c.hasBadge}}" hint-placeholder-val="{{false}}"><span style="{{c.badgeStyle}}">{{c.badge}}</span></sc-if></a>
 </sc-for>
 </div>
 </sc-if>
@@ -41,55 +38,57 @@ body{margin:0}
 </sc-if>
 </div>
 </sc-for>
-<p style="margin: 8px 10px 0; font-size: 11px; color: #475569; line-height: 1.5">메뉴는 빅히트 뮤직 소속의 권한으로 걸러 보인다. 플랫폼 운영 메뉴는 따로다.</p>
+<p style="margin: 4px 10px 0; font-size: 12px; color: #334155; line-height: 1.5">메뉴는 빅히트 뮤직 소속의 권한으로 걸러 보인다.</p>
 </nav>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws-rights","ws-stems","ws-confirm","ws-contracts","ws-policy","ws-release","op-confirm-all","op-consents","op-contracts-all","op-docs","op-templates","op-validation","op-statements","op-issues","op-org","op-accounts","op-delegation","op-links"],"default":"ws-stems"},"$preview":{"width":260,"height":1100}}'>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["works-list","ws","op-confirm-all","op-consents","op-contracts-all","op-docs","op-templates","op-validation","op-statements","op-issues","op-org","op-accounts","op-delegation","op-links"],"default":"ws"},"$preview":{"width":260,"height":900}}'>
 class Component extends DCLogic {
   state = { closed: {} };
   renderVals() {
-    const active = this.props.active ?? 'ws-stems';
+    // 'ws' = 지금 연 곡(작품 워크스페이스의 어느 탭이든). 곡 안의 화면은 본문 탭으로 고르고, 곡 이름을 누르면 원곡 권리 탭이 열린다.
+    const active = this.props.active ?? 'ws';
     const closed = this.state.closed;
     const toggle = (k) => () => this.setState({ closed: { ...closed, [k]: !closed[k] } });
     const isOpen = (k, dflt) => (closed[k] === undefined ? dflt : !closed[k]);
-    const badge = (n, tone) => ({ hasBadge: n !== '', badge: n, badgeStyle: 'font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 600; ' + (tone === 'warn' ? 'background: #fef3c7; color: #92400e' : 'background: #f1f5f9; color: #475569') });
-    const leafStyle = (on) => 'display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; text-decoration: none; ' +
-      (on ? 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8' : 'color: #334155');
-    const leaf = (key, label, n, tone) => ({ label, current: key === active ? 'page' : 'false', style: leafStyle(key === active), ...badge(n ?? '', tone) });
-    const itemStyle = (on, parent) => 'display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 12px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; text-align: left; ' +
-      (on ? 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8' : parent ? 'background: none; color: #0f172a; font-weight: 600' : 'background: none; color: #0f172a');
-    const chev = (open) => 'display: inline-block; width: 12px; font-size: 11px; color: #475569; transform: rotate(' + (open ? 90 : 0) + 'deg)';
+    // 숫자·상태 배지는 할 일(주황)만 둔다. 건수만 알리는 회색 배지와 묶음 옆 설명은 두지 않는다.
+    const badge = (n) => ({ hasBadge: !!n, badge: n ?? '', badgeStyle: 'font-size: 12px; padding: 1px 8px; border-radius: 999px; font-weight: 600; font-variant-numeric: tabular-nums; background: #fef3c7; color: #92400e; white-space: nowrap' });
+    const on = 'background: #eff6ff; color: #1e3a8a; font-weight: 600; box-shadow: inset 3px 0 0 #1d4ed8';
+    // 3단계: 13.5px 500 #1e293b, 2단계 글자 위치에서 26px 들여 2px 세로선 안쪽
+    const leafStyle = (cur) => 'display: flex; align-items: center; gap: 6px; min-height: 34px; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; font-size: 13.5px; font-weight: 500; text-decoration: none; ' + (cur ? on : 'color: #1e293b');
+    const leaf = (key, label, n) => ({ label, current: key === active ? 'page' : 'false', style: leafStyle(key === active), ...badge(n) });
+    // 2단계: 14px 600 #0f172a, 1단계 글자보다 12px 들여
+    const itemStyle = (cur, bold) => 'display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 7px 10px 7px 22px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px; text-align: left; ' +
+      (cur ? on : 'background: none; color: #0f172a; font-weight: ' + (bold ? '700' : '600'));
+    const chev = (open, size) => 'display: inline-block; width: 12px; font-size: ' + size + 'px; color: #334155; transform: rotate(' + (open ? 90 : 0) + 'deg)';
     const item = (key, label, kids, opts = {}) => {
       const containsActive = kids ? kids.some((c) => c.current === 'page') : false;
       const open = kids ? isOpen(key, opts.open ?? containsActive) : false;
       return {
-        label, glyph: kids ? '▸' : '·', chevron: kids ? chev(open) : 'display: inline-block; width: 12px; text-align: center; color: #94a3b8',
+        label, glyph: kids ? '▸' : '·', chevron: kids ? chev(open, 11) : 'display: inline-block; width: 12px; text-align: center; color: #334155',
         expanded: kids ? String(open) : 'false', current: !kids && key === active ? 'page' : 'false',
-        toggle: kids ? toggle(key) : () => {}, open, children: kids ?? [], hasWork: !!opts.work,
-        style: itemStyle(!kids && key === active, kids && containsActive && !open), ...badge(opts.n ?? '', opts.tone),
+        toggle: kids ? toggle(key) : () => {}, open, children: kids ?? [],
+        style: itemStyle(!kids && key === active, kids && containsActive && !open), ...badge(opts.n),
       };
     };
-    const ws = [leaf('ws-rights', '원곡 권리'), leaf('ws-stems', '스템', '154'), leaf('ws-confirm', '확인·동의', '2', 'warn'), leaf('ws-contracts', '문서·계약', '11'), leaf('ws-policy', '분배 규칙·팩'), leaf('ws-release', '승인·출시')];
     const g1 = [
-      item('works-list', '작품 목록', null, { n: '8' }),
-      item('works-new', '새 곡 워크스페이스', null),
-      item('ws', '작품 워크스페이스', ws, { open: active.startsWith('ws-'), work: true }),
+      item('works-list', '작품 목록', null),
+      item('ws', '작품 워크스페이스', [leaf('ws', 'Dynamite', '확인 대기')], { open: true }),
       item('recent', '최근 연 작품', [leaf('r1', '밤의 정류장'), leaf('r2', '푸른 계절')]),
     ];
     // 운영 관리 화면에서는 지금 화면이 든 묶음만, 작품 화면에서는 확인·동의 · 계약·문서를 펼친다
     const onOps = active.startsWith('op-');
     const g2 = [
-      item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '9', 'warn'), leaf('op-consents', '멤버 이용 동의', '7')], { open: onOps ? undefined : true }),
-      item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '8', 'warn'), leaf('op-docs', '원천 문서', '13'), leaf('op-templates', '계약 템플릿')], { open: onOps ? undefined : true }),
-      item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2', 'warn')]),
+      item('op-c', '확인·동의', [leaf('op-confirm-all', '확인 요청 전체', '9'), leaf('op-consents', '멤버 이용 동의')], { open: onOps ? undefined : true }),
+      item('op-d', '계약·문서', [leaf('op-contracts-all', '표준 계약 전체', '8'), leaf('op-docs', '원천 문서'), leaf('op-templates', '계약 템플릿')], { open: onOps ? undefined : true }),
+      item('op-v', '점검', [leaf('op-validation', '정합성 점검 전체', '경고 2')]),
       item('op-s', '정산', [leaf('op-statements', '명세·지급'), leaf('op-issues', '발행 조합')]),
       item('op-o', '조직', [leaf('op-org', '내 조직'), leaf('op-accounts', '담당자 계정'), leaf('op-delegation', '위임 대행'), leaf('op-links', '신탁·유통 연결')]),
     ];
-    const grp = (key, label, hint, items) => {
+    const grp = (key, label, items) => {
       const open = isOpen(key, true);
-      return { label, hint, items, open, expanded: String(open), toggle: toggle(key), chevron: chev(open) };
+      return { label, items, open, expanded: String(open), toggle: toggle(key), chevron: chev(open, 12) };
     };
-    return { groups: [grp('g-works', '작품 관리', '곡 단위', g1), grp('g-ops', '운영 관리', '여러 곡 · 조직', g2)] };
+    return { groups: [grp('g-works', '작품 관리', g1), grp('g-ops', '운영 관리', g2)] };
   }
 }
 </script>

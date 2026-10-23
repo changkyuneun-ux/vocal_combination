@@ -8,7 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
 body{margin:0}
 a{color:#1d4ed8}a:hover{color:#1e3a8a}
@@ -24,9 +24,9 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 
 <div style="padding: 18px 24px 0; display: flex; flex-direction: column; gap: 14px">
 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
-<div><div style="font-size: 13px; color: #475569">빅히트 뮤직 / 작품</div><h1 style="margin: 2px 0 0; font-size: 26px">작품 관리</h1></div>
+<div><div style="font-size: 13px; color: #334155">빅히트 뮤직 / 작품</div><h1 style="margin: 2px 0 0; font-size: 26px">작품 관리</h1></div>
 <div style="display: flex; gap: 8px; flex-wrap: wrap">
-<button disabled title="상용 단계(결정 ED1)" style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px dashed #94a3b8; background: #f8fafc; color: #64748b">CSV 일괄 등록 · 상용</button>
+<button disabled title="상용 단계(결정 ED1)" style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px dashed #94a3b8; background: #f8fafc; color: #475569">CSV 일괄 등록 · 상용</button>
 <button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">엑셀 다운로드</button>
 <a href="Song-Create.dc.html" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">+ 새 곡 워크스페이스</a>
 </div>
@@ -34,13 +34,13 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 
 <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
 <sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
-<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #475569">{{k.label}}</div><div style="font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums">{{k.value}}</div><div style="font-size: 12px; color: #475569">{{k.note}}</div></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0"><div style="font-size: 12px; color: #334155">{{k.label}}</div><div style="font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums">{{k.value}}</div><div style="font-size: 12px; color: #334155">{{k.note}}</div></div>
 </sc-for>
 </div>
 
 <div role="tablist" aria-label="진행 상태" style="display: flex; gap: 2px; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
 <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
-<button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 12px; color: #64748b">{{t.count}}</span></button>
+<button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 12px; color: #475569">{{t.count}}</span></button>
 </sc-for>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
@@ -48,7 +48,7 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <input id="q" placeholder="곡명, 아티스트, 작사·작곡가, 관리번호, ISRC·ISWC" style="font: inherit; font-size: 14px; flex: 1 1 320px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
 <select aria-label="아티스트" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>아티스트 전체</option></select>
 <select aria-label="정렬" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>최근 등록순</option><option>곡명순</option><option>진행 단계순</option></select>
-<span style="margin-left: auto; font-size: 13px; color: #475569">검색 결과 <b style="color: #0f172a">{{total}}</b>곡 · Dynamite 외는 예시 데이터</span>
+<span style="margin-left: auto; font-size: 13px; color: #334155">검색 결과 <b style="color: #0f172a">{{total}}</b>곡 · Dynamite 외는 예시 데이터</span>
 </div>
 </div>
 
@@ -59,45 +59,45 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
 <tr onClick="{{r.pick}}" style="{{r.rowStyle}}">
 <td style="padding: 10px 12px"><input type="checkbox" aria-label="선택"></td>
-<td style="padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #475569; white-space: nowrap">{{r.id}}</td>
-<td style="padding: 10px 12px"><div style="font-weight: 600">{{r.title}}</div><div style="font-size: 12px; color: #475569">{{r.artist}}</div></td>
+<td style="padding: 10px 12px; font-variant-numeric: tabular-nums; font-size: 13px; color: #334155; white-space: nowrap">{{r.id}}</td>
+<td style="padding: 10px 12px"><div style="font-weight: 600">{{r.title}}</div><div style="font-size: 12px; color: #334155">{{r.artist}}</div></td>
 <td style="padding: 10px 12px">{{r.credit}}</td>
 <td style="padding: 10px 12px">{{r.rights}}</td>
 <td style="padding: 10px 12px; font-variant-numeric: tabular-nums">{{r.stems}}</td>
 <td style="padding: 10px 12px; font-variant-numeric: tabular-nums">{{r.pending}}</td>
 <td style="padding: 10px 12px"><div style="display: flex; gap: 3px">
 <sc-for list="{{r.steps}}" as="s" hint-placeholder-count="5"><div style="{{s}}"></div></sc-for>
-</div><div style="font-size: 12px; color: #475569; margin-top: 4px">{{r.stepLabel}}</div></td>
+</div><div style="font-size: 12px; color: #334155; margin-top: 4px">{{r.stepLabel}}</div></td>
 <td style="padding: 10px 12px"><span style="{{r.statusStyle}}">{{r.status}}</span></td>
 <td style="padding: 10px 12px; text-align: right; white-space: nowrap"><a href="{{r.href}}">열기</a> · <a href="#">수정</a> · <a href="#">삭제</a></td>
 </tr>
 </sc-for>
 </tbody>
 </table>
-<div style="display: flex; padding: 8px 24px; border-top: 1px solid #e2e8f0; background: #ffffff"><nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto"><span style="font-size: 13px; color: #475569; margin-right: 6px; font-family: 'IBM Plex Mono', monospace">1–8 / 8</span><button disabled aria-label="이전 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button><button aria-current="page" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button><button disabled aria-label="다음 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">›</button></nav></div>
+<div style="display: flex; padding: 8px 24px; border-top: 1px solid #e2e8f0; background: #ffffff"><nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto"><span style="font-size: 13px; color: #334155; margin-right: 6px; font-variant-numeric: tabular-nums">1–8 / 8</span><button disabled aria-label="이전 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button><button aria-current="page" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button><button disabled aria-label="다음 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">›</button></nav></div>
 </div>
 
 <section aria-label="선택한 작품" style="flex: 1 1 auto; margin: 14px 24px 24px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; flex-direction: column; min-height: 420px">
 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px 24px 0">
 <div>
-<div style="display: flex; gap: 8px; align-items: center; font-size: 12px; color: #475569"><span style="font-family: 'IBM Plex Mono', monospace">{{sel.id}}</span><span style="{{sel.statusStyle}}">{{sel.status}}</span><span>{{sel.sample}}</span></div>
+<div style="display: flex; gap: 8px; align-items: center; font-size: 12px; color: #334155"><span style="font-variant-numeric: tabular-nums">{{sel.id}}</span><span style="{{sel.statusStyle}}">{{sel.status}}</span><span>{{sel.sample}}</span></div>
 <h2 style="margin: 4px 0 0; font-size: 24px">{{sel.title}}</h2>
-<div style="font-size: 13px; color: #475569">{{sel.artist}} · 녹음 {{sel.recording}}</div>
+<div style="font-size: 13px; color: #334155">{{sel.artist}} · 녹음 {{sel.recording}}</div>
 </div>
 <div style="display: flex; gap: 6px; flex-wrap: wrap"><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">수정</button><button style="font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">삭제</button></div>
 </div>
 <div role="tablist" aria-label="작품 상세" style="display: flex; gap: 2px; padding: 10px 24px 0; border-bottom: 1px solid #e2e8f0; overflow-x: auto">
-<sc-for list="{{ptabs}}" as="t" hint-placeholder-count="7"><button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 11px; color: #64748b">{{t.count}}</span></button></sc-for>
+<sc-for list="{{ptabs}}" as="t" hint-placeholder-count="7"><button role="tab" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}} <span style="font-size: 11px; color: #475569">{{t.count}}</span></button></sc-for>
 </div>
 <div style="padding: 16px 24px 22px; display: flex; flex-direction: column; gap: 16px">
 <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
-<span style="font-size: 13px; color: #475569; flex: 1 1 400px">{{pane.hint}}</span>
+<span style="font-size: 13px; color: #334155; flex: 1 1 400px">{{pane.hint}}</span>
 <sc-if value="{{pane.manage}}" hint-placeholder-val="{{false}}"><a href="{{pane.href}}" style="font-size: 14px; padding: 9px 16px; border-radius: 8px; background: #1d4ed8; color: #ffffff; text-decoration: none; font-weight: 600">{{pane.manageLabel}}</a></sc-if>
 </div>
 <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
 <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
 <div style="flex: 999 1 520px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px 24px; font-size: 14px">
-<sc-for list="{{sel.info}}" as="f" hint-placeholder-count="10"><div><div style="font-size: 12px; color: #475569">{{f.label}}</div><div style="font-weight: 500">{{f.value}}</div></div></sc-for>
+<sc-for list="{{sel.info}}" as="f" hint-placeholder-count="10"><div><div style="font-size: 12px; color: #334155">{{f.label}}</div><div style="font-weight: 500">{{f.value}}</div></div></sc-for>
 </div>
 <div style="flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 8px">
 <strong style="font-size: 15px">진행</strong>
@@ -111,11 +111,11 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 </sc-if>
 <sc-if value="{{notOverview}}" hint-placeholder-val="{{false}}">
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px">
-<sc-for list="{{pane.cards}}" as="c" hint-placeholder-count="4"><div style="padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff"><div style="font-size: 12px; color: #475569">{{c.label}}</div><div style="font-size: 17px; font-weight: 600">{{c.value}}</div><div style="{{c.noteStyle}}">{{c.note}}</div></div></sc-for>
+<sc-for list="{{pane.cards}}" as="c" hint-placeholder-count="4"><div style="padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff"><div style="font-size: 12px; color: #334155">{{c.label}}</div><div style="font-size: 17px; font-weight: 600">{{c.value}}</div><div style="{{c.noteStyle}}">{{c.note}}</div></div></sc-for>
 </div>
 <sc-if value="{{pane.hasLines}}" hint-placeholder-val="{{false}}">
 <div style="display: flex; flex-direction: column; font-size: 14px">
-<sc-for list="{{pane.lines}}" as="l" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 150px 130px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #475569">{{l.at}}</span><span>{{l.who}}</span><span>{{l.what}}</span></div></sc-for>
+<sc-for list="{{pane.lines}}" as="l" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 150px 130px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e8f0"><span style="color: #334155">{{l.at}}</span><span>{{l.who}}</span><span>{{l.what}}</span></div></sc-for>
 </div>
 </sc-if>
 </sc-if>
@@ -145,10 +145,10 @@ class Component extends DCLogic {
   }
   renderVals() {
     const STAGES = ['권리 입력', '확인', 'IR 생성', '팩 활성', '판매'];
-    const tone = { '입력 중': ['#e2e8f0', '#334155'], '확인 대기': ['#fef3c7', '#92400e'], 'IR 생성됨': ['#e0e7ff', '#3730a3'], '판매 중': ['#dcfce7', '#166534'], '분쟁·보류': ['#fee2e2', '#991b1b'] };
+    const tone = { '입력 중': ['#e2e8f0', '#1e293b'], '확인 대기': ['#fef3c7', '#92400e'], 'IR 생성됨': ['#e0e7ff', '#3730a3'], '판매 중': ['#dcfce7', '#166534'], '분쟁·보류': ['#fee2e2', '#991b1b'] };
     const pill = (s) => 'font-size: 12px; padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; background: ' + tone[s][0] + '; color: ' + tone[s][1];
     const tabKeys = [['all', '전체'], ['입력 중', '입력 중'], ['확인 대기', '확인 대기'], ['IR 생성됨', 'IR 생성됨'], ['판매 중', '판매 중'], ['분쟁·보류', '분쟁·보류']];
-    const tabStyle = (on) => 'padding: 8px 14px; margin-bottom: -1px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14px; white-space: nowrap; color: ' + (on ? '#0f172a; font-weight: 600' : '#475569') + '; border-bottom: 2px solid ' + (on ? '#1d4ed8' : 'transparent');
+    const tabStyle = (on) => 'padding: 8px 14px; margin-bottom: -1px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 14px; white-space: nowrap; color: ' + (on ? '#0f172a; font-weight: 600' : '#334155') + '; border-bottom: 2px solid ' + (on ? '#1d4ed8' : 'transparent');
     const tabs = tabKeys.map(([k, label]) => ({ label, count: k === 'all' ? this.works.length : this.works.filter((w) => w.status === k).length, style: tabStyle(this.state.tab === k), pick: () => this.setState({ tab: k }) }));
     const list = this.works.filter((w) => this.state.tab === 'all' || w.status === this.state.tab);
     const rows = list.map((w) => {
@@ -168,15 +168,15 @@ class Component extends DCLogic {
       timeline: STAGES.map((label, i) => ({
         label,
         note: i < w.stage ? '완료' : i === w.stage ? (w.real && i === 1 ? '멤버 확인 48 · 작가 서명 2 남음' : '진행 중') : '대기',
-        style: 'display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; ' + (i < w.stage ? 'background: #eff6ff; color: #1e3a8a' : i === w.stage ? 'background: #ffffff; border: 2px solid #1d4ed8' : 'background: #f8fafc; color: #475569'),
+        style: 'display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 14px; ' + (i < w.stage ? 'background: #eff6ff; color: #1e3a8a' : i === w.stage ? 'background: #ffffff; border: 2px solid #1d4ed8' : 'background: #f8fafc; color: #334155'),
       })),
     };
     const ok = (t) => ({ mark: '✓', text: t, markStyle: 'color: #166534; font-weight: 700' });
     const warn = (t) => ({ mark: '!', text: t, markStyle: 'color: #92400e; font-weight: 700' });
-    const todo = (t) => ({ mark: '·', text: t, markStyle: 'color: #475569; font-weight: 700' });
+    const todo = (t) => ({ mark: '·', text: t, markStyle: 'color: #334155; font-weight: 700' });
     sel.ready = w.real ? [ok('원곡 권리 합계 100%'), ok('근거 문서 연결'), warn('원곡 스템 2 / 34'), warn('확인 50 남음(멤버 48 · 작가 2)'), todo('수령 위임 서명 1/7')]
       : w.stage >= 2 ? [ok('IR 생성됨 — 수정은 새 버전으로')] : [w.stage === 1 ? warn('확인 ' + w.pending + ' 남음') : todo('원곡 권리 입력 중'), todo('예시 데이터')];
-    const note = (t, tone) => ({ note: t, noteStyle: 'font-size: 12px; color: ' + (tone === 'ok' ? '#166534' : tone === 'warn' ? '#92400e' : '#475569') });
+    const note = (t, tone) => ({ note: t, noteStyle: 'font-size: 12px; color: ' + (tone === 'ok' ? '#166534' : tone === 'warn' ? '#92400e' : '#334155') });
     const card = (label, value, t, tone) => ({ label, value, ...note(t, tone) });
     const D = {
       rights: [card('작품 · 작사·작곡', 'David Stewart 50 · Jessica Agombar 50', '확인 대기 2 · 퍼블리싱 계약서', 'warn'), card('녹음 · 마스터', '빅히트 뮤직(레이블) 100', '확정 · 녹음 계약서', 'ok'), card('실연 · 슬롯별 담당', '슬롯 12 · 보컬 파트 20', '본인 확인 1/7 · 파트 경계 추정', 'warn'), card('수령 위임', '소속사 100%', '서명 1/7', 'warn')],
