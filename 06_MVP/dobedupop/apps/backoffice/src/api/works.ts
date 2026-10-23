@@ -7,7 +7,7 @@ export type WorkOverview = {
   workId: string; title: string; scopeId: string | null; recordingTitle: string | null;
   authors: string[];
   rights: { work: number; master: number; performers: number };
-  slots: number; vocalParts: number; stems: number;
+  slots: number; vocalParts: number; stems: number; parts: number; members: number;
   pendingConfirmations: number;
   sealed: boolean; sealedThrough: string | null;
   pack: { packId: string; status: string } | null;
@@ -31,7 +31,7 @@ export type ConfirmationRow = {
 };
 export type ConsentRow = { consentId: string; factsScopeId: string; partyId: string; rightType: string; assetId: string; validFrom: string; validTo: string; status: string };
 export type DocumentRow = { documentId: string; version: number; kind: string; title: string; parties: string[]; effectiveFrom: string | null; status: string };
-export type PartyRow = { partyId: string; partyType: string; displayName: string };
+export type PartyRow = { partyId: string; partyType: string; displayName: string; tenantId?: string | null };
 
 const enc = encodeURIComponent;
 export const getOverview = () => api<WorkOverview[]>("GET", "/works/overview");

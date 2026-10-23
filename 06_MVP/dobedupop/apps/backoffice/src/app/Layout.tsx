@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router";
 import { Header } from "./Header.tsx";
+import { PortalShell } from "./PortalShell.tsx";
 import { menuFor } from "./routes.tsx";
 import { currentApp } from "./apps.ts";
 import { sessionMode } from "../api/client.ts";
@@ -17,6 +18,12 @@ function useVisibleMenu() {
 }
 
 export function Layout() {
+  // 권리자 포털은 시안대로 사이드바 없는 상단 머리글 틀(디자인 가이드 4절).
+  if (currentApp() === "portal") return <PortalShell />;
+  return <SideLayout />;
+}
+
+function SideLayout() {
   const menu = useVisibleMenu();
   return (
     <div className="layout">

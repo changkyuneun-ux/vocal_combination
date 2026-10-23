@@ -43,6 +43,7 @@ import { OpsControl, PortalTransparency } from "../pages/control/Inspection.tsx"
 import { WorksCatalog } from "../pages/works/Catalog.tsx";
 import { Workspace } from "../pages/works/Workspace.tsx";
 import { NewWork } from "../pages/works/NewWork.tsx";
+import { CollectPage } from "../pages/works/Collect.tsx";
 import type { AppKind } from "./apps.ts";
 
 export function Placeholder({ title }: { title: string }) {
@@ -83,6 +84,7 @@ const rightsRoutes: RouteDef[] = [
 /** 포털 작품 목록·곡 워크스페이스(2부-B, 결정 ED3). */
 const worksRoutes: RouteDef[] = [
   { path: "/works", title: "작품 관리", element: <WorksCatalog /> },
+  { path: "/collect", title: "모아 보기", element: <CollectPage /> },
   { path: "/works/new", title: "새 곡 워크스페이스", element: <NewWork /> },
   { path: "/works/:workId/:tab", title: "곡 워크스페이스", element: <Workspace /> },
 ];

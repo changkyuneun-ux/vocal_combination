@@ -28,7 +28,7 @@ export function useParties() {
   return { ...q, items, names: new Map(items.map((p) => [p.partyId, p.displayName])) };
 }
 
-export type Me = { userId: string; roles: string[]; permissions: string[]; tenantId: string; tenantStatus?: string; scope: string; partyId?: string };
+export type Me = { userId: string; roles: string[]; permissions: string[]; tenantId: string; tenantStatus?: string; scope: string; partyId?: string; memberships?: { tenantId: string; name: string }[] };
 /** 로그인 사용자의 권한(1부 RBAC). 개발 서버(사용자 전환)에서도 /me를 읽는다. */
 export function useMe() {
   const q = useGet<Me>(["me-perms"], "/me");
