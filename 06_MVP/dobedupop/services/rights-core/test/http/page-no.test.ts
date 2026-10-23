@@ -72,6 +72,12 @@ test("consents, contracts, documents, validation issues, issues, users: page res
   const v = await json("GET", "/portal/validation-issues?page=1&scope=fsc_a", 200);
   assert.equal(v.page, 1);
   assert.ok(v.items.every((i: any) => i.scopeId === "fsc_a" && i.severity !== "INFO"));
+  // 고르기 상자 '경고 이상' = severity 여럿(쉼표). 필터 없음 = 전체.
+  const all = await json("GET", "/portal/validation-issues?page=1&size=100", 200);
+  const warnUp = await json("GET", "/portal/validation-issues?page=1&size=100&severity=BLOCK,WARN", 200);
+  assert.equal(warnUp.total, all.items.filter((i: any) => i.severity === "BLOCK" || i.severity === "WARN").length);
+  const block = await json("GET", "/portal/validation-issues?page=1&size=100&severity=BLOCK", 200);
+  assert.ok(block.items.every((i: any) => i.severity === "BLOCK"));
   isPage(await json("GET", "/portal/issues?page=1", 200), 1, 10, 0, 0);
   const cursor = await json("GET", "/portal/issues", 200);
   assert.deepEqual(Object.keys(cursor).sort(), ["items", "next"], "cursor response unchanged");

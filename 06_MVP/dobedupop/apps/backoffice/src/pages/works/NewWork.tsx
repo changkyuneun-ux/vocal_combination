@@ -89,8 +89,7 @@ export function NewWork() {
   const stepNote = (i: number) => (i + 1 < step ? "완료" : i + 1 === step ? "입력 중" : STEPS[i]![1]);
   return (
     <main className="p-main" style={{ maxWidth: 1200, gap: 18 }}>
-      <nav aria-label="위치" style={{ fontSize: 14, color: "var(--p-muted)" }}><Link to="/works">작품</Link> › 새 곡 워크스페이스</nav>
-      <h1 style={{ margin: 0, fontSize: 26 }}>새 곡</h1>
+      <div className="p-title-row"><h1>새 곡</h1></div>
       <ol aria-label="단계" style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, fontSize: 14 }}>
         {STEPS.map(([t], i) => {
           const st = i + 1 < step ? { background: "var(--p-ok-bg)", border: "1px solid var(--p-ok-line)" } : i + 1 === step ? { background: "var(--p-surface)", border: "2px solid var(--p-accent)" } : { background: "var(--p-surface)", border: "1px dashed var(--p-input-line)" };

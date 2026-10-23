@@ -36,7 +36,10 @@ test("사이드 메뉴 이동, 운영 관리 → 곡 워크스페이스, 원천 
   await expect(page).toHaveURL(/\/portal\/works$/);
   await page.getByRole("link", { name: "열기" }).first().click();
   await expect(page).toHaveURL(/\/works\/wrk_navtest\/rights$/);
-  await expect(page.getByRole("navigation", { name: "위치" })).toHaveText(/작품 관리\s*›\s*작품 워크스페이스\s*›\s*Nav Test\s*›\s*원곡 권리/);
+  // 경로 줄은 두지 않는다(2026-10-23): 위치는 사이드 메뉴 활성과 제목으로 안다
+  await expect(page.getByRole("navigation", { name: "위치" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Nav Test · 원곡 권리");
+  await expect(nav.getByText("최근 연 작품")).toHaveCount(0);
   const tabs = page.getByRole("navigation", { name: "워크스페이스 탭" });
   for (const [label, tab] of [["스템", "stems"], ["확인·동의", "confirm"], ["문서·계약", "contracts"], ["분배 규칙·팩", "policy"], ["승인·출시", "release"]] as const) {
     await expect(nav.getByRole("link", { name: label, exact: true })).toHaveCount(0);
@@ -54,7 +57,11 @@ test("사이드 메뉴 이동, 운영 관리 → 곡 워크스페이스, 원천 
   await expect(page).toHaveURL(/\/works\/wrk_navtest\/rights$/);
   // 시나리오 2: 운영 관리 › 확인 요청 전체 → 행 링크로 곡 확인·동의
   await nav.getByRole("link", { name: /확인 요청 전체/ }).click();
-  await expect(page.getByRole("navigation", { name: "위치" })).toHaveText(/운영 관리\s*›\s*확인·동의\s*›\s*확인 요청 전체/);
+  await expect(page.getByRole("navigation", { name: "위치" })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: /확인 요청 전체/ })).toHaveAttribute("aria-current", "page");
+  // 고르기 상자의 처음 값은 언제나 '전체'(2026-10-23)
+  await expect(page.getByRole("combobox", { name: "상태" })).toHaveValue("ALL");
+  await expect(page.getByRole("combobox", { name: "상태" }).locator("option").first()).toHaveText("전체");
   await page.getByRole("link", { name: "곡 워크스페이스 › 확인·동의 →" }).first().click();
   await expect(page).toHaveURL(/\/works\/wrk_navtest\/confirm$/);
   // 시나리오 3: 원천 문서 쪽 나눔 — 1건이면 1–1 / 1, 다음 쪽 비활성

@@ -13,7 +13,6 @@ import { ReleaseTab } from "./tabs/Release.tsx";
 import { ContractImportTab } from "./tabs/ContractImport.tsx";
 import { ClaimConfirmTab } from "./tabs/ClaimConfirm.tsx";
 import { usePackAndPolicy } from "./tabs/Policy.tsx";
-import { Crumbs } from "../../app/PortalShell.tsx";
 
 /** 워크스페이스 탭이 같이 쓰는 곡 맥락. */
 export type WsCtx = {
@@ -74,7 +73,6 @@ export function Workspace() {
   };
   return (
     <main className="p-main">
-      <Crumbs linkWork={subPage ? undefined : `/works/${encodeURIComponent(workId)}/rights`} />
       {sealed ? (
         <div className="p-ready" role="status"><strong>IR v{pp.policy?.latestVersion ?? 1}</strong><span>facts · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
       ) : (
@@ -84,8 +82,8 @@ export function Workspace() {
         </div>
       )}
       <div className="p-title-row">
-        {subPage ? <div><h1>{subPage.title}</h1><div className="p-sub">{subPage.desc}</div></div>
-          : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-sub">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
+        {subPage ? <div><h1>{subPage.title}</h1><div className="p-desc">{subPage.desc}</div></div>
+          : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-desc">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
         <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
           {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 권리 정보 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
         </span>

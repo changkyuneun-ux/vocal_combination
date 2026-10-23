@@ -1,7 +1,8 @@
 /**
  * 권리 테넌트 사이드 메뉴 모델(시안 Sidebar.dc.html 2026-10-23 2차, 디자인 가이드 4절). 순수 함수 — 화면은 이 결과를 그리기만 한다.
- * - 작품 관리: 작품 목록 · 작품 워크스페이스(지금 연 곡 이름 + 상태 배지 하나 — 누르면 원곡 권리 탭) · 최근 연 작품.
+ * - 작품 관리: 작품 목록 · 작품 워크스페이스(지금 연 곡 이름 + 상태 배지 하나 — 누르면 원곡 권리 탭). '최근 연 작품'은 두지 않는다(2026-10-23).
  *   곡 안의 화면(원곡 권리·스템·…)은 메뉴에 두지 않고 본문 탭으로 고른다. 곡의 어느 탭에 있든 곡 이름 줄이 지금 화면이다. 새 곡은 작품 목록 버튼으로.
+ * - 경로 줄(breadcrumb)은 두지 않는다(2026-10-23) — 위치는 사이드 메뉴 활성과 제목으로 안다.
  * - 배지는 할 일(주황)만. 건수만 알리는 회색 숫자 배지와 묶음 옆 설명은 두지 않는다.
  * - 펼침 기본값: 지금 화면이 든 메뉴는 펼친다. 운영 관리 화면에서는 지금 화면이 든 묶음만, 작품 화면에서는 확인·동의·계약·문서를 펼친다.
  *   접힌 메뉴 안에 지금 화면이 있으면 그 메뉴 이름을 굵게(strong) 보인다.
@@ -13,16 +14,12 @@ export type Group = { key: string; label: string; open: boolean; items: Item[] }
 export type CurrentWork = { workId: string; title: string; status: string } | null;
 export type Counts = Partial<Record<"confirmAll" | "contractsPending" | "warnings", number>>;
 
-const WS_TABS: [string, string][] = [["rights", "원곡 권리"], ["stems", "스템"], ["confirm", "확인·동의"], ["contracts", "문서·계약"], ["policy", "분배 규칙·팩"], ["release", "승인·출시"]];
 const OPS: Record<string, string> = {
   "/ops/confirmations": "op-confirm-all", "/ops/consents": "op-consents", "/ops/contracts": "op-contracts-all", "/ops/documents": "op-docs", "/ops/templates": "op-templates",
   "/ops/validation": "op-validation", "/ops/statements": "op-statements", "/ops/issues": "op-issues", "/": "op-org", "/accounts": "op-accounts", "/delegation": "op-delegation", "/links": "op-links",
 };
 /** 곡 상태 배지 색: 할 일(확인 대기)은 주황. */
 const STATUS_TONE: Record<string, Badge["tone"]> = { "입력 중": "gray", "확인 대기": "warn", "IR 생성됨": "ir", "판매 중": "ok", "분쟁·보류": "bad" };
-
-/** 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 경로 끝에 한 칸 더. */
-const WS_SUB: [RegExp, string][] = [[/\/contracts\/import$/, "계약서 불러오기"], [/\/contracts\/confirm$/, "권리 확인서"]];
 
 /** 경로 → 지금 화면 키. */
 export function activeKey(path: string): string {
@@ -41,7 +38,7 @@ export function workIdOf(path: string): string | null {
 
 const todo = (n: number | undefined): Badge | undefined => (n === undefined || n === 0 ? undefined : { text: String(n), tone: "warn" });
 
-export function sidebarModel(path: string, work: CurrentWork, counts: Counts, perms: (p: string) => boolean, recent: { workId: string; title: string }[] = [], closed: Record<string, boolean> = {}): Group[] {
+export function sidebarModel(path: string, work: CurrentWork, counts: Counts, perms: (p: string) => boolean, closed: Record<string, boolean> = {}): Group[] {
   const active = activeKey(path);
   const isOpen = (k: string, dflt: boolean) => (closed[k] === undefined ? dflt : !closed[k]);
   const leaf = (key: string, label: string, to: string, badge?: Badge): Leaf => ({ key, label, to, current: key === active, ...(badge && { badge }) });
@@ -59,8 +56,6 @@ export function sidebarModel(path: string, work: CurrentWork, counts: Counts, pe
     const badge: Badge = { text: work.status, tone: STATUS_TONE[work.status] ?? "gray" };
     g1.push(item("ws", "작품 워크스페이스", { children: [leaf("ws", work.title, `/works/${encodeURIComponent(work.workId)}/rights`, badge)], open: true }));
   }
-  const rec = recent.filter((r) => r.workId !== work?.workId).slice(0, 5);
-  if (rec.length > 0) g1.push(item("recent", "최근 연 작품", { children: rec.map((r) => leaf(`recent-${r.workId}`, r.title, `/works/${encodeURIComponent(r.workId)}/rights`)) }));
   const onOps = active.startsWith("op-");
   const org = [leaf("op-org", "내 조직", "/"), ...(perms("account.manage") ? [leaf("op-accounts", "담당자 계정", "/accounts")] : []),
     ...(perms("delegation.set") ? [leaf("op-delegation", "위임 대행", "/delegation")] : []), leaf("op-links", "신탁·유통 연결", "/links")];
@@ -75,16 +70,4 @@ export function sidebarModel(path: string, work: CurrentWork, counts: Counts, pe
     { key: "g-works", label: "작품 관리", open: isOpen("g-works", true), items: g1 },
     { key: "g-ops", label: "운영 관리", open: isOpen("g-ops", true), items: g2 },
   ];
-}
-
-/** 경로 표시(breadcrumb): 작품 화면 `작품 관리 › 작품 워크스페이스 › 곡명 › 화면(탭)`, 운영 관리 `운영 관리 › 묶음 › 화면`. */
-export function crumbsFor(path: string, groups: Group[], workTitle?: string): string[] {
-  if (path === "/works/new") return ["작품 관리", "새 곡 워크스페이스"];
-  const tab = /^\/works\/[^/]+\/([a-z]+)/.exec(path)?.[1];
-  for (const g of groups) for (const it of g.items) {
-    if (it.current) return [g.label, it.label];
-    const c = it.children.find((x) => x.current);
-    if (c) return it.key === "ws" ? [g.label, it.label, workTitle ?? c.label, WS_TABS.find(([k]) => k === tab)?.[1] ?? "", ...WS_SUB.filter(([re]) => re.test(path)).map(([, l]) => l)] : [g.label, it.label, c.label];
-  }
-  return [];
 }

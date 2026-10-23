@@ -77,12 +77,12 @@ export function WorksCatalog() {
     <div className="p-full">
       <div className="p-cat">
         <div className="p-pagehead">
-          <div><div className="p-path">{org} / 작품</div><h1>작품 관리</h1></div>
+          <div><h1>작품 관리</h1></div>
           <div className="p-row">
-            <button type="button" className="p-btn wide" disabled title="상용 단계(결정 ED1)">CSV 일괄 등록 · 상용</button>
-            <button type="button" className="p-btn wide" onClick={() => downloadCsv(works)}>엑셀 다운로드</button>
-            {can("rights.edit") ? <Link className="p-btn primary big" to="/works/new">+ 새 곡 워크스페이스</Link>
-              : <button type="button" className="p-btn big" disabled title="권리 편집 권한이 필요하다">+ 새 곡 워크스페이스</button>}
+            <button type="button" className="p-btn" disabled title="상용 단계(결정 ED1)">CSV 일괄 등록 · 상용</button>
+            <button type="button" className="p-btn" onClick={() => downloadCsv(works)}>엑셀 다운로드</button>
+            {can("rights.edit") ? <Link className="p-btn primary" to="/works/new">+ 새 곡 워크스페이스</Link>
+              : <button type="button" className="p-btn" disabled title="권리 편집 권한이 필요하다">+ 새 곡 워크스페이스</button>}
           </div>
         </div>
         <div className="p-kpis">
@@ -93,9 +93,9 @@ export function WorksCatalog() {
             <button key={s} type="button" role="tab" aria-selected={status === s} onClick={() => setStatus(s)}>{s} <span className="cnt">{s === "전체" ? works.length : count(s)}</span></button>
           ))}
         </div>
-        <div className="p-row">
+        <div className="p-row" style={{ gap: 10 }}>
           <label htmlFor="q" className="p-sr">작품 검색</label>
-          <input id="q" className="p-input" style={{ flex: "1 1 320px", padding: "9px 12px" }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="곡명, 아티스트, 작사·작곡가, 관리번호, ISRC·ISWC" />
+          <input id="q" className="p-input" style={{ flex: "1 1 320px" }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="곡명, 아티스트, 작사·작곡가, 관리번호, ISRC·ISWC" />
           <select aria-label="아티스트" className="p-select" disabled title="곡에 아티스트 항목이 아직 없다"><option>아티스트 전체</option></select>
           <select aria-label="정렬" className="p-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="recent">최근 등록순</option><option value="title">곡명순</option><option value="stage">진행 단계순</option>
@@ -104,7 +104,8 @@ export function WorksCatalog() {
         </div>
       </div>
       <ErrorPanel error={o.error} />
-      <div className="p-catbl">
+      <section className="p-card p-catbl">
+        <div className="p-scroll">
         <table aria-label="작품 목록">
           <thead><tr>
             <th style={{ width: 36 }}><input type="checkbox" aria-label="전체 선택" /></th>
@@ -131,10 +132,9 @@ export function WorksCatalog() {
             {list.length === 0 && <tr><td colSpan={10} className="p-sub">{o.isLoading ? "불러오는 중…" : "작품이 없습니다."}</td></tr>}
           </tbody>
         </table>
-      </div>
-      <div className="p-catbl" style={{ padding: 0, margin: "0 24px" }}>
-        <div style={{ display: "flex", padding: "8px 24px", borderTop: "1px solid var(--p-line)", background: "var(--p-surface)" }}><PageNav page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
-      </div>
+        </div>
+        <div className="p-tfoot"><PageNav page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
+      </section>
       {sel && <SelectedWork w={sel} org={org} tab={tab} onTab={(t) => pick({ sel: sel.workId, tab: t })} />}
     </div>
   );

@@ -45,7 +45,7 @@ export function OpsConfirmations() {
   const clock = useClock();
   const { by, options } = useScopes();
   const parties = useParties();
-  const [scope, setScope] = useState(""), [kind, setKind] = useState(""), [status, setStatus] = useState("OPEN");
+  const [scope, setScope] = useState(""), [kind, setKind] = useState(""), [status, setStatus] = useState("ALL");
   const p = usePaged<ConfirmationRow>("ops-confirmations", "/confirmations", { filters: { scope, counterparty: kind, status: status === "ALL" ? undefined : status } });
   const all = useGet<ConfirmationRow[]>(["work-confirmations"], "/confirmations");
   const text = useRecordText(p.rows.map((r) => r.factsScopeId));
@@ -69,7 +69,7 @@ export function OpsConfirmations() {
       <Filters placeholder="곡명, 기록, 상대 당사자" selects={[
         { name: "곡", value: scope, options, onChange: setScope },
         { name: "상대", value: kind, options: [["", "상대 전체"], ["MEMBER", "멤버(실연자 앱)"], ["AUTHOR", "작가(전자서명 링크)"]], onChange: setKind },
-        { name: "상태", value: status, options: [["OPEN", "대기"], ["CONFIRMED", "확인됨"], ["DECLINED", "거절"], ["ALL", "전체"]], onChange: setStatus },
+        { name: "상태", value: status, options: [["ALL", "전체"], ["OPEN", "대기"], ["CONFIRMED", "확인됨"], ["DECLINED", "거절"]], onChange: setStatus },
       ]} />
       <ErrorPanel error={p.error} />
       <TableCard label="확인 요청" cols={["곡", "기록", "확인할 상대", "요청", "기한", "상태", ""]} count={p.rows.length} empty="확인 요청이 없습니다."

@@ -284,9 +284,10 @@ export async function assertActivationAllowed(tx: Tx, clock: Clock, scopeId: str
   }
 }
 
+/** 점검 항목 목록. 필터를 주지 않으면 전체(2026-10-23: 고르기 상자의 처음 값은 언제나 '전체'). severity는 쉼표로 여럿(예: 경고 이상 = BLOCK,WARN). */
 export async function listIssues(tx: Tx, f: { status?: string; severity?: string; scope?: string }) {
   return (await tx.query(
-    `SELECT * FROM validation_issue WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR severity = $2) AND ($3::text IS NULL OR facts_scope_id = $3)
+    `SELECT * FROM validation_issue WHERE ($1::text IS NULL OR status = $1) AND ($2::text IS NULL OR severity = ANY(string_to_array($2, ','))) AND ($3::text IS NULL OR facts_scope_id = $3)
       ORDER BY CASE severity WHEN 'BLOCK' THEN 0 WHEN 'WARN' THEN 1 ELSE 2 END, due_at NULLS LAST, issue_id`, [f.status ?? null, f.severity ?? null, f.scope ?? null])).rows.map(toIssue);
 }
 

@@ -28,9 +28,9 @@ const ruleName = (code: string) => RULES.find(([, cs]) => cs.some((c) => code.st
 export function OpsValidation() {
   const qc = useQueryClient();
   const { by, works, options } = useScopes();
-  const [scope, setScope] = useState(""), [sev, setSev] = useState("WARN+");
+  const [scope, setScope] = useState(""), [sev, setSev] = useState("ALL");
   const parties = useParties();
-  const p = usePaged<Issue>("ops-validation", "/validation-issues", { filters: { scope, status: "OPEN", severity: sev === "WARN+" || sev === "ALL" ? undefined : sev } });
+  const p = usePaged<Issue>("ops-validation", "/validation-issues", { filters: { scope, status: "OPEN", severity: sev === "ALL" ? undefined : sev === "WARN+" ? "BLOCK,WARN" : sev } });
   const all = useGet<Issue[]>(["readiness", "validation-all"], "/validation-issues?status=OPEN");
   const text = useRecordText(p.rows.map((i) => i.scopeId));
   const subject = (id: string) => (id.startsWith("CLAIM:") || id.startsWith("MANDATE:") ? text(id.split(":")[1]!.split("@")[0]!) : parties.names.get(id) ?? id);
@@ -59,7 +59,7 @@ export function OpsValidation() {
       ]} />
       <Filters placeholder="곡명, 규칙" selects={[
         { name: "곡", value: scope, options, onChange: setScope },
-        { name: "수준", value: sev, options: [["WARN+", "경고 이상"], ["BLOCK", "차단"], ["ALL", "전체"]], onChange: setSev },
+        { name: "수준", value: sev, options: [["ALL", "전체"], ["WARN+", "경고 이상"], ["BLOCK", "차단"]], onChange: setSev },
       ]} />
       <ErrorPanel error={p.error} />
       <TableCard title={["걸린 항목", `${p.total}건`]} cols={["곡", "규칙", "수준", "대상", "내용", ""]} count={p.rows.length} empty="걸린 항목이 없습니다."
@@ -106,8 +106,9 @@ export function OpsStatements() {
   const facts = useGet<{ claims: { edge: string; targetId: string; shareBps: number; supersededAt: string | null }[] }>(["work-facts", works[0]?.scopeId], `/scopes/${encodeURIComponent(works[0]?.scopeId ?? "")}/facts`, { enabled: !!works[0]?.scopeId });
   const workShare = (party: string) => (facts.data?.claims ?? []).filter((c) => c.edge === "WRITTEN_BY" && c.targetId === party && c.supersededAt === null).reduce((a, c) => a + c.shareBps, 0);
   const issues = useGet<Paged<IssueRow>>(["work-issues", "all"], "/issues?limit=200");
-  const [page, setPage] = useState(1), [page2, setPage2] = useState(1);
-  const rows = paginate(parties, page);
+  const [page, setPage] = useState(1), [page2, setPage2] = useState(1), [paidF, setPaidF] = useState("");
+  const isPaid = (id: string) => { const s = sts.find((y) => y.partyId === id); return s !== undefined && BigInt(s.payoutNet) > 0n; };
+  const rows = paginate(paidF === "" ? parties : parties.filter((x) => isPaid(x.partyId) === (paidF === "PAID")), page);
   const vcs = paginate(issues.data?.items ?? [], page2);
   const sum = sts.reduce((a, s) => a + BigInt(s.payoutNet), 0n).toString();
   const role = (x: PartyRow) => (x.partyType === "LABEL" ? "녹음 몫" : x.partyType === "AGENCY" ? "실연 몫(멤버 수령 위임)" : x.partyType === "AUTHOR" ? `작품 몫 ${workShare(x.partyId) / 100}%` : "권리 몫");
@@ -128,13 +129,16 @@ export function OpsStatements() {
         { label: "정산 기간", value: period === "all" ? "전체" : `${period.slice(0, 4)}년 ${Number(period.slice(5))}월`, note: `${from.slice(0, 10)} ~ ${to.slice(0, 10)}` },
         { label: "보류", value: "—", note: "보류 내역은 운영 화면에서" },
       ]} />
-      <Filters placeholder="당사자" selects={[{ name: "기간", value: period, options: [["all", "전체 기간"], ...months.map((m): [string, string] => [m, `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`])], onChange: setPeriod }]} />
+      <Filters placeholder="당사자" selects={[
+        { name: "기간", value: period, options: [["all", "기간 전체"], ...months.map((m): [string, string] => [m, `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`])], onChange: (v) => { setPeriod(v); setPage(1); } },
+        { name: "상태", value: paidF, options: [["", "전체"], ["PAID", "PAID"], ["WAIT", "대기"]], onChange: (v) => { setPaidF(v); setPage(1); } },
+      ]} />
       <ErrorPanel error={stErr} />
       <TableCard label="명세" cols={["받는 당사자", "역할", "정산 기간", "지급(원)", "계좌", "상태", ""]} count={rows.rows.length} empty="받는 당사자가 없습니다."
         page={page} total={rows.total} onPage={setPage} foot={`작가는 빅히트가 관리하는 당사자다. 작가 지급액은 원천징수 뒤 금액(${authorWht()}). 계좌·세금 정보는 빅히트가 등록하고 플랫폼은 지급만 실행한다. 멤버별 기여분은 실연자 앱에서 본인이 본다.`}>
         {rows.rows.map((x) => {
           const s = sts.find((y) => y.partyId === x.partyId);
-          const paid = s !== undefined && BigInt(s.payoutNet) > 0n;
+          const paid = isPaid(x.partyId);
           return (
             <tr key={x.partyId}>
               <td>{x.partyType === "AUTHOR" ? <Sub main={`${x.displayName}(작가)`} small={s && Number(s.withholding) > 0 ? `${Number(s.withholding) / Number(s.payoutGross) >= 0.2 ? "해외 · " : ""}원천징수` : undefined} /> : x.displayName}</td><td>{role(x)}</td><td>{period === "all" ? "전체" : period}</td><td><Mono>{s ? Number(s.payoutNet).toLocaleString() : "—"}</Mono></td>
