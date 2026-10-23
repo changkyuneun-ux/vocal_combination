@@ -73,7 +73,7 @@ export function ConfirmTab({ ctx }: { ctx: WsCtx }) {
               <tr key={c.claimId} style={i === 0 ? { borderTop: 0 } : undefined}>
                 <td style={{ padding: "9px 14px" }}>{ctx.name(c.targetId)} · {ROLE_DETAIL[c.roleDetail ?? ""] ?? c.roleDetail ?? ""} {pctText(c.shareBps)}</td>
                 <td style={{ padding: "9px 14px" }}>{ev.get(c.claimId) ?? "근거 없음"}</td>
-                <td style={{ padding: "9px 14px" }} className={done ? "p-ok" : "p-warn"}>{done ? "확정" : q ? `대기 · 기한 ${Number(q.dueAt.slice(5, 7))}/${Number(q.dueAt.slice(8, 10))} 뒤 운영 대조` : "대기"}</td>
+                <td style={{ padding: "9px 14px", whiteSpace: "nowrap" }} className={done ? "p-ok" : "p-warn"}>{done ? "확정" : q ? `대기 · 기한 ${Number(q.dueAt.slice(5, 7))}/${Number(q.dueAt.slice(8, 10))} 뒤 운영 대조` : "대기"}</td>
               </tr>
             );
           })}</tbody></table>

@@ -1,5 +1,8 @@
+import { useQueries } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
+import { api, type ApiError } from "../../api/client.ts";
+import { useActor } from "../../app/actor.ts";
 import type { Contract, Template } from "../../api/contracts.ts";
 import { usableTemplates } from "../../api/contracts.ts";
 import { useGet } from "../../api/hooks.ts";
@@ -11,6 +14,20 @@ import { useParties } from "../works/data.tsx";
 import { groupContracts } from "../works/model.ts";
 import { B, Card, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
 
+/**
+ * 우리 곡의 표준 계약 전부: 곡을 지정한 목록(곡 탭과 같은 캐시)을 곡마다 읽어 합친다.
+ * 곡을 지정해야 플랫폼이 위탁 작가와 맺은 작품 이용허락(조회만)도 보인다 — 곡 지정 없는 /contracts는 우리가 만들었거나 서명할 계약만.
+ */
+function useSongContracts() {
+  const actor = useActor();
+  const { works } = useScopes();
+  const all = useGet<Contract[]>(["work-contracts", "all"], "/contracts");
+  const scopes = works.flatMap((w) => (w.scopeId ? [w.scopeId] : []));
+  const per = useQueries({ queries: scopes.map((s) => ({ queryKey: ["work-contracts", s, actor], queryFn: () => api<Contract[]>("GET", `/contracts?scope=${encodeURIComponent(s)}`, undefined, { actorOverride: actor }) })) });
+  const seen = new Map<string, Contract>();
+  for (const c of [...per.flatMap((q) => q.data ?? []), ...(all.data ?? [])]) if (!seen.has(c.contractId)) seen.set(c.contractId, c);
+  return { rows: [...seen.values()], error: all.error ?? (per.find((q) => q.error)?.error as ApiError | undefined) ?? null };
+}
 
 /** 운영 관리 › 확인·동의 › 멤버 이용 동의(시안 Ops-Consents): 조회만. */
 export function OpsConsents() {
@@ -24,6 +41,17 @@ export function OpsConsents() {
   const members = parties.items.filter((x) => x.partyType === "MEMBER");
   const waiting = members.filter((m) => !signed.some((c) => c.partyId === m.partyId)).length;
   const songs = [...new Set(signed.map((c) => c.factsScopeId))];
+  // 소속: 멤버와 함께 수령 위임 계약에 서명한 소속사(시안 "빅히트 뮤직 매니지먼트 소속")
+  const contracts = useGet<Contract[]>(["work-contracts", "all"], "/contracts");
+  const agencies = new Set(parties.items.filter((x) => x.partyType === "AGENCY").map((x) => x.partyId));
+  const affiliation = (partyId: string) => {
+    const c = (contracts.data ?? []).find((x) => x.signatures.some((s) => s.partyId === partyId) && x.signatures.some((s) => agencies.has(s.partyId)));
+    const a = c?.signatures.find((s) => agencies.has(s.partyId));
+    return a ? `${(parties.names.get(a.partyId) ?? a.displayName).replace(/\(소속사\)$/, "")} 소속` : undefined;
+  };
+  // 동의 시각이 같으면 멤버 등록 순(시안의 멤버 순서)
+  const born = new Map(parties.items.map((x) => [x.partyId, (x as { createdAt?: string }).createdAt ?? ""]));
+  const shown = [...p.rows].sort((a, b) => a.validFrom.localeCompare(b.validFrom) || (born.get(a.partyId) ?? "").localeCompare(born.get(b.partyId) ?? ""));
   return (
     <OpsPage title="멤버 이용 동의" desc="멤버가 실연자 앱에서 본인이 한 팬앱 이용 동의. 동의가 없는 멤버의 스템은 조합 발행이 거부된다(ISSUE_NOT_LICENSED)" actions={<CsvButton name="consents" head={["멤버", "보이스", "곡", "동의 시작", "상태"]} rows={perf.map((c) => [parties.names.get(c.partyId) ?? c.partyId, c.assetId, by.get(c.factsScopeId)?.title ?? c.factsScopeId, c.validFrom, c.status])} />}>
       <Stats items={[
@@ -39,9 +67,9 @@ export function OpsConsents() {
       <ErrorPanel error={p.error} />
       <TableCard label="멤버 이용 동의" cols={["멤버", "보이스", "동의 범위", "적용 곡", "동의 시각", "동의서", "상태"]} count={p.rows.length} empty="이용 동의가 없습니다."
         page={p.page} total={p.total} onPage={p.setPage} foot="동의는 멤버 본인만 하거나 철회한다. 빅히트는 조회와 다시 알림만 한다. 동의 범위는 팩 이용 범위와 같아야 한다(분배 규칙·팩).">
-        {p.rows.map((c) => (
+        {shown.map((c) => (
           <tr key={c.consentId}>
-            <td>{parties.names.get(c.partyId) ?? c.partyId}</td><td><Mono>{c.assetId}</Mono></td><td>팬앱 조합·구매·감상</td>
+            <td><Sub main={parties.names.get(c.partyId) ?? c.partyId} small={affiliation(c.partyId)} /></td><td><Mono>{c.assetId}</Mono></td><td>팬앱 조합·구매·감상</td>
             <td>{by.get(c.factsScopeId)?.title ?? c.factsScopeId}</td><td><Mono>{mmdd(c.validFrom)}</Mono></td><td>멤버 팬앱 이용 동의 v1</td>
             <td><B tone={c.status === "SIGNED" ? "ok" : "bad"}>{c.status === "SIGNED" ? "동의함" : "철회"}</B></td>
           </tr>
@@ -58,8 +86,8 @@ export function OpsContracts() {
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const own = new Set((mine.data ?? []).map((x) => x.partyId));
   const [scope, setScope] = useState(""), [tpl, setTpl] = useState(""), [status, setStatus] = useState("");
-  const all = useGet<Contract[]>(["work-contracts", "all"], "/contracts");
-  const rows = all.data ?? [];
+  const all = useSongContracts();
+  const rows = all.rows;
   // 같은 곡·템플릿·상태의 서명 진행 중 계약은 곡 탭(문서·계약)과 같은 규칙(groupContracts)으로 한 줄로 묶고, 묶은 줄을 10줄씩 나눈다.
   const filtered = [...rows].filter((c) => (scope === "" || c.factsScopeId === scope) && (tpl === "" || c.templateId === tpl) && (status === "" || c.status === status))
     .sort((a, b) => (a.factsScopeId < b.factsScopeId ? -1 : a.factsScopeId > b.factsScopeId ? 1 : a.createdAt < b.createdAt ? -1 : 1));
@@ -154,6 +182,7 @@ export function OpsDocuments() {
 }
 
 const TPL_USE: Record<string, [string, string, string]> = {
+  // 시안 Ops-Templates의 줄 순서
   tpl_platform_contract: ["테넌트 온보딩", "권리 테넌트", "플랫폼 이용 확정"], tpl_master_license: ["원곡 권리 › 녹음", "레이블", "녹음 이용 동의"],
   tpl_work_license: ["원곡 권리 › 작품", "작가(위탁이면 플랫폼이 작성)", "작품 이용 동의"], tpl_performer_mandate: ["원곡 권리 › 수령 위임", "멤버(실연자 앱) → 소속사", "수령 위임"],
   tpl_performer_consent: ["확인·동의", "멤버(실연자 앱) 본인", "실연 이용 동의"],
@@ -162,9 +191,12 @@ const TPL_USE: Record<string, [string, string, string]> = {
 /** 운영 관리 › 계약·문서 › 계약 템플릿(시안 Ops-Templates의 표준 계약 템플릿 표 — 읽기 틀은 3부-B). */
 export function OpsTemplates() {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
-  const contracts = useGet<Contract[]>(["work-contracts", "all"], "/contracts");
+  const contracts = useSongContracts();
+  const consents = useGet<ConsentRow[]>(["work-consents", "all"], "/consents");
   const [page, setPage] = useState(1);
-  const list = usableTemplates(templates.data ?? []);
+  const order = Object.keys(TPL_USE);
+  const rank = (id: string) => (order.indexOf(id) < 0 ? order.length : order.indexOf(id));
+  const list = [...usableTemplates(templates.data ?? [])].sort((a, b) => rank(a.templateId) - rank(b.templateId));
   const { rows, total } = paginate(list, page);
   return (
     <OpsPage title="계약 템플릿" desc="표준 계약 템플릿(플랫폼 법무 관리, 빅히트는 골라 쓴다)과 계약서 읽기 틀(빅히트 등록 · 플랫폼 승인)"
@@ -177,7 +209,7 @@ export function OpsTemplates() {
           return (
             <tr key={t.templateId}>
               <td>{t.title}</td><td><Mono>v{t.version}</Mono></td><td>{u?.[0] ?? "—"}</td><td>{u?.[1] ?? t.signerVars.join(" · ")}</td><td>{t.clauses.length}</td><td>{u?.[2] ?? t.recordKind}</td>
-              <td>{(contracts.data ?? []).filter((c) => c.templateId === t.templateId).length}</td>
+              <td>{t.templateId === "tpl_performer_consent" ? (consents.data ?? []).filter((c) => c.rightType === "PERFORMER").length : contracts.rows.filter((c) => c.templateId === t.templateId).length}</td>
             </tr>
           );
         })}
@@ -195,12 +227,12 @@ export function OpsIssues() {
   const p = usePaged<IssueRow>("ops-issues", "/issues", { filters: { pack, scope } });
   const NO_REV = "조합별 구매·매출은 포털 조회가 없다 — 명세·지급에서 합계를 본다";
   return (
-    <OpsPage title="발행 조합" desc="팬앱에서 발행된 보컬 조합. 발행 순간의 IR(facts·정책·조합 지분·멤버)이 봉인되어 정산 근거가 된다" actions={<CsvButton name="issues" head={["조합", "팩", "발행", "정책 버전"]} rows={p.rows.map((r) => [r.vcId, r.packId, r.createdAt, r.policyVersion])} />}>
+    <OpsPage title="발행 조합" desc={`팬앱에서 발행된 ${options.slice(1).map((o) => o[1]).join(" · ")} 보컬 조합. 발행 순간의 IR(facts·정책·조합 지분·멤버)이 봉인되어 정산 근거가 된다`} actions={<CsvButton name="issues" head={["조합", "팩", "발행", "정책 버전"]} rows={p.rows.map((r) => [r.vcId, r.packId, r.createdAt, r.policyVersion])} />}>
       <Stats items={[
         { label: "발행 조합", value: p.total, note: options.slice(1).map((o) => o[1]).join(" · ") },
         { label: "구매", value: <span title={NO_REV}>—</span>, note: "" },
         { label: "매출", value: <span title={NO_REV}>—</span>, note: "" },
-        { label: "보류", value: `${p.rows.filter((r) => r.quarantined).length}건`, note: "격리된 발행", warn: p.rows.some((r) => r.quarantined) },
+        { label: "보류", value: `${p.rows.filter((r) => r.quarantined).length}건`, note: "이상거래", warn: p.rows.some((r) => r.quarantined) },
       ]} />
       <Filters placeholder="조합 id, 이름" selects={[
         { name: "곡", value: scope, options, onChange: setScope },
