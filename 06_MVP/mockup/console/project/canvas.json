@@ -380,6 +380,24 @@
       "title": "운영 관리 › 계약 템플릿 › 읽기 틀 등록",
       "expand": "fill",
       "is_interactive": true
+    },
+    "Song-Locked-Fix.dc.html": {
+      "x": 0,
+      "y": 23400,
+      "w": 1440,
+      "h": 1700,
+      "title": "새 버전 만들기 — 작품(작가만·작품 계약만 보임)",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Song-Locked-FixPerf.dc.html": {
+      "x": 1520,
+      "y": 23400,
+      "w": 1440,
+      "h": 1650,
+      "title": "새 버전 만들기 — 실연(파트 담당·보이스 소유, % 없음)",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -528,6 +546,20 @@
       "w": 460,
       "fill": "orange",
       "text": "플랫폼 위탁 폐지(2026-10-23, 00_프로젝트_개요/플랫폼_위탁_폐지와_권리_관리_주체_20261023.md): 플랫폼은 권리자·권리를 만들거나 확정하지 않는다. 작가 등 모든 당사자는 그 곡의 권리 테넌트(빅히트)가 관리한다(WD1). 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 서명(WD2). 플랫폼 원문 대조 확정은 없앴다(WD3). 작가 명세·지급 정보는 빅히트가 관리, 플랫폼은 정산 계산·지급 실행만(WD4). 시안 전체의 '플랫폼 위탁·운영 원문 대조' 문구를 고쳤다."
+    },
+    "t_row13": {
+      "x": 0,
+      "y": 23150,
+      "text": "원곡 권리(IR 생성 뒤) — 새 버전 만들기: 안내 띠 자리에서 열림 · 권리자 유형(작품·녹음·실연)별 필터",
+      "kind": "title1",
+      "maxW": 5000
+    },
+    "n_fix": {
+      "x": 3040,
+      "y": 23400,
+      "w": 440,
+      "fill": "blue",
+      "text": "'새 버전으로 바로잡기'를 누르면 위쪽 안내 띠가 이 편집 상자로 바뀐다. 취소·저장하면 다시 안내 띠. 권리자 유형: 작품 → 작가만·작품 계약 문서만 / 녹음 → 레이블(마스터 보유자)만·녹음 계약 문서만 / 실연 → 이 곡의 멤버만·실연 이용 동의·수령 위임 문서만. 실연은 %가 아니라 원곡 파트 담당·보이스 소유를 바로잡고, 바뀐 멤버가 실연자 앱에서 확인한다."
     }
   },
   "order": [
@@ -575,7 +607,9 @@
     "Song-Import-Start.dc.html",
     "Song-Import-Values.dc.html",
     "Song-ClaimConfirm-Apply.dc.html",
-    "Ops-FrameNew.dc.html"
+    "Ops-FrameNew.dc.html",
+    "Song-Locked-Fix.dc.html",
+    "Song-Locked-FixPerf.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"
