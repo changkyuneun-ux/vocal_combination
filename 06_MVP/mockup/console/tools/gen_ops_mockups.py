@@ -212,8 +212,8 @@ page("Ops-Contracts.dc.html", "운영 관리 — 표준 계약 전체", "op-cont
       table(["곡", "계약", "템플릿", "서명 당사자", "건수", "상태", ""],
             [["Dynamite", "플랫폼 이용계약", "플랫폼 이용계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
              ["Dynamite", "녹음 이용허락", "녹음 이용허락 표준계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "작품 이용허락 · David Stewart", "작품 이용허락 표준계약 v1", sub("작가(전자서명 공급자) 대기", "플랫폼이 작성(위탁 작가) · 조회만"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "작품 이용허락 · Jessica Agombar", "작품 이용허락 표준계약 v1", sub("작가(전자서명 공급자) 대기", "플랫폼이 작성(위탁 작가) · 조회만"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
+             ["Dynamite", "작품 이용허락 · David Stewart", "작품 이용허락 표준계약 v1", sub("작가(전자서명 링크) 대기", "빅히트가 보냄 · 01-02"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
+             ["Dynamite", "작품 이용허락 · Jessica Agombar", "작품 이용허락 표준계약 v1", sub("작가(전자서명 링크) 대기", "빅히트가 보냄 · 01-02"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
              ["Dynamite", "실연 수익 수령 위임 · 정국", "실연 수익 수령 위임계약 v1", "정국 ✓ · 빅히트 뮤직 매니지먼트 ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
              ["Dynamite", "실연 수익 수령 위임 · 지민 외 5명", "실연 수익 수령 위임계약 v1", "멤버 대기 · 소속사 대기", "6", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
              [sub("푸른 계절", EX), "녹음 이용허락", "녹음 이용허락 표준계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
@@ -254,11 +254,11 @@ page("Ops-Templates.dc.html", "운영 관리 — 계약 템플릿", "op-template
      [table(["템플릿", "버전", "쓰는 곳", "서명", "조항", "서명하면", "쓴 계약"],
             [["플랫폼 이용계약", mono("v1"), "테넌트 온보딩", "권리 테넌트", "8", "플랫폼 이용 확정", "1"],
              ["녹음 이용허락 표준계약", mono("v1"), "원곡 권리 › 녹음", "레이블", "6", "녹음 이용 동의", "2"],
-             ["작품 이용허락 표준계약", mono("v1"), "원곡 권리 › 작품", "작가(위탁이면 플랫폼이 작성)", "6", "작품 이용 동의", "3"],
+             ["작품 이용허락 표준계약", mono("v1"), "원곡 권리 › 작품", "작가(계정 없으면 전자서명 링크)", "6", "작품 이용 동의", "3"],
              ["실연 수익 수령 위임계약", mono("v1"), "원곡 권리 › 수령 위임", "멤버(실연자 앱) → 소속사", "5", "수령 위임", "9"],
              ["멤버 팬앱 이용 동의", mono("v1"), "확인·동의", "멤버(실연자 앱) 본인", "4", "실연 이용 동의", "7"],
              [sub("권리 확인서 · 레이블용", "새 템플릿(CT5)"), mono("v1"), "문서·계약 › 계약서 불러오기", "레이블", "4", "마스터 보유 주장 " + badge("VERIFIED", "ok"), "1"],
-             [sub("권리 확인서 · 작가용", "새 템플릿(CT5)"), mono("v1"), "문서·계약 › 계약서 불러오기", "작가 전원(위탁이면 운영 원문 대조)", "5", "작가 지분 주장 " + badge("VERIFIED", "ok"), "1"]],
+             [sub("권리 확인서 · 작가용", "새 템플릿(CT5)"), mono("v1"), "문서·계약 › 계약서 불러오기", "작가 전원(전자서명 링크)", "5", "작가 지분 주장 " + badge("VERIFIED", "ok"), "1"]],
             foot="권리 확인서는 원본 계약을 대체하지 않고 확인·정리한다. 원본은 조항에 근거로 적힌다. 새 버전이 나와도 이미 서명된 계약은 서명 당시 버전에 고정된다.",
             title=("표준 계약 템플릿", "플랫폼 법무 관리"), min_w=900),
       table(["읽기 틀(계약 양식)", "쓰는 계약", "읽는 항목", "등록", "승인", "쓴 횟수"],
@@ -276,8 +276,8 @@ page("Ops-Validation.dc.html", "운영 관리 — 정합성 점검 전체", "op-
              ("통과 규칙", "12 / 14", "곡 2 × 규칙 7 · 진행 중 1", False), ("마지막 점검", "09:00", "2026-01-12", False)]),
       filters("곡명, 규칙", [("곡", ["곡 전체", "Dynamite", "푸른 계절"]), ("수준", ["경고 이상", "차단", "전체"])]),
       table(["곡", "규칙", "수준", "대상", "내용", ""],
-            [["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · David Stewart", "운영 원문 대조 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")],
-             ["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · Jessica Agombar", "운영 원문 대조 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")]],
+            [["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · David Stewart", "작가 서명 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")],
+             ["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · Jessica Agombar", "작가 서명 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")]],
             foot="경고 이상만 보인다. 수준을 '전체'로 바꾸면 통과한 규칙도 보인다.", title=("걸린 항목", "2건")),
       card("규칙별 결과", table(["규칙", "Dynamite", "푸른 계절"],
            [["지분 합계 100%", "✓", "✓"], ["근거 문서", "✓", "✓"],
@@ -291,13 +291,15 @@ page("Ops-Statements.dc.html", "운영 관리 — 명세·지급", "op-statement
      ["운영 관리", "정산", "명세·지급"], "명세·지급",
      "빅히트 뮤직 당사자가 받는 정산 명세와 지급. 금액은 플랫폼이 확정한 정산 배치에서 온다",
      [button("명세 내려받기(PDF)")],
-     [stats([("이번 지급", "4,316,872원", "pay-2026-05 · 05-01", False), ("받는 당사자", "2", "레이블 · 소속사", False),
+     [stats([("이번 지급", "4,909,080원", "pay-2026-05 · 05-01", False), ("받는 당사자", "4", "레이블 · 소속사 · 작가 2", False),
              ("정산 기간", "2026년 3월", "bat_bts_2026_03 확정", False), ("보류", "1건", "이상거래 · 2,310원", True)]),
       filters("당사자", [("기간", ["2026년 3월", "2026년 2월"]), ("상태", ["전체", "PAID", "대기"])]),
       table(["받는 당사자", "역할", "정산 기간", "지급(원)", "계좌", "상태", ""],
             [["빅히트 뮤직(레이블)", "녹음 몫", "2026-03", mono("2,030,952"), mono("••••abel"), badge("PAID", "ok"), link("명세 보기")],
-             ["빅히트 뮤직 매니지먼트(소속사)", "실연 몫(멤버 7 수령 위임)", "2026-03", mono("2,285,920"), mono("••••ency"), badge("PAID", "ok"), link("명세 보기")]],
-            foot="작가 2명의 작품 몫은 플랫폼 위탁이라 이 명세에 보이지 않는다(다른 관리 주체). 멤버별 기여분은 실연자 앱에서 본인이 본다."),
+             ["빅히트 뮤직 매니지먼트(소속사)", "실연 몫(멤버 7 수령 위임)", "2026-03", mono("2,285,920"), mono("••••ency"), badge("PAID", "ok"), link("명세 보기")],
+             [sub("David Stewart(작가)", "해외 · 원천징수"), "작품 몫 50%", "2026-03", mono("296,604"), mono("••••_ds"), badge("PAID", "ok"), link("명세 보기")],
+             [sub("Jessica Agombar(작가)", "해외 · 원천징수"), "작품 몫 50%", "2026-03", mono("296,604"), mono("••••_ja"), badge("PAID", "ok"), link("명세 보기")]],
+            foot="작가는 빅히트가 관리하는 당사자다. 작가 지급액은 원천징수 뒤 금액(원천징수 합계 83,650원). 계좌·세금 정보는 빅히트가 등록하고 플랫폼은 지급만 실행한다. 멤버별 기여분은 실연자 앱에서 본인이 본다."),
       card("조합별 매출(이번 정산)", table(["조합", "구매", "매출(원)"],
            [["원곡 배치 · " + mono("vc_bts_orig"), "1,200", mono("3,960,000")], ["정국·지민 맞바꾸기 · " + mono("vc_bts_swap"), "500", mono("1,650,000")],
             ["랩 파트를 보컬 멤버가 · " + mono("vc_bts_vocal"), "300", mono("990,000")], ["진이 정국·지민 파트까지 · " + mono("vc_bts_jin"), "200", mono("660,000") + " · 보류 1"]], min_w=600),
@@ -411,6 +413,11 @@ def chips(opts, on):
         for o in opts) + "</div>"
 
 
+# 이용 범위 어휘는 표준 계약 템플릿(마이그레이션 0032)과 같다
+USE_ACTIONS = ["미리듣기", "조합 생성", "개인 보관", "링크 공유", "내려받기"]
+USE_TERRITORIES = ["대한민국", "일본", "미국"]
+USE_MEDIA = ["팬앱", "외부 SNS"]
+USE_AUDIENCE = ["팬 커뮤니티", "전체 공개"]
 INPUT = "font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #ffffff"
 READY_IMPORT = [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 원곡 스템 34 중 2 등록", "#92400e"), ("! 확인 대기", "#92400e"), ("· 위임 서명 1/7", "#475569")]
 IMPORT_STEPS = ["계약서 불러오기", "후보 값 확인", "IR 정보 대조", "빠진 것 입력", "권리 확인서 서명"]
@@ -426,7 +433,7 @@ ws_page("Song-Import.dc.html", "Dynamite — 계약서 불러오기", "문서·�
              ("문서", "Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · 4쪽 · " + link("원문 보기")),
              ("읽기 틀", badge("양식 일치", "ok") + " 빅히트 작품 퍼블리싱 계약 양식 v1 — 값 4개를 후보로 채움"),
              ("원천 문서", mono("doc_pub_dynamite") + " · sha256 " + mono("9f3c…a71e") + " · 01-03 08:52 저장(원본 보존)"),
-             ("당사자", "David Stewart · Jessica Agombar(작가, 플랫폼 위탁)")]), hint="① 완료"),
+             ("당사자", "David Stewart · Jessica Agombar(작가, 빅히트 관리 당사자)")]), hint="① 완료"),
          table(["항목", "후보 값", "근거(쪽·조항)", "기존 입력과", "확인"],
                [cand("곡명", "Dynamite", "1쪽 제1조", "본 계약의 대상 저작물은 「Dynamite」", badge("일치", "ok"), True),
                 cand("작가 · 지분 1", "David Stewart · 작사·작곡 50%", "2쪽 제3조 1항", "작가 갑의 지분은 50퍼센트", badge("일치", "ok"), True),
@@ -442,8 +449,9 @@ ws_page("Song-Import.dc.html", "Dynamite — 계약서 불러오기", "문서·�
                ["수령 위임", "멤버 → 소속사", "수령 위임계약", badge("1 / 7", "gray")]], paged=False, min_w=760),
               hint="빠짐이 남아 있으면 권리 확인서로 넘어가지 않는다"),
          card("④ 빠진 것 입력", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
-              + field("팬앱 이용 범위", chips(["조합", "구매", "감상", "재판매"], ["조합", "구매", "감상"]), "멤버 이용 동의·팩 이용 범위와 같아야 한다")
-              + field("이용 지역", f'<select style="{INPUT}"><option>전 세계</option><option>대한민국</option></select>')
+              + field("이용 행위", chips(USE_ACTIONS, ["미리듣기", "조합 생성", "개인 보관"]), "멤버 이용 동의·팩 이용 범위와 같아야 한다")
+              + field("지역", chips(USE_TERRITORIES, USE_TERRITORIES))
+              + field("매체 · 공개 대상", chips(USE_MEDIA + USE_AUDIENCE, ["팬앱", "팬 커뮤니티"]))
               + field("기간 끝", f'<input value="2030-12-31" style="{INPUT}; font-family: \'IBM Plex Mono\', monospace">', "원본 계약 기간을 넘지 않게")
               + "</div>", hint="원본 계약에 없는 값"),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("권리 확인서 만들기 →", primary=True) + "</div>"],
@@ -454,14 +462,14 @@ clause = lambda no, head, body_: f'<div style="display: flex; flex-direction: co
 share_tbl = ('<table style="border-collapse: collapse; font-size: 14px; margin-top: 4px"><thead><tr>'
              + "".join(f'<th style="padding: 6px 12px; text-align: left; font-size: 13px; color: #475569; background: #f8fafc">{h}</th>' for h in ["작가", "역할", "지분", "수령"])
              + '</tr></thead><tbody>'
-             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">David Stewart</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">플랫폼 위탁</td></tr>'
-             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">Jessica Agombar</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">플랫폼 위탁</td></tr>'
+             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">David Stewart</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
+             + '<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 6px 12px">Jessica Agombar</td><td style="padding: 6px 12px">작사·작곡</td><td style="padding: 6px 12px; font-family: \'IBM Plex Mono\', monospace">50.00%</td><td style="padding: 6px 12px">작가 본인(빅히트 관리)</td></tr>'
              + '</tbody></table>')
 doc = ('<article style="display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff">'
        '<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><h3 style="margin: 0; font-size: 18px">권리 확인서 — 작가용</h3>' + badge("템플릿 v1", "gray") + badge("미리보기", "blue") + '</div>'
        + clause("제1조", "대상", "작품 「Dynamite」, 녹음 Vocal Recombination(빅히트 뮤직 레이블)")
        + clause("제2조", "작가와 지분", "아래 작가와 지분을 확인한다. 지분의 합은 100%다." + share_tbl)
-       + clause("제3조", "이용 범위", "팬앱에서 조합·구매·감상, 전 세계, 2026-01-01 ~ 2030-12-31")
+       + clause("제3조", "이용 범위", "이용 행위 미리듣기·조합 생성·개인 보관, 지역 대한민국·일본·미국, 매체 팬앱, 공개 대상 팬 커뮤니티, 2026-01-01 ~ 2030-12-31")
        + clause("제4조", "근거", "Dynamite 작품 퍼블리싱 계약서 v1 제3조(" + mono("doc_pub_dynamite") + ", sha256 " + mono("9f3c…a71e") + ")")
        + clause("제5조", "원본과의 관계", "이 확인서는 원본 계약을 대체하지 않는다. 원본과 다르면 원본이 우선하고, 다름은 분쟁으로 처리한다.")
        + '</article>')
@@ -474,18 +482,97 @@ ws_page("Song-ClaimConfirm.dc.html", "Dynamite — 권리 확인서", "문서·�
          + '<div style="flex: 2 1 560px; min-width: 0">' + doc + '</div>'
          + '<div style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px">'
          + card("서명", table(["서명자", "방법", "상태"],
-                [["David Stewart", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대기", "warn")],
-                 ["Jessica Agombar", "플랫폼 위탁 → 운영 원문 대조(CT4)", badge("대기", "warn")]], paged=False, min_w=320), hint="작가 전원 · 한 부")
+                [["David Stewart", "전자서명 링크(계정 없음) · 이메일", badge("대기", "warn")],
+                 ["Jessica Agombar", "전자서명 링크(계정 없음) · 이메일", badge("대기", "warn")]], paged=False, min_w=320), hint="작가 전원 · 한 부")
          + card("서명하면 만들어지는 기록", kv([("권리 주장", "작가 지분 2건(WRITTEN_BY) " + badge("VERIFIED", "ok")),
-                                               ("이용 동의", "작품 이용 동의 1건 " + badge("VERIFIED", "ok")),
+                                               ("이용 동의", "작품 이용 동의 2건(작가마다 1건) " + badge("VERIFIED", "ok")),
                                                ("원천 문서", "확인서 서명본 + 원본 계약 근거 연결"),
                                                ("확인 요청", "상대 확인 14일 대기 없음 — 경고 2건이 닫힌다")]))
          + '</div></div>',
          table(["확인서", "담는 권리", "서명", "상태", ""],
                [["레이블용", "마스터 보유 · 빅히트 뮤직(레이블)", "빅히트 뮤직(레이블)", badge("서명됨 · 01-02", "ok"), link("서명본 보기")],
-                ["작가용", "작가 지분 2 · 작품 이용 범위", "작가 2(운영 원문 대조)", badge("서명 요청 전", "gray"), link("미리보기")]],
+                ["작가용", "작가 지분 2 · 작품 이용 범위", "작가 2(전자서명 링크)", badge("서명 요청 전", "gray"), link("미리보기")]],
                foot="멤버의 보이스 소유·파트 담당은 확인서가 아니라 실연자 앱 확인으로 받는다.", title=("이 곡의 권리 확인서", "2부"), min_w=760),
          '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("← 입력으로") + button("서명 요청 보내기", primary=True) + "</div>"],
         READY_IMPORT, height=1500)
+
+
+# ── 계약서 불러오기 ① 문서 고르기 ──
+ws_page("Song-Import-Start.dc.html", "Dynamite — 계약서 불러오기 시작", "문서·계약", "2026-01-03 08:50",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"], "계약서 불러오기",
+        "원본 계약서에서 권리 정보 후보를 채우고, IR에 필요한 것 중 빠진 것을 입력한 뒤 권리 확인서로 서명한다",
+        [],
+        [steps(IMPORT_STEPS, 1),
+         card("① 계약서 고르기", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: end">'
+              + field("원천 문서", f'<select style="{INPUT}"><option>Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · 4쪽 · 01-02</option><option>Dynamite 녹음 계약서 v1 (PDF) · 6쪽 · 01-02</option></select>',
+                      "이 곡의 원천 문서에서 고른다. 없으면 " + link("+ 새 문서 올리기"))
+              + field("읽기 틀", '<div style="padding: 8px 0">' + badge("양식 일치", "ok") + " 빅히트 작품 퍼블리싱 계약 양식 v1 — 값 4개를 후보로 채운다</div>",
+                      "일치하는 읽기 틀이 없으면 사람이 조항을 표시해 값을 넣는다")
+              + "</div>"
+              + '<div style="display: flex; justify-content: flex-end">' + button("불러오기", primary=True) + "</div>", hint="계약서는 플랫폼 밖으로 보내지 않는다"),
+         table(["계약서", "읽기 틀", "불러온 때", "단계", "확인서", ""],
+               [["Dynamite 녹음 계약서 v1", "빅히트 녹음 계약 양식 v1", mono("01-02 10:30"), badge("끝", "ok"), "레이블용 · 서명됨", link("보기")]],
+               foot="한 문서는 한 번에 하나만 불러온다. 끝난 불러오기는 조회만 한다.", title=("이 곡의 불러오기", "1건"), min_w=860)],
+        READY_IMPORT, height=1000)
+
+# ── 계약서 불러오기 — 후보 값 상태(다름 · 사람이 입력) ──
+small = lambda ph, w="120px", mono_=False: f'<input placeholder="{ph}" style="{INPUT}; width: {w}' + ('; font-family: \'IBM Plex Mono\', monospace' if mono_ else '') + '">'
+radio = lambda label, on: (f'<label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-right: 12px">'
+                           f'<span style="display: inline-block; width: 14px; height: 14px; border-radius: 999px; border: {"4px solid #1d4ed8" if on else "1px solid #94a3b8"}; background: #ffffff; box-sizing: border-box"></span>{label}</label>')
+ws_page("Song-Import-Values.dc.html", "Dynamite — 후보 값(다름 · 사람이 입력)", "문서·계약", "2026-01-03 09:00",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "계약서 불러오기"], "계약서 불러오기",
+        "후보 값이 기존 입력과 다를 때와, 읽기 틀이 값을 찾지 못해 사람이 입력할 때",
+        [],
+        [steps(IMPORT_STEPS, 2),
+         table(["항목", "후보 값", "근거(쪽·조항)", "기존 입력과", "확인"],
+               [["작가 · 지분 1", sub("David Stewart · 작사·작곡 50%", "기존 입력: 45%"), sub("2쪽 제3조 1항", "“작가 갑의 지분은 50퍼센트”"),
+                 badge("다름", "err") + '<div style="margin-top: 6px">' + radio("계약서 값 50%", True) + radio("기존 값 45%", False) + "</div>", check(False)],
+                ["효력 시작", '<div style="display: flex; gap: 6px; flex-wrap: wrap">' + small("2026-01-01", "130px", True) + "</div>",
+                 '<div style="display: flex; gap: 6px; flex-wrap: wrap">' + small("쪽", "60px") + small("조항", "90px") + small("인용 문장(선택)", "220px") + "</div>",
+                 badge("사람이 입력", "gray"), check(False)]],
+               foot="다름: 고른 값으로 확인서를 만든다. 계약서 값을 고르면 원곡 권리의 기존 주장이 새 버전으로 바뀌고, 기존 값을 고르면 원본과 다르다는 표시가 남는다(확인서 제5조 — 원본 우선, 다름은 분쟁). 사람이 입력: 값과 근거 위치를 넣고 확인한다.",
+               title=("② 후보 값", "2 / 4 확인함"), paged=False, min_w=900)],
+        READY_IMPORT, height=900)
+
+# ── 권리 확인서 — 서명 끝, 기록 반영 ──
+ws_page("Song-ClaimConfirm-Apply.dc.html", "Dynamite — 권리 확인서 기록 반영", "문서·계약", "2026-01-12 15:30",
+        ["작품 관리", "작품 워크스페이스", "Dynamite", "문서·계약", "권리 확인서"], "권리 확인서",
+        "모든 서명자가 끝나면 기록을 반영한다. 반영하면 권리 주장이 서명본을 근거로 VERIFIED가 된다",
+        [],
+        [steps(IMPORT_STEPS, 5),
+         '<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">'
+         + '<div style="flex: 1 1 520px; min-width: 0">' + card("서명", table(["서명자", "방법", "상태"],
+                [["David Stewart", "전자서명 링크(계정 없음) · 이메일", badge("서명 · 01-10", "ok")],
+                 ["Jessica Agombar", "전자서명 링크(계정 없음) · 이메일", badge("서명 · 01-12", "ok")]], paged=False, min_w=420), hint="작가용 · 2 / 2 끝") + '</div>'
+         + '<div style="flex: 1 1 380px; min-width: 0">' + card("반영하면 만들어지는 기록", kv([("권리 주장", "작가 지분 2건(WRITTEN_BY) " + badge("VERIFIED", "ok")),
+                                               ("이용 동의", "작품 이용 동의 2건(작가마다 1건) " + badge("VERIFIED", "ok")),
+                                               ("원천 문서", "확인서 서명본 + 원본 계약 근거 연결"),
+                                               ("확인 요청", "열린 확인 요청 2건이 닫히고 정합성 경고 2건이 닫힌다")])) + '</div></div>',
+         note("반영은 한 번만 한다. 반영한 뒤에는 확인서와 만들어진 기록을 고칠 수 없고, 바로잡기는 새 확인서로 한다."),
+         '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("서명본 보기") + button("기록 반영", primary=True) + "</div>"],
+        [("✓ 합계 100%", "#166534"), ("✓ 근거 문서", "#166534"), ("! 확인 대기 2 → 반영하면 닫힘", "#92400e"), ("· 위임 서명 7/7", "#475569")], height=900)
+
+# ── 운영 관리 › 계약 템플릿 › 읽기 틀 등록 ──
+filled = lambda v, w: f'<input value="{v}" style="{INPUT}; width: {w}">'
+frow = lambda item, pg, cl, pat, quote, got: [item, filled(pg, "56px"), filled(cl, "96px"), f'<input value="{pat}" style="{INPUT}; width: 100%; font-family: \'IBM Plex Mono\', monospace; font-size: 13px">', f'<span style="font-size: 13px; color: #334155">“{quote}”</span>', got]
+page("Ops-FrameNew.dc.html", "운영 관리 — 읽기 틀 등록", "op-templates", "2026-01-02 10:10",
+     ["운영 관리", "계약·문서", "계약 템플릿", "읽기 틀 등록"], "읽기 틀 등록",
+     "계약 양식에서 값이 있는 위치(쪽·조항)와 값 모양을 IR 항목에 대응시킨다. 빅히트가 등록하고 플랫폼이 승인한다(CT2)",
+     [],
+     [card("양식", '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
+           + field("양식 이름", f'<input value="빅히트 작품 퍼블리싱 계약 양식" style="{INPUT}">')
+           + field("쓰는 계약", f'<select style="{INPUT}"><option>작품 퍼블리싱 계약</option><option>녹음 계약</option></select>')
+           + field("기준 문서", f'<select style="{INPUT}"><option>Dynamite 작품 퍼블리싱 계약서 v1 (PDF) · 4쪽</option></select>', "이 양식으로 쓴 계약서 하나를 골라 위치를 맞춘다")
+           + "</div>"),
+      table(["IR 항목", "쪽", "조항", "값 모양", "기준 문서 인용", "미리보기"],
+            [frow("곡명", "1", "제1조", "대상 저작물은 「{text}」", "본 계약의 대상 저작물은 「Dynamite」", "Dynamite"),
+             frow("작가 · 지분", "2", "제3조 1항", "작가 갑의 지분은 {percent}퍼센트", "작가 갑의 지분은 50퍼센트", "50%"),
+             frow("작가 · 지분", "2", "제3조 2항", "작가 을의 지분은 {percent}퍼센트", "작가 을의 지분은 50퍼센트", "50%"),
+             frow("효력 시작", "1", "제2조", "{date}부터 효력", "2026년 1월 1일부터 효력", mono("2026-01-01"))],
+            foot="값 모양의 기호: {text} 글자 · {percent} 퍼센트 · {bps} 만분율 · {date} 날짜 · {party} 당사자 이름. 기준 문서 인용에 값 모양이 맞으면 미리보기에 값이 나온다. 맞지 않으면 빨간 글씨로 '모양 안 맞음'.",
+            title=("항목", "4개 · " + link("+ 항목 추가")), paged=False, min_w=1000),
+      '<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">' + button("임시 저장") + button("승인 요청", primary=True) + "</div>"],
+     height=1000)
+
 
 print("ok")

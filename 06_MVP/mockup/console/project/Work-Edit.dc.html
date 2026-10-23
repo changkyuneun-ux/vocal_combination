@@ -14,7 +14,7 @@ body{margin:0}
 a{color:#1d4ed8}a:hover{color:#1e3a8a}
 </style>
 </helmet>
-<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: rgba(15, 23, 42, 0.45); min-height: 100vh; box-sizing: border-box; padding: 40px 24px; display: flex; justify-content: center; align-items: flex-start">
+<div style="font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #0f172a; background: rgba(15, 23, 42, 0.45); min-height: 100vh; box-sizing: border-box; padding: 40px 24px; display: flex; justify-content: center; align-items: flex-start; position: absolute; left: 27px; top: 250px">
 <div role="dialog" aria-labelledby="dlg-title" style="width: 100%; max-width: 1120px; background: #ffffff; border-radius: 14px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25)">
 <div style="padding: 18px 24px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
 <div><div style="font-size: 13px; color: #475569">빅히트 뮤직 · 곡 수정 · 봉인 전</div><div id="dlg-title" style="font-size: 22px; font-weight: 700">Dynamite — 권리자·지분</div></div>
@@ -36,17 +36,17 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
 <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; font-size: 12px; color: #475569"><span>당사자</span><span>구분</span><span>지분(%)</span><span>저장하면</span><span></span></div>
 <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; align-items: center">
-<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>David Stewart · 작가(플랫폼 위탁)</option></select>
+<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>David Stewart · 작가(빅히트 관리)</option></select>
 <select aria-label="구분" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>작사·작곡</option><option>작사</option><option>작곡</option></select>
 <input aria-label="지분" type="number" value="50" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px">
-<span style="font-size: 13px; color: #92400e">확인 요청 → 운영 원문 대조(14일 뒤)</span>
+<span style="font-size: 13px; color: #92400e">확인 요청 → 작가 전자서명</span>
 <button aria-label="행 삭제" style="font: inherit; min-height: 40px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff">×</button>
 </div>
 <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 110px minmax(0, 1.4fr) 44px; gap: 8px; align-items: center">
-<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>Jessica Agombar · 작가(플랫폼 위탁)</option></select>
+<select aria-label="당사자" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>Jessica Agombar · 작가(빅히트 관리)</option></select>
 <select aria-label="구분" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>작사·작곡</option></select>
 <input aria-label="지분" type="number" value="40" style="font: inherit; font-size: 14px; padding: 8px 10px; border: 2px solid #dc2626; border-radius: 8px">
-<span style="font-size: 13px; color: #92400e">확인 요청 → 운영 원문 대조(14일 뒤)</span>
+<span style="font-size: 13px; color: #92400e">확인 요청 → 작가 전자서명</span>
 <button aria-label="행 삭제" style="font: inherit; min-height: 40px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff">×</button>
 </div>
 <div style="display: flex; gap: 8px; flex-wrap: wrap"><button style="font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">+ 권리자 추가</button><button style="font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 0; background: none; color: #1d4ed8">균등 분배</button></div>
@@ -89,7 +89,7 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <span style="font-size: 13px; color: #475569; flex: 1 1 320px">봉인 전이라 고치고 지울 수 있다(ID1). 분배 규칙을 컴파일하면 facts IR v1로 봉인되고, 그 뒤 바뀌는 지분은 새 버전으로 기록된다.</span>
 <a href="Work-Workspace.dc.html" style="font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; text-decoration: none; color: #0f172a">취소</a>
 <button style="font: inherit; font-size: 14px; padding: 9px 14px; border-radius: 8px; border: 1px solid #94a3b8; background: #ffffff">저장 후 다음 곡</button>
-<button disabled style="font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 8px; border: 0; background: #94a3b8; color: #ffffff; font-weight: 600">저장(작품 합계 확인)</button>
+<button disabled="" style="font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 8px; border: 0; background: #94a3b8; color: #ffffff; font-weight: 600">저장(작품 합계 확인)</button>
 </div>
 </div>
 </div>

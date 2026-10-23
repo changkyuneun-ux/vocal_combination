@@ -100,8 +100,8 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden">
 <div style="padding: 10px 14px; background: #f1f5f9; display: flex; justify-content: space-between"><strong>작품 · 작사·작곡</strong><span style="font-size: 12px; color: #475569">WRITTEN_BY</span></div>
 <table style="width: 100%; border-collapse: collapse; font-size: 14px"><tbody>
-<tr><td style="padding: 10px 14px">David Stewart<div style="font-size: 12px; color: #475569">플랫폼 위탁 · 확인 대기(원문 대조)</div></td><td style="padding: 10px 14px; width: 40%"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
-<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">Jessica Agombar<div style="font-size: 12px; color: #475569">플랫폼 위탁 · 확인 대기(원문 대조)</div></td><td style="padding: 10px 14px"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
+<tr><td style="padding: 10px 14px">David Stewart<div style="font-size: 12px; color: #475569">빅히트 관리 · 확인 대기(작가 서명)</div></td><td style="padding: 10px 14px; width: 40%"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
+<tr style="border-top: 1px solid #e2e8f0"><td style="padding: 10px 14px">Jessica Agombar<div style="font-size: 12px; color: #475569">빅히트 관리 · 확인 대기(작가 서명)</div></td><td style="padding: 10px 14px"><div style="height: 6px; background: #e2e8f0; border-radius: 3px"><div style="width: 50%; height: 100%; background: #1d4ed8; border-radius: 3px"></div></div></td><td style="padding: 10px 14px; text-align: right">50%</td></tr>
 </tbody></table>
 <div style="padding: 8px 14px; border-top: 1px solid #e2e8f0; font-size: 13px; display: flex; justify-content: space-between"><span style="color: #475569">근거: 퍼블리싱 계약서 v1</span><b>합계 100%</b></div>
 </div>
@@ -169,7 +169,7 @@ class Component extends DCLogic {
     const tabs = defs.map(([k, label, count]) => ({ label, count, style: tabStyle(tab === k), pick: () => this.setState({ tab: k }) }));
     const other = {
       docs: '원천 문서 2(녹음 계약서·퍼블리싱 계약서)와 표준 계약 11(플랫폼 계약·녹음 이용허락·작품 이용허락 2·수령 위임 7). 서명본은 반영하면 원천 문서가 된다.',
-      confirm: '확인 요청 58(멤버 56 · 작가 지분 2) · 이용 동의 1/7. 멤버 확인은 실연자 앱에서 본인이, 작가 지분은 운영이 원문 대조로 확인한다.',
+      confirm: '확인 요청 58(멤버 56 · 작가 지분 2) · 이용 동의 1/7. 멤버 확인은 실연자 앱에서 본인이, 작가 지분은 작가가 전자서명 링크로 확인한다.',
       policy: '아직 팩·분배 규칙이 없다. 정합성 점검 차단이 0이고 테넌트가 활성이면 분배 규칙을 컴파일할 수 있다 — 그때 facts IR v1이 봉인된다.',
       money: '발행 조합 0 · 정산 0. 팩이 활성이 되면 조합 발행과 매출이 이 곡 아래에 모인다.',
     };

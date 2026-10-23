@@ -44,7 +44,7 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 <label for="q" style="position: absolute; left: -9999px">검색</label>
 <input id="q" placeholder="곡명, 기록, 상대 당사자" style="font: inherit; font-size: 14px; flex: 1 1 280px; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 8px">
 <select aria-label="곡" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>곡 전체</option><option>Dynamite</option><option>푸른 계절</option></select>
-<select aria-label="상대" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>상대 전체</option><option>멤버(실연자 앱)</option><option>플랫폼 위탁 작가(운영 대조)</option></select>
+<select aria-label="상대" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>상대 전체</option><option>멤버(실연자 앱)</option><option>작가(전자서명 링크)</option></select>
 <select aria-label="상태" style="font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #94a3b8; border-radius: 8px"><option>대기</option><option>확인됨</option><option>거절</option><option>전체</option></select>
 </div>
 
@@ -72,7 +72,7 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 </tr>
 </sc-for>
 </tbody></table></div>
-<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569"><span style="flex: 1 1 320px">멤버 확인은 실연자 앱에서 본인이, 플랫폼 위탁 작가는 운영이 원문 대조로 확인한다. 이 화면은 조회와 이동만 한다.</span><nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto"><span style="font-size: 13px; color: #475569; margin-right: 6px; font-family: 'IBM Plex Mono', monospace">1–9 / 9</span><button disabled aria-label="이전 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button><button aria-current="page" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button><button disabled aria-label="다음 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">›</button></nav></div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #475569"><span style="flex: 1 1 320px">멤버 확인은 실연자 앱에서 본인이, 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 확인한다. 이 화면은 조회와 이동만 한다.</span><nav aria-label="쪽" style="display: flex; align-items: center; gap: 6px; margin-left: auto"><span style="font-size: 13px; color: #475569; margin-right: 6px; font-family: 'IBM Plex Mono', monospace">1–9 / 9</span><button disabled aria-label="이전 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">‹</button><button aria-current="page" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 0; background: #1d4ed8; color: #ffffff; font-weight: 600">1</button><button disabled aria-label="다음 쪽" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 8px; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; background: #ffffff; color: #94a3b8">›</button></nav></div>
 </section>
 </main>
 </div>
@@ -82,8 +82,8 @@ a{color:#1d4ed8}a:hover{color:#1e3a8a}
 class Component extends DCLogic {
   renderVals() {
     const R = [
-      ['Dynamite', '', '작가 지분 50% · David Stewart', '플랫폼 위탁 작가(운영 대조)', '01-02 09:10', '01-16', true],
-      ['Dynamite', '', '작가 지분 50% · Jessica Agombar', '플랫폼 위탁 작가(운영 대조)', '01-02 09:10', '01-16', true],
+      ['Dynamite', '', '작가 지분 50% · David Stewart', '작가(전자서명 링크)', '01-02 09:10', '01-16', true],
+      ['Dynamite', '', '작가 지분 50% · Jessica Agombar', '작가(전자서명 링크)', '01-02 09:10', '01-16', true],
       ['푸른 계절', '예시 데이터', '보이스 소유 · 블루노트', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
       ['푸른 계절', '예시 데이터', '실연 · Verse 1 파트 1', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
       ['푸른 계절', '예시 데이터', '실연 · Chorus 1 파트 1', '블루노트(실연자 앱)', '01-08 14:00', '01-22', false],
