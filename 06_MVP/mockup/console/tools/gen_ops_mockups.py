@@ -235,8 +235,8 @@ def grouped(cols, groups, sub_cols, open_idx=0, foot="", title=None, min_w=900):
 
 # 곡 진행 ①~⑤(2026-10-24): 원본 계약서 → 권리 등록 → 권리 확정 → 이용 허락 → 분배·출시
 PROG_STEPS = ["원본 계약서", "권리 등록", "권리 확정", "이용 허락", "분배·출시"]
-PROG_DEFAULT = [("done", "2건"), ("done", "작품·녹음·실연"), ("now", "작가 2 서명 대기"), ("todo", "1 / 9 서명"), ("todo", "")]
-PROG_LOCKED = [("done", "2건"), ("done", "작품·녹음·실연"), ("done", "확정"), ("done", "9 / 9"), ("done", "IR v1 · 판매 중")]
+PROG_DEFAULT = [("done", "2건"), ("done", "작품·녹음·실연"), ("now", "작가 2 서명 대기"), ("todo", "1 / 4종")]  + [("todo", "")]
+PROG_LOCKED = [("done", "2건"), ("done", "작품·녹음·실연"), ("done", "확정"), ("done", "4 / 4종"), ("done", "IR v1 · 판매 중")]
 
 
 def progress(states):
@@ -813,5 +813,21 @@ create_body = [
 ]
 page("Song-Create.dc.html", "새 곡 워크스페이스", "works-list", "2026-05-01 10:34", [], "새 곡",
      "곡 진행 ① 원본 계약서 → ② 권리 등록까지 이 마법사에서 한다. 4단계 뒤 곡 화면의 원곡 권리 탭으로 간다", [], create_body, height=1000)
+
+
+# ── 문서·계약 › + 원본 계약서 올리기(오른쪽 칸, 토글) ──
+up_panel = side_panel("원본 계약서 올리기", "Dynamite에 묶을 계약서",
+    field("종류", f'<select style="{SELECT}"><option>녹음 계약서 — 마스터 보유 근거</option><option>작품 계약서 — 작가 지분 근거</option></select>', "종류에 따라 근거가 될 권리가 정해진다")
+    + field("파일", f'<div style="border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 14px; background: #f8fafc; font-size: 13.5px">끌어 놓거나 {link("파일 고르기")} · PDF</div>')
+    + field("효력 시작", f'<input value="2026-01-01" style="{SELECT}; {MONO}">')
+    + note("올리면 이 곡의 ① 원본 계약서가 된다. 값을 원곡 권리에 채우려면 표의 '불러오기'를 누른다."),
+    button("취소") + button("올리기", primary=True))
+ws_page("Song-Contracts-Upload.dc.html", "Dynamite — 원본 계약서 올리기", "문서·계약", "2026-01-05 09:00",
+        [], "Dynamite · 문서·계약", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)",
+        [button("+ 원본 계약서 올리기", primary=True), button("+ 계약 만들기")],
+        ['<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">'
+         + '<div style="flex: 2 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 18px">' + contracts_body[0] + contracts_body[1] + '</div>'
+         + '<div style="flex: 1 1 360px; max-width: 440px; min-width: 0">' + up_panel + '</div></div>'],
+        READY_IMPORT, height=1100)
 
 print("ok")

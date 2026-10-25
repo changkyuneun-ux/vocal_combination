@@ -407,6 +407,15 @@
       "title": "스템 탭 오른쪽 칸 — 상세·수정·추가(토글), IR 고정 뒤",
       "expand": "fill",
       "is_interactive": true
+    },
+    "Song-Contracts-Upload.dc.html": {
+      "x": 5080,
+      "y": 23400,
+      "w": 1440,
+      "h": 1100,
+      "title": "문서·계약 › + 원본 계약서 올리기(오른쪽 칸, 토글)",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -564,7 +573,7 @@
       "maxW": 5000
     },
     "n_fix": {
-      "x": 5080,
+      "x": 6600,
       "y": 23400,
       "w": 440,
       "fill": "blue",
@@ -626,7 +635,8 @@
     "Ops-FrameNew.dc.html",
     "Song-Locked-Fix.dc.html",
     "Song-Locked-FixPerf.dc.html",
-    "Song-Stems-Panel.dc.html"
+    "Song-Stems-Panel.dc.html",
+    "Song-Contracts-Upload.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"
