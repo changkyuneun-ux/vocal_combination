@@ -32,7 +32,7 @@ export type ConfirmationRow = {
   requestedBy: string; requestedAt: string; dueAt: string; status: string; decidedAt?: string;
 };
 export type ConsentRow = { consentId: string; factsScopeId: string; partyId: string; rightType: string; assetId: string; validFrom: string; validTo: string; status: string };
-export type DocumentRow = { documentId: string; version: number; kind: string; title: string; parties: string[]; effectiveFrom: string | null; status: string };
+export type DocumentRow = { documentId: string; version: number; kind: string; title: string; parties: string[]; effectiveFrom: string | null; status: string; origin?: string; factsScopeId?: string | null; uploadedAt?: string };
 export type PartyRow = { partyId: string; partyType: string; displayName: string; tenantId?: string | null };
 
 const enc = encodeURIComponent;
@@ -50,6 +50,9 @@ export const retireStem = (stemId: string, reason?: string) => api<unknown>("POS
 /** 스템 오디오 올리기(IR에 든 스템의 쓰던 오디오를 바꾸면 새 버전으로 대기 → 다음 재고정부터). */
 export const putStemAudio = (stemId: string, file: Blob) => apiUpload<{ stemId: string; status: string; next?: boolean }>("PUT", `/stems/${enc(stemId)}/audio`, file);
 export type StemAudio = { stemId: string; status: string; fileSha256: string; uploadedAt: string; next: { status: string; fileSha256: string; uploadedAt: string } | null };
+/** 원본 계약서 올리기: 이 곡(scope)에 묶인다(0048). */
+export const uploadOriginal = (file: Blob, meta: { kind: string; title: string; parties: string[]; scope: string; effectiveFrom?: string }) =>
+  apiUpload<{ documentId: string; versions: { version: number }[] }>("POST", `/documents?${new URLSearchParams({ kind: meta.kind, title: meta.title, parties: meta.parties.join(","), scope: meta.scope, ...(meta.effectiveFrom && { effectiveFrom: meta.effectiveFrom }) })}`, file);
 export const putStem = (stemId: string, body: Partial<{ performerPartyId: string; rightsBearing: boolean }>) => api<unknown>("PUT", catalogPath("stem", stemId), body);
 export const deleteCatalog = (kind: CatalogKind, id: string, partNo?: number) => api<unknown>("DELETE", catalogPath(kind, id, partNo));
 export const postSlot = (body: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number; sectionLabel?: string; parts?: Omit<SlotPart, "durationMs">[] }) =>

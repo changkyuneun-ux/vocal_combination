@@ -18,6 +18,8 @@ export const RETENTION_YEARS = 10;
 export type DocumentRef = { documentId: string; version: number };
 export type DocumentMeta = {
   kind?: unknown; title?: unknown; parties?: unknown; effectiveFrom?: unknown; effectiveTo?: unknown; confidentiality?: unknown;
+  /** 이 문서가 근거인 곡(0048). 주지 않으면 작품 공통(조직 문서). */
+  factsScopeId?: unknown;
 };
 
 const ID = /^[A-Za-z0-9._-]+$/;
@@ -56,7 +58,13 @@ async function parseMeta(tx: Tx, m: DocumentMeta, base?: Record<string, any>) {
   if (effectiveFrom !== null && effectiveTo !== null && effectiveTo <= effectiveFrom) throw bad("effectiveTo must be after effectiveFrom");
   const confidentiality = (m.confidentiality ?? base?.confidentiality ?? "PARTIES") as string;
   if (confidentiality !== "OWNER" && confidentiality !== "PARTIES") throw bad("confidentiality must be OWNER or PARTIES");
-  return { kind, title: title.trim(), parties: [...new Set(parties)].sort(), effectiveFrom, effectiveTo, confidentiality };
+  // 곡(0048): 새 버전은 이전 버전의 곡을 이어받는다. 곡은 요청자에게 보여야 한다(RLS).
+  const scope = m.factsScopeId === undefined || m.factsScopeId === "" ? ((base?.facts_scope_id ?? null) as string | null) : m.factsScopeId;
+  if (scope !== null) {
+    if (typeof scope !== "string" || !ID.test(scope)) throw bad("factsScopeId must be an id");
+    if ((await tx.query("SELECT 1 FROM facts_scope WHERE facts_scope_id = $1", [scope])).rowCount === 0) throw notFound("facts scope", scope);
+  }
+  return { kind, title: title.trim(), parties: [...new Set(parties)].sort(), effectiveFrom, effectiveTo, confidentiality, factsScopeId: scope };
 }
 
 function checkFile(mime: string, bytes: Uint8Array): void {
@@ -96,9 +104,9 @@ export async function uploadDocument(
  */
 export async function storeGeneratedDocument(
   tx: Tx, clock: Clock, store: DocumentStore,
-  input: { owner: string; documentId: string; kind: DocumentKind; title: string; parties: string[]; effectiveFrom: string | null; effectiveTo: string | null; html: string; by: string },
+  input: { owner: string; documentId: string; kind: DocumentKind; title: string; parties: string[]; effectiveFrom: string | null; effectiveTo: string | null; html: string; by: string; factsScopeId?: string },
 ): Promise<DocumentRef> {
-  const meta = await parseMeta(tx, { kind: input.kind, title: input.title, parties: input.parties, effectiveFrom: input.effectiveFrom ?? undefined, effectiveTo: input.effectiveTo ?? undefined });
+  const meta = await withSystemScope(tx, () => parseMeta(tx, { kind: input.kind, title: input.title, parties: input.parties, effectiveFrom: input.effectiveFrom ?? undefined, effectiveTo: input.effectiveTo ?? undefined, factsScopeId: input.factsScopeId }));
   const bytes = new TextEncoder().encode(input.html);
   const hash = createHash("sha256").update(bytes).digest("hex");
   const { uri } = await store.put(input.owner, bytes);
@@ -108,9 +116,9 @@ export async function storeGeneratedDocument(
     }
     await tx.query(
       `INSERT INTO source_document (document_id, version, owner_tenant_id, kind, title, parties, effective_from, effective_to,
-         file_sha256, byte_size, mime, storage_uri, origin, status, confidentiality, uploaded_by, uploaded_at, retention_until)
-       VALUES ($1,1,$2,$3,$4,$5,$6,$7,$8,$9,'text/html',$10,'TEMPLATE_SIGNED','CONFIRMED','PARTIES',$11,$12,$13)`,
-      [input.documentId, input.owner, meta.kind, meta.title, meta.parties, meta.effectiveFrom, meta.effectiveTo, hash, bytes.byteLength, uri, input.by, clock.now(), retentionUntil(meta.effectiveTo)]);
+         file_sha256, byte_size, mime, storage_uri, origin, status, confidentiality, uploaded_by, uploaded_at, retention_until, facts_scope_id)
+       VALUES ($1,1,$2,$3,$4,$5,$6,$7,$8,$9,'text/html',$10,'TEMPLATE_SIGNED','CONFIRMED','PARTIES',$11,$12,$13,$14)`,
+      [input.documentId, input.owner, meta.kind, meta.title, meta.parties, meta.effectiveFrom, meta.effectiveTo, hash, bytes.byteLength, uri, input.by, clock.now(), retentionUntil(meta.effectiveTo), meta.factsScopeId]);
   });
   await audit(tx, clock, { actor: input.by, action: "DOCUMENT_GENERATED", entityType: "source_document", entityId: input.documentId, after: { version: 1, sha256: hash, kind: meta.kind } });
   return { documentId: input.documentId, version: 1 };
@@ -140,16 +148,16 @@ async function insertVersion(
 ) {
   await tx.query(
     `INSERT INTO source_document (document_id, version, owner_tenant_id, kind, title, parties, effective_from, effective_to,
-       file_sha256, byte_size, mime, storage_uri, confidentiality, uploaded_by, uploaded_at, retention_until)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+       file_sha256, byte_size, mime, storage_uri, confidentiality, uploaded_by, uploaded_at, retention_until, facts_scope_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
     [documentId, version, owner, m.kind, m.title, m.parties, m.effectiveFrom, m.effectiveTo, f.sha256, f.size, f.mime, f.uri, m.confidentiality,
-      actor.userId, clock.now(), retentionUntil(m.effectiveTo)],
+      actor.userId, clock.now(), retentionUntil(m.effectiveTo), m.factsScopeId],
   );
 }
 
 function toVersion(r: any) {
   return {
-    version: r.version as number, kind: r.kind as DocumentKind, title: r.title as string, parties: r.parties as string[],
+    version: r.version as number, kind: r.kind as DocumentKind, title: r.title as string, parties: r.parties as string[], factsScopeId: (r.facts_scope_id ?? null) as string | null,
     effectiveFrom: iso(r.effective_from), effectiveTo: iso(r.effective_to), sha256: r.file_sha256 as string, byteSize: Number(r.byte_size), mime: r.mime as string,
     origin: r.origin as string, status: r.status as string, ...(r.status_reason !== null && { statusReason: r.status_reason as string }),
     confidentiality: r.confidentiality as string, uploadedBy: r.uploaded_by as string, uploadedAt: iso(r.uploaded_at)!,
@@ -181,11 +189,13 @@ export async function getDocument(tx: Tx, documentId: string) {
 }
 
 /** 문서 목록(최신 버전 기준). RLS로 소유 테넌트·당사자·플랫폼만 보인다. */
-export async function listDocuments(tx: Tx, f: { kind?: string; party?: string }) {
+export async function listDocuments(tx: Tx, f: { kind?: string; party?: string; scope?: string }) {
+  // scope: 그 곡에 묶인 문서(0048), "none" = 작품 공통(조직 문서).
   const rows = (await tx.query(
     `SELECT DISTINCT ON (document_id) * FROM source_document
       WHERE ($1::text IS NULL OR kind = $1) AND ($2::text IS NULL OR $2 = ANY(parties))
-      ORDER BY document_id, version DESC`, [f.kind ?? null, f.party ?? null])).rows;
+        AND ($3::text IS NULL OR ($3 = 'none' AND facts_scope_id IS NULL) OR facts_scope_id = $3)
+      ORDER BY document_id, version DESC`, [f.kind ?? null, f.party ?? null, f.scope ?? null])).rows;
   return rows.sort((a, b) => (iso(b.uploaded_at)! < iso(a.uploaded_at)! ? -1 : 1)).map((r) => ({ documentId: r.document_id as string, ownerTenantId: r.owner_tenant_id as string, ...toVersion(r) }));
 }
 
@@ -271,11 +281,15 @@ export function parseRefs(v: unknown, name = "evidenceDocuments"): DocumentRef[]
  * - 여러 문서: 원문 해시(hex)들을 정렬한 JSON 배열(JCS와 같다)의 SHA-256.
  * 문서는 요청자에게 보여야 하고(RLS), 거부·폐기된 버전은 근거로 쓸 수 없다.
  */
-export async function evidenceDigest(tx: Tx, refs: DocumentRef[]): Promise<string> {
+export async function evidenceDigest(tx: Tx, refs: DocumentRef[], scopeId?: string): Promise<string> {
   const hashes: string[] = [];
   for (const ref of refs) {
-    const r = (await tx.query("SELECT file_sha256, status, disposed_at FROM source_document WHERE document_id = $1 AND version = $2", [ref.documentId, ref.version])).rows[0];
+    const r = (await tx.query("SELECT file_sha256, status, disposed_at, facts_scope_id FROM source_document WHERE document_id = $1 AND version = $2", [ref.documentId, ref.version])).rows[0];
     if (r === undefined) throw notFound("document", `${ref.documentId}@${ref.version}`);
+    // 근거는 그 곡의 문서이거나 작품 공통 문서만(0048) — 다른 곡의 계약서는 이 곡 권리의 근거가 아니다.
+    if (scopeId !== undefined && r.facts_scope_id !== null && r.facts_scope_id !== scopeId) {
+      throw invalid("EVIDENCE_OTHER_SONG", `${ref.documentId}@${ref.version} belongs to ${r.facts_scope_id}, not ${scopeId}`);
+    }
     if (r.status === "REJECTED" || r.disposed_at !== null) throw invalid("DOCUMENT_UNUSABLE", `${ref.documentId}@${ref.version} is ${r.status === "REJECTED" ? "rejected" : "disposed"}`);
     hashes.push(r.file_sha256 as string);
   }

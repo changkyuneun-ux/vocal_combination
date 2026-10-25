@@ -61,9 +61,11 @@ export function importRoutes(app: FastifyInstance, deps: Deps): void {
 export function signerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/contracts", async (req) => withActor(deps, req, (tx) => {
     const q = req.query as Record<string, unknown>;
-    const template = optFilter(q, "template");
+    const template = optFilter(q, "template"), kind = optFilter(q, "kind"); // kind: confirm(권리 확정 — 권리 확인서) | license(이용 허락 — 그 밖, 플랫폼 이용계약 제외)
+    const confirm = (t: string) => t.startsWith("tpl_claim_confirm_");
     return listContracts(tx, { ...(optFilter(q, "scope") !== undefined && { scope: optFilter(q, "scope") }), ...(optFilter(q, "status") !== undefined && { status: optFilter(q, "status") }) })
-      .then((rows) => pagedOr(q, template === undefined ? rows : rows.filter((c) => c.templateId === template)));
+      .then((rows) => pagedOr(q, rows.filter((c) => (template === undefined || c.templateId === template)
+        && (kind === undefined || (kind === "confirm" ? confirm(c.templateId) : !confirm(c.templateId) && c.templateId !== "tpl_platform_contract")))));
   }));
   app.get<P>("/contracts/:id", async (req) => withActor(deps, req, (tx) => getContract(tx, req.params.id)));
   app.post<P & { Body: { partyId?: string } }>("/contracts/:id/sign", async (req) =>

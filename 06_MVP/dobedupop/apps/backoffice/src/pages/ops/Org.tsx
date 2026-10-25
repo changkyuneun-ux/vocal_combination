@@ -13,7 +13,7 @@ import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { formatKrw } from "../../format.ts";
 import { useParties } from "../works/data.tsx";
 import { useRecordText } from "./Confirmations.tsx";
-import { B, Card, Filters, Kv, Mono, Note, OpsPage, Stats, Sub, TableCard, useScopes } from "./common.tsx";
+import { B, Card, Filters, GroupDetail, GroupedTable, Kv, Mono, Note, OpsPage, Stats, Sub, TableCard, useScopes, type WorkGroup } from "./common.tsx";
 
 type Issue = { issueId: number; rule: string; severity: string; scopeId: string; subjectId: string; message: string; status: string; dueAt: string | null; checkedAt: string };
 const RULES: [string, string[]][] = [
@@ -24,63 +24,75 @@ const RULES: [string, string[]][] = [
 const OTHER_RULES: Record<string, string> = { DOC_PAYOUT_PROFILE_MISSING: "지급 정보", DOC_PLATFORM_CONTRACT_MISSING: "플랫폼 계약", TRUST_NOT_ROUTED: "신탁 수령 위임", DOC_AI_CONSENT_MISSING: "AI 보이스 동의" };
 const ruleName = (code: string) => RULES.find(([, cs]) => cs.some((c) => code.startsWith(c)))?.[0] ?? OTHER_RULES[code] ?? code;
 
-/** 운영 관리 › 점검 › 정합성 점검 전체(시안 Ops-Validation). */
+/** 운영 관리 › 점검 › 정합성 점검 전체(시안 Ops-Validation, 작품 묶음): 작품마다 요약 한 줄, 펼치면 걸린 항목과 규칙별 결과. */
 export function OpsValidation() {
   const qc = useQueryClient();
-  const { by, works, options } = useScopes();
-  const [scope, setScope] = useState(""), [sev, setSev] = useState("ALL");
-  const parties = useParties();
-  const p = usePaged<Issue>("ops-validation", "/validation-issues", { filters: { scope, status: "OPEN", severity: sev === "ALL" ? undefined : sev === "WARN+" ? "BLOCK,WARN" : sev } });
+  const { by, works } = useScopes();
+  const [sev, setSev] = useState("ALL");
   const all = useGet<Issue[]>(["readiness", "validation-all"], "/validation-issues?status=OPEN");
-  const text = useRecordText(p.rows.map((i) => i.scopeId));
-  const subject = (id: string) => (id.startsWith("CLAIM:") || id.startsWith("MANDATE:") ? text(id.split(":")[1]!.split("@")[0]!) : parties.names.get(id) ?? id);
   const open = all.data ?? [];
   const blocks = open.filter((i) => i.severity === "BLOCK"), warns = open.filter((i) => i.severity === "WARN");
   const scopes = works.filter((w) => w.scopeId);
-  const cell = (s: string, codes: string[]) => {
-    const hit = open.filter((i) => i.scopeId === s && codes.some((c) => i.rule.startsWith(c)));
-    if (hit.length === 0) return "✓";
-    const b = hit.filter((i) => i.severity === "BLOCK").length;
-    return <span style={{ color: b ? "var(--p-bad)" : "var(--p-warn)", fontWeight: 600 }}>{b ? `✕ 차단 ${b}` : `! 경고 ${hit.length}`}</span>;
-  };
-  const passed = scopes.length * RULES.length - scopes.reduce((a, w) => a + RULES.filter(([, cs]) => open.some((i) => i.scopeId === w.scopeId && cs.some((c) => i.rule.startsWith(c)))).length, 0);
+  const hitRules = (s: string | null) => RULES.filter(([, cs]) => open.some((i) => i.scopeId === s && cs.some((c) => i.rule.startsWith(c)))).length;
+  const passedWorks = scopes.filter((w) => hitRules(w.scopeId!) === 0);
   const last = open.map((i) => i.checkedAt).sort().at(-1);
   // 다시 점검: 곡마다 점검을 다시 돌린다(GET /scopes/:id/validation이 재검사한다).
   const recheck = () => void Promise.all(scopes.map((w) => api("GET", `/scopes/${encodeURIComponent(w.scopeId!)}/validation`))).then(() => qc.invalidateQueries());
   const due = warns.map((i) => i.dueAt).filter(Boolean).sort()[0];
+  const severity = sev === "ALL" ? undefined : sev === "WARN+" ? "BLOCK,WARN" : sev;
   return (
-    <OpsPage title="정합성 점검 전체" desc="모든 곡의 정합성 점검 결과. 차단이 있으면 그 곡의 분배 규칙을 활성화하지 못한다. 곡 하나는 작품 워크스페이스 › 분배 규칙·팩 ① 정합성 점검"
-      actions={<button type="button" className="p-btn wide" onClick={recheck}>다시 점검</button>}>
+    <OpsPage title="정합성 점검 전체" desc="작품마다 정합성 점검 결과. 차단이 있으면 그 곡의 분배 규칙을 활성화하지 못한다. 작품을 누르면 걸린 항목을 펼친다"
+      actions={<button type="button" className="p-btn" onClick={recheck}>다시 점검</button>}>
       <Stats items={[
         { label: "차단", value: blocks.length, note: "" },
-        { label: "경고", value: warns.length, note: `${[...new Set(warns.map((i) => by.get(i.scopeId)?.title ?? i.scopeId))].join(" · ")}${due ? ` · 기한 ${due.slice(5, 10)}` : ""}`, warn: warns.length > 0 },
-        { label: "통과 규칙", value: `${passed} / ${scopes.length * RULES.length}`, note: `곡 ${scopes.length} × 규칙 ${RULES.length}` },
+        { label: "경고", value: warns.length, note: `${[...new Set(warns.map((i) => by.get(i.scopeId)?.title ?? i.scopeId))].map((t) => `${t} ${warns.filter((i) => (by.get(i.scopeId)?.title ?? i.scopeId) === t).length}`).join(" · ")}${due ? ` · 기한 ${due.slice(5, 10)}` : ""}`, warn: warns.length > 0 },
+        { label: "통과 작품", value: `${passedWorks.length} / ${scopes.length}`, note: passedWorks.map((w) => w.title).join(" · ") },
         { label: "마지막 점검", value: last ? last.slice(11, 16) : "—", note: last?.slice(0, 10) ?? "" },
       ]} />
       <Filters placeholder="곡명, 규칙" selects={[
-        { name: "곡", value: scope, options, onChange: setScope },
         { name: "수준", value: sev, options: [["ALL", "전체"], ["WARN+", "경고 이상"], ["BLOCK", "차단"]], onChange: setSev },
       ]} />
-      <ErrorPanel error={p.error} />
-      <TableCard title={["걸린 항목", `${p.total}건`]} cols={["곡", "규칙", "수준", "대상", "내용", ""]} count={p.rows.length} empty="걸린 항목이 없습니다."
-        page={p.page} total={p.total} onPage={p.setPage} foot="경고 이상만 보인다. 수준을 '전체'로 바꾸면 통과한 규칙도 보인다.">
-        {p.rows.map((i) => {
-          const w = by.get(i.scopeId);
-          return (
-            <tr key={i.issueId}>
-              <td>{w?.title ?? i.scopeId}</td><td>{ruleName(i.rule)}</td><td><B tone={i.severity === "BLOCK" ? "bad" : "warn"}>{i.severity === "BLOCK" ? "차단" : "경고"}</B></td>
-              <td>{subject(i.subjectId)}</td><td>{i.rule === "DOC_CONFIRMATION_PENDING" && subject(i.subjectId).startsWith("작가 지분") ? "작가 서명 대기" : i.message}{i.dueAt ? ` · 기한 ${i.dueAt.slice(5, 10)} 지나면 차단` : ""}</td>
-              <td>{w && <Link to={`/works/${encodeURIComponent(w.workId)}/${i.rule === "DOC_CONFIRMATION_PENDING" ? "confirm" : "policy"}`}>곡 워크스페이스 › {i.rule === "DOC_CONFIRMATION_PENDING" ? "확인·동의" : "분배 규칙·팩"} →</Link>}</td>
-            </tr>
-          );
-        })}
-      </TableCard>
-      <Card title="규칙별 결과" hint={`곡 ${scopes.length} · 규칙 ${RULES.length}`}>
-        <TableCard cols={["규칙", ...scopes.map((w) => w.title)]} count={RULES.length} paged={false} minW={700} label="규칙별 결과">
-          {RULES.map(([n, cs]) => <tr key={n}><td>{n}</td>{scopes.map((w) => <td key={w.workId}>{cell(w.scopeId!, cs)}</td>)}</tr>)}
-        </TableCard>
-      </Card>
+      <ErrorPanel error={all.error} />
+      <GroupedTable kind="validation" label="정합성 점검" filters={{ severity }} cols={["차단", "경고", "통과 규칙", "상태"]}
+        cells={(g) => [g.summary.block, <span key="w" style={g.summary.warn ? { color: "var(--p-warn)", fontWeight: 700 } : undefined}>{g.summary.warn}</span>,
+          `${RULES.length - RULES.filter(([, cs]) => (g.rules ?? []).some((r) => cs.some((c) => r.startsWith(c)))).length} / ${RULES.length}`, g.status && <B key="b" tone={g.status[1]}>{g.status[0]}</B>]}
+        detail={(g) => <ValidationDetail g={g} severity={severity} open={open} />}
+        foot="수준 '전체'가 처음 값이다. 작품을 누르면 그 작품의 걸린 항목과 규칙별 결과를 펼친다." />
     </OpsPage>
+  );
+}
+
+/** 펼친 작품: 걸린 항목(10행 쪽 나눔) + 규칙별 결과(그 작품 안으로 옮김, 2026-10-24). */
+function ValidationDetail({ g, severity, open }: { g: WorkGroup; severity: string | undefined; open: Issue[] }) {
+  const parties = useParties();
+  const p = usePaged<Issue>(`ops-validation-${g.scopeId}`, "/validation-issues", { filters: { scope: g.scopeId ?? undefined, status: "OPEN", severity } });
+  const text = useRecordText(g.scopeId ? [g.scopeId] : []);
+  const subject = (id: string) => (id.startsWith("CLAIM:") || id.startsWith("MANDATE:") || id.startsWith("PART:") ? text(id.split(":")[1]!.split("@")[0]!) : parties.names.get(id) ?? id);
+  const cell = (codes: string[]) => {
+    const hit = open.filter((i) => i.scopeId === g.scopeId && codes.some((c) => i.rule.startsWith(c)));
+    if (hit.length === 0) return <span className="p-ok" style={{ fontWeight: 600 }}>✓ 통과</span>;
+    const b = hit.filter((i) => i.severity === "BLOCK").length;
+    return <span style={{ color: b ? "var(--p-bad)" : "var(--p-warn)", fontWeight: 600 }}>{b ? `✕ 차단 ${b}` : `! 경고 ${hit.length}`}</span>;
+  };
+  const passed = RULES.filter(([, cs]) => !open.some((i) => i.scopeId === g.scopeId && cs.some((c) => i.rule.startsWith(c)))).map(([n]) => n);
+  return (
+    <>
+      <GroupDetail cols={["규칙", "수준", "대상", "내용", ""]} count={p.rows.length} page={p.page} total={p.total} onPage={p.setPage}
+        note={`통과: ${passed.join(" · ") || "없음"}`} empty={p.isLoading ? "불러오는 중…" : `걸린 항목이 없습니다. 규칙 ${RULES.length}개 모두 통과.`}>
+        {p.rows.map((i) => (
+          <tr key={i.issueId}>
+            <td>{ruleName(i.rule)}</td><td><B tone={i.severity === "BLOCK" ? "bad" : "warn"}>{i.severity === "BLOCK" ? "차단" : "경고"}</B></td>
+            <td>{subject(i.subjectId)}</td><td>{i.rule === "DOC_CONFIRMATION_PENDING" && subject(i.subjectId).startsWith("작가 지분") ? "작가 서명 대기" : i.message}{i.dueAt ? ` · 기한 ${i.dueAt.slice(5, 10)} 지나면 차단` : ""}</td>
+            <td>{g.workId && <Link to={`/works/${encodeURIComponent(g.workId)}/${i.rule === "DOC_CONFIRMATION_PENDING" ? "confirm" : "policy"}`}>{i.rule === "DOC_CONFIRMATION_PENDING" ? "확인·동의" : "분배 규칙·팩"} 탭 →</Link>}</td>
+          </tr>
+        ))}
+      </GroupDetail>
+      <div style={{ borderTop: "1px solid var(--p-line)" }}>
+        <GroupDetail cols={["규칙별 결과", "결과"]} count={RULES.length} paged={false}>
+          {RULES.map(([n, cs]) => <tr key={n}><td>{n}</td><td>{cell(cs)}</td></tr>)}
+        </GroupDetail>
+      </div>
+    </>
   );
 }
 

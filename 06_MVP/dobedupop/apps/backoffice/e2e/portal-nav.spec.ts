@@ -62,14 +62,20 @@ test("사이드 메뉴 이동, 운영 관리 → 곡 워크스페이스, 원천 
   // 고르기 상자의 처음 값은 언제나 '전체'(2026-10-23)
   await expect(page.getByRole("combobox", { name: "상태" })).toHaveValue("ALL");
   await expect(page.getByRole("combobox", { name: "상태" }).locator("option").first()).toHaveText("전체");
-  await page.getByRole("link", { name: "곡 워크스페이스 › 확인·동의 →" }).first().click();
+  // 작품 묶음(2026-10-24): 첫 작품이 펼쳐져 있고, 행 링크로 곡 확인·동의 탭
+  await page.getByRole("region", { name: "Nav Test 상세" }).getByRole("link", { name: "확인·동의 탭 →" }).first().click();
   await expect(page).toHaveURL(/\/works\/wrk_navtest\/confirm$/);
-  // 시나리오 3: 원천 문서 쪽 나눔 — 1건이면 1–1 / 1, 다음 쪽 비활성
+  // 시나리오 3: 원천 문서 — 곡에 묶이지 않은 문서는 '조직 문서(작품 공통)' 묶음. 작품 목록 쪽 나눔 1–2 / 2, 펼친 상세 1–1 / 1
   await page.goto("/portal/ops/documents");
-  const pager = page.getByRole("navigation", { name: "쪽" });
-  await expect(pager).toContainText("1–1 / 1");
-  await expect(pager.getByRole("button", { name: "다음 쪽" })).toBeDisabled();
-  await expect(pager.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
+  const table = page.getByRole("table", { name: "원천 문서" });
+  await table.getByRole("button", { name: /조직 문서\(작품 공통\)/ }).click();
+  const org = page.getByRole("region", { name: "조직 문서(작품 공통) 상세" });
+  await expect(org).toContainText("Nav 녹음 계약서");
+  const inner = org.getByRole("navigation", { name: "쪽" });
+  await expect(inner).toContainText("1–1 / 1");
+  await expect(inner.getByRole("button", { name: "다음 쪽" })).toBeDisabled();
+  await expect(inner.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "Nav Test 상세" })).toHaveCount(0); // 한 번에 한 작품
   // 시나리오 4: 위임 대행·신탁·유통 연결 빈 화면, 플랫폼 열람 기록은 포털에 없다
   await page.goto("/portal/delegation");
   await expect(page.getByText("맡긴 업무가 없습니다. MVP에서는 쓰지 않는 메뉴입니다.")).toBeVisible();

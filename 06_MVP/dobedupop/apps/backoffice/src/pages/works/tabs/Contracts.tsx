@@ -1,122 +1,166 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { api, type ApiError } from "../../../api/client.ts";
 import { toAnswers, usableTemplates, type Contract, type FormValue, type Template } from "../../../api/contracts.ts";
 import { useGet } from "../../../api/hooks.ts";
-import { orgPartyIds, type DocumentRow, type PartyRow } from "../../../api/works.ts";
+import { orgPartyIds, uploadOriginal, type ConsentRow, type DocumentRow, type PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
-import { PageNav, PagedTableFoot } from "../../../components/PageNav.tsx";
 import { paginate } from "../../../api/paged.ts";
-import { currentClaims, groupContracts } from "../model.ts";
+import { currentClaims } from "../model.ts";
+import { B, Mono, Note, TableCard } from "../../ops/common.tsx";
 import { useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
 const KIND_LABEL: Record<string, string> = { MASTER_CONTRACT: "녹음 계약서", PUBLISHING: "퍼블리싱 계약서", PLATFORM_CONTRACT: "플랫폼 계약", PERFORMER_CONSENT: "실연 동의서", MANDATE: "수령 위임" };
-const th = (h: string) => <th key={h} style={{ padding: "8px 14px" }}>{h}</th>;
+const BASIS: Record<string, string> = { MASTER_CONTRACT: "녹음 · 마스터 보유", PUBLISHING: "작품 · 작가 지분" };
 const td = { padding: "9px 14px" } as const;
+const mmdd = (iso?: string | null) => (iso ? iso.slice(5, 10) : "");
 
 /**
- * 문서·계약 탭(시안 Song-Contracts.dc.html): 표준 계약 표(같은 템플릿의 서명 대기는 한 줄로 묶고 펼치기) · 원천 문서 · 오른쪽 계약 만들기(2px 주색 패널).
- * 수령 위임은 실연자 여럿을 고르면 한 사람씩 계약을 만든다.
+ * 문서·계약 탭(시안 Song-Contracts v2, 2026-10-24 곡 절차): 곡 진행 ①·③·④를 세 구역으로 나눈다.
+ * ① 원본 계약서(이 곡에 묶인 권리 근거 — 보기·불러오기) · ③ 권리 확정(권리 확인서 레이블용·작가용, 멤버 확인) · ④ 이용 허락(녹음·작품 이용허락, 실연 이용 동의, 수령 위임).
+ * 제목 줄 버튼: "+ 원본 계약서 올리기"(이 곡에 묶어 올린다) · "+ 계약 만들기"(오른쪽 칸, 다시 누르면 닫힘).
  */
 export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const list = useGet<Contract[]>(["work-contracts", ctx.scopeId], `/contracts?scope=${encodeURIComponent(ctx.scopeId)}`);
-  const docs = useGet<DocumentRow[]>(["documents"], "/documents");
+  const docs = useGet<DocumentRow[]>(["documents", "scope", ctx.scopeId], `/documents?scope=${encodeURIComponent(ctx.scopeId)}&origin=UPLOADED`);
+  const consents = useGet<ConsentRow[]>(["work-consents", ctx.scopeId], `/consents?scope=${encodeURIComponent(ctx.scopeId)}`);
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const parties = useParties();
   const w = useWrite();
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [pg1, setPg1] = useState(1), [pg2, setPg2] = useState(1);
+  const [panel, setPanel] = useState<"new" | "upload" | null>(null);
+  const [pg1, setPg1] = useState(1);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setSlot(document.getElementById("ws-title-actions")), []);
   const own = orgPartyIds(mine.data);
-  const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
-  const tplTitle = (c: Contract) => `${(templates.data ?? []).find((t) => t.templateId === c.templateId && t.version === c.templateVersion)?.title ?? c.templateId} v${c.templateVersion}`;
-  // 시안 순서: 먼저 만든 계약부터(플랫폼 → 녹음 → 작품 → 수령 위임).
   const contracts = [...(list.data ?? [])].sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.contractId < b.contractId ? -1 : 1));
-  const scopeParties = new Set(currentClaims(ctx.facts.claims).map((c) => c.targetId));
-  const ctrDocs = new Set(contracts.flatMap((c) => (c.document ? [c.document.documentId] : [])));
-  const documents = (docs.data ?? []).filter((d) => !ctrDocs.has(d.documentId) && d.parties.some((p) => scopeParties.has(p)));
-  const other = (c: Contract) => c.signatures.find((s) => !own.has(s.partyId))?.displayName;
-  const ourTurn = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && own.has(s.partyId));
-  // 작가(사람 당사자, 계정 없음)에게 빅히트가 보낸 전자서명 링크로 서명을 기다리는 계약(결정 WD2, 시안 "전자서명 링크 보냄 · 다시 보내기").
+  // 시안 순서: 녹음 계약서 → 작품 계약서, 같은 종류는 올린 순.
+  const KIND_ORDER = ["MASTER_CONTRACT", "PUBLISHING"];
+  const originals = (docs.data ?? []).filter((d) => d.status !== "REJECTED")
+    .sort((a, b) => (KIND_ORDER.indexOf(a.kind) + 1 || 9) - (KIND_ORDER.indexOf(b.kind) + 1 || 9) || (a.uploadedAt ?? "").localeCompare(b.uploadedAt ?? ""));
   const authorIds = new Set(parties.items.filter((p) => p.partyType === "AUTHOR").map((p) => p.partyId));
   const eSignLink = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && authorIds.has(s.partyId));
-  // 같은 템플릿·같은 상태의 서명 대기 계약 여럿은 한 줄로(시안 "실연 수익 수령 위임 · 지민 외 5명").
-  const groups = groupContracts(contracts, own);
-  const status = (c: Contract): [string, string] => c.status === "COMPLETED" ? [`반영 · ${c.records.length ? "기록 확정" : "원천 문서"}`, "p-ok"]
-    : c.status === "SIGNED" ? ["서명 완료 · 반영 전", "p-warn"] : c.status === "CANCELLED" ? ["취소", "p-todo"] : [`서명 대기${eSignLink(c) ? ` · 전자서명 링크 보냄 ${c.createdAt.slice(5, 10)}` : ""}`, "p-warn"];
-  const signLine = (c: Contract) => [...c.signatures].sort((a, b) => Number(own.has(a.partyId)) - Number(own.has(b.partyId))).map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ");
-  const row = (c: Contract, child = false) => {
-    const [t, cls] = status(c);
-    return (
-      <tr key={c.contractId} className={child ? "cont" : ""}>
-        <td style={{ ...td, fontWeight: 600, paddingLeft: child ? 28 : 14 }}>{c.title}{other(c) ? ` · ${other(c)}` : ""}</td>
-        <td style={td}>{tplTitle(c)}</td>
-        <td style={td}>{signLine(c)}</td>
-        <td style={{ ...td, whiteSpace: "nowrap" }} className={cls}>{t}</td>
-        <td style={{ ...td, whiteSpace: "nowrap" }}>
-          {eSignLink(c) ? <button type="button" className="p-linkbtn" disabled={!ctx.can("contract.draft")}
-            onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/resend`), "전자서명 링크를 다시 보냈습니다")}>다시 보내기</button> : <>
-            {ourTurn(c) && ctx.can("contract.sign_org") && <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/sign`), "우리 쪽 서명을 했습니다")}>소속사 서명</button>}
-            {c.status === "SIGNED" && ctx.can("contract.draft") && <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/complete`), "기록에 반영했습니다(서명본은 원천 문서)")}>반영</button>}
-            {(c.status === "COMPLETED" || c.status === "CANCELLED" || (!ourTurn(c) && c.status === "SENT")) && <Link to="/contracts">보기</Link>}
-          </>}
-        </td>
-      </tr>
-    );
+  const ourTurn = (c: Contract) => c.status === "SENT" && c.signatures.some((s) => !s.signedAt && own.has(s.partyId));
+  const other = (c: Contract) => c.signatures.find((s) => !own.has(s.partyId))?.displayName;
+  const of = (tpl: string) => contracts.filter((c) => c.templateId === tpl && c.status !== "CANCELLED");
+  const cur = currentClaims(ctx.facts.claims);
+  const shares = cur.filter((c) => c.edge === "WRITTEN_BY").map((c) => c.shareBps / 100);
+  const memberVerified = ctx.members.filter((m) => cur.some((c) => c.edge === "OWNED_BY" && c.targetId === m.partyId && c.status === "VERIFIED")).length;
+  const consented = new Set((consents.data ?? []).filter((c) => c.rightType === "PERFORMER" && c.status === "SIGNED").map((c) => c.partyId));
+  const partyText = (d: DocumentRow) => (d.parties.length > 1 ? (d.parties.every((p) => authorIds.has(p)) ? `작가 ${d.parties.length}명` : `${d.parties.length}명`) : d.parties.map((p) => ctx.name(p)).join(", "));
+  /** 계약 묶음의 상태 배지: 하나면 그 계약 상태, 여럿이면 반영 수 / 전체. */
+  const status = (cs: Contract[]): ReactNode => {
+    if (cs.length === 0) return <B tone="muted">보내지 않음</B>;
+    if (cs.length > 1) { const n = cs.filter((c) => c.status === "COMPLETED").length; return <B tone={n === cs.length ? "ok" : "warn"}>{n} / {cs.length}</B>; }
+    const c = cs[0]!;
+    return c.status === "COMPLETED" ? <B tone="ok">반영{c.completedAt ? ` · ${mmdd(c.completedAt)}` : ""}</B>
+      : c.status === "SIGNED" ? <B tone="warn">서명 완료 · 반영 전</B>
+      : <B tone="warn">서명 대기{eSignLink(c) ? ` · ${mmdd(c.createdAt)} 보냄` : ""}</B>;
   };
+  /** 한 계약에 할 일(다시 보내기 · 소속사 서명 · 반영 · 서명본). */
+  const action = (c: Contract): ReactNode => eSignLink(c)
+    ? <button type="button" className="p-linkbtn" disabled={!ctx.can("contract.draft")} onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/resend`), "전자서명 링크를 다시 보냈습니다")}>다시 보내기</button>
+    : ourTurn(c) && ctx.can("contract.sign_org") ? <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/sign`), "우리 쪽 서명을 했습니다")}>소속사 서명</button>
+    : c.status === "SIGNED" && ctx.can("contract.draft") ? <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/complete`), "기록에 반영했습니다(서명본은 원천 문서)")}>반영</button>
+    : <Link to="/contracts">{c.status === "COMPLETED" ? "서명본" : "보기"}</Link>;
+  /** 여러 건이면 펼치기, 펼치면 계약마다 한 줄. */
+  const groupAction = (key: string, cs: Contract[]): ReactNode => cs.length === 1 ? action(cs[0]!) : cs.length === 0 ? null
+    : <button type="button" className="p-linkbtn" aria-expanded={open.has(key)} onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; })}>{open.has(key) ? "접기" : "펼치기"}</button>;
+  const children = (key: string, cs: Contract[]) => (cs.length > 1 && open.has(key) ? cs.map((c) => (
+    <tr key={c.contractId} className="cont"><td style={{ ...td, paddingLeft: 32, fontWeight: 400 }}>{c.title}{other(c) ? ` · ${other(c)}` : ""}</td><td />
+      <td>{c.signatures.map((s) => `${s.displayName} ${s.signedAt ? "✓" : "대기"}`).join(" · ")}</td><td>{status([c])}</td><td style={{ whiteSpace: "nowrap" }}>{action(c)}</td></tr>
+  )) : []);
+  const labelConfirm = of("tpl_claim_confirm_label"), authorConfirm = of("tpl_claim_confirm_author");
+  const masterLic = of("tpl_master_license"), workLic = of("tpl_work_license"), mandates = of("tpl_performer_mandate");
+  const importLink = <Link to={`/works/${encodeURIComponent(ctx.work.workId)}/contracts/import`}>계약서 불러오기</Link>;
+  const head = (
+    <>
+      <button type="button" className="p-btn" aria-pressed={panel === "upload"} disabled={!ctx.can("rights.edit")} onClick={() => setPanel(panel === "upload" ? null : "upload")}>+ 원본 계약서 올리기</button>
+      <button type="button" className="p-btn primary" aria-pressed={panel === "new"} disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => setPanel(panel === "new" ? null : "new")}>+ 계약 만들기</button>
+    </>
+  );
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
-      <div style={{ flex: "999 1 720px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-        <section className="p-card">
-          <div className="p-card-head"><h2>표준 계약 {contracts.length}</h2><span className="p-badge sm muted">작성 → 서명 → 반영 → 원천 문서</span><span style={{ marginLeft: "auto" }} />
-            <Link className="p-btn mid" to={`/works/${encodeURIComponent(ctx.work.workId)}/contracts/import`} aria-disabled={!ctx.can("contract.draft") || undefined}>계약서 불러오기</Link>
-            <button type="button" className="p-btn mid primary" disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => document.getElementById("newc")?.scrollIntoView()}>+ 계약 만들기</button></div>
-          <ErrorPanel error={list.error ?? w.err} />
-          <div className="p-scroll"><table className="p-table" style={{ minWidth: 680 }} aria-label="이 곡의 표준 계약">
-            <thead><tr>{["계약", "템플릿", "서명 당사자", "상태", ""].map(th)}</tr></thead>
-            <tbody>{paginate(groups, pg1).rows.flatMap((g) => {
-              if (g.length === 1) return [row(g[0]!)];
-              const key = g[0]!.contractId;
-              const mineToSign = g.filter(ourTurn);
-              return [
-                <tr key={`g${key}`} className="sel">
-                  <td style={{ ...td, fontWeight: 600 }}>{g[0]!.title} · {other(g[0]!)} 외 {g.length - 1}명</td>
-                  <td style={td}>{tplTitle(g[0]!)}</td>
-                  <td style={td}>멤버 {g.every((c) => c.signatures.filter((s) => !own.has(s.partyId)).every((s) => s.signedAt)) ? "✓" : "대기"} · 소속사 {mineToSign.length === 0 ? "✓" : "대기"}</td>
-                  <td style={td} className={status(g[0]!)[1]}>{g[0]!.status === "SIGNED" ? `반영 대기 ${g.length}` : `서명 대기 ${g.length}`}</td>
-                  <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    <button type="button" className="p-linkbtn" aria-expanded={open.has(key)} onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; })}>{open.has(key) ? "접기" : "펼치기"}</button>
-                    {mineToSign.length > 0 && ctx.can("contract.sign_org") && <> · <button type="button" className="p-linkbtn" onClick={() => void w.run(async () => { for (const c of mineToSign) await api("POST", `/contracts/${c.contractId}/sign`); }, `소속사 서명 ${mineToSign.length}건`)}>소속사 서명</button></>}
-                    {g[0]!.status === "SIGNED" && ctx.can("contract.draft") && <> · <button type="button" className="p-linkbtn" onClick={() => void w.run(async () => { for (const c of g) await api("POST", `/contracts/${c.contractId}/complete`); }, `반영 ${g.length}건`)}>반영</button></>}
-                  </td>
-                </tr>,
-                ...(open.has(key) ? g.map((c) => row(c, true)) : []),
-              ];
-            })}
-              {contracts.length === 0 && <tr><td style={td} colSpan={5} className="p-todo">이 곡의 계약이 없습니다.</td></tr>}
-            </tbody>
-          </table></div>
-          <PagedTableFoot note={w.notice ? <span role="status">{w.notice}</span> : undefined}><PageNav page={pg1} total={groups.length} onPage={setPg1} /></PagedTableFoot>
-        </section>
-        <section className="p-card">
-          <div className="p-card-head"><h2>원천 문서 {documents.length}</h2></div>
-          <table className="p-table"><tbody>{paginate(documents, pg2).rows.map((d, i) => (
-            <tr key={`${d.documentId}@${d.version}`} style={i === 0 ? { borderTop: 0 } : undefined}>
-              <td style={td}>{d.title} v{d.version} (PDF)</td>
-              <td style={td}>당사자 {d.parties.length > 1 ? `${d.parties.length}명` : d.parties.map((p) => ctx.name(p)).join(", ")}{d.effectiveFrom ? <> · <span className="nw">효력 {d.effectiveFrom.slice(0, 10)}</span></> : ""}</td>
-              <td style={td}>근거: {KIND_LABEL[d.kind] ?? d.kind}</td>
-            </tr>
-          ))}</tbody></table>
-          <PagedTableFoot note="반영된 표준 계약의 서명본은 원천 문서로 자동 등록된다."><PageNav page={pg2} total={documents.length} onPage={setPg2} /></PagedTableFoot>
-        </section>
+    <>
+      {slot && createPortal(head, slot)}
+      <Note>문서·계약은 곡 진행 ①·③·④를 다룬다. ② 권리 등록은 원곡 권리 탭, ⑤ 분배·출시는 분배 규칙·팩 · 승인·출시 탭.</Note>
+      <ErrorPanel error={list.error ?? docs.error ?? w.err} />
+      {w.notice && <p className="p-sub" role="status" style={{ margin: 0 }}>{w.notice}</p>}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
+        <div style={{ flex: "999 1 720px", minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }}>
+          <TableCard title={["① 원본 계약서", "권리의 근거 · 빅히트가 이미 맺은 계약서"]} label="① 원본 계약서" cols={["문서", "근거가 된 권리", "당사자", "효력", "올린 때", ""]}
+            count={originals.length} empty="이 곡에 묶인 원본 계약서가 없습니다. '+ 원본 계약서 올리기'로 올린다." page={pg1} total={originals.length} onPage={setPg1}
+            foot="이 곡에 묶인 원본 계약서만 보인다. '불러오기'로 계약서의 값을 원곡 권리에 채운다(읽기 틀).">
+            {paginate(originals, pg1).rows.map((d) => (
+              <tr key={`${d.documentId}@${d.version}`}><td>{d.title} v{d.version} (PDF)</td><td>{BASIS[d.kind] ?? KIND_LABEL[d.kind] ?? d.kind}</td><td>{partyText(d)}</td>
+                <td><Mono>{d.effectiveFrom?.slice(0, 10) ?? "—"}</Mono></td><td><Mono>{mmdd(d.uploadedAt)}</Mono></td>
+                <td style={{ whiteSpace: "nowrap" }}><Link to="/documents">보기</Link> · <Link to={`/works/${encodeURIComponent(ctx.work.workId)}/contracts/import?doc=${encodeURIComponent(d.documentId)}`}>불러오기</Link></td></tr>
+            ))}
+          </TableCard>
+          <TableCard title={["③ 권리 확정", "누가 무엇을 갖는가"]} label="③ 권리 확정" cols={["확인서", "확정하는 권리", "서명", "상태", ""]} count={3} paged={false}
+            foot="권리 확정 = 누가 몇 %를 갖는지 확정한다. 레이블 몫은 바로, 작가는 확인서 전자서명, 멤버는 실연자 앱 확인.">
+            <tr><td>권리 확인서 · 레이블용</td><td>마스터 보유 100%</td><td>{labelConfirm[0]?.signatures.map((s) => s.displayName).join(" · ") ?? "레이블"}</td><td>{status(labelConfirm)}</td>
+              <td style={{ whiteSpace: "nowrap" }}>{labelConfirm.length ? action(labelConfirm[0]!) : importLink}</td></tr>
+            <tr><td>권리 확인서 · 작가용</td><td>작가 지분 {shares.join(" · ") || "—"}</td><td>작가 {cur.filter((c) => c.edge === "WRITTEN_BY").length}명 · 전자서명 링크</td><td>{status(authorConfirm)}</td>
+              <td style={{ whiteSpace: "nowrap" }}>{authorConfirm.length ? action(authorConfirm[0]!) : importLink}</td></tr>
+            <tr><td>멤버 확인(실연자 앱)</td><td>보이스 소유 · 원곡 파트 담당</td><td>멤버 {ctx.members.length}명 본인</td>
+              <td><B tone={memberVerified === ctx.members.length && ctx.members.length > 0 ? "ok" : "warn"}>{memberVerified} / {ctx.members.length}</B></td>
+              <td style={{ whiteSpace: "nowrap" }}><Link to={`/works/${encodeURIComponent(ctx.work.workId)}/confirm`}>확인·동의 탭 →</Link></td></tr>
+          </TableCard>
+          <TableCard title={["④ 이용 허락", "팬앱에서 써도 되는가"]} label="④ 이용 허락" cols={["계약", "허락하는 것", "서명", "상태", ""]} count={4} paged={false}
+            foot="이용 허락 = 팬앱에서 써도 된다는 허락. 권리를 갖는 것과 별개다. 서명본은 원천 문서로 쌓인다.">
+            <tr><td>녹음 이용허락 표준계약 v1</td><td>녹음을 팬앱에서 쓴다(미리듣기·조합 생성·개인 보관)</td><td>{masterLic[0]?.signatures.map((s) => s.displayName).join(" · ") ?? "레이블"}</td><td>{status(masterLic)}</td>
+              <td style={{ whiteSpace: "nowrap" }}>{groupAction("master", masterLic)}</td></tr>
+            {children("master", masterLic)}
+            <tr><td>작품 이용허락 표준계약 v1 · 작가 {Math.max(workLic.length, cur.filter((c) => c.edge === "WRITTEN_BY").length)}명</td><td>작품을 팬앱에서 쓴다</td>
+              <td>작가 {Math.max(workLic.length, cur.filter((c) => c.edge === "WRITTEN_BY").length)}명 · 전자서명 링크</td><td>{status(workLic)}</td><td style={{ whiteSpace: "nowrap" }}>{groupAction("work", workLic)}</td></tr>
+            {children("work", workLic)}
+            <tr><td>실연 이용 동의 · 멤버 {ctx.members.length}명</td><td>보이스를 팬앱에서 쓴다</td><td>멤버 본인(실연자 앱)</td>
+              <td><B tone={consented.size >= ctx.members.length && ctx.members.length > 0 ? "ok" : "warn"}>{Math.min(consented.size, ctx.members.length)} / {ctx.members.length}</B></td>
+              <td style={{ whiteSpace: "nowrap" }}><Link to={`/works/${encodeURIComponent(ctx.work.workId)}/confirm`}>확인·동의 탭 →</Link></td></tr>
+            <tr><td>실연 수익 수령 위임 · 멤버 {ctx.members.length}명 → 소속사</td><td>실연 몫을 소속사가 받는다</td><td>멤버 → {mandates[0]?.signatures.find((s) => own.has(s.partyId))?.displayName ?? "소속사"}</td>
+              <td>{mandates.length === 0 ? <B tone="muted">보내지 않음</B> : <B tone={mandates.filter((c) => c.status === "COMPLETED").length === ctx.members.length ? "ok" : "warn"}>{mandates.filter((c) => c.status === "COMPLETED").length} / {ctx.members.length}</B>}</td>
+              <td style={{ whiteSpace: "nowrap" }}>{mandates.length === 1 ? action(mandates[0]!) : groupAction("mandate", mandates)}</td></tr>
+            {children("mandate", mandates)}
+          </TableCard>
+        </div>
+        {panel === "new" && <NewContract ctx={ctx} own={own} onDone={() => void list.refetch()} contracts={contracts} onClose={() => setPanel(null)} />}
+        {panel === "upload" && <UploadOriginal ctx={ctx} onClose={() => setPanel(null)} />}
       </div>
-      <NewContract ctx={ctx} own={own} onDone={() => void list.refetch()} contracts={contracts} />
-    </div>
+    </>
+  );
+}
+
+/** + 원본 계약서 올리기: 이 곡에 묶어 올린다(녹음 계약서 → 마스터 보유자, 작품 계약서 → 작가). 다른 곡의 계약서는 이 곡 근거로 쓰지 않는다. */
+function UploadOriginal({ ctx, onClose }: { ctx: WsCtx; onClose: () => void }) {
+  const w = useWrite();
+  const [kind, setKind] = useState<"MASTER_CONTRACT" | "PUBLISHING">("MASTER_CONTRACT");
+  const [file, setFile] = useState<File | null>(null);
+  const cur = currentClaims(ctx.facts.claims);
+  const parties = kind === "MASTER_CONTRACT" ? cur.filter((c) => c.edge === "CONTROLLED_BY").map((c) => c.targetId) : cur.filter((c) => c.edge === "WRITTEN_BY").map((c) => c.targetId);
+  const save = () => void w.run(async () => {
+    await uploadOriginal(file!, { kind, title: `${ctx.work.title} ${kind === "MASTER_CONTRACT" ? "녹음 계약서" : "작품 퍼블리싱 계약서"}`, parties, scope: ctx.scopeId });
+    onClose();
+  }, "원본 계약서를 올렸습니다 — 이 곡의 근거 문서가 된다");
+  return (
+    <aside className="p-card" aria-label="원본 계약서 올리기" style={{ flex: "1 1 380px", maxWidth: 440, border: "2px solid var(--p-accent)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>원본 계약서 올리기</h2>
+      <label className="p-field lg">계약서 종류<select className="p-select" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+        <option value="MASTER_CONTRACT">녹음 계약서(마스터 보유)</option><option value="PUBLISHING">작품 퍼블리싱 계약서(작가 지분)</option></select></label>
+      <label className="p-field lg">파일<input className="p-input" type="file" accept="application/pdf,image/png,image/jpeg" aria-label="계약서 파일" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <span style={{ fontSize: 12, fontWeight: 400, color: "var(--p-muted)" }}>PDF · 이 곡에 묶여 원본 계약서가 된다 — 다른 곡의 계약서는 보이지 않는다</span></label>
+      {w.err && <ErrorPanel error={w.err} />}
+      <div className="p-row" style={{ justifyContent: "flex-end" }}>
+        <button type="button" className="p-btn" onClick={onClose}>취소</button>
+        <button type="button" className="p-btn primary" disabled={!file || w.busy} onClick={save}>올리기</button>
+      </div>
+    </aside>
   );
 }
 
 /** 계약 만들기(시안 오른쪽 2px 주색 패널): 1/3 템플릿 · 2/3 내용 · 미리보기는 내용이 차면 자동. */
-function NewContract({ ctx, own, contracts, onDone }: { ctx: WsCtx; own: Set<string>; contracts: Contract[]; onDone: () => void }) {
+function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own: Set<string>; contracts: Contract[]; onDone: () => void; onClose: () => void }) {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const parties = useParties();
   // 권리 확인서(CLAIM_CONFIRM)는 계약서 불러오기에서 만든다.
@@ -148,14 +192,17 @@ function NewContract({ ctx, own, contracts, onDone }: { ctx: WsCtx; own: Set<str
       setNotice(`서명 요청 ${multi ? performers.length : 1}건을 보냈습니다`); setErr(null); setTid(""); setForm({}); onDone();
     } catch (e) { setErr(e as ApiError); }
   };
-  const choices = (name: string) => (name === "agency" ? parties.items.filter((p) => own.has(p.partyId)) : parties.items);
-  const ownTag = (p: string) => (own.has(p) ? "(우리 당사자)" : "");
+  // 유형별 거르기: 수령하는 소속사 = 빅히트 관리 소속사만.
+  const choices = (name: string) => (name === "agency" ? parties.items.filter((p) => own.has(p.partyId) && p.partyType === "AGENCY") : parties.items);
   const label = { display: "flex", flexDirection: "column", gap: 4, fontWeight: 600 } as const;
   return (
     <aside id="newc" className="p-panel form" aria-label="계약 만들기" style={{ flex: "1 1 380px", maxWidth: 440, display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--p-line)" }}>
-        <div className="p-sub" style={{ fontSize: 12 }}>계약 만들기 · {!t ? "1/3 템플릿" : !preview ? "2/3 내용" : "3/3 미리보기"}</div>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{t?.title ?? "템플릿 고르기"}</h2>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--p-line)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div style={{ flex: "1 1 auto" }}>
+          <div className="p-sub" style={{ fontSize: 12 }}>계약 만들기 · {!t ? "1/3 템플릿" : !preview ? "2/3 내용" : "3/3 미리보기"}</div>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{t?.title ?? "템플릿 고르기"}</h2>
+        </div>
+        <button type="button" className="p-btn" aria-label="닫기" style={{ width: 32, height: 32, padding: 0, fontSize: 18, lineHeight: 1, borderRadius: 8 }} onClick={onClose}>×</button>
       </div>
       <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
         <label style={label}>템플릿<select className="p-select" aria-label="계약 종류" style={{ fontWeight: 400, padding: "8px 10px" }} value={tid} onChange={(e) => { setTid(e.target.value); setForm({}); setPreview(null); }}>
@@ -169,7 +216,7 @@ function NewContract({ ctx, own, contracts, onDone }: { ctx: WsCtx; own: Set<str
           </select></label>
         ) : v.type === "party" ? (
           <label key={v.name} style={label}>{v.label}<select className="p-select" aria-label={v.label} style={{ fontWeight: 400, padding: "8px 10px" }} value={(form[v.name] as string) ?? ""} onChange={(e) => setForm({ ...form, [v.name]: e.target.value })}>
-            <option value="">명부에서 고르기</option>{choices(v.name).map((p) => <option key={p.partyId} value={p.partyId}>{p.displayName}{ownTag(p.partyId)}</option>)}
+            <option value="">명부에서 고르기</option>{choices(v.name).map((p) => <option key={p.partyId} value={p.partyId}>{p.displayName}</option>)}
           </select></label>
         ) : v.type === "multi" ? (
           <fieldset key={v.name} style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontWeight: 600 }}>{v.label}</legend>

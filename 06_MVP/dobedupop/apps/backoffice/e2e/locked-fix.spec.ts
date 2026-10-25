@@ -15,7 +15,7 @@ test("새 버전 만들기: 위치·목록 거르기·실연 파트 담당 바�
   await page.goto("/portal/");
   await page.evaluate(() => localStorage.clear());
   await page.goto("/portal/works/wrk_dynamite/rights");
-  await expect(page.getByRole("status", { name: "IR 고정 상태" })).toContainText("IR 상태");
+  await expect(page.getByRole("status", { name: "곡 진행" })).toContainText("IR v1 · 판매 중");
 
   // 1. 위치: 안내 띠 자리(작품 카드 위)에 열리고, 띠는 숨는다. 취소하면 다시 띠.
   const band = page.getByText(/이 곡의 권리가 IR v1로 고정됐다/);

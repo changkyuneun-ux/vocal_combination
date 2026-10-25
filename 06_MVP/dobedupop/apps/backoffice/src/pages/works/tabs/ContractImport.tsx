@@ -6,7 +6,7 @@ import { ACTIONS, AUDIENCE, IMPORT_STEPS, MEDIA, TERRITORIES, managerName, stepN
 import type { DocumentRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { B, Card, Kv, Mono, Sub, TableCard } from "../../ops/common.tsx";
-import { useWrite } from "../data.tsx";
+import { useSongDocs, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
 /** 단계 표시(시안 steps()): 완료 = 완료 토큰, 지금 = 흰 바탕 2px 주색, 남음 = 점선. */
@@ -161,10 +161,12 @@ function Gaps({ v, locked, busy, onSave }: { v: ImportView; locked: boolean; bus
 
 /** ① 불러오기 시작(시안 추가 필요: 문서 고르기 단계는 시안에 없다 — 시안의 "불러온 계약서" 칸을 고르는 모양으로 쓴다). */
 function StartImport({ ctx, onStarted }: { ctx: WsCtx; onStarted: (id: string) => void }) {
-  const docs = useGet<DocumentRow[]>(["documents"], "/documents");
+  // 이 곡의 원본 계약서만(0048). 문서·계약 탭 ①의 '불러오기'는 ?doc=으로 미리 고른다.
+  const docs = useSongDocs(ctx.scopeId);
   const w = useWrite();
-  const mine = (docs.data ?? []).filter((d) => (d.kind === "PUBLISHING" || d.kind === "MASTER_CONTRACT") && d.status !== "REJECTED" && !d.documentId.startsWith("doc_ctr_"));
-  const [doc, setDoc] = useState("");
+  const mine = docs.data.filter((d) => d.kind === "PUBLISHING" || d.kind === "MASTER_CONTRACT");
+  const [sp0] = useSearchParams();
+  const [doc, setDoc] = useState(sp0.get("doc") ?? "");
   const start = async () => {
     let id = "";
     const ok = await w.run(async () => { id = (await api<ImportView>("POST", `/scopes/${encodeURIComponent(ctx.scopeId)}/imports`, { documentId: doc })).importId; }, "불러왔습니다");

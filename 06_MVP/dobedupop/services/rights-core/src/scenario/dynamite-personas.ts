@@ -123,7 +123,7 @@ export const STEPS: Step[] = [
         }
       }
       for (const [id, title, kind, parties] of [[MASTER_DOC, "Dynamite 녹음 계약서", "MASTER_CONTRACT", ["pty_bighit_label"]], [PUBLISHING_DOC, "Dynamite 작품 퍼블리싱 계약서", "PUBLISHING", [...AUTHORS]]] as const) {
-        const q = new URLSearchParams({ documentId: id, kind, title, parties: parties.join(","), effectiveFrom: T0 });
+        const q = new URLSearchParams({ documentId: id, kind, title, parties: parties.join(","), effectiveFrom: T0, scope: SCOPE }); // 이 곡의 원본 계약서(0048)
         await must(`upload ${title}`, d.upload("portal", P.rights, `/documents?${q}`, pdf(title), "application/pdf"));
       }
     },

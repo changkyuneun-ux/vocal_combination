@@ -253,12 +253,12 @@ async function supersedeRequests(tx: Tx, type: "CLAIM" | "MANDATE", id: string, 
  * 문서를 주지 않으면 준 digest(이전 방식)를 쓰고, 그 digest가 직전 버전과 같으면 직전 버전의 근거 연결을 이어받는다(분쟁 개시·종결이 만드는 새 버전).
  */
 async function resolveEvidence(
-  tx: Tx, table: "right_claim" | "mandate", key: string, id: string, version: number, d: { evidenceDigest?: string; evidenceDocuments?: DocumentRef[]; linkedBy?: string },
+  tx: Tx, table: "right_claim" | "mandate", key: string, id: string, version: number, d: { factsScopeId: string; evidenceDigest?: string; evidenceDocuments?: DocumentRef[]; linkedBy?: string },
 ): Promise<{ digest: string | null; link: (tx: Tx, clock: Clock, type: "CLAIM" | "MANDATE", id: string, version: number) => Promise<void> }> {
   if (d.evidenceDocuments !== undefined && d.evidenceDocuments.length > 0) {
     if (d.evidenceDigest !== undefined) throw invalid("INVALID_EVIDENCE", "give evidenceDocuments or evidenceDigest, not both");
     if (d.linkedBy === undefined) throw invalid("INVALID_EVIDENCE", "linkedBy is required with evidenceDocuments");
-    const digest = await evidenceDigest(tx, d.evidenceDocuments);
+    const digest = await evidenceDigest(tx, d.evidenceDocuments, d.factsScopeId);
     const refs = d.evidenceDocuments;
     return { digest, link: (tx, clock, type, rid, v) => linkEvidence(tx, clock, d.linkedBy!, type, rid, v, refs) };
   }

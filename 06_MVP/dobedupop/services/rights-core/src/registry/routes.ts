@@ -1,3 +1,5 @@
+import { listWorkGroups } from "./work-groups.ts";
+import { songProgress } from "./progress.ts";
 import { retireStem } from "./stem-retire.ts";
 import { recordPartAssignment, type PartAssignmentInput } from "./part-assignment.ts";
 import type { FastifyInstance } from "fastify";
@@ -248,6 +250,10 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     return pagedOr(q0(req), rows);
   }));
   app.get<{ Params: { id: string } }>("/scopes/:id/readiness", async (req) => withActor(deps, req, (tx) => scopeReadiness(tx, req.params.id, deps.clock.now())));
+  // 작품 단위 묶음 목록(2026-10-24): 운영 관리 목록의 작품 요약 한 줄. 쪽 번호·필터는 작품 요약 기준, 상세 행은 각 목록 API에 scope로.
+  app.get<{ Params: { kind: string } }>("/work-groups/:kind", async (req) => withActor(deps, req, (tx) => listWorkGroups(tx, req.params.kind, q0(req), deps.clock.now())));
+  // 곡 진행 ①~⑤(2026-10-24): 원본 계약서 → 권리 등록 → 권리 확정 → 이용 허락 → 분배·출시.
+  app.get<{ Params: { id: string } }>("/scopes/:id/progress", async (req) => withActor(deps, req, (tx) => songProgress(tx, req.params.id, deps.clock.now())));
   app.get("/disputes", async (req) =>
     withActor(deps, req, (tx) => q.listDisputes(tx, { status: optFilter(q0(req), "status"), scope: optFilter(q0(req), "scope") }, parsePage(q0(req)))));
 }

@@ -24,7 +24,7 @@ const STATUS_TONE: Record<string, Badge["tone"]> = { "입력 중": "gray", "확�
 /** 경로 → 지금 화면 키. */
 export function activeKey(path: string): string {
   if (path === "/works") return "works-list";
-  if (path === "/works/new") return "works-new";
+  if (path === "/works/new") return "works-list"; // 새 곡은 작품 목록의 버튼으로 연다(시안 Song-Create: 작품 목록 활성)
   // 곡의 어느 탭(과 그 아래 화면)이든 사이드 메뉴의 지금 화면은 곡 이름 줄이다.
   if (/^\/works\/[^/]+\/[a-z]+/.test(path)) return "ws";
   return OPS[path] ?? "";

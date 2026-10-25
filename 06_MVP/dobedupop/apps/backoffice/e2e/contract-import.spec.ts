@@ -36,7 +36,8 @@ test("빅히트: 퍼블리싱 계약서 불러오기 → 후보 4개 확인 → 
 
   // 문서·계약 탭 → 계약서 불러오기
   await actAs(page, BH, "/portal/works/wrk_dynamite/contracts");
-  await page.getByRole("link", { name: "계약서 불러오기" }).click();
+  // ① 원본 계약서(이 곡에 묶인 계약서) 줄의 "불러오기" — 그 문서를 미리 고른다
+  await page.getByRole("table", { name: "① 원본 계약서" }).getByRole("row", { name: /작품 퍼블리싱 계약서/ }).getByRole("link", { name: "불러오기" }).click();
   await expect(page.getByRole("heading", { name: "계약서 불러오기", level: 1 })).toBeVisible();
   await page.getByLabel("불러올 계약서").selectOption({ label: "Dynamite 작품 퍼블리싱 계약서 v1" });
   await page.getByRole("button", { name: "불러오기", exact: true }).click();

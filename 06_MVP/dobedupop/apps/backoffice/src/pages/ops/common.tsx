@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useGet } from "../../api/hooks.ts";
 import type { WorkOverview } from "../../api/works.ts";
 import { EmptyRow, PageNav, PagedTableFoot } from "../../components/PageNav.tsx";
+import { usePaged } from "../../api/paged.ts";
 
 /**
  * 운영 관리 화면 공통(시안 gen_ops_mockups.py의 page()·stats()·filters()·table()·card()·note()·kv()·badge()).
@@ -121,4 +122,65 @@ export function CsvButton({ name, head, rows }: { name: string; head: string[]; 
     a.download = `${name}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
   return <button type="button" className="p-btn" onClick={go}>엑셀 다운로드</button>;
+}
+
+/** 작품 요약 한 줄(GET /work-groups/:kind). scopeId가 null이면 작품 공통(조직 문서). */
+export type WorkGroup = { scopeId: string | null; workId: string | null; title: string; sub: string; summary: Record<string, number>; status: [string, "ok" | "warn" | "bad" | "muted"] | null; rules?: string[] };
+const groupKey = (g: WorkGroup) => g.scopeId ?? "none";
+
+/**
+ * 작품 묶음 표(시안 grouped(), 디자인 가이드 5절, 2026-10-24): 작품마다 요약 한 줄 → 누르면 그 작품 상세만 아래에 펼친다.
+ * 한 번에 한 작품, 전체 펼치기 없음. 작품 목록은 서버 쪽 번호(10개), 상세는 detail이 자기 쪽 나눔(10행)을 한다.
+ */
+export function GroupedTable({ kind, filters, cols, cells, detail, foot, label, minW = 900 }: {
+  kind: string; filters?: Record<string, string | undefined>; cols: string[]; cells: (g: WorkGroup) => ReactNode[];
+  detail: (g: WorkGroup) => ReactNode; foot?: ReactNode; label: string; minW?: number;
+}) {
+  const p = usePaged<WorkGroup>(`work-groups-${kind}`, `/work-groups/${kind}`, { filters });
+  // 처음에는 첫 작품을 펼친다(시안). 같은 작품을 다시 누르면 접는다.
+  const [open, setOpen] = useState<string | null | undefined>(undefined);
+  const openKey = open === undefined ? (p.rows[0] ? groupKey(p.rows[0]) : null) : open;
+  return (
+    <section className="p-card">
+      <div className="p-scroll">
+        <table className="p-table ops p-grouped" style={{ minWidth: minW }} aria-label={label}>
+          <thead><tr><th>작품</th>{cols.map((c) => <th key={c}>{c}</th>)}<th /></tr></thead>
+          <tbody>
+            {p.rows.length === 0 && <EmptyRow cols={cols.length + 2}>{p.isLoading ? "불러오는 중…" : "해당하는 작품이 없습니다."}</EmptyRow>}
+            {p.rows.flatMap((g) => {
+              const k = groupKey(g), on = k === openKey;
+              const toggle = () => setOpen(on ? null : k);
+              return [
+                <tr key={k} className={on ? "open" : ""}>
+                  <td>
+                    <button type="button" className="p-group-name" aria-expanded={on} onClick={toggle}><span className="chev" aria-hidden="true">▸</span><span>{g.title}</span></button>
+                    {g.sub && <div className="p-group-sub">{g.sub}</div>}
+                  </td>
+                  {cells(g).map((c, i) => <td key={i}>{c}</td>)}
+                  <td style={{ textAlign: "right" }}><button type="button" className="p-linkbtn p-group-act" onClick={toggle}>{on ? "접기" : "상세 보기"}</button></td>
+                </tr>,
+                ...(on ? [<tr key={`${k}-d`} className="p-group-detail"><td colSpan={cols.length + 2}><div role="region" aria-label={`${g.title} 상세`} className="p-group-inner">{detail(g)}</div></td></tr>] : []),
+              ];
+            })}
+          </tbody>
+        </table>
+      </div>
+      <PagedTableFoot note={foot ?? "작품을 누르면 그 작품 상세만 펼친다. 한 번에 한 작품씩."}><PageNav page={p.page} total={p.total} onPage={p.setPage} /></PagedTableFoot>
+    </section>
+  );
+}
+
+/** 펼친 작품의 상세 표(안쪽 표 13.5px, 10행 쪽 나눔). 행이 없으면 안내 한 줄. */
+export function GroupDetail({ cols, count, children, page, total, onPage, note, empty, paged = true }: {
+  cols: string[]; count: number; children: ReactNode; page?: number; total?: number; onPage?: (p: number) => void; note?: ReactNode; empty?: ReactNode; paged?: boolean;
+}) {
+  if (count === 0) return <div className="p-group-empty">{empty ?? "해당 항목이 없습니다."}</div>;
+  return (
+    <>
+      <div className="p-scroll"><table className="p-table p-inner"><thead><tr>{cols.map((c, i) => <th key={`${c}${i}`}>{c}</th>)}</tr></thead><tbody>{children}</tbody></table></div>
+      {(note || (paged && page !== undefined)) && (
+        <div className="p-inner-foot"><span style={{ flex: "1 1 auto" }}>{note}</span>{paged && page !== undefined && <PageNav page={page} total={total ?? 0} onPage={onPage!} />}</div>
+      )}
+    </>
+  );
 }

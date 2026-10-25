@@ -1,3 +1,4 @@
+import { useGet } from "../../api/hooks.ts";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import type { ReadinessItem, WorkFacts, WorkOverview } from "../../api/works.ts";
@@ -76,14 +77,7 @@ export function Workspace() {
   };
   return (
     <main className="p-main">
-      {sealed ? (
-        <div className="p-ready" role="status" aria-label="IR 고정 상태"><strong>IR 상태</strong><span className="p-irt">IR v{pp.policy?.latestVersion ?? 1}</span><span className="p-todo">facts v{pp.policy?.latestVersion ?? 1} · 정책 v{pp.policy?.latestVersion ?? 1} digest 고정</span><span className="p-todo">원곡 권리·스템은 조회만(바로잡기는 새 버전)</span></div>
-      ) : (
-        <div className="p-ready" role="status" aria-label="IR 생성 준비">
-          <strong>IR 생성 준비</strong>
-          {(ready.data?.items ?? []).map((i) => { const m = readyMark(i); return <span key={i.key} className={m.cls} title={i.detail}>{m.mark} {m.text}</span>; })}
-        </div>
-      )}
+      {scopeId && <SongProgress scopeId={scopeId} />}
       <div className="p-title-row">
         {subPage ? <div><h1>{subPage.title}</h1><div className="p-desc">{subPage.desc}</div></div>
           : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-desc">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
@@ -122,4 +116,24 @@ export function readyMark(i: ReadinessItem): { mark: string; cls: string; text: 
   const soft = ["consents", "mandates", "audio"].includes(i.key);
   return i.ok === true ? { mark: "✓", cls: "p-ok", text: text[i.key] ?? i.label }
     : soft ? { mark: "·", cls: "p-todo", text: text[i.key] ?? i.label } : { mark: "!", cls: "p-warn", text: text[i.key] ?? i.label };
+}
+
+type Step = { key: string; label: string; state: "done" | "now" | "todo"; note: string };
+/**
+ * 곡 진행 ①~⑤ 띠(시안 progress(), 디자인 가이드 4절): 원본 계약서 → 권리 등록 → 권리 확정 → 이용 허락 → 분배·출시.
+ * 단계 상태와 아래 글은 코어가 실제 데이터로 계산한다(GET /scopes/:id/progress). 모든 곡 탭 위에 둔다.
+ */
+export function SongProgress({ scopeId }: { scopeId: string }) {
+  const p = useGet<{ steps: Step[] }>(["readiness", "progress", scopeId], `/scopes/${encodeURIComponent(scopeId)}/progress`);
+  const steps = p.data?.steps ?? [];
+  return (
+    <div className="p-progress" role="status" aria-label="곡 진행">
+      {steps.map((s, i) => (
+        <div key={s.key} className={`p-progress-step ${s.state}`} aria-current={s.state === "now" ? "step" : undefined}>
+          <span className="mark" aria-hidden="true">{s.state === "done" ? "✓" : i + 1}</span>
+          <div><div className="name">{s.label}</div><div className="note">{s.note}</div></div>
+        </div>
+      ))}
+    </div>
+  );
 }

@@ -7,7 +7,7 @@ import type { ConfirmationRow, WorkFacts } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { useParties } from "../works/data.tsx";
 import { slotPartRows } from "../works/model.ts";
-import { B, CsvButton, Filters, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes } from "./common.tsx";
+import { B, CsvButton, Filters, GroupDetail, GroupedTable, Mono, OpsPage, Stats, mmdd, useScopes, type WorkGroup } from "./common.tsx";
 
 const STATUS: Record<string, [string, "ok" | "warn" | "bad" | "muted"]> = { OPEN: ["대기", "warn"], CONFIRMED: ["확인됨", "ok"], PLATFORM_VERIFIED: ["운영 대조 확인(지난 기록)", "ok"], DECLINED: ["거절", "bad"], SUPERSEDED: ["새 버전으로 대체", "muted"] };
 const DAY = 86_400_000;
@@ -45,57 +45,63 @@ export function useRecordText(scopeIds: string[]) {
   };
 }
 
-/** 운영 관리 › 확인·동의 › 확인 요청 전체(시안 Nav-Ops-Confirm): 모아 보고 곡 워크스페이스로 이동만 한다. */
+/** 운영 관리 › 확인·동의 › 확인 요청 전체(시안 Nav-Ops-Confirm, 작품 묶음): 작품마다 요약 한 줄, 누르면 그 작품 요청만 펼친다. */
 export function OpsConfirmations() {
   const clock = useClock();
-  const { by, options } = useScopes();
+  const { by } = useScopes();
   const parties = useParties();
-  const [scope, setScope] = useState(""), [kind, setKind] = useState(""), [status, setStatus] = useState("ALL");
-  const p = usePaged<ConfirmationRow>("ops-confirmations", "/confirmations", { filters: { scope, counterparty: kind, status: status === "ALL" ? undefined : status } });
+  const [kind, setKind] = useState(""), [status, setStatus] = useState("ALL");
   const all = useGet<ConfirmationRow[]>(["work-confirmations"], "/confirmations");
-  const text = useRecordText(p.rows.map((r) => r.factsScopeId));
   const now = clock.data?.now ?? new Date().toISOString();
   const rows = all.data ?? [];
   const open = rows.filter((r) => r.status === "OPEN");
   const soon = open.filter((r) => Date.parse(r.dueAt) - Date.parse(now) <= 3 * DAY);
   const month = now.slice(0, 7);
   const confirmed = rows.filter((r) => (r.status === "CONFIRMED" || r.status === "PLATFORM_VERIFIED") && (r.decidedAt ?? "").slice(0, 7) === month);
-  const ptype = (id: string) => parties.items.find((x) => x.partyId === id)?.partyType;
-  const who = (id: string) => (ptype(id) === "MEMBER" ? `${parties.names.get(id) ?? id}(실연자 앱)` : ptype(id) === "AUTHOR" ? "작가(전자서명 링크)" : parties.names.get(id) ?? id);
+  const filters = { counterparty: kind || undefined, status: status === "ALL" ? undefined : status };
   return (
-    <OpsPage title="확인 요청 전체" desc="빅히트 뮤직의 모든 곡에서 상대 당사자에게 보낸 확인 요청. 곡 하나의 확인은 작품 워크스페이스 › 확인·동의에서"
+    <OpsPage title="확인 요청 전체" desc="빅히트 뮤직의 모든 곡에서 상대 당사자에게 보낸 확인 요청. 작품을 누르면 그 작품의 요청만 펼친다"
       actions={<CsvButton name="confirmations" head={["곡", "기록", "상대", "요청", "기한", "상태"]} rows={rows.map((r) => [by.get(r.factsScopeId)?.title ?? r.factsScopeId, r.recordId, r.counterpartyId, r.requestedAt, r.dueAt, r.status])} />}>
       <Stats items={[
-        { label: "대기", value: open.length, note: `곡 ${new Set(open.map((r) => r.factsScopeId)).size}` },
+        { label: "대기", value: open.length, note: `작품 ${new Set(open.map((r) => r.factsScopeId)).size}` },
         { label: "기한 3일 안", value: soon.length, note: "지나면 정합성 차단", warn: soon.length > 0 },
-        { label: "확인됨(이번 달)", value: confirmed.length, note: `상대 ${new Set(confirmed.map((r) => r.counterpartyId)).size}` },
+        { label: "확인됨(이번 달)", value: confirmed.length, note: ((ids) => `${ids.every((x) => parties.items.find((p) => p.partyId === x)?.partyType === "MEMBER") ? "멤버" : "상대"} ${ids.length}`)([...new Set(confirmed.map((r) => r.counterpartyId))]) },
         { label: "거절·이의제기", value: rows.filter((r) => r.status === "DECLINED").length, note: "분쟁으로 이어짐" },
       ]} />
       <Filters placeholder="곡명, 기록, 상대 당사자" selects={[
-        { name: "곡", value: scope, options, onChange: setScope },
         { name: "상대", value: kind, options: [["", "상대 전체"], ["MEMBER", "멤버(실연자 앱)"], ["AUTHOR", "작가(전자서명 링크)"]], onChange: setKind },
         { name: "상태", value: status, options: [["ALL", "전체"], ["OPEN", "대기"], ["CONFIRMED", "확인됨"], ["DECLINED", "거절"]], onChange: setStatus },
       ]} />
-      <ErrorPanel error={p.error} />
-      <TableCard label="확인 요청" cols={["곡", "기록", "확인할 상대", "요청", "기한", "상태", ""]} count={p.rows.length} empty="확인 요청이 없습니다."
-        page={p.page} total={p.total} onPage={p.setPage} foot="멤버 확인은 실연자 앱에서 본인이, 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 확인한다. 이 화면은 조회와 이동만 한다.">
-        {p.rows.map((r) => {
-          const w = by.get(r.factsScopeId);
-          const soonDue = r.status === "OPEN" && Date.parse(r.dueAt) - Date.parse(now) <= 3 * DAY;
-          const [t, tone] = STATUS[r.status] ?? [r.status, "muted"];
-          return (
-            <tr key={r.requestId}>
-              <td><Sub main={w?.title ?? r.factsScopeId} /></td>
-              <td>{text(r.recordId)}</td>
-              <td>{who(r.counterpartyId)}</td>
-              <td><Mono>{mmdd(r.requestedAt)}</Mono></td>
-              <td><span className="p-mono" style={{ fontSize: 13, ...(soonDue ? { color: "var(--p-warn)", fontWeight: 600 } : { color: "var(--p-fg-2)" }) }}>{r.dueAt.slice(5, 10)}</span></td>
-              <td><B tone={tone}>{t}</B></td>
-              <td>{w && <Link to={`/works/${encodeURIComponent(w.workId)}/confirm`}>곡 워크스페이스 › 확인·동의 →</Link>}</td>
-            </tr>
-          );
-        })}
-      </TableCard>
+      <ErrorPanel error={all.error} />
+      <GroupedTable kind="confirmations" label="확인 요청" filters={filters} cols={["대기", "기한 3일 안", "확인됨", "상태"]}
+        cells={(g) => [g.summary.open, <span key="s" style={g.summary.soon ? { color: "var(--p-warn)", fontWeight: 700 } : undefined}>{g.summary.soon}</span>, g.summary.confirmed, g.status && <B key="b" tone={g.status[1]}>{g.status[0]}</B>]}
+        detail={(g) => <ConfirmDetail g={g} filters={filters} now={now} />}
+        foot="멤버는 실연자 앱에서 본인이, 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 확인한다. 작품을 누르면 그 작품 요청만 펼친다(한 번에 하나)." />
     </OpsPage>
+  );
+}
+
+function ConfirmDetail({ g, filters, now }: { g: WorkGroup; filters: Record<string, string | undefined>; now: string }) {
+  const parties = useParties();
+  const p = usePaged<ConfirmationRow>(`ops-confirmations-${g.scopeId}`, "/confirmations", { filters: { ...filters, scope: g.scopeId ?? undefined } });
+  const text = useRecordText(g.scopeId ? [g.scopeId] : []);
+  const ptype = (id: string) => parties.items.find((x) => x.partyId === id)?.partyType;
+  const who = (id: string) => (ptype(id) === "MEMBER" ? `${parties.names.get(id) ?? id}(실연자 앱)` : ptype(id) === "AUTHOR" ? "작가(전자서명 링크)" : parties.names.get(id) ?? id);
+  return (
+    <GroupDetail cols={["기록", "확인할 상대", "요청", "기한", "상태", ""]} count={p.rows.length} page={p.page} total={p.total} onPage={p.setPage}
+      note={p.total > 0 ? `${g.title} ${p.total}건` : undefined} empty={p.isLoading ? "불러오는 중…" : "확인 요청이 없습니다."}>
+      {p.rows.map((r) => {
+        const soonDue = r.status === "OPEN" && Date.parse(r.dueAt) - Date.parse(now) <= 3 * DAY;
+        const [t, tone] = STATUS[r.status] ?? [r.status, "muted"];
+        return (
+          <tr key={r.requestId}>
+            <td>{text(r.recordId)}</td><td>{who(r.counterpartyId)}</td><td><Mono>{mmdd(r.requestedAt)}</Mono></td>
+            <td><span className="p-mono" style={soonDue ? { color: "var(--p-warn)", fontWeight: 700 } : undefined}>{r.dueAt.slice(5, 10)}</span></td>
+            <td><B tone={tone}>{t}</B></td>
+            <td>{g.workId && <Link to={`/works/${encodeURIComponent(g.workId)}/confirm`}>확인·동의 탭 →</Link>}</td>
+          </tr>
+        );
+      })}
+    </GroupDetail>
   );
 }

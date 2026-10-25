@@ -4,7 +4,7 @@ import type { ApiError, Paged } from "../../api/client.ts";
 import { sessionMode } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
 import type { Readiness, ScopeInfo, WorkFacts, WorkOverview } from "../../api/works.ts";
-import type { PartyRow } from "../../api/works.ts";
+import type { DocumentRow, PartyRow } from "../../api/works.ts";
 
 /** 작품 화면이 같이 쓰는 조회. 쓰기 뒤에는 WORKS_KEYS를 모두 다시 읽는다. */
 export const WORKS_KEYS = ["works-overview", "work-facts", "readiness", "scope-info", "parties", "work-contracts", "work-confirmations", "work-consents", "work-packs", "work-policies", "policy-version", "documents", "contract-imports", "claim-confirmations", "reading-frames"];
@@ -66,4 +66,13 @@ export function ReadyMark({ ok }: { ok: boolean | "warn" }) {
 export const STATUS_TONE: Record<string, string> = { "입력 중": "muted", "확인 대기": "warn", "IR 생성됨": "info", "판매 중": "ok", "분쟁·보류": "bad" };
 export function WorkStatusBadge({ status }: { status: string }) {
   return <span className={`badge ${STATUS_TONE[status] ?? "muted"}`}>{status}</span>;
+}
+
+/**
+ * 이 곡에 묶인 문서(0048, 2026-10-24 곡 절차): 근거 문서 고르기는 그 곡의 원본 계약서만 보인다(다른 곡 문서·이용허락 서명본 제외).
+ * originals=false면 그 곡의 서명본(실연 이용 동의·수령 위임 등)까지.
+ */
+export function useSongDocs(scopeId: string, originals = true) {
+  const q = useGet<DocumentRow[]>(["documents", "scope", scopeId, originals], `/documents?scope=${encodeURIComponent(scopeId)}${originals ? "&origin=UPLOADED" : ""}`, { enabled: scopeId !== "" });
+  return { ...q, data: (q.data ?? []).filter((d) => d.status !== "REJECTED") };
 }

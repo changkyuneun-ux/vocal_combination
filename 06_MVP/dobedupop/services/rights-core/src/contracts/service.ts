@@ -444,7 +444,7 @@ export async function completeContract(tx: Tx, clock: Clock, actor: Actor, store
   const doc = await storeGeneratedDocument(tx, clock, store, {
     owner: c.ownerTenantId, documentId: `doc_${contractId}`, kind: t.kind, title: `${t.title} (${contractId})`, parties: c.signatures.map((s) => s.partyId),
     effectiveFrom: typeof c.answers.validFrom === "string" ? c.answers.validFrom : null, effectiveTo: typeof c.answers.validTo === "string" ? c.answers.validTo : null,
-    html: signed.html, by: actor.userId,
+    html: signed.html, by: actor.userId, factsScopeId: c.factsScopeId,
   });
   const importId = typeof c.answers.importId === "string" ? c.answers.importId : undefined;
   const records = await apply(tx, clock, actor, c.factsScopeId, plan(t, contractId, c.answers), doc, importId);
@@ -503,6 +503,6 @@ export async function performerConsentOriginal(
     + `<tr><th>기기</th><td>${esc(device.slice(0, 200) || "알 수 없음")}</td></tr><tr><th>원문 SHA-256</th><td><code>${sha256}</code></td></tr></tbody></table></section>`;
   return storeGeneratedDocument(tx, clock, store, {
     owner: actor.tenantId, documentId: `doc_${d.consentId}`, kind: "PERFORMER_CONSENT", title: `${t.title} (${d.consentId})`, parties: [actor.partyId],
-    effectiveFrom: d.validFrom, effectiveTo: d.validTo, html: html.replace("</body>", `${cert}</body>`), by: actor.userId,
+    effectiveFrom: d.validFrom, effectiveTo: d.validTo, html: html.replace("</body>", `${cert}</body>`), by: actor.userId, factsScopeId: d.factsScopeId,
   });
 }

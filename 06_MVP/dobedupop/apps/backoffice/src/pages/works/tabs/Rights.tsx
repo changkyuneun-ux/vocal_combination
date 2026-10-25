@@ -5,7 +5,7 @@ import { useGet } from "../../../api/hooks.ts";
 import { orgPartyIds, deleteCatalog, postSlot, postSlotPart, putSlotPart, type DocumentRow, type PartKind, type PartyRow } from "../../../api/works.ts";
 import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { mmss, pctText, recentChanges, rightsBuckets, shortAt, type Bucket, type BucketRow, type PartRow } from "../model.ts";
-import { useMe, useParties, useWrite } from "../data.tsx";
+import { useMe, useParties, useSongDocs, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 import { usePackAndPolicy } from "./Policy.tsx";
 import { B, Mono, Note, Sub, TableCard } from "../../ops/common.tsx";
@@ -72,7 +72,9 @@ function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, ex
   const parties = useParties();
   const me = useMe();
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
-  const docs = useGet<DocumentRow[]>(["documents"], "/documents");
+  // 근거 문서: 이 곡의 원본 계약서만, 그 갈래의 계약서 종류만(0048).
+  const docs = useSongDocs(ctx.scopeId);
+  const docList = docs.data.filter((x) => x.kind === (bucket.key === "work" ? "PUBLISHING" : "MASTER_CONTRACT"));
   const ev = useEvidenceTitles(ctx.scopeId);
   const w = useWrite();
   const rows = bucket.rows.filter((r) => r.sourceId === sourceId);
@@ -89,7 +91,7 @@ function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, ex
   const subOf = (p: string) => (parties.items.find((x) => x.partyId === p)?.partyType === "AUTHOR" ? `작가 · ${managerOf(p)} 관리` : own.has(p) ? "자기 당사자" : "");
   const save = () => void w.run(async () => {
     for (const d of Object.values(edits)) {
-      const doc = (docs.data ?? []).find((x) => x.documentId === d.doc);
+      const doc = docList.find((x) => x.documentId === d.doc);
       await post("/claims", {
         claimId: d.claimId ?? `c_${isWork ? "work" : "master"}_${sourceId.replace(/^(wrk|rcd)_/, "")}_${d.partyId.replace(/^pty_/, "")}`,
         factsScopeId: ctx.scopeId, sourceId, edge: bucket.edge, targetId: d.partyId, shareBps: d.shareBps,
@@ -108,7 +110,7 @@ function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, ex
       <td>{isWork ? <label className="p-field">역할<select className="p-select sm" value={d.roleDetail} onChange={(e) => set(k, { roleDetail: e.target.value })}>{ROLE_DETAIL.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label> : "마스터 보유"}</td>
       <td className="r"><label className="p-field">지분(%)<input className="p-input sm" type="number" style={{ width: 72, textAlign: "right" }} value={d.shareBps / 100} onChange={(e) => set(k, { shareBps: Math.round(Number(e.target.value) * 100) })} /></label></td>
       <td><label className="p-field">근거 문서<select className="p-select sm" value={d.doc} onChange={(e) => set(k, { doc: e.target.value })}>
-        <option value="">{d.claimId ? ev.get(d.claimId) ?? "그대로" : "고르기"}</option>{(docs.data ?? []).map((x) => <option key={`${x.documentId}@${x.version}`} value={x.documentId}>{x.title} v{x.version}</option>)}
+        <option value="">{d.claimId ? ev.get(d.claimId) ?? "그대로" : "고르기"}</option>{docList.map((x) => <option key={`${x.documentId}@${x.version}`} value={x.documentId}>{x.title} v{x.version}</option>)}
       </select></label></td>
       <td className="p-warn" style={{ fontSize: 13 }}>{total !== 10000 ? `합계 100%여야 저장(지금 ${pctText(total)})` : own.has(d.partyId) ? "저장하면 바로 확정" : d.claimId ? "저장하면 확인 요청 다시 보냄" : "저장하면 확인 요청 보냄"}</td>
       <td className="r nw"><button type="button" className="p-btn sm primary" disabled={total !== 10000 || w.busy || Object.values(edits).some((x) => x.partyId === "")} onClick={save}>저장</button> <button type="button" className="p-btn sm" onClick={() => setEdits({})}>취소</button></td>
@@ -302,7 +304,8 @@ const statusBadge = (s: string) => <B tone={s === "VERIFIED" ? "ok" : s === "DIS
 function LockedRights({ ctx }: { ctx: WsCtx }) {
   const buckets = rightsBuckets(ctx.facts.claims, ctx.names);
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
-  const docs = useGet<DocumentRow[]>(["documents"], "/documents");
+  // 근거 문서: 작품·녹음은 이 곡의 원본 계약서, 실연은 이 곡의 실연 이용 동의·수령 위임 서명본(0048).
+  const docs = useSongDocs(ctx.scopeId, false);
   const w = useWrite();
   const [fix, setFix] = useState<Fix | null>(null);
   const own = orgPartyIds(mine.data);
@@ -332,14 +335,14 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
   };
   // 권리자 목록: 고른 유형으로 거른다(빅히트가 관리하는 당사자만).
   const holders = (k: FixKind) => (mine.data ?? []).filter((p) => (k === "work" ? p.partyType === "AUTHOR" : p.partyType === "LABEL"));
-  const docOpts = (k: FixKind) => (docs.data ?? []).filter((d) => DOC_KINDS[k].includes(d.kind));
+  const docOpts = (k: FixKind) => docs.data.filter((d) => DOC_KINDS[k].includes(d.kind) && (k === "perf" || d.origin === "UPLOADED" || d.title.startsWith("권리 확인서")));
   const total = fix && fix.kind !== "perf" ? fix.rows.reduce((a, r) => a + r.shareBps, 0) : 0;
   const curPart = fix ? vocal.find((r) => partKey(r.slotId, r.partNo) === fix.part) : undefined;
   const curOwner = curPart ? ownerOf(curPart.slotId, curPart.partNo) : "";
   const curVoice = voiceClaims.find((c) => c.partyId === curOwner);
   const perfChanged = fix !== null && fix.kind === "perf" && ((curPart !== undefined && fix.member !== curOwner) || fix.voiceOwner !== "");
   const evidence = () => {
-    const d = (docs.data ?? []).find((x) => x.documentId === fix!.doc);
+    const d = docs.data.find((x) => x.documentId === fix!.doc);
     return d ? { evidenceDocuments: [{ documentId: d.documentId, version: d.version }] } : {};
   };
   const dateOk = fix !== null && /^\d{4}-\d{2}-\d{2}$/.test(fix.from) && !Number.isNaN(Date.parse(fix.from));

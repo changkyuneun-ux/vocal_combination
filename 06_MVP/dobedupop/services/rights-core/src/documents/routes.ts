@@ -21,6 +21,7 @@ function upload(req: FastifyRequest): DocumentMeta & { documentId?: string; mime
     ...(q.parties !== undefined && { parties: q.parties === "" ? [] : q.parties.split(",").map((p) => p.trim()) }),
     ...(q.effectiveFrom !== undefined && { effectiveFrom: q.effectiveFrom }), ...(q.effectiveTo !== undefined && { effectiveTo: q.effectiveTo }),
     ...(q.confidentiality !== undefined && { confidentiality: q.confidentiality }),
+    ...(q.scope !== undefined && { factsScopeId: q.scope }),
     mime: String(req.headers["content-type"] ?? "").split(";")[0]!.trim(), bytes: new Uint8Array(req.body),
   };
 }
@@ -47,15 +48,11 @@ export function documentRoutes(app: FastifyInstance, deps: Deps): void {
     reply.status(201).send(await withActor(deps, req, (tx, actor) => recheck(tx, req.params.id, uploadVersion(tx, deps.clock, storeOf(deps), actor, req.params.id, upload(req))))));
   app.get("/documents", async (req) => withActor(deps, req, async (tx) => {
     const q = req.query as Record<string, unknown>;
-    const rows = await listDocuments(tx, { ...(optFilter(q, "kind") !== undefined && { kind: optFilter(q, "kind") }), ...(optFilter(q, "party") !== undefined && { party: optFilter(q, "party") }) });
-    // 쪽 번호 화면(운영 관리 › 원천 문서)의 서버 필터: origin(직접 올림 UPLOAD · 서명본 CONTRACT), scope(그 곡 권리자가 당사자인 문서).
-    const origin = optFilter(q, "origin"), scope = optFilter(q, "scope");
-    let out = origin === undefined ? rows : rows.filter((d) => d.origin === origin);
-    if (scope !== undefined) {
-      const parties = new Set((await tx.query("SELECT DISTINCT target_id FROM right_claim WHERE facts_scope_id = $1", [scope])).rows.map((r) => r.target_id as string));
-      out = out.filter((d) => d.parties.some((p: string) => parties.has(p)));
-    }
-    return pagedOr(q, out);
+    // 서버 필터: kind · party · scope(그 곡에 묶인 문서, none = 작품 공통 — 0048) · origin(UPLOADED 원본 계약서 · TEMPLATE_SIGNED 서명본).
+    const rows = await listDocuments(tx, { ...(optFilter(q, "kind") !== undefined && { kind: optFilter(q, "kind") }), ...(optFilter(q, "party") !== undefined && { party: optFilter(q, "party") }),
+      ...(optFilter(q, "scope") !== undefined && { scope: optFilter(q, "scope") }) });
+    const origin = optFilter(q, "origin");
+    return pagedOr(q, origin === undefined ? rows : rows.filter((d) => d.origin === origin));
   }));
   app.get<{ Params: { id: string } }>("/documents/:id", async (req) => withActor(deps, req, (tx) => getDocument(tx, req.params.id)));
   app.get<{ Params: { id: string; v: string } }>("/documents/:id/versions/:v/file", async (req, reply) => {
