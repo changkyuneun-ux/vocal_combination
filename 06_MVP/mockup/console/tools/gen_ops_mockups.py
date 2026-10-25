@@ -198,68 +198,135 @@ class Component extends DCLogic {{
     (OUT / fname).write_text(html, encoding="utf-8")
 
 
+
+def grouped(cols, groups, sub_cols, open_idx=0, foot="", title=None, min_w=900):
+    """작품 단위 묶음 표(2026-10-24). 작품마다 요약 한 줄 → 누르면 그 작품 상세만 펼친다(한 번에 하나, 전체 펼치기 없음).
+    상세는 10행 단위 쪽 나눔, 작품 목록도 10개 단위 쪽 나눔. groups: dict(name, sub, cells, rows)."""
+    th = "".join(f'<th style="padding: 10px 16px; text-align: left; font-size: 12.5px; font-weight: 700; color: #334155; background: #f8fafc; border-bottom: 1px solid {LINE}; white-space: nowrap">{c}</th>' for c in ["작품"] + cols + [""])
+    sth = "".join(f'<th style="padding: 8px 14px; text-align: left; font-size: 12px; font-weight: 700; color: #334155; background: #ffffff; border-bottom: 1px solid {LINE}; white-space: nowrap">{c}</th>' for c in sub_cols)
+    body = []
+    for i, g in enumerate(groups[:PAGE_SIZE]):
+        is_open = i == open_idx
+        chev = f'<span aria-hidden="true" style="display: inline-block; width: 14px; color: #334155; transform: rotate({90 if is_open else 0}deg)">▸</span>'
+        name = f'<button aria-expanded="{str(is_open).lower()}" style="display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: #0f172a; cursor: pointer; text-align: left">{chev}<span>{g["name"]}</span></button>'
+        if g.get("sub"):
+            name += f'<div style="margin: 2px 0 0 22px; font-size: 12.5px; font-weight: 400; color: #334155">{g["sub"]}</div>'
+        act = link("접기" if is_open else "상세 보기")
+        bg = "background: #f8fafc; " if is_open else ""
+        tds = f'<td style="padding: 12px 16px">{name}</td>' + "".join(f'<td style="padding: 12px 16px">{c}</td>' for c in g["cells"]) + f'<td style="padding: 12px 16px; text-align: right">{act}</td>'
+        body.append(f'<tr style="{bg}border-top: 1px solid #eef1f5">{tds}</tr>')
+        if is_open:
+            rows = g["rows"]
+            if rows:
+                inner_rows = "".join('<tr style="border-top: 1px solid #eef1f5">' + "".join(
+                    f'<td style="padding: 10px 14px{"; font-weight: 600" if k == 0 else ""}">{c}</td>' for k, c in enumerate(r)) + "</tr>" for r in rows[:PAGE_SIZE])
+                inner = (f'<div style="margin: 0 16px 16px 38px; border: 1px solid {LINE}; border-radius: 10px; overflow: hidden; background: #ffffff">'
+                         f'<div style="overflow-x: auto"><table style="width: 100%; border-collapse: collapse; font-size: 13.5px"><thead><tr>{sth}</tr></thead><tbody>{inner_rows}</tbody></table></div>'
+                         f'<div style="display: flex; align-items: center; padding: 8px 14px; border-top: 1px solid {LINE}; font-size: 12.5px; color: #334155"><span style="flex: 1 1 auto">{g.get("note", "")}</span>{pager(len(rows))}</div></div>')
+            else:
+                inner = f'<div style="margin: 0 16px 16px 38px; padding: 18px; border: 1px solid {LINE}; border-radius: 10px; background: #ffffff; font-size: 13.5px; color: #334155">{g.get("empty", "해당 항목이 없습니다.")}</div>'
+            body.append(f'<tr style="background: #f8fafc"><td colspan="{len(cols) + 2}" style="padding: 0">{inner}</td></tr>')
+    hd = f'<div style="padding: 16px 18px 12px">{head(title[0], title[1])}</div>' if title else ""
+    footer = (f'<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 18px; border-top: 1px solid {LINE}; font-size: 13px; color: #334155">'
+              f'<span style="flex: 1 1 320px">{foot or "작품을 누르면 그 작품 상세만 펼친다. 한 번에 한 작품씩."}</span>{pager(len(groups))}</div>')
+    return (f'<section style="{CARD}; overflow: hidden">{hd}<div style="overflow-x: auto"><table style="width: 100%; min-width: {min_w}px; border-collapse: collapse; font-size: 14px; color: #0f172a">'
+            f'<thead><tr>{th}</tr></thead><tbody>{"".join(body)}</tbody></table></div>{footer}</section>')
+
+
+# 곡 진행 ①~⑤(2026-10-24): 원본 계약서 → 권리 등록 → 권리 확정 → 이용 허락 → 분배·출시
+PROG_STEPS = ["원본 계약서", "권리 등록", "권리 확정", "이용 허락", "분배·출시"]
+PROG_DEFAULT = [("done", "2건"), ("done", "작품·녹음·실연"), ("now", "작가 2 서명 대기"), ("todo", "1 / 9 서명"), ("todo", "")]
+PROG_LOCKED = [("done", "2건"), ("done", "작품·녹음·실연"), ("done", "확정"), ("done", "9 / 9"), ("done", "IR v1 · 판매 중")]
+
+
+def progress(states):
+    cells = []
+    for i, (name, (st, note_)) in enumerate(zip(PROG_STEPS, states), 1):
+        if st == "done":
+            mark, color, wt, line = "✓", "#047857", "700", "#a7f3d0"
+        elif st == "now":
+            mark, color, wt, line = str(i), NAVY, "800", NAVY
+        else:
+            mark, color, wt, line = str(i), "#334155", "600", "#e2e8f0"
+        circle = (f'<span style="display: inline-flex; width: 22px; height: 22px; border-radius: 999px; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; '
+                  + (f'background: {NAVY}; color: #ffffff' if st == "now" else f'background: #ffffff; color: {color}; border: 1.5px solid {line}') + f'">{mark}</span>')
+        cells.append(f'<div style="flex: 1 1 150px; display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; border-top: 3px solid {line}; padding-top: 10px">{circle}'
+                     f'<div><div style="font-size: 13.5px; font-weight: {wt}; color: {"#0f172a" if st != "todo" else "#334155"}">{name}</div><div style="font-size: 12.5px; color: #334155">{note_}</div></div></div>')
+    return f'<div role="status" aria-label="곡 진행" style="{CARD}; display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 18px 14px">{"".join(cells)}</div>\n'
+
+
 EX = "예시 데이터"
 MEMBERS = ["정국", "지민", "뷔", "진", "RM", "제이홉", "슈가"]
 
-# ── 확인·동의 › 멤버 이용 동의 ──
+# ── 확인·동의 › 확인 요청 전체(작품 묶음) ──
+page("Nav-Ops-Confirm.dc.html", "운영 관리 — 확인 요청 전체", "op-confirm-all", "2026-01-12 09:00",
+     ["운영 관리", "확인·동의", "확인 요청 전체"], "확인 요청 전체",
+     "빅히트 뮤직의 모든 곡에서 상대 당사자에게 보낸 확인 요청. 작품을 누르면 그 작품의 요청만 펼친다",
+     [button("엑셀 다운로드")],
+     [stats([("대기", "9", "작품 2", False), ("기한 3일 안", "2", "지나면 정합성 차단", True), ("확인됨(이번 달)", "147", "멤버 7", False), ("거절·이의제기", "0", "분쟁으로 이어짐", False)]),
+      filters("곡명, 기록, 상대 당사자", [("상대", ["상대 전체", "멤버(실연자 앱)", "작가(전자서명 링크)"]), ("상태", ["전체", "대기", "확인됨", "거절"])]),
+      grouped(["대기", "기한 3일 안", "확인됨", "상태"],
+              [dict(name="Dynamite", sub="녹음 Vocal Recombination", cells=["2", '<span style="color: #b45309; font-weight: 700">2</span>', "56", badge("작가 서명 대기", "warn")],
+                    rows=[["작가 지분 50% · David Stewart", "작가(전자서명 링크)", mono("01-02 09:10"), '<span style="color: #b45309; font-weight: 700">01-16</span>', badge("대기", "warn"), link("확인·동의 탭 →")],
+                          ["작가 지분 50% · Jessica Agombar", "작가(전자서명 링크)", mono("01-02 09:10"), '<span style="color: #b45309; font-weight: 700">01-16</span>', badge("대기", "warn"), link("확인·동의 탭 →")]],
+                    note="Dynamite 대기 2건"),
+               dict(name="푸른 계절", sub=EX, cells=["7", "0", "91", badge("멤버 확인 중", "gray")], rows=[])],
+              ["기록", "확인할 상대", "요청", "기한", "상태", ""],
+              foot="멤버는 실연자 앱에서 본인이, 계정 없는 작가는 빅히트가 보낸 전자서명 링크로 확인한다. 작품을 누르면 그 작품 요청만 펼친다(한 번에 하나).")])
+
+# ── 확인·동의 › 멤버 이용 동의(작품 묶음) ──
 page("Ops-Consents.dc.html", "운영 관리 — 멤버 이용 동의", "op-consents", "2026-02-01 09:00",
      ["운영 관리", "확인·동의", "멤버 이용 동의"], "멤버 이용 동의",
-     "멤버가 실연자 앱에서 본인이 한 팬앱 이용 동의. 동의가 없는 멤버의 스템은 조합 발행이 거부된다(ISSUE_NOT_LICENSED)",
+     "멤버가 실연자 앱에서 본인이 한 팬앱 이용 동의. 작품을 누르면 그 작품 멤버만 펼친다",
      [button("엑셀 다운로드")],
-     [stats([("동의함", "7 / 7", "멤버 7", False), ("동의 대기", "0", "다시 알림 보낼 대상 없음", False),
-             ("철회", "0", "철회하면 그 멤버 스템 조합 노출 중지", False), ("적용 곡", "1", "Dynamite", False)]),
-      filters("멤버, 보이스", [("곡", ["곡 전체", "Dynamite"]), ("상태", ["전체", "동의함", "대기", "철회"])]),
-      table(["멤버", "보이스", "동의 범위", "적용 곡", "동의 시각", "동의서", "상태"],
-            [[sub(m, "빅히트 뮤직 매니지먼트 소속"), mono(f"voc_{e}"), "팬앱 조합·구매·감상", "Dynamite",
-              mono(t), "멤버 팬앱 이용 동의 v1", badge("동의함", "ok")]
-             for m, e, t in zip(MEMBERS, ["jk", "jm", "v", "jin", "rm", "jh", "suga"],
-                                ["01-06 10:12", "01-06 11:40", "01-07 09:05", "01-07 14:22", "01-08 10:00", "01-08 16:31", "01-09 09:48"])],
-            foot="동의는 멤버 본인만 하거나 철회한다. 빅히트는 조회와 다시 알림만 한다. 동의 범위는 팩 이용 범위와 같아야 한다(분배 규칙·팩).")])
+     [stats([("동의함", "9 / 9", "작품 2", False), ("동의 대기", "0", "", False), ("철회", "0", "철회하면 그 멤버 스템 조합 노출 중지", False), ("작품", "2", "Dynamite · 푸른 계절", False)]),
+      filters("멤버, 보이스", [("상태", ["전체", "동의함", "대기", "철회"])]),
+      grouped(["멤버", "동의함", "대기·철회", "상태"],
+              [dict(name="Dynamite", sub="녹음 Vocal Recombination", cells=["7", "7", "0", badge("모두 동의", "ok")],
+                    rows=[[sub(m, "빅히트 뮤직 매니지먼트 소속"), mono(f"voc_{e}"), "미리듣기·조합 생성·개인 보관 · 팬앱", mono(t), badge("동의함", "ok")]
+                          for m, e, t in zip(MEMBERS, ["jungkook", "jimin", "v", "jin", "rm", "jhope", "suga"], ["01-06 10:12", "01-06 11:40", "01-07 09:05", "01-07 14:22", "01-08 10:00", "01-08 16:31", "01-09 09:48"])]),
+               dict(name="푸른 계절", sub=EX, cells=["2", "2", "0", badge("모두 동의", "ok")], rows=[])],
+              ["멤버", "보이스", "동의 범위", "동의 시각", "상태"],
+              foot="동의는 멤버 본인만 하거나 철회한다. 빅히트는 조회와 다시 알림만 한다.")])
 
-# ── 계약·문서 › 표준 계약 전체 ──
+# ── 계약·문서 › 표준 계약 전체(작품 묶음, 권리 확정·이용 허락 구분) ──
 page("Ops-Contracts.dc.html", "운영 관리 — 표준 계약 전체", "op-contracts-all", "2026-01-05 09:00",
      ["운영 관리", "계약·문서", "표준 계약 전체"], "표준 계약 전체",
-     "빅히트 뮤직의 모든 곡에서 쓴 표준 계약(작성 → 서명 → 반영). 계약 만들기는 작품 워크스페이스 › 문서·계약에서",
+     "빅히트 뮤직이 보낸 표준 계약. 권리 확정(권리 확인서)과 이용 허락(이용허락·동의·수령 위임)을 나눠 본다",
      [button("엑셀 다운로드")],
-     [stats([("전체", "15", "곡 2", False), ("서명 대기", "8", "Dynamite 8", True),
-             ("반영", "7", "서명본은 원천 문서로 자동 등록", False), ("거절·만료", "0", "", False)]),
-      filters("곡명, 계약, 당사자", [("곡", ["곡 전체", "Dynamite", "푸른 계절"]), ("템플릿", ["템플릿 전체", "플랫폼 이용계약 v1", "녹음 이용허락 표준계약 v1", "작품 이용허락 표준계약 v1", "실연 수익 수령 위임계약 v1"]), ("상태", ["전체", "서명 대기", "반영"])]),
-      table(["곡", "계약", "템플릿", "서명 당사자", "건수", "상태", ""],
-            [["Dynamite", "플랫폼 이용계약", "플랫폼 이용계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "녹음 이용허락", "녹음 이용허락 표준계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "작품 이용허락 · David Stewart", "작품 이용허락 표준계약 v1", sub("작가(전자서명 링크) 대기", "빅히트가 보냄 · 01-02"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "작품 이용허락 · Jessica Agombar", "작품 이용허락 표준계약 v1", sub("작가(전자서명 링크) 대기", "빅히트가 보냄 · 01-02"), "1", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "실연 수익 수령 위임 · 정국", "실연 수익 수령 위임계약 v1", "정국 ✓ · 빅히트 뮤직 매니지먼트 ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             ["Dynamite", "실연 수익 수령 위임 · 지민 외 5명", "실연 수익 수령 위임계약 v1", "멤버 대기 · 소속사 대기", "6", badge("서명 대기", "warn"), link("곡 워크스페이스 › 문서·계약 →")],
-             [sub("푸른 계절", EX), "녹음 이용허락", "녹음 이용허락 표준계약 v1", "빅히트 뮤직(레이블) ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             [sub("푸른 계절", EX), "작품 이용허락 · 최유진", "작품 이용허락 표준계약 v1", "최유진 ✓", "1", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")],
-             [sub("푸른 계절", EX), "실연 수익 수령 위임 · 블루노트 외 1명", "실연 수익 수령 위임계약 v1", "멤버 ✓ · 소속사 ✓", "2", badge("반영", "ok"), link("곡 워크스페이스 › 문서·계약 →")]],
-            foot="표준 계약 15건(Dynamite 11 · 푸른 계절 4). 이 화면은 조회와 이동만 한다.")])
+     [stats([("전체", "15", "작품 2", False), ("서명 대기", "8", "Dynamite 8", True), ("반영", "7", "서명본은 원천 문서로", False), ("거절·만료", "0", "", False)]),
+      filters("계약, 당사자", [("구분", ["구분 전체", "권리 확정", "이용 허락"]), ("상태", ["전체", "서명 대기", "반영"])]),
+      grouped(["계약", "서명 대기", "반영", "상태"],
+              [dict(name="Dynamite", sub="녹음 Vocal Recombination", cells=["11", '<span style="color: #b45309; font-weight: 700">8</span>', "3", badge("서명 대기", "warn")],
+                    rows=[[badge("권리 확정", "blue"), "권리 확인서 · 레이블용", "빅히트 뮤직 — 레이블", "1", badge("반영", "ok")],
+                          [badge("권리 확정", "blue"), "권리 확인서 · 작가용", "작가 2(전자서명 링크)", "1", badge("서명 대기", "warn")],
+                          [badge("이용 허락", "gray"), "녹음 이용허락", "빅히트 뮤직 — 레이블", "1", badge("반영", "ok")],
+                          [badge("이용 허락", "gray"), "작품 이용허락 · 작가 2명", "작가(전자서명 링크)", "2", badge("서명 대기", "warn")],
+                          [badge("이용 허락", "gray"), "실연 수익 수령 위임 · 정국", "정국 · 빅히트 뮤직 매니지먼트", "1", badge("반영", "ok")],
+                          [badge("이용 허락", "gray"), "실연 수익 수령 위임 · 지민 외 5명", "멤버 대기 · 소속사 대기", "6", badge("서명 대기", "warn")]],
+                    note="Dynamite 11건 · 플랫폼 이용계약은 조직 단위(내 조직)"),
+               dict(name="푸른 계절", sub=EX, cells=["4", "0", "4", badge("모두 반영", "ok")], rows=[])],
+              ["구분", "계약", "서명 당사자", "건수", "상태"],
+              foot="권리 확정 = 누가 몇 %를 갖는지 서명으로 확정. 이용 허락 = 팬앱에서 써도 된다는 허락. 계약 만들기는 곡의 문서·계약 탭에서.")])
 
-# ── 계약·문서 › 원천 문서 ──
-DOC = lambda song, name, kind, who, eff, basis, how: [song, sub(name, kind), who, mono(eff), basis, how, link("보기")]
+# ── 계약·문서 › 원천 문서(작품 묶음, 원본 계약서·서명본 구분) ──
 page("Ops-Docs.dc.html", "운영 관리 — 원천 문서", "op-docs", "2026-01-05 09:00",
      ["운영 관리", "계약·문서", "원천 문서"], "원천 문서",
-     "권리 주장의 근거가 되는 문서. 직접 올린 문서와 반영된 표준 계약의 서명본(자동 등록)",
-     [button("엑셀 다운로드"), button("+ 문서 올리기", primary=True)],
-     [stats([("전체", "13", "곡 2 · 조직 2", False), ("직접 올림", "6", "PDF", False),
-             ("서명본(자동)", "7", "반영된 표준 계약", False), ("근거로 쓰인 주장", "21", "주장 없는 문서 0", False)]),
-      filters("문서명, 당사자", [("곳", ["전체", "조직", "Dynamite", "푸른 계절"]), ("종류", ["종류 전체", "직접 올림", "서명본"])]),
-      table(["곳", "문서", "당사자", "효력", "근거가 된 것", "등록", ""],
-            [DOC("조직", "사업자 확인서 (PDF)", "직접 올림", "빅히트 뮤직", "2026-01-01", "온보딩 확인(KYB)", "직접 올림"),
-             DOC("조직", "대표자 확인서 (PDF)", "직접 올림", "빅히트 뮤직", "2026-01-01", "온보딩 확인(KYB)", "직접 올림"),
-             DOC("Dynamite", "Dynamite 녹음 계약서 v1 (PDF)", "직접 올림", "빅히트 뮤직(레이블)", "2026-01-01", "녹음 권리 · 테넌트 권리 보유 증빙", "직접 올림"),
-             DOC("Dynamite", "Dynamite 작품 퍼블리싱 계약서 v1 (PDF)", "직접 올림", "작가 2명", "2026-01-01", "작가 지분", "직접 올림"),
-             DOC("Dynamite", "플랫폼 이용계약 v1 서명본", "서명본", "빅히트 뮤직(레이블)", "2026-01-02", "플랫폼 이용", "자동(반영)"),
-             DOC("Dynamite", "녹음 이용허락 표준계약 v1 서명본", "서명본", "빅히트 뮤직(레이블)", "2026-01-02", "녹음 동의 확정", "자동(반영)"),
-             DOC("Dynamite", "수령 위임계약 v1 서명본 · 정국", "서명본", "정국 · 빅히트 뮤직 매니지먼트", "2026-01-04", "위임 확정", "자동(반영)"),
-             DOC(sub("푸른 계절", EX), "푸른 계절 녹음 계약서 (PDF)", "직접 올림", "빅히트 뮤직(레이블)", "2025-11-01", "녹음 권리", "직접 올림"),
-             DOC(sub("푸른 계절", EX), "푸른 계절 작품 계약서 (PDF)", "직접 올림", "최유진", "2025-11-01", "작가 지분", "직접 올림"),
-             DOC(sub("푸른 계절", EX), "녹음 이용허락 표준계약 v1 서명본", "서명본", "빅히트 뮤직(레이블)", "2025-11-03", "녹음 동의 확정", "자동(반영)"),
-             DOC(sub("푸른 계절", EX), "작품 이용허락 표준계약 v1 서명본 · 최유진", "서명본", "최유진", "2025-11-03", "작품 이용 확정", "자동(반영)"),
-             DOC(sub("푸른 계절", EX), "수령 위임계약 v1 서명본 · 블루노트", "서명본", "블루노트 · 빅히트 뮤직 매니지먼트", "2025-11-04", "위임 확정", "자동(반영)"),
-             DOC(sub("푸른 계절", EX), "수령 위임계약 v1 서명본 · 하람", "서명본", "하람 · 빅히트 뮤직 매니지먼트", "2025-11-04", "위임 확정", "자동(반영)")],
-            foot="IR에 쓰인 문서는 지우거나 바꿀 수 없다. 바로잡기는 새 문서를 올리고 주장을 새 버전으로 바꾼다.")], height=1100)
+     "작품마다 원본 계약서(권리 근거)와 표준 계약 서명본. 작품을 누르면 그 작품 문서만 펼친다",
+     [button("엑셀 다운로드")],
+     [stats([("전체", "13", "작품 2 · 조직 2", False), ("원본 계약서", "6", "권리 근거", False), ("서명본", "7", "반영된 표준 계약", False), ("근거로 쓰인 주장", "21", "주장 없는 문서 0", False)]),
+      filters("문서명, 당사자", [("종류", ["종류 전체", "원본 계약서", "서명본"])]),
+      grouped(["원본 계약서", "서명본", "근거 주장"],
+              [dict(name="Dynamite", sub="녹음 Vocal Recombination", cells=["2", "3", "12"],
+                    rows=[[badge("원본 계약서", "blue"), "Dynamite 녹음 계약서 v1 (PDF)", "빅히트 뮤직 — 레이블", mono("2026-01-01"), "마스터 보유", link("보기")],
+                          [badge("원본 계약서", "blue"), "Dynamite 작품 퍼블리싱 계약서 v1 (PDF)", "작가 2명", mono("2026-01-01"), "작가 지분", link("보기")],
+                          [badge("서명본", "gray"), "녹음 이용허락 v1 서명본", "빅히트 뮤직 — 레이블", mono("2026-01-02"), "녹음 이용 허락", link("보기")],
+                          [badge("서명본", "gray"), "권리 확인서(레이블용) 서명본", "빅히트 뮤직 — 레이블", mono("2026-01-02"), "마스터 보유 확정", link("보기")],
+                          [badge("서명본", "gray"), "수령 위임계약 v1 서명본 · 정국", "정국 · 빅히트 뮤직 매니지먼트", mono("2026-01-04"), "수령 위임", link("보기")]]),
+               dict(name="푸른 계절", sub=EX, cells=["2", "4", "9"], rows=[]),
+               dict(name="조직 문서(작품 공통)", sub="KYB · 플랫폼 이용계약", cells=["2", "—", "—"], rows=[])],
+              ["종류", "문서", "당사자", "효력", "근거가 된 것", ""],
+              foot="원본 계약서는 곡의 새 곡·문서·계약 화면에서 그 곡에 묶어 올린다. IR에 쓰인 문서는 지우거나 바꿀 수 없다.")], height=1000)
 
 # ── 계약·문서 › 계약 템플릿 ──
 page("Ops-Templates.dc.html", "운영 관리 — 계약 템플릿", "op-templates", "2026-01-05 09:00",
@@ -282,24 +349,21 @@ page("Ops-Templates.dc.html", "운영 관리 — 계약 템플릿", "op-template
             foot="읽기 틀은 계약 양식에서 값이 있는 위치(쪽·조항)를 IR 항목에 대응시킨 것이다. 같은 양식의 계약을 불러오면 값이 후보로 채워진다. 계약서는 플랫폼 밖으로 보내지 않는다(CT1). 처음 보는 양식은 사람이 조항을 표시한다.",
             title=("계약서 읽기 틀", "빅히트 등록 · 플랫폼 승인(CT2)"), min_w=900)], height=1100)
 
-# ── 점검 › 정합성 점검 전체 ──
+# ── 점검 › 정합성 점검 전체(작품 묶음) ──
 page("Ops-Validation.dc.html", "운영 관리 — 정합성 점검 전체", "op-validation", "2026-01-12 09:00",
      ["운영 관리", "점검", "정합성 점검 전체"], "정합성 점검 전체",
-     "모든 곡의 정합성 점검 결과. 차단이 있으면 그 곡의 분배 규칙을 활성화하지 못한다. 곡 하나는 작품 워크스페이스 › 분배 규칙·팩 ① 정합성 점검",
+     "작품마다 정합성 점검 결과. 차단이 있으면 그 곡의 분배 규칙을 활성화하지 못한다. 작품을 누르면 걸린 항목을 펼친다",
      [button("다시 점검")],
-     [stats([("차단", "0", "", False), ("경고", "2", "Dynamite 2 · 기한 01-16", True),
-             ("통과 규칙", "12 / 14", "곡 2 × 규칙 7 · 진행 중 1", False), ("마지막 점검", "09:00", "2026-01-12", False)]),
-      filters("곡명, 규칙", [("곡", ["곡 전체", "Dynamite", "푸른 계절"]), ("수준", ["경고 이상", "차단", "전체"])]),
-      table(["곡", "규칙", "수준", "대상", "내용", ""],
-            [["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · David Stewart", "작가 서명 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")],
-             ["Dynamite", "확인 대기", badge("경고", "warn"), "작가 지분 50% · Jessica Agombar", "작가 서명 대기 · 기한 01-16 지나면 차단", link("곡 워크스페이스 › 확인·동의 →")]],
-            foot="수준 '전체'가 처음 값이다. '경고 이상'·'차단'으로 좁혀 볼 수 있다.", title=("걸린 항목", "2건")),
-      card("규칙별 결과", table(["규칙", "Dynamite", "푸른 계절"],
-           [["지분 합계 100%", "✓", "✓"], ["근거 문서", "✓", "✓"],
-            ["마스터 보유자 ↔ 녹음 권리 주장", "✓", "✓"], ["스템 실연자 ↔ 실연 주장", "✓", "✓"],
-            ["파트 원곡 스템 · 보이스 누락", "✓ 원곡 스템 등록 중(발행 때 검사)", "✓"],
-            ["확인 대기", '<span style="color: #b45309; font-weight: 600">! 경고 2</span>', "✓"],
-            ["멤버 이용 동의", "— 진행 중(발행 때 검사)", "✓"]], min_w=700, paged=False), hint="곡 2 · 규칙 7")], height=1100)
+     [stats([("차단", "0", "", False), ("경고", "2", "Dynamite 2 · 기한 01-16", True), ("통과 작품", "1 / 2", "푸른 계절", False), ("마지막 점검", "09:00", "2026-01-12", False)]),
+      filters("곡명, 규칙", [("수준", ["전체", "경고 이상", "차단"])]),
+      grouped(["차단", "경고", "통과 규칙", "상태"],
+              [dict(name="Dynamite", sub="녹음 Vocal Recombination", cells=["0", '<span style="color: #b45309; font-weight: 700">2</span>', "5 / 7", badge("경고", "warn")],
+                    rows=[["확인 대기", badge("경고", "warn"), "작가 지분 50% · David Stewart", "작가 서명 대기 · 기한 01-16 지나면 차단", link("확인·동의 탭 →")],
+                          ["확인 대기", badge("경고", "warn"), "작가 지분 50% · Jessica Agombar", "작가 서명 대기 · 기한 01-16 지나면 차단", link("확인·동의 탭 →")]],
+                    note="통과: 지분 합계 · 근거 문서 · 마스터 보유자 · 스템 실연자 · 파트 원곡 스템"),
+               dict(name="푸른 계절", sub=EX, cells=["0", "0", "7 / 7", badge("통과", "ok")], rows=[], empty="걸린 항목이 없습니다. 규칙 7개 모두 통과.")],
+              ["규칙", "수준", "대상", "내용", ""],
+              foot="수준 '전체'가 처음 값이다. 작품을 누르면 그 작품의 걸린 항목만 펼친다.")], height=1000)
 
 # ── 정산 › 명세·지급 ──
 page("Ops-Statements.dc.html", "운영 관리 — 명세·지급", "op-statements", "2026-05-01 09:01",
@@ -320,20 +384,21 @@ page("Ops-Statements.dc.html", "운영 관리 — 명세·지급", "op-statement
             ["랩 파트를 보컬 멤버가 · " + mono("vc_bts_vocal"), "300", mono("990,000")], ["진이 정국·지민 파트까지 · " + mono("vc_bts_jin"), "200", mono("660,000") + " · 보류 1"]], min_w=600),
            hint="합계 7,260,000원 · 발행 조합 화면과 같다")])
 
-# ── 정산 › 발행 조합 ──
+# ── 정산 › 발행 조합(작품 묶음) ──
 page("Ops-Issues.dc.html", "운영 관리 — 발행 조합", "op-issues", "2026-04-01 09:00",
      ["운영 관리", "정산", "발행 조합"], "발행 조합",
-     "팬앱에서 발행된 Dynamite 보컬 조합. 발행 순간의 IR(facts·정책·조합 지분·멤버)이 봉인되어 정산 근거가 된다",
+     "팬앱에서 발행된 보컬 조합. 발행 순간의 IR(facts·정책·조합 지분·멤버)이 봉인되어 정산 근거가 된다. 작품을 누르면 조합을 펼친다",
      [button("엑셀 다운로드")],
-     [stats([("발행 조합", "4", "Dynamite", False), ("구매", "2,200", "2026년 3월", False),
-             ("매출", "7,260,000원", "", False), ("보류", "1건", "이상거래", True)]),
-      filters("조합 id, 이름", [("곡", ["곡 전체", "Dynamite"]), ("팩", ["DYNAMITE-FAN"])]),
-      table(["조합", "바꾼 곳", "발행", "봉인", "구매", "매출(원)", ""],
-            [[sub("원곡 배치", "vc_bts_orig"), "없음(원곡 스템 그대로)", mono("02-01 09:30"), badge("facts v1 · 정책 v1", "ir"), "1,200", mono("3,960,000"), link("조합 지분 보기")],
-             [sub("정국·지민 맞바꾸기", "vc_bts_swap"), "정국 ↔ 지민 파트", mono("02-03 18:12"), badge("facts v1 · 정책 v1", "ir"), "500", mono("1,650,000"), link("조합 지분 보기")],
-             [sub("랩 파트를 보컬 멤버가", "vc_bts_vocal"), "Verse 2 (Rap) 파트 3", mono("02-05 20:40"), badge("facts v1 · 정책 v1", "ir"), "300", mono("990,000"), link("조합 지분 보기")],
-             [sub("진이 정국·지민 파트까지", "vc_bts_jin"), "정국 · 지민 파트 → 진", mono("02-09 11:05"), badge("facts v1 · 정책 v1", "ir"), "200", sub(mono("660,000"), "이상거래 1건 보류"), link("조합 지분 보기")]],
-            foot="발행 승인 대기는 없다 — 게이트를 통과하면 바로 봉인된다(MD8). 봉인된 조합은 고칠 수 없고, 권리가 바뀌면 다음 발행부터 새 버전이 쓰인다.")])
+     [stats([("발행 조합", "4", "작품 1", False), ("구매", "2,200", "2026년 3월", False), ("매출", "7,260,000원", "", False), ("보류", "1건", "이상거래", True)]),
+      filters("조합 id, 이름", [("팩", ["팩 전체", "DYNAMITE-FAN"])]),
+      grouped(["조합", "구매", "매출(원)", "보류"],
+              [dict(name="Dynamite", sub="팩 DYNAMITE-FAN", cells=["4", mono("2,200"), mono("7,260,000"), badge("1건", "warn")],
+                    rows=[[sub("원곡 배치", "vc_bts_orig"), "없음(원곡 스템 그대로)", mono("02-01 09:30"), badge("facts v1 · 정책 v1", "ir"), mono("1,200"), mono("3,960,000")],
+                          [sub("정국·지민 맞바꾸기", "vc_bts_swap"), "정국 ↔ 지민 파트", mono("02-03 18:12"), badge("facts v1 · 정책 v1", "ir"), mono("500"), mono("1,650,000")],
+                          [sub("랩 파트를 보컬 멤버가", "vc_bts_vocal"), "Verse 2 (Rap) 파트 3", mono("02-05 20:40"), badge("facts v1 · 정책 v1", "ir"), mono("300"), mono("990,000")],
+                          [sub("진이 정국·지민 파트까지", "vc_bts_jin"), "정국 · 지민 파트 → 진", mono("02-09 11:05"), badge("facts v1 · 정책 v1", "ir"), mono("200"), sub(mono("660,000"), "이상거래 1건 보류")]])],
+              ["조합", "바꾼 곳", "발행", "봉인", "구매", "매출(원)"],
+              foot="발행 승인 대기는 없다 — 게이트를 통과하면 바로 봉인된다(MD8).")])
 
 # ── 조직 › 내 조직 ──
 page("Ops-Org.dc.html", "운영 관리 — 내 조직", "op-org", "2026-01-20 09:00",
@@ -382,9 +447,8 @@ WS_TABS = ["원곡 권리", "스템", "확인·동의", "문서·계약", "분�
 
 def ws_page(fname, title, active_tab, clock, crumbs, h1, desc, actions, body, ready, height=1100, status=None, band_label="IR 생성 준비"):
     """작품 워크스페이스 화면: 경로 → IR 생성 준비 띠 → 제목(IR 상태 배지) → 탭 줄 → 본문 (시안 Nav-Works-Stems와 같은 틀)."""
-    marks = "".join(f'<span style="color: {c}">{t}</span>' for t, c in ready)
-    band = (f'<div role="status" style="{CARD}; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 12px 18px; font-size: 13.5px; font-weight: 600">'
-            f'<strong style="color: #0f172a">{band_label}</strong>{marks}</div>\n')
+    # 위쪽 띠는 곡 진행 ①~⑤(2026-10-24). ready는 옛 호출 호환용으로만 받는다
+    band = progress(PROG_LOCKED if band_label == "IR 상태" else PROG_DEFAULT)
     tabs = "".join(
         f'<span style="padding: 10px 16px; font-weight: 700; color: {NAVY}; border-bottom: 3px solid {NAVY}; margin-bottom: -1px">{t}</span>' if t == active_tab
         else (f'<span style="padding: 10px 16px; font-weight: 600; color: #334155">{t}</span>' if t == "변경 기록" else f'<a href="#" style="padding: 10px 16px; font-weight: 600; text-decoration: none; color: #334155">{t}</a>')
@@ -695,5 +759,59 @@ ws_page("Song-Stems-Panel.dc.html", "Dynamite — 스템 오른쪽 칸", "스템
         [], "Dynamite · 스템", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)", [button("+ 스템 추가", primary=True)],
         [note("스템 표에서 칸을 누르면 오른쪽 칸이 열린다. 같은 칸을 다시 누르거나 × 를 누르면 닫히고 표가 넓어진다. 한 번에 하나만 열린다(상세·수정·추가)."), grid],
         READY_IMPORT, height=1200)
+
+
+# ── 곡 절차 정리(2026-10-24): 문서·계약 탭 = 원본 계약서 / 권리 확정 / 이용 허락 ──
+contracts_body = [
+    table(["문서", "근거가 된 권리", "당사자", "효력", "올린 때", ""],
+          [["Dynamite 녹음 계약서 v1 (PDF)", "녹음 · 마스터 보유", "빅히트 뮤직 — 레이블", mono("2026-01-01"), mono("01-02"), link("보기") + " · " + link("불러오기")],
+           ["Dynamite 작품 퍼블리싱 계약서 v1 (PDF)", "작품 · 작가 지분", "작가 2명", mono("2026-01-01"), mono("01-02"), link("보기") + " · " + link("불러오기")]],
+          foot="이 곡에 묶인 원본 계약서만 보인다. '불러오기'로 계약서의 값을 원곡 권리에 채운다(읽기 틀).",
+          title=("① 원본 계약서", "권리의 근거 · 빅히트가 이미 맺은 계약서"), min_w=900),
+    table(["확인서", "확정하는 권리", "서명", "상태", ""],
+          [["권리 확인서 · 레이블용", "마스터 보유 100%", "빅히트 뮤직 — 레이블", badge("반영 · 01-02", "ok"), link("서명본")],
+           ["권리 확인서 · 작가용", "작가 지분 50 · 50", "작가 2명 · 전자서명 링크", badge("서명 대기 · 01-03 보냄", "warn"), link("다시 보내기")],
+           ["멤버 확인(실연자 앱)", "보이스 소유 · 원곡 파트 담당", "멤버 7명 본인", badge("1 / 7", "warn"), link("확인·동의 탭 →")]],
+          foot="권리 확정 = 누가 몇 %를 갖는지 확정한다. 레이블 몫은 바로, 작가는 확인서 전자서명, 멤버는 실연자 앱 확인.",
+          title=("③ 권리 확정", "누가 무엇을 갖는가"), paged=False, min_w=900),
+    table(["계약", "허락하는 것", "서명", "상태", ""],
+          [["녹음 이용허락 표준계약 v1", "녹음을 팬앱에서 쓴다(미리듣기·조합 생성·개인 보관)", "빅히트 뮤직 — 레이블", badge("반영", "ok"), link("서명본")],
+           ["작품 이용허락 표준계약 v1 · 작가 2명", "작품을 팬앱에서 쓴다", "작가 2명 · 전자서명 링크", badge("서명 대기", "warn"), link("다시 보내기")],
+           ["실연 이용 동의 · 멤버 7명", "보이스를 팬앱에서 쓴다", "멤버 본인(실연자 앱)", badge("0 / 7", "warn"), link("확인·동의 탭 →")],
+           ["실연 수익 수령 위임 · 멤버 7명 → 소속사", "실연 몫을 소속사가 받는다", "멤버 → 빅히트 뮤직 매니지먼트", badge("1 / 7", "warn"), link("펼치기")]],
+          foot="이용 허락 = 팬앱에서 써도 된다는 허락. 권리를 갖는 것과 별개다. 서명본은 원천 문서로 쌓인다.",
+          title=("④ 이용 허락", "팬앱에서 써도 되는가"), paged=False, min_w=900),
+]
+ws_page("Song-Contracts.dc.html", "Dynamite — 문서·계약", "문서·계약", "2026-01-05 09:00",
+        [], "Dynamite · 문서·계약", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)",
+        [button("+ 원본 계약서 올리기"), button("+ 계약 만들기", primary=True)],
+        [note("문서·계약은 곡 진행 ①·③·④를 다룬다. ② 권리 등록은 원곡 권리 탭, ⑤ 분배·출시는 분배 규칙·팩 · 승인·출시 탭.")] + contracts_body,
+        READY_IMPORT, height=1300)
+
+# ── 새 곡 워크스페이스 ① 곡·녹음: 이 곡의 원본 계약서를 바로 올린다 ──
+upload = (f'<div style="border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 18px; display: flex; gap: 12px; align-items: center; background: #f8fafc">'
+          f'<div style="flex: 1 1 auto"><div style="font-weight: 700">녹음 계약서를 끌어 놓거나 {link("파일 고르기")}</div><div style="font-size: 12.5px; color: #334155">PDF · 이 곡에 묶여 원본 계약서가 된다 — 다른 곡의 계약서는 보이지 않는다</div></div></div>')
+uploaded = table(["올린 문서", "근거가 될 권리", "상태"],
+                 [["butter 녹음 계약서 (PDF) · 3쪽", "녹음 · 마스터 보유", badge("올림", "ok")]], paged=False, min_w=600)
+create_body = [
+    steps(["곡·녹음 · 녹음 계약서", "원곡 권리 · 작품 계약서", "멤버 · 보이스·파트", "확인 · 확인 요청 보내기"], 1),
+    '<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">'
+    + '<div style="flex: 2 1 640px; min-width: 0">'
+    + card("곡·녹음",
+           '<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">'
+           + field("곡 제목", f'<input value="butter" style="{SELECT}">')
+           + field("녹음 버전", f'<input value="Original" style="{SELECT}">')
+           + field("마스터 보유", f'<select style="{SELECT}"><option>빅히트 뮤직 — 레이블</option></select>', "레이블만 보인다")
+           + field("녹음 계약서", '<div style="padding: 10px 0; font-size: 14px">아래에서 올린 문서가 근거가 된다</div>')
+           + "</div>" + upload + uploaded)
+    + '</div>'
+    + '<div style="flex: 1 1 300px; min-width: 0">'
+    + card("저장하면", kv([("마스터 보유", "빅히트 뮤직 — 레이블 100% · 바로 확정"), ("녹음 계약서", "이 곡의 원본 계약서로 저장"), ("다음 단계", "② 작품 계약서 올리기 · 작가 지분")])
+           + note("단계마다 저장된다. 나가도 '입력 중'으로 남고 이어서 한다. 당사자가 명부에 없으면 운영 관리 › 조직 › 내 조직에서 등록한다."))
+    + '</div></div>',
+    '<div style="display: flex; gap: 8px; justify-content: flex-end">' + button("나중에 이어서") + button("이전", disabled=True) + button("저장하고 ② 원곡 권리로", primary=True) + "</div>",
+]
+page("Song-Create.dc.html", "새 곡 워크스페이스", "works-list", "2026-05-01 10:34", [], "새 곡",
+     "곡 진행 ① 원본 계약서 → ② 권리 등록까지 이 마법사에서 한다. 4단계 뒤 곡 화면의 원곡 권리 탭으로 간다", [], create_body, height=1000)
 
 print("ok")
