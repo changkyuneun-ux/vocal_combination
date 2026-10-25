@@ -1,3 +1,4 @@
+import { DropZone } from "../../../components/DropZone.tsx";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
@@ -157,11 +158,7 @@ function UploadOriginal({ ctx, onClose }: { ctx: WsCtx; onClose: () => void }) {
         <select className="p-select" aria-label="계약서 종류" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
           <option value="MASTER_CONTRACT">녹음 계약서 — 마스터 보유 근거</option><option value="PUBLISHING">작품 계약서 — 작가 지분 근거</option></select></Field>
       <Field label="파일">
-        <div style={{ border: "1.5px dashed var(--p-line-strong)", borderRadius: 10, padding: 14, background: "var(--p-soft)", fontSize: 13.5 }}>
-          {file ? <>{file.name} · <label htmlFor="up-file" style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer" }}>바꾸기</label></>
-            : <>끌어 놓거나 <label htmlFor="up-file" style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer" }}>파일 고르기</label> · PDF</>}
-          <input id="up-file" type="file" accept="application/pdf" aria-label="계약서 파일" style={{ position: "absolute", left: -9999 }} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </div></Field>
+        <DropZone id="up-file" label="계약서 파일" accept="pdf" file={file} onFile={setFile} hint="PDF" /></Field>
       <Field label="효력 시작"><input className="p-input" aria-label="효력 시작" inputMode="numeric" placeholder="YYYY-MM-DD" style={{ fontVariantNumeric: "tabular-nums" }} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
       <Note>올리면 이 곡의 ① 원본 계약서가 된다. 값을 원곡 권리에 채우려면 표의 '불러오기'를 누른다.</Note>
       {w.err && <ErrorPanel error={w.err} />}

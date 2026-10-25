@@ -1,3 +1,4 @@
+import { DropZone } from "../../../components/DropZone.tsx";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useGet } from "../../../api/hooks.ts";
@@ -169,16 +170,9 @@ const BearingChips = ({ value, onChange, disabled, title }: { value: boolean; on
   </div>
 );
 
-/** 오디오 파일 고르기(숨은 input). */
-function FilePick({ file, current, onFile, label }: { file: File | null; current?: string; onFile: (f: File | null) => void; label: string }) {
-  const id = `f-${label}`;
-  return (
-    <div className="p-input" style={{ display: "flex", justifyContent: "space-between", gap: 8, color: file || current ? "var(--p-fg)" : "var(--p-muted)" }}>
-      <span>{file ? file.name : current ?? <>파일 끌어 놓기 또는 <label htmlFor={id} style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer" }}>고르기</label> · WAV 48kHz</>}</span>
-      {(file || current) && <label htmlFor={id} style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>바꾸기</label>}
-      <input id={id} aria-label={label} type="file" accept="audio/*" style={{ position: "absolute", left: -9999 }} onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-    </div>
-  );
+/** 오디오 파일 끌어 놓기·고르기(입력 상자 모양 DropZone). 오디오(WAV 등)만 받는다. */
+function FilePick({ file, current, onFile, label, id }: { file: File | null; current?: string; onFile: (f: File | null) => void; label: string; id: string }) {
+  return <DropZone id={id} label={label} accept="audio" variant="input" file={file} current={current} onFile={onFile} hint="WAV 48kHz" />;
 }
 
 type Panel = { mode: "detail" | "edit"; row: PartRow; singer: string | null; stem: StemRow } | { mode: "add"; row: PartRow | null; singer: string | null };
@@ -215,7 +209,7 @@ function StemSide({ ctx, panel, audio, onClose, onMode }: { ctx: WsCtx; panel: E
               onMode("detail");
             }, inIr && file ? "새 오디오를 올렸습니다 — 다음 재고정부터 쓴다" : "스템을 고쳤습니다")}>저장</button></>}>
         <Field label="오디오 파일" hint={inIr ? "오디오를 바꾸면 새 버전 — 다음 재고정부터 쓴다. 이미 발행된 조합은 이전 오디오 그대로" : "오디오를 바꾸면 새 버전 — 이미 발행된 조합은 이전 오디오 그대로"}>
-          <FilePick file={file} current={au ? `${stem.stemId}.wav` : undefined} onFile={setFile} label="오디오 파일" /></Field>
+          <FilePick id="f-edit-audio" file={file} current={au ? `${stem.stemId}.wav` : undefined} onFile={setFile} label="오디오 파일" /></Field>
         <Field label="부른 멤버" hint="슬롯·파트와 부른 멤버는 바꿀 수 없다 — 잘못 넣었으면 쓰지 않음 후 새로 추가">
           <select className="p-select" aria-label="부른 멤버" disabled><option>{stem.performerPartyId ? ctx.name(stem.performerPartyId) : "—"}</option></select></Field>
         <Field label="권리 부담"><BearingChips value={rb} onChange={setRb} disabled={inIr} title={inIr ? `${irV}에 든 스템은 권리 부담을 바꾸지 않는다 — 쓰지 않음 후 새로 추가` : undefined} /></Field>
@@ -283,7 +277,7 @@ function AddSide({ ctx, seed, seedSinger, onClose }: { ctx: WsCtx; seed: PartRow
       <Field label="부른 멤버" hint={vocal ? "이 곡의 멤버만. 원곡 담당이면 원곡 스템" : "그룹·반주 파트는 원곡 스템 하나(부른 멤버 없음)"}>
         <select className="p-select" aria-label="부른 멤버" value={vocal ? singer : ""} disabled={!vocal} onChange={(e) => setSinger(e.target.value)}>
           {vocal ? ctx.members.map((m) => <option key={m.partyId} value={m.partyId}>{m.name}</option>) : <option value="">—</option>}</select></Field>
-      <Field label="오디오 파일"><FilePick file={file} onFile={setFile} label="오디오 파일" /></Field>
+      <Field label="오디오 파일"><FilePick id="f-add-audio" file={file} onFile={setFile} label="오디오 파일" /></Field>
       <Field label="권리 부담"><BearingChips value={vocal && rb} onChange={setRb} disabled={!vocal} /></Field>
       <Note>{ctx.sealed ? `저장하면 실연 주장이 함께 만들어지고 부른 멤버에게 확인 요청이 간다(ID3). IR v${ctx.irVersion}로 고정된 뒤라 다음 IR에 들어간다.` : "저장하면 실연 주장이 함께 만들어지고 부른 멤버에게 확인 요청이 간다(ID3)."}</Note>
       {w.err && <ErrorPanel error={w.err} />}

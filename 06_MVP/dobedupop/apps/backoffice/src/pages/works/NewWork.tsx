@@ -1,3 +1,4 @@
+import { DropZone } from "../../components/DropZone.tsx";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../../api/client.ts";
@@ -100,13 +101,8 @@ export function NewWork() {
   /** 이 곡의 원본 계약서 올리기(시안: 점선 상자 + 올린 문서 표). 저장할 때 이 곡에 묶어 올린다. */
   const drop = (what: string, basis: string, file: File | null, set: (f: File | null) => void) => (
     <>
-      <div style={{ border: "1.5px dashed var(--p-line-strong)", borderRadius: 10, padding: 18, display: "flex", gap: 12, alignItems: "center", background: "var(--p-soft)" }}>
-        <div style={{ flex: "1 1 auto" }}>
-          <div style={{ fontWeight: 700 }}>{what}를 끌어 놓거나 <label htmlFor={`f-${what}`} style={{ color: "var(--p-link)", cursor: "pointer" }}>파일 고르기</label></div>
-          <div style={{ fontSize: 12.5, color: "var(--p-muted)" }}>PDF · 이 곡에 묶여 원본 계약서가 된다 — 다른 곡의 계약서는 보이지 않는다</div>
-        </div>
-        <input id={`f-${what}`} type="file" accept="application/pdf,image/png,image/jpeg" aria-label={what} style={{ position: "absolute", left: -9999 }} onChange={(e) => set(e.target.files?.[0] ?? null)} />
-      </div>
+      <DropZone id={`f-${what}`} label={what} accept="pdf" variant="large" what={what} file={file} onFile={set}
+        hint="PDF · 이 곡에 묶여 원본 계약서가 된다 — 다른 곡의 계약서는 보이지 않는다" />
       {file && (
         <TableCard cols={["올린 문서", "근거가 될 권리", "상태"]} count={1} paged={false} minW={600} label={`올린 ${what}`}>
           <tr><td>{file.name}</td><td>{basis}</td><td><B tone="muted">저장하면 올림</B></td></tr>
