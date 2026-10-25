@@ -357,3 +357,29 @@
 .p-inner-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--p-line); font-size: 12.5px; color: var(--p-muted); }
 .p-table td .p-linkbtn { font-weight: 600; text-decoration: none; }
 .p-table td .p-linkbtn:hover:not(:disabled) { text-decoration: underline; }
+
+/*
+ * 포털은 밝은 테마 하나로 고정한다(2026-10-25 버그: OS 다크 모드에서 theme.css의 다크 변수와 h1~h4·[role="status"] 규칙이 새어 들어와
+ * 밝은 포털 바탕에 밝은 글자가 나왔다). theme.css가 다크 모드에서 바꾸는 옛 변수를 모두 포털 토큰 값으로 덮어쓴다.
+ * 선택자는 theme.css의 :root:not([data-theme="light"])보다 우선하도록 html:root[…]로 쓴다.
+ */
+html:root[data-app="portal"] {
+  color-scheme: light;
+  --font: "IBM Plex Sans KR", system-ui, sans-serif; --font-mono: var(--font);
+  --bg: #f3f5f8; --surface: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
+  --fg: #0f172a; --fg-2: #1e293b; --muted: #334155;
+  --line: #e3e7ee; --line-soft: #eef1f5; --line-strong: #cbd5e1;
+  --accent: #1e3a8a; --accent-hover: #1e3a8a; --accent-fg: #ffffff; --accent-soft: #eff6ff; --accent-text: #1e40af;
+  --btn-primary: #1e3a8a; --btn-primary-hover: #1e3a8a;
+  --header-bg: #1e3a8a; --header-fg: #ffffff; --header-muted: #dbeafe; --header-line: #1e3a8a;
+  --nav-bg: #ffffff; --nav-fg: #0f172a; --nav-muted: #334155; --nav-hover: #f1f5f9; --nav-active-bg: #eff6ff; --nav-active-fg: #1e3a8a; --nav-line: #e2e8f0;
+  --ok: #047857; --ok-soft: #ecfdf5; --warn: #b45309; --warn-soft: #fffbeb; --bad: #b91c1c; --bad-soft: #fef2f2;
+  --info: #1e3a8a; --info-soft: #eff6ff; --neutral: #334155; --neutral-soft: #f8fafc;
+  --code-bg: #f8fafc; --code-fg: #0f172a;
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, .14); --radius-sm: 8px;
+  --focus: 0 0 0 3px rgba(30, 58, 138, .28);
+}
+html:root[data-app="portal"] :is(h1, h2, h3, h4) { color: var(--p-fg); }
+html:root[data-app="portal"] [role="status"] { color: var(--p-fg-2); }
+html:root[data-app="portal"] :is(input, select, textarea) { color: var(--p-fg); background-color: var(--p-surface); }
+html:root[data-app="portal"] :is(input, select, textarea):disabled { background-color: var(--p-soft); }
