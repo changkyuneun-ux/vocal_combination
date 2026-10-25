@@ -40,7 +40,7 @@ test("원본 계약서 올리기: 칸 토글, 올리면 ① 표에 바로, 곡 �
   expect(await panel.getByLabel("계약서 종류").locator("option").allTextContents()).toEqual(["녹음 계약서 — 마스터 보유 근거", "작품 계약서 — 작가 지분 근거"]);
   await expect(panel.getByRole("button", { name: "올리기" })).toBeDisabled();
   await panel.getByLabel("계약서 종류").selectOption({ label: "작품 계약서 — 작가 지분 근거" });
-  await panel.getByLabel("계약서 파일").setInputFiles({ name: "추가 작사 계약서.pdf", mimeType: "application/pdf", buffer: Buffer.from(`%PDF-1.4\n% e2e upload ${Date.now()}\n%%EOF\n`) });
+  await panel.getByLabel("계약서 파일", { exact: true }).setInputFiles({ name: "추가 작사 계약서.pdf", mimeType: "application/pdf", buffer: Buffer.from(`%PDF-1.4\n% e2e upload ${Date.now()}\n%%EOF\n`) });
   await expect(panel).toContainText("추가 작사 계약서.pdf");
   await panel.getByLabel("효력 시작").fill("2026-02-01");
   await panel.getByRole("button", { name: "올리기" }).click();
