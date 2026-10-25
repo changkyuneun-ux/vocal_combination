@@ -23,11 +23,16 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
   await actAs(page, "usr_bh_rights", "/portal/works/new");
   // 1 곡·녹음
   await page.getByLabel("곡 제목").fill("E2E Song");
+  // 유형별 거르기: 마스터 보유는 빅히트 관리 레이블만(소속사 없음), 녹음 근거 문서는 녹음 계약만
+  expect((await page.getByLabel("마스터 보유(우리 당사자)").locator("option").allTextContents()).slice(1)).toEqual(["빅히트 레이블(우리)"]);
+  expect((await page.getByLabel("녹음 근거 문서").locator("option").allTextContents()).slice(1).every((t) => t.includes("녹음"))).toBe(true);
   await page.getByLabel("마스터 보유(우리 당사자)").selectOption("pty_bighit_label");
   await page.getByRole("button", { name: "저장하고 2 원곡 권리로" }).click();
   // 2 원곡 권리: 작가 2명 균등
   await page.getByRole("button", { name: "+ 작가" }).click();
   const authors = page.getByLabel("작가", { exact: true });
+  // 작가 고르기는 작가 당사자만
+  expect((await authors.nth(0).locator("option").allTextContents()).slice(1).every((t) => /David Stewart|Jessica Agombar/.test(t))).toBe(true);
   await authors.nth(0).selectOption("pty_david_stewart");
   await authors.nth(1).selectOption("pty_jessica_agombar");
   await page.getByRole("button", { name: "균등 분배" }).click();
@@ -63,7 +68,7 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
   await page.getByRole("navigation", { name: "워크스페이스 탭" }).getByRole("link", { name: "스템", exact: true }).click();
   for (const who of ["파트 2 (정국) 정국", "파트 3 (지민) 지민"]) {
     await page.getByRole("button", { name: `${who} 없음` }).click();
-    await page.getByRole("button", { name: "스템 저장" }).click();
+    await page.getByRole("complementary", { name: "스템 추가" }).getByRole("button", { name: "추가", exact: true }).click();
     await expect(page.getByRole("button", { name: `${who} 원곡` })).toBeVisible();
   }
   await expect(page.getByRole("button", { name: /원곡$/ })).toHaveCount(2);

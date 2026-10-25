@@ -1,3 +1,4 @@
+import { retireStem } from "./stem-retire.ts";
 import { recordPartAssignment, type PartAssignmentInput } from "./part-assignment.ts";
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
@@ -148,6 +149,9 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
     const perf = { claimId: `c_perf_${b.stemId}`, factsScopeId: scopeId, sourceId: b.stemId, edge: "PERFORMED_BY", targetId: voiceId, shareBps: 10000, performerRole: "FEATURED", status: "ASSERTED", validFrom };
     await recordWithConfirmation(tx, actor, "CLAIM", perf, () => reg.recordClaim(tx, deps.clock, perf as reg.ClaimDraft));
   };
+  // 스템 쓰지 않음(0047): 지우지 않고 새 발행에서 뺀다(IR 전·뒤 모두).
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/stems/:id/retire", async (req) =>
+    withActor(deps, req, (tx, actor) => retireStem(tx, deps.clock, actor, req.params.id, req.body?.reason)));
   // IR 생성 뒤 원곡 파트 담당 바로잡기(0046): 새 버전 + 바뀐 멤버 확인 요청, 다음 재고정부터 반영.
   created<PartAssignmentInput>("/part-assignments", async (tx, b, actor) => {
     const out = await recordPartAssignment(tx, deps.clock, actor, b);

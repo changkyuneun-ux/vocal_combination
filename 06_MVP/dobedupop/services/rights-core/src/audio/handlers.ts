@@ -11,7 +11,7 @@ import { renderMaster } from "./render.ts";
  */
 export function audioJobHandlers(d: { db: Db; clock: Clock; audio?: AudioDeps | undefined }): Partial<Record<JobName, JobHandler>> {
   return {
-    "audio-check": async (data) => { if (d.audio !== undefined) await checkStemAudio({ db: d.db, clock: d.clock, audio: d.audio }, data.stemId!); },
+    "audio-check": async (data) => { if (d.audio !== undefined) await checkStemAudio({ db: d.db, clock: d.clock, audio: d.audio }, data.stemId!, data.next === "1"); },
     "render-master": async (data) => { if (d.audio?.renderer !== undefined) await renderMaster({ db: d.db, clock: d.clock, audio: d.audio }, data.snapshotId!); },
   };
 }

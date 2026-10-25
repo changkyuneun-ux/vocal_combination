@@ -39,8 +39,11 @@ export function NewWork() {
   const [lookup, setLookup] = useState("");
   const total = authors.reduce((a, x) => a + Math.round(Number(x.share) * 100), 0);
   const docRef = (id: string) => { const d = (docs.data ?? []).find((x) => x.documentId === id); return d ? [{ documentId: d.documentId, version: d.version }] : undefined; };
-  const labels = parties.items.filter((p) => own.has(p.partyId) && ["LABEL", "AGENCY", "ARTIST", "PUBLISHER"].includes(p.partyType));
-  const authorChoices = parties.items.filter((p) => ["AUTHOR", "PUBLISHER", "ARTIST"].includes(p.partyType));
+  // 유형별 거르기(원곡 권리 "새 버전 만들기"와 같은 규칙): 마스터 보유 = 빅히트 관리 레이블만, 작가 = 작가 당사자만, 근거 문서 = 그 권리의 계약만.
+  const labels = parties.items.filter((p) => own.has(p.partyId) && p.partyType === "LABEL");
+  const authorChoices = parties.items.filter((p) => p.partyType === "AUTHOR");
+  const masterDocs = (docs.data ?? []).filter((d) => d.kind === "MASTER_CONTRACT");
+  const workDocs = (docs.data ?? []).filter((d) => d.kind === "PUBLISHING");
   // 공용 명부의 멤버는 이 테넌트 곡에 아직 닿지 않았으면 목록에 보이지 않는다 — 당사자 id로 찾아 더한다.
   const memberChoices = [...parties.items.filter((p) => p.partyType === "MEMBER" || (p.partyType === "ARTIST" && own.has(p.partyId))),
     ...found.filter((x) => !parties.items.some((p) => p.partyId === x.partyId))];
@@ -114,7 +117,7 @@ export function NewWork() {
                 <label className="p-field lg">곡 제목<input className="p-input" value={s1.title} onChange={(e) => setS1({ ...s1, title: e.target.value })} /></label>
                 <label className="p-field lg">녹음 버전<input className="p-input" value={s1.version} onChange={(e) => setS1({ ...s1, version: e.target.value })} /></label>
                 <label className="p-field lg">마스터 보유(우리 당사자)<select className="p-select" value={s1.owner} onChange={(e) => setS1({ ...s1, owner: e.target.value })}><option value="">고르기</option>{labels.map((p) => <option key={p.partyId} value={p.partyId}>{p.displayName}(우리)</option>)}</select></label>
-                <label className="p-field lg">녹음 근거 문서<select className="p-select" value={s1.doc} onChange={(e) => setS1({ ...s1, doc: e.target.value })}><option value="">나중에</option>{(docs.data ?? []).map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title} v{d.version}</option>)}</select></label>
+                <label className="p-field lg">녹음 근거 문서<select className="p-select" value={s1.doc} onChange={(e) => setS1({ ...s1, doc: e.target.value })}><option value="">나중에</option>{masterDocs.map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title} v{d.version}</option>)}</select></label>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--p-muted)" }}>근거 문서 올리기는 모아 보기 › 원천 문서에서. 관리번호는 제목에서 자동으로 만든다.</p>
             </>}
@@ -129,7 +132,7 @@ export function NewWork() {
                     <select key={`r${i}`} className="p-select" style={sel} aria-label="역할" value={a.roleDetail} onChange={(e) => setAuthors(authors.map((x, k) => (k === i ? { ...x, roleDetail: e.target.value } : x)))}>{ROLE_DETAIL.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>,
                     <input key={`s${i}`} className="p-input" style={sel} aria-label="지분" type="number" value={a.share} onChange={(e) => setAuthors(authors.map((x, k) => (k === i ? { ...x, share: e.target.value } : x)))} />,
                     <select key={`d${i}`} className="p-select" style={sel} aria-label="근거" value={a.doc} onChange={(e) => setAuthors(authors.map((x, k) => (k === i ? { ...x, doc: e.target.value } : x)))}>
-                      <option value="">근거 문서 나중에</option>{(docs.data ?? []).map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title}</option>)}</select>,
+                      <option value="">근거 문서 나중에</option>{workDocs.map((d) => <option key={`${d.documentId}@${d.version}`} value={d.documentId}>{d.title}</option>)}</select>,
                     <button key={`x${i}`} type="button" className="p-btn" aria-label="삭제" onClick={() => setAuthors(authors.filter((_, k) => k !== i))}>×</button>,
                   ])}
                 </div>

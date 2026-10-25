@@ -379,9 +379,10 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
         <TableCard cols={["바로잡을 것", `지금(v${v})`, "새 값", "저장하면"]} count={2} paged={false} minW={700} label="실연 바로잡기"
           foot="실연은 %가 아니다 — 멤버 몫은 조합마다 부른 시간으로 계산된다. 여기서는 원곡 파트 담당과 보이스 소유만 바로잡는다.">
           <tr>
-            <td><select className="p-select" aria-label="바로잡을 파트" style={{ fontWeight: 600, width: "100%" }} value={fix.part}
+            <td><select className="p-select" aria-label="바로잡을 파트" style={{ width: 260, maxWidth: "100%" }} value={fix.part}
               onChange={(e) => { const r = vocal.find((x) => partKey(x.slotId, x.partNo) === e.target.value)!; setFix({ ...fix, part: e.target.value, member: ownerOf(r.slotId, r.partNo), voiceOwner: "" }); }}>
-              {vocal.map((r) => <option key={partKey(r.slotId, r.partNo)} value={partKey(r.slotId, r.partNo)}>{r.slotNo} {r.section} · 파트 {r.partNo} 원곡 담당</option>)}</select></td>
+              {vocal.map((r) => <option key={partKey(r.slotId, r.partNo)} value={partKey(r.slotId, r.partNo)}>{r.slotNo} {r.section} · 파트 {r.partNo} 원곡 담당</option>)}</select>
+              <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 400, color: "var(--p-muted)" }}>보컬 파트만</div></td>
             <td>{memberName(curOwner)}</td>
             <td><select className="p-select" aria-label="새 원곡 담당" style={{ width: 160 }} value={fix.member} onChange={(e) => setFix({ ...fix, member: e.target.value })}>
               {ctx.members.map((m) => <option key={m.partyId} value={m.partyId}>{m.name}</option>)}</select>

@@ -1,4 +1,4 @@
-import type { Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -163,6 +163,12 @@ export async function issue(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, 
     if (byStem.get(a.stemId)!.kind === "GROUP" && !(await isOriginalGroupStem(tx, a.stemId))) {
       throw invalid("GROUP_PART_FIXED", `slot ${a.slotId} part ${a.partNo} is a group part; only its original stem can be used`);
     }
+  }
+  // 쓰지 않음으로 뺀 스템은 새 발행에 쓰지 않는다(0047). 이미 발행된 조합은 그대로다.
+  const retired = (await withSystemScope(tx, async () => (await tx.query("SELECT stem_id FROM stem_retirement WHERE stem_id = ANY($1) ORDER BY stem_id", [picks.map((a) => a.stemId)])).rows));
+  if (retired.length > 0) {
+    throw invalid("STEM_RETIRED", `stems are no longer used: ${retired.map((r) => r.stem_id).join(", ")}`,
+      retired.map((r) => ({ code: "STEM_RETIRED", path: `$.assignments.${r.stem_id}`, message: "stem is retired (쓰지 않음)" })));
   }
   // 오디오를 올린 스템은 검수·출처 검사를 통과(READY)해야 쓸 수 있다(다음 작업 9). 오디오 없이 등록된 메타데이터 스템은 검사 대상이 아니다.
   const notReady = (await tx.query("SELECT stem_id, status FROM stem_audio WHERE stem_id = ANY($1) AND status <> 'READY' ORDER BY stem_id", [picks.map((a) => a.stemId)])).rows;

@@ -21,6 +21,8 @@ export type WsCtx = {
   /** 이 곡의 멤버(보이스 소유자와 파트 원곡 담당), 등록 순. */
   members: { partyId: string; name: string }[];
   now: string;
+  /** 지금 IR(분배 규칙 최신 버전) 번호. */
+  irVersion: number;
 };
 
 /** 문서·계약 아래 화면(시안 Song-Import·Song-ClaimConfirm): 제목·설명·본문. */
@@ -66,6 +68,7 @@ export function Workspace() {
   const ctx: WsCtx | null = f && scopeId ? {
     work, scopeId, facts: f, rows: slotPartRows(f.slots), names: parties.names, name: (p) => parties.names.get(p) ?? p, sealed, can,
     recordingId: rec?.recordingId ?? null, members: membersOf(f, parties.names), now: new Date().toISOString(),
+    irVersion: pp.policy?.latestVersion ?? 1,
   } : null;
   const body: Record<string, (c: WsCtx) => ReactNode> = {
     rights: (c) => <RightsTab ctx={c} />, stems: (c) => <StemsTab ctx={c} />, confirm: (c) => <ConfirmTab ctx={c} />,
@@ -84,9 +87,13 @@ export function Workspace() {
       <div className="p-title-row">
         {subPage ? <div><h1>{subPage.title}</h1><div className="p-desc">{subPage.desc}</div></div>
           : <div><h1>{work.title} · {WS_TABS.find(([k]) => k === tab)?.[1] ?? ""}</h1><div className="p-desc">녹음 {rec?.versionTitle ?? "없음"}{rec ? ` · ${parties.names.get(rec.masterOwnerPartyId) ?? rec.masterOwnerPartyId}` : ""}</div></div>}
-        <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
-          {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
-        </span>
+        <div className="p-row" style={{ gap: 8 }}>
+          {/* 탭이 제목 줄 오른쪽에 버튼을 둘 자리(시안 ws_page actions — 예: 스템 탭의 "+ 스템 추가") */}
+          <span id="ws-title-actions" style={{ display: "contents" }} />
+          <span className={`p-badge lg ${sealed ? "ir" : "ok"}`} aria-label="IR 상태">
+            {sealed ? `IR 생성됨 v${pp.policy?.latestVersion ?? 1} · ${(work.sealedThrough ?? "").slice(0, 16).replace("T", " ")} — 조회만` : "IR 생성 전 — 등록·조회·수정 가능"}
+          </span>
+        </div>
       </div>
       <nav className="p-tabs" aria-label="워크스페이스 탭">
         {WS_TABS.map(([k, l]) => <Link key={k} to={`/works/${encodeURIComponent(workId)}/${k}`} aria-current={tab === k ? "page" : undefined}>{l}</Link>)}

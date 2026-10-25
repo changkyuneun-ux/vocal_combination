@@ -1,3 +1,4 @@
+import { promoteStagedAudio } from "../audio/service.ts";
 import type { Actor } from "../platform/actor.ts";
 import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
@@ -60,6 +61,7 @@ export async function compilePolicy(
   const pack = await packRow(tx, input.packId, "SHARE");
   const knownAt = clock.now();
   const facts = await sealFacts(ctx, tx, pack.factsScopeId, knownAt);
+  await promoteStagedAudio(tx, clock, pack.factsScopeId, knownAt); // 다시 고정할 때 대기 중인 오디오 새 버전을 쓴다(0047)
   const version = ((await tx.query("SELECT COALESCE(MAX(version), 0) AS v FROM policy_version WHERE policy_id = $1", [input.policyId])).rows[0].v as number) + 1;
   const { sealed, canonicalText } = await compilePolicyText(ctx, tx, { ...input, version, facts });
   await tx.query(
@@ -119,7 +121,7 @@ export async function activePolicyForPack(tx: Tx, packId: string): Promise<Omit<
  * 가벼운 재고정(통합 설계 3.3): 현재 ACTIVE 버전의 본문을 새 facts 봉인에 다시 고정한 새 버전을 만들어 곧바로 ACTIVE로 한다.
  * 조건: facts가 실제로 바뀌었고, 청구권자 집합이 같고, 활성화 검사가 통과한다. 아니면 전체 재승인이 필요하다.
  */
-export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, policyId: string): Promise<{ version: number; factsDigest: string; policyDigest: string }> {
+export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, policyId: string): Promise<{ version: number; factsDigest: string; policyDigest: string; audioPromoted?: number }> {
   requirePermission(actor, "policy.activate");
   const cur = (await tx.query("SELECT version FROM policy_version WHERE policy_id = $1 AND status = 'ACTIVE' FOR UPDATE", [policyId])).rows[0];
   if (cur === undefined) throw conflict("INVALID_STATE", `${policyId} has no ACTIVE version`);
@@ -130,7 +132,12 @@ export async function rebindPolicy(ctx: BridgeCtx, tx: Tx, clock: Clock, actor: 
   }
   const now = clock.now();
   const facts = await sealFacts(ctx, tx, pack.factsScopeId, now);
-  if (facts.digest === row.factsDigest) throw conflict("REBIND_NOT_NEEDED", `${policyId} is already pinned to the current facts`);
+  // 오디오 새 버전(0047)은 facts에 들지 않는다: facts가 그대로여도 대기 중인 새 오디오가 있으면 재고정으로 쓰게 하고 버전은 그대로 둔다.
+  const promoted = await promoteStagedAudio(tx, clock, pack.factsScopeId, now);
+  if (facts.digest === row.factsDigest) {
+    if (promoted > 0) return { version: cur.version as number, factsDigest: row.factsDigest, policyDigest: row.policyDigest, audioPromoted: promoted };
+    throw conflict("REBIND_NOT_NEEDED", `${policyId} is already pinned to the current facts`);
+  }
   const diags = await checkPackActivation(ctx, tx, { factsDigest: facts.digest, declared: await declaredClaimants(tx, row.packId), at: now });
   const before = await claimantSet(ctx, tx, row.factsDigest, now);
   const after = diags.length === 0 ? await claimantSet(ctx, tx, facts.digest, now) : [];

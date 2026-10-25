@@ -95,7 +95,8 @@ async function scopeFactsRows(tx: Tx, scopeId: string, workId: string) {
   const parts = await q(
     `SELECT sp.* FROM slot_part sp JOIN part_slot p ON p.slot_id = sp.slot_id JOIN recording_version r ON r.recording_id = p.recording_id
       WHERE r.work_id = $1 ORDER BY sp.slot_id, sp.part_no`, [s.work_id]);
-  const stems = await q("SELECT t.* FROM stem t JOIN recording_version r ON r.recording_id = t.recording_id WHERE r.work_id = $1 ORDER BY t.stem_id", [s.work_id]);
+  const stems = await q(`SELECT t.*, x.retired_at FROM stem t JOIN recording_version r ON r.recording_id = t.recording_id
+                          LEFT JOIN stem_retirement x ON x.stem_id = t.stem_id WHERE r.work_id = $1 ORDER BY t.stem_id`, [s.work_id]);
   const voices = await q("SELECT * FROM voice WHERE facts_scope_id = $1 ORDER BY voice_id", [scopeId]);
   const claims = await q("SELECT * FROM right_claim WHERE facts_scope_id = $1 ORDER BY claim_id, version", [scopeId]);
   const mandates = await q("SELECT * FROM mandate WHERE facts_scope_id = $1 ORDER BY mandate_id, version", [scopeId]);
@@ -119,6 +120,7 @@ async function scopeFactsRows(tx: Tx, scopeId: string, workId: string) {
     stems: stems.map((r) => ({
       stemId: r.stem_id as string, slotId: r.slot_id as string, partNo: r.part_no as number, recordingId: r.recording_id as string,
       performerPartyId: r.performer_party_id as string | null, rightsBearing: r.rights_bearing as boolean, createdAt: ts(r.created_at)!,
+      retiredAt: ts(r.retired_at), // 쓰지 않음(0047)
     })),
     voices: voices.map((r) => ({ voiceId: r.voice_id as string, factsScopeId: r.facts_scope_id as string, kind: r.kind as string, createdAt: ts(r.created_at)! })),
     claims: claims.map((r) => ({

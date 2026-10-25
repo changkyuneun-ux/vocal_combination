@@ -11,6 +11,7 @@ import { recordingJobs } from "../../src/platform/jobs.ts";
 import { buildServer } from "../../src/http/server.ts";
 import { registerParty } from "../../src/registry/service.ts";
 import { settlementWorld } from "../settlement-fixtures.ts";
+import * as policy from "../../src/policy/service.ts";
 import { gen, song } from "../../../audio-service/test/gen.ts";
 
 // 조합 렌더링(다음 작업 10): 팬 미리듣기(발행 전), 발행 후 마스터 렌더(워터마크), 렌더 무결성 검증.
@@ -75,6 +76,9 @@ test("render integrity: re-rendering the sealed assignment matches; replacing a 
   assert.equal(ok.json().result, "MATCH");
   await upload("stm_a1", await gen("sine=frequency=470:duration=31:sample_rate=48000", undefined, "volume=2"));
   await drain();
+  // IR에 든 스템의 쓰던 오디오를 바꾸면 새 버전으로 대기한다(0047) — 재고정 전에는 쓰는 오디오가 그대로라 여전히 MATCH
+  assert.equal((await verify()).json().result, "MATCH");
+  await w.db.tx((tx) => policy.rebindPolicy(w.ctx, tx, fixedClock("2026-02-11T00:00:00.000Z", 1000), w.users.activator, "pol_nova"));
   const bad = (await verify()).json();
   assert.equal(bad.result, "MISMATCH");
   assert.equal(bad.sameInput, false);

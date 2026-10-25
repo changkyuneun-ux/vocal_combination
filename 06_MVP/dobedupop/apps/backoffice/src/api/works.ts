@@ -1,4 +1,4 @@
-import { api } from "./client.ts";
+import { api, apiUpload } from "./client.ts";
 import type { Claim, Mandate, Recording, Voice, Dispute } from "./types.ts";
 
 /** 작품 목록·곡 워크스페이스(2부-B) 화면용 타입과 호출. 코어 registry/overview.ts·readiness.ts와 같은 모양이다. */
@@ -21,7 +21,7 @@ export type Readiness = { items: ReadinessItem[] };
 export type PartKind = "VOCAL" | "GROUP" | "INSTRUMENT";
 export type SlotPart = { partNo: number; kind: PartKind; role: string | null; startMs: number; endMs: number; durationMs?: number; originalPartyId: string | null };
 export type SlotWithParts = { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number; sectionLabel: string | null; parts: SlotPart[] };
-export type StemRow = { stemId: string; slotId: string; partNo: number; recordingId: string; performerPartyId: string | null; rightsBearing: boolean; createdAt?: string };
+export type StemRow = { stemId: string; slotId: string; partNo: number; recordingId: string; performerPartyId: string | null; rightsBearing: boolean; createdAt?: string; retiredAt?: string | null };
 /** GET /scopes/:id/facts — 곡의 카탈로그와 기록 전부(파트 포함). */
 /** IR 생성 뒤 원곡 파트 담당 바로잡기의 현재 버전(파트의 originalPartyId는 v1 그대로). */
 export type PartAssignment = { assignmentId: string; version: number; slotId: string; partNo: number; partyId: string; previousPartyId: string; status: string; validFrom: string; recordedAt: string };
@@ -45,6 +45,11 @@ const catalogPath = (kind: CatalogKind, id: string, partNo?: number) =>
   `/${kind === "slot-part" ? "slot-parts" : `${kind}s`}/${enc(id)}${partNo === undefined ? "" : `/${partNo}`}`;
 export const putSlot = (slotId: string, body: Partial<{ startMs: number; endMs: number; sortOrder: number; sectionLabel: string }>) => api<unknown>("PUT", catalogPath("slot", slotId), body);
 export const putSlotPart = (slotId: string, partNo: number, body: Partial<Omit<SlotPart, "partNo">>) => api<unknown>("PUT", catalogPath("slot-part", slotId, partNo), body);
+/** 스템 쓰지 않음(지우지 않고 새 발행에서 뺀다, IR 전·뒤 모두). */
+export const retireStem = (stemId: string, reason?: string) => api<unknown>("POST", `/stems/${enc(stemId)}/retire`, reason ? { reason } : {});
+/** 스템 오디오 올리기(IR에 든 스템의 쓰던 오디오를 바꾸면 새 버전으로 대기 → 다음 재고정부터). */
+export const putStemAudio = (stemId: string, file: Blob) => apiUpload<{ stemId: string; status: string; next?: boolean }>("PUT", `/stems/${enc(stemId)}/audio`, file);
+export type StemAudio = { stemId: string; status: string; fileSha256: string; uploadedAt: string; next: { status: string; fileSha256: string; uploadedAt: string } | null };
 export const putStem = (stemId: string, body: Partial<{ performerPartyId: string; rightsBearing: boolean }>) => api<unknown>("PUT", catalogPath("stem", stemId), body);
 export const deleteCatalog = (kind: CatalogKind, id: string, partNo?: number) => api<unknown>("DELETE", catalogPath(kind, id, partNo));
 export const postSlot = (body: { slotId: string; recordingId: string; startMs: number; endMs: number; sortOrder: number; sectionLabel?: string; parts?: Omit<SlotPart, "durationMs">[] }) =>

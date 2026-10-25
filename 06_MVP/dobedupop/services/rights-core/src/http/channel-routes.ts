@@ -124,7 +124,7 @@ async function fanPack(tx: Tx, packId: string, detail = false) {
        FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
        JOIN stem st ON st.slot_id = sl.slot_id LEFT JOIN party pt ON pt.party_id = st.performer_party_id
        LEFT JOIN stem_audio au ON au.stem_id = st.stem_id
-      WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, st.part_no, st.stem_id`, [p.facts_scope_id],
+      WHERE f.facts_scope_id = $1 AND NOT EXISTS (SELECT 1 FROM stem_retirement x WHERE x.stem_id = st.stem_id) ORDER BY sl.sort_order, st.part_no, st.stem_id`, [p.facts_scope_id],
   )).rows;
   type FanStem = { stemId: string; partNo: number; performer?: string; available?: boolean; audio?: string };
   const slots = new Map<string, { slotId: string; startMs: number; endMs: number; stems: FanStem[] }>();

@@ -42,6 +42,7 @@ async function representative(tx: Tx, packId: string, scopeId: string) {
          FROM facts_scope f JOIN recording_version r ON r.work_id = f.work_id JOIN part_slot sl ON sl.recording_id = r.recording_id
          JOIN slot_part p ON p.slot_id = sl.slot_id AND p.kind <> 'GROUP'
          JOIN stem st ON st.slot_id = p.slot_id AND st.part_no = p.part_no AND st.rights_bearing AND st.performer_party_id IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM stem_retirement x WHERE x.stem_id = st.stem_id)
         WHERE f.facts_scope_id = $1 ORDER BY sl.sort_order, sl.slot_id, p.part_no, st.stem_id`, [scopeId])).rows;
     const picked = new Map<string, number>();
     const stems: typeof candidates = [];
