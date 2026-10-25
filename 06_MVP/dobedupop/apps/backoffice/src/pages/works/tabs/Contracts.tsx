@@ -9,6 +9,7 @@ import { ErrorPanel } from "../../../components/ErrorPanel.tsx";
 import { paginate } from "../../../api/paged.ts";
 import { currentClaims } from "../model.ts";
 import { B, Mono, Note, TableCard } from "../../ops/common.tsx";
+import { Field, SidePanel } from "./Stems.tsx";
 import { useParties, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
@@ -77,8 +78,8 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   const importLink = <Link to={`/works/${encodeURIComponent(ctx.work.workId)}/contracts/import`}>계약서 불러오기</Link>;
   const head = (
     <>
-      <button type="button" className="p-btn" aria-pressed={panel === "upload"} disabled={!ctx.can("rights.edit")} onClick={() => setPanel(panel === "upload" ? null : "upload")}>+ 원본 계약서 올리기</button>
-      <button type="button" className="p-btn primary" aria-pressed={panel === "new"} disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => setPanel(panel === "new" ? null : "new")}>+ 계약 만들기</button>
+      <button type="button" className={panel === "upload" ? "p-btn primary" : "p-btn"} aria-pressed={panel === "upload"} disabled={!ctx.can("rights.edit")} onClick={() => setPanel(panel === "upload" ? null : "upload")}>+ 원본 계약서 올리기</button>
+      <button type="button" className={panel === "upload" ? "p-btn" : "p-btn primary"} aria-pressed={panel === "new"} disabled={!ctx.can("contract.draft")} title={ctx.can("contract.draft") ? undefined : "계약 작성 권한이 필요하다"} onClick={() => setPanel(panel === "new" ? null : "new")}>+ 계약 만들기</button>
     </>
   );
   return (
@@ -132,30 +133,39 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   );
 }
 
-/** + 원본 계약서 올리기: 이 곡에 묶어 올린다(녹음 계약서 → 마스터 보유자, 작품 계약서 → 작가). 다른 곡의 계약서는 이 곡 근거로 쓰지 않는다. */
+/**
+ * + 원본 계약서 올리기(시안 Song-Contracts-Upload, 생성기 up_panel): 오른쪽 칸, 토글(버튼 다시 누르기·취소·×).
+ * 종류(녹음 계약서 → 마스터 보유 근거 / 작품 계약서 → 작가 지분 근거) · 파일(PDF) · 효력 시작. 올리면 이 곡에 묶여 ① 원본 계약서 표에 바로 나타난다.
+ */
 function UploadOriginal({ ctx, onClose }: { ctx: WsCtx; onClose: () => void }) {
   const w = useWrite();
   const [kind, setKind] = useState<"MASTER_CONTRACT" | "PUBLISHING">("MASTER_CONTRACT");
   const [file, setFile] = useState<File | null>(null);
+  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
   const cur = currentClaims(ctx.facts.claims);
   const parties = kind === "MASTER_CONTRACT" ? cur.filter((c) => c.edge === "CONTROLLED_BY").map((c) => c.targetId) : cur.filter((c) => c.edge === "WRITTEN_BY").map((c) => c.targetId);
+  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(from) && !Number.isNaN(Date.parse(from));
   const save = () => void w.run(async () => {
-    await uploadOriginal(file!, { kind, title: `${ctx.work.title} ${kind === "MASTER_CONTRACT" ? "녹음 계약서" : "작품 퍼블리싱 계약서"}`, parties, scope: ctx.scopeId });
+    await uploadOriginal(file!, { kind, title: `${ctx.work.title} ${kind === "MASTER_CONTRACT" ? "녹음 계약서" : "작품 퍼블리싱 계약서"}`, parties, scope: ctx.scopeId, effectiveFrom: new Date(`${from}T00:00:00.000Z`).toISOString() });
     onClose();
-  }, "원본 계약서를 올렸습니다 — 이 곡의 근거 문서가 된다");
+  }, "원본 계약서를 올렸습니다 — 이 곡의 ① 원본 계약서가 됐다");
   return (
-    <aside className="p-card" aria-label="원본 계약서 올리기" style={{ flex: "1 1 380px", maxWidth: 440, border: "2px solid var(--p-accent)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>원본 계약서 올리기</h2>
-      <label className="p-field lg">계약서 종류<select className="p-select" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-        <option value="MASTER_CONTRACT">녹음 계약서(마스터 보유)</option><option value="PUBLISHING">작품 퍼블리싱 계약서(작가 지분)</option></select></label>
-      <label className="p-field lg">파일<input className="p-input" type="file" accept="application/pdf,image/png,image/jpeg" aria-label="계약서 파일" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <span style={{ fontSize: 12, fontWeight: 400, color: "var(--p-muted)" }}>PDF · 이 곡에 묶여 원본 계약서가 된다 — 다른 곡의 계약서는 보이지 않는다</span></label>
+    <SidePanel label="원본 계약서 올리기" kicker="원본 계약서 올리기" title={`${ctx.work.title}에 묶을 계약서`} onClose={onClose}
+      actions={<><button type="button" className="p-btn" onClick={onClose}>취소</button>
+        <button type="button" className="p-btn primary" disabled={!file || !dateOk || w.busy} title={!file ? "파일을 고른다" : !dateOk ? "효력 시작을 YYYY-MM-DD로" : undefined} onClick={save}>올리기</button></>}>
+      <Field label="종류" hint="종류에 따라 근거가 될 권리가 정해진다">
+        <select className="p-select" aria-label="계약서 종류" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          <option value="MASTER_CONTRACT">녹음 계약서 — 마스터 보유 근거</option><option value="PUBLISHING">작품 계약서 — 작가 지분 근거</option></select></Field>
+      <Field label="파일">
+        <div style={{ border: "1.5px dashed var(--p-line-strong)", borderRadius: 10, padding: 14, background: "var(--p-soft)", fontSize: 13.5 }}>
+          {file ? <>{file.name} · <label htmlFor="up-file" style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer" }}>바꾸기</label></>
+            : <>끌어 놓거나 <label htmlFor="up-file" style={{ color: "var(--p-link)", fontWeight: 600, cursor: "pointer" }}>파일 고르기</label> · PDF</>}
+          <input id="up-file" type="file" accept="application/pdf" aria-label="계약서 파일" style={{ position: "absolute", left: -9999 }} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </div></Field>
+      <Field label="효력 시작"><input className="p-input" aria-label="효력 시작" inputMode="numeric" placeholder="YYYY-MM-DD" style={{ fontVariantNumeric: "tabular-nums" }} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+      <Note>올리면 이 곡의 ① 원본 계약서가 된다. 값을 원곡 권리에 채우려면 표의 '불러오기'를 누른다.</Note>
       {w.err && <ErrorPanel error={w.err} />}
-      <div className="p-row" style={{ justifyContent: "flex-end" }}>
-        <button type="button" className="p-btn" onClick={onClose}>취소</button>
-        <button type="button" className="p-btn primary" disabled={!file || w.busy} onClick={save}>올리기</button>
-      </div>
-    </aside>
+    </SidePanel>
   );
 }
 

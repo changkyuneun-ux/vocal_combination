@@ -32,13 +32,19 @@ export async function songProgress(tx: Tx, scopeId: string, now: string): Promis
     const waiting = open.map((o) => `${o.party_type === "AUTHOR" ? "작가" : o.party_type === "MEMBER" ? "멤버" : "상대"} ${o.n} ${o.party_type === "AUTHOR" ? "서명" : "확인"} 대기`);
     const unverified = claims.filter((c) => c.status !== "VERIFIED").length;
     const s3 = { done: s2.done && unverified === 0 && open.length === 0, note: s2.done && unverified === 0 && open.length === 0 ? "확정" : waiting.length ? waiting.join(" · ") : unverified ? `확인 요청 전 ${unverified}건` : "" };
-    // ④ 이용 허락: 녹음·작품 이용허락·수령 위임 계약(반영 = COMPLETED)과 멤버 실연 이용 동의.
-    const contracts = await q("SELECT status FROM contract_envelope WHERE facts_scope_id = $1 AND template_id = ANY($2) AND status <> 'CANCELLED'", [scopeId, LICENSE_TEMPLATES]);
-    const voices = (await q("SELECT count(DISTINCT c.target_id)::int AS n FROM right_claim c WHERE c.facts_scope_id = $1 AND c.edge = 'OWNED_BY' AND c.superseded_at IS NULL"))[0].n as number;
-    const consented = (await q(`SELECT count(DISTINCT party_id)::int AS n FROM consent_agreement WHERE facts_scope_id = $1 AND right_type = 'PERFORMER' AND revoked_at IS NULL
-                                  AND valid_from <= $2 AND valid_to > $2`, [scopeId, now]))[0].n as number;
-    const total = contracts.length + voices, signed = contracts.filter((c) => c.status === "COMPLETED").length + Math.min(consented, voices);
-    const s4 = { done: total > 0 && signed === total, note: total === 0 ? "" : signed === total ? `${signed} / ${total}` : `${signed} / ${total} 서명` };
+    // ④ 이용 허락: 네 종류(녹음 이용허락 · 작품 이용허락 · 실연 이용 동의 · 수령 위임) 중 모두 끝난 종류 수 "n / 4종"(2026-10-25 확정).
+    // 건수는 문서·계약 표에서만 보인다. 계약 종류는 한 건 이상 있고 모두 반영(COMPLETED)이면 끝, 실연 동의·수령 위임은 이 곡 멤버 전원이면 끝.
+    const contracts = await q("SELECT template_id, status, contract_id FROM contract_envelope WHERE facts_scope_id = $1 AND template_id = ANY($2) AND status <> 'CANCELLED'", [scopeId, LICENSE_TEMPLATES]);
+    const members = (await q("SELECT DISTINCT c.target_id FROM right_claim c WHERE c.facts_scope_id = $1 AND c.edge = 'OWNED_BY' AND c.superseded_at IS NULL")).map((r) => r.target_id as string);
+    const consented = new Set((await q(`SELECT DISTINCT party_id FROM consent_agreement WHERE facts_scope_id = $1 AND right_type = 'PERFORMER' AND revoked_at IS NULL
+                                  AND valid_from <= $2 AND valid_to > $2`, [scopeId, now])).map((r) => r.party_id as string));
+    const allDone = (tpl: string) => { const cs = contracts.filter((c) => c.template_id === tpl); return cs.length > 0 && cs.every((c) => c.status === "COMPLETED"); };
+    const mandated = new Set((await q(`SELECT DISTINCT s.party_id FROM contract_signature s JOIN contract_envelope c ON c.contract_id = s.contract_id
+                                        WHERE c.facts_scope_id = $1 AND c.template_id = 'tpl_performer_mandate' AND c.status = 'COMPLETED'`)).map((r) => r.party_id as string));
+    const kinds = [allDone("tpl_master_license"), allDone("tpl_work_license"),
+      members.length > 0 && members.every((m) => consented.has(m)), members.length > 0 && members.every((m) => mandated.has(m))];
+    const doneKinds = kinds.filter(Boolean).length;
+    const s4 = { done: doneKinds === 4, note: `${doneKinds} / 4종` };
     // ⑤ 분배·출시: 분배 규칙 활성 + 팩 판매 중.
     const pack = (await q("SELECT status FROM vocal_pack WHERE facts_scope_id = $1 ORDER BY (status = 'ACTIVE') DESC LIMIT 1"))[0];
     const pol = (await q(`SELECT v.version, v.status FROM policy_version v JOIN vocal_pack p ON p.pack_id = v.pack_id WHERE p.facts_scope_id = $1

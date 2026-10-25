@@ -61,9 +61,10 @@ test("song progress ①~⑤ is computed from the data: the song's own contracts,
   assert.deepEqual(p.steps.map((s: any) => s.label), ["원본 계약서", "권리 등록", "권리 확정", "이용 허락", "분배·출시"]);
   // 이 곡 원본 계약서는 녹음 계약서뿐(작품 계약서 없음) → ① 지금
   assert.deepEqual([p.steps[0].state, p.steps[0].note], ["now", "작품 계약서 없음"]);
-  assert.deepEqual(p.steps.slice(1).map((s: any) => [s.done, s.note]), [[true, "작품·녹음·실연"], [true, "확정"], [true, p.steps[3].note], [true, "IR v1 · 판매 중"]]);
+  // ④ 이용 허락은 네 종류 중 끝난 종류 수(이 곡은 멤버 실연 이용 동의만 끝 — 이용허락·수령 위임 계약 없음)
+  assert.deepEqual(p.steps.slice(1).map((s: any) => [s.done, s.note]), [[true, "작품·녹음·실연"], [true, "확정"], [false, "1 / 4종"], [true, "IR v1 · 판매 중"]]);
   assert.equal((await upload(pdf("nova publishing"), { documentId: "doc_nova_pub", kind: "PUBLISHING", title: "Nova 퍼블리싱", parties: "pty_author_b,pty_author_c", scope: SCOPE })).statusCode, 201);
   const after = await json("GET", `/ops/scopes/${SCOPE}/progress`, 200);
-  assert.deepEqual(after.steps.map((s: any) => s.state), ["done", "done", "done", "done", "done"]);
+  assert.deepEqual(after.steps.map((s: any) => s.state), ["done", "done", "done", "now", "done"]);
   assert.equal(after.steps[0].note, "2건");
 });

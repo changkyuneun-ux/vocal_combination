@@ -135,7 +135,7 @@ export function StemsTab({ ctx }: { ctx: WsCtx }) {
 }
 
 /** 오른쪽 칸(시안 Song-Stems-Panel side_panel): 머리(작은 제목 · 제목 · id · × 닫기) → 본문 → 아래 버튼. 2px 주색 테두리. */
-function SidePanel({ label, kicker, title, sid, onClose, children, actions }: { label: string; kicker: string; title: string; sid?: string; onClose: () => void; children: ReactNode; actions: ReactNode }) {
+export function SidePanel({ label, kicker, title, sid, onClose, children, actions }: { label: string; kicker: string; title: string; sid?: string; onClose: () => void; children: ReactNode; actions: ReactNode }) {
   return (
     <aside className="p-card" aria-label={label} style={{ flex: "1 1 380px", maxWidth: 440, border: "2px solid var(--p-accent)", display: "flex", flexDirection: "column", alignSelf: "flex-start" }}>
       <div style={{ padding: "16px 18px", display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--p-line)" }}>
@@ -153,7 +153,7 @@ function SidePanel({ label, kicker, title, sid, onClose, children, actions }: { 
 }
 
 /** 입력 칸(시안 field()): 위 라벨 14px 700, 아래 설명 12px. */
-const Field = ({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) => (
+export const Field = ({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
     <span style={{ fontWeight: 700, color: "var(--p-fg)" }}>{label}</span>{children}
     {hint && <div style={{ fontSize: 12, color: "var(--p-muted)" }}>{hint}</div>}
