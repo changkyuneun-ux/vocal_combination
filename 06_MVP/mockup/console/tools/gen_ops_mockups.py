@@ -640,7 +640,7 @@ ws_page("Song-Locked-Fix.dc.html", "Dynamite — 원곡 권리 새 버전(작품
         LOCK_READY, height=1700, status=LOCK_STATUS, band_label="IR 상태")
 
 perf_rows = table(["바로잡을 것", "지금(v1)", "새 값", "저장하면"],
-                  [["4 Pre-Chorus 1 · 파트 2 원곡 담당", "뷔", SEL(["진", "정국", "지민", "뷔", "RM", "제이홉", "슈가"], "160px") + '<div style="margin-top: 4px; font-size: 12.5px; color: #334155">이 곡의 멤버 7명만</div>', badge("진·뷔 실연자 앱 확인", "warn")],
+                  [[SEL(["4 Pre-Chorus 1 · 파트 2 원곡 담당", "2 Intro Chorus · 파트 1 원곡 담당", "3 Verse 1 · 파트 1 원곡 담당"], "260px") + '<div style="margin-top: 4px; font-size: 12.5px; font-weight: 400; color: #334155">보컬 파트만</div>', "뷔", SEL(["진", "정국", "지민", "뷔", "RM", "제이홉", "슈가"], "160px") + '<div style="margin-top: 4px; font-size: 12.5px; color: #334155">이 곡의 멤버 7명만</div>', badge("진·뷔 실연자 앱 확인", "warn")],
                    ["보이스 소유", "voc_v → 뷔", SEL(["바꾸지 않음"], "160px"), badge("바꾸지 않음", "gray")]],
                   foot="실연은 %가 아니다 — 멤버 몫은 조합마다 부른 시간으로 계산된다. 여기서는 원곡 파트 담당과 보이스 소유만 바로잡는다.", paged=False, min_w=700)
 perf_side = ('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">'
@@ -652,5 +652,48 @@ ws_page("Song-Locked-FixPerf.dc.html", "Dynamite — 원곡 권리 새 버전(�
         [fix_box("실연 · 보이스·파트 담당", perf_rows, perf_side,
                  "저장하면: 새 버전 기록 → 바뀐 멤버들이 실연자 앱에서 확인 → ⑧ \"재고정 필요\" → 분배 규칙 재고정 → 다음 발행부터 IR v2. 이미 발행된 조합의 몫은 그대로.")] + locked_cards,
         LOCK_READY, height=1650, status=LOCK_STATUS, band_label="IR 상태")
+
+
+# ── 스템 탭 오른쪽 칸: 상세 · 수정 · 추가(토글). 같은 칸을 다시 누르거나 × 를 누르면 닫힌다 ──
+def side_panel(kicker, title, body, actions, sid=""):
+    close = '<button aria-label="닫기" style="font: inherit; font-size: 18px; line-height: 1; width: 32px; height: 32px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a">×</button>'
+    sid_html = f'<div style="font-size: 13px; color: #334155; {MONO}">{sid}</div>' if sid else ""
+    return (f'<section style="{CARD}; border: 2px solid {NAVY}; display: flex; flex-direction: column">'
+            f'<div style="padding: 16px 18px; display: flex; gap: 10px; align-items: flex-start; border-bottom: 1px solid {LINE}">'
+            f'<div style="flex: 1 1 auto"><div style="font-size: 12.5px; color: #334155">{kicker}</div><div style="font-size: 17px; font-weight: 800">{title}</div>{sid_html}</div>{close}</div>'
+            f'<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px">{body}</div>'
+            f'<div style="padding: 14px 18px; border-top: 1px solid {LINE}; display: flex; gap: 8px; justify-content: flex-end">{actions}</div></section>')
+
+
+detail = side_panel("멤버 추가 녹음 · 슬롯 2 Intro Chorus", "Intro Chorus 정국 파트를 지민이 부름",
+    kv([("슬롯", "2 Intro Chorus · 0:04~0:13"), ("파트", "파트 1 · 리드 · 원곡 담당 정국"), ("부른 멤버", "지민"), ("오디오", "stm_s02_p1_jimin.wav · READY"), ("권리 부담", "예")])
+    + '<div style="font-size: 14px; font-weight: 700">이 스템의 권리</div>'
+    + kv([("실연", "지민(voc_jimin) · " + badge("본인 확인됨", "ok")), ("녹음", "빅히트 뮤직 — 레이블 100%(원곡 권리)"), ("작품", "작가 2명 50·50")]),
+    button("쓰지 않음") + button("수정", primary=True), sid="stm_s02_p1_jimin")
+edit = side_panel("스템 수정 · stm_s02_p1_jimin", "Intro Chorus 정국 파트를 지민이 부름",
+    field("오디오 파일", f'<div style="{SELECT}; display: flex; justify-content: space-between"><span>stm_s02_p1_jimin.wav</span>{link("바꾸기")}</div>', "오디오를 바꾸면 새 버전 — 이미 발행된 조합은 이전 오디오 그대로")
+    + field("부른 멤버", f'<select style="{SELECT}"><option>지민</option></select>', "슬롯·파트와 부른 멤버는 바꿀 수 없다 — 잘못 넣었으면 쓰지 않음 후 새로 추가")
+    + field("권리 부담", chips(["예", "아니오(반주)"], ["예"])),
+    button("취소") + button("저장", primary=True))
+add = side_panel("스템 추가", "새 스템",
+    field("슬롯 · 파트", f'<select style="{SELECT}"><option>2 Intro Chorus · 파트 1(원곡 담당 정국)</option></select>')
+    + field("부른 멤버", f'<select style="{SELECT}"><option>지민</option><option>뷔</option></select>', "이 곡의 멤버만. 원곡 담당이면 원곡 스템")
+    + field("오디오 파일", f'<div style="{SELECT}; color: #334155">파일 끌어 놓기 또는 {link("고르기")} · WAV 48kHz</div>')
+    + field("권리 부담", chips(["예", "아니오(반주)"], ["예"]))
+    + note("저장하면 실연 주장이 함께 만들어지고 부른 멤버에게 확인 요청이 간다(ID3)."),
+    button("취소") + button("추가", primary=True))
+locked = side_panel("멤버 추가 녹음 · IR v1 포함", "Intro Chorus 정국 파트를 지민이 부름",
+    note("IR v1로 고정된 스템이다. 지울 수 없고 '쓰지 않음'으로 새 발행에서 뺀다. 오디오를 바꾸면 새 버전으로 다음 재고정부터 쓰인다.", "warn")
+    + kv([("상태", badge("IR v1 포함", "ir")), ("이미 발행된 조합", "3개 — 그대로 유지")]),
+    button("쓰지 않음") + button("새 버전(오디오 바꾸기)", primary=True), sid="stm_s02_p1_jimin")
+grid = ('<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start">'
+        + "".join(f'<div style="display: flex; flex-direction: column; gap: 8px"><div style="font-size: 13px; font-weight: 700; color: #334155">{t}</div>{c}</div>'
+                  for t, c in [("① 칸을 누르면 상세(같은 칸 다시·× → 닫힘)", detail), ("② 수정 → 같은 칸이 수정 폼(취소 → 상세)", edit),
+                               ("③ + 스템 추가 → 추가 폼(다시 누르기·취소·× → 닫힘)", add), ("④ IR 고정 뒤: 추가는 됨, 지우기 대신 쓰지 않음", locked)])
+        + "</div>")
+ws_page("Song-Stems-Panel.dc.html", "Dynamite — 스템 오른쪽 칸", "스템", "2026-01-05 09:00",
+        [], "Dynamite · 스템", "녹음 Vocal Recombination · 빅히트 뮤직(레이블)", [button("+ 스템 추가", primary=True)],
+        [note("스템 표에서 칸을 누르면 오른쪽 칸이 열린다. 같은 칸을 다시 누르거나 × 를 누르면 닫히고 표가 넓어진다. 한 번에 하나만 열린다(상세·수정·추가)."), grid],
+        READY_IMPORT, height=1200)
 
 print("ok")
