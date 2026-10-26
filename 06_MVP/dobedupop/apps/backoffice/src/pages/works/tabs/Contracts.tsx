@@ -64,7 +64,7 @@ export function ContractsTab({ ctx }: { ctx: WsCtx }) {
   /** 한 계약에 할 일(다시 보내기 · 소속사 서명 · 반영 · 서명본). */
   const action = (c: Contract): ReactNode => eSignLink(c)
     ? <button type="button" className="p-linkbtn" disabled={!ctx.can("contract.draft")} onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/resend`), "전자서명 링크를 다시 보냈습니다")}>다시 보내기</button>
-    : ourTurn(c) && ctx.can("contract.sign_org") ? <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/sign`), "우리 쪽 서명을 했습니다")}>소속사 서명</button>
+    : ourTurn(c) && ctx.can("contract.sign_org") ? <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/sign`), "조직 서명을 했습니다")}>소속사 서명</button>
     : c.status === "SIGNED" && ctx.can("contract.draft") ? <button type="button" className="p-linkbtn" onClick={() => void w.run(() => api("POST", `/contracts/${c.contractId}/complete`), "기록에 반영했습니다(서명본은 원천 문서)")}>반영</button>
     : <Link to="/contracts">{c.status === "COMPLETED" ? "서명본" : "보기"}</Link>;
   /** 여러 건이면 펼치기, 펼치면 계약마다 한 줄. */

@@ -5,7 +5,7 @@ import { invalid } from "../platform/errors.ts";
 import type { BridgeCtx } from "./context.ts";
 import { loadSealed, sealDocument, type Sealed } from "./seal-store.ts";
 
-/** 정책 IR의 id·version·depends_on을 우리 레지스트리 값으로 고정하고 검증·봉인한다(통합 설계 9.3-2). */
+/** 정책 IR의 id·version·depends_on을 레지스트리 값으로 고정하고 검증·봉인한다(통합 설계 9.3-2). */
 async function pinAndSeal(ctx: BridgeCtx, tx: Tx, ir: AllocationDocument, policyId: string, version: number, facts: Sealed) {
   const pinned: AllocationDocument = {
     ...ir,

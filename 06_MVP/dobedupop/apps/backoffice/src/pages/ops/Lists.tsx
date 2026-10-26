@@ -16,8 +16,8 @@ import type { ReadingFrame } from "../../api/imports.ts";
 import { B, Card, CsvButton, Filters, GroupDetail, GroupedTable, Mono, OpsPage, Stats, Sub, TableCard, mmdd, useScopes, type WorkGroup } from "./common.tsx";
 
 /**
- * 우리 곡의 표준 계약 전부: 곡을 지정한 목록(곡 탭과 같은 캐시)을 곡마다 읽어 합친다.
- * 곡을 지정해 곡 범위의 계약을 다 본다 — 곡 지정 없는 /contracts는 우리가 만들었거나 서명할 계약만.
+ * 이 테넌트 곡의 표준 계약 전부: 곡을 지정한 목록(곡 탭과 같은 캐시)을 곡마다 읽어 합친다.
+ * 곡을 지정해 곡 범위의 계약을 다 본다 — 곡 지정 없는 /contracts는 이 조직이 만들었거나 서명할 계약만.
  */
 function useSongContracts() {
   const actor = useActor();

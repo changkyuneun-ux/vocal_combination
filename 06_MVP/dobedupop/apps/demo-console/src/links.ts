@@ -8,7 +8,7 @@ export function appUrl(loc: { protocol: string; hostname: string; port: string }
 
 export type Persona = { userId: string; name: string; app: App; what: string };
 export const PERSONAS: Persona[] = [
-  { userId: "usr_bh_admin", name: "빅히트 관리자", app: "portal", what: "담당자 계정 초대·역할, 위임 대행 설정, 우리 조직 상태"},
+  { userId: "usr_bh_admin", name: "빅히트 관리자", app: "portal", what: "담당자 계정 초대·역할, 위임 대행 설정, 조직 상태"},
   { userId: "usr_bh_rights", name: "빅히트 권리 편집", app: "portal", what: "곡·녹음·스템 등록, 권리 주장, 계약서·표준 계약, 명세" },
   { userId: "usr_bh_policy", name: "빅히트 정책 편집", app: "portal", what: "분배 규칙 작성" },
   { userId: "usr_bh_approver", name: "빅히트 승인", app: "portal", what: "분배 규칙 승인" },

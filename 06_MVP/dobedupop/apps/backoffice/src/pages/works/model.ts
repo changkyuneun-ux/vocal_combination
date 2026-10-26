@@ -141,7 +141,7 @@ export function slugId(prefix: string, title: string, taken: Set<string> = new S
 type ContractLike = { factsScopeId: string; templateId: string; status: string; signatures: { partyId: string }[] };
 /**
  * 표준 계약 묶음 규칙(시안 Song-Contracts·Ops-Contracts "실연 수익 수령 위임 · 지민 외 5명"): 같은 곡·같은 템플릿·같은 상태의
- * 서명 진행 중(SENT·SIGNED) 계약 중 우리 쪽이 서명하는 것은 한 줄로 묶는다. 반영·취소된 계약과 플랫폼이 작성한 계약(우리 서명 없음)은 한 건씩.
+ * 서명 진행 중(SENT·SIGNED) 계약 중 이 조직이 서명하는 것은 한 줄로 묶는다. 반영·취소된 계약과 플랫폼이 작성한 계약(이 조직 서명 없음)은 한 건씩.
  */
 export function groupContracts<C extends ContractLike>(cs: C[], own: Set<string>): C[][] {
   const groups: C[][] = [];

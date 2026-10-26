@@ -23,7 +23,7 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
   await actAs(page, "usr_bh_rights", "/portal/works/new");
   // 1 곡·녹음
   await page.getByLabel("곡 제목").fill("E2E Song");
-  // 유형별 거르기: 마스터 보유는 빅히트 관리 레이블만(소속사 없음), "(우리)" 표시 없음
+  // 유형별 거르기: 마스터 보유는 빅히트 관리 레이블만(소속사 없음), "(우리)" 같은 표시 없음(가이드: "우리" 금지)
   expect((await page.getByLabel("마스터 보유").locator("option").allTextContents()).slice(1)).toEqual(["빅히트 레이블"]);
   await page.getByLabel("마스터 보유").selectOption("pty_bighit_label");
   // 녹음 계약서를 그 자리에서 올린다 → 이 곡의 원본 계약서

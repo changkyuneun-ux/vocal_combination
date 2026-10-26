@@ -173,7 +173,7 @@ export function OpsStatements() {
 const CHECK_LABEL: Record<string, string> = { BUSINESS_ID: "사업자 확인", REPRESENTATIVE: "대표자", PLATFORM_AGREEMENT: "플랫폼 이용 계약", RIGHTS_EVIDENCE: "권리 보유 증빙" };
 const STATUS_KO: Record<string, string> = { APPLIED: "신청", VERIFIED: "확인됨", ACTIVE: "활성", SUSPENDED: "정지", TERMINATED: "해지" };
 
-/** 우리 당사자 한 줄(GET /my/parties): 국가·구분·연락 이메일, 지급 정보 유무, 쓰인 곳(곡마다 권리)과 받은 수령 위임 수. */
+/** 당사자 한 줄(GET /my/parties): 국가·구분·연락 이메일, 지급 정보 유무, 쓰인 곳(곡마다 권리)과 받은 수령 위임 수. */
 export type OrgParty = PartyRow & { countryClass?: string | null; contactEmail?: string | null; hasPayoutProfile?: boolean; uses?: { title: string; edge: string; shareBps: number | null }[]; mandates?: number };
 /** 시안 link(): 굵기 600, 밑줄 없음. */
 const LINK = { fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" } as const;
@@ -207,7 +207,7 @@ export function accountRefOf(input: string): string {
   return `${bank || "계좌"} ****${digits.slice(-4)}`;
 }
 
-/** 운영 관리 › 조직 › 내 조직(시안 Ops-Org-Parties · Ops-Org): 우리 당사자 등록·지급 정보, 조직 정보, 확인 항목. */
+/** 운영 관리 › 조직 › 내 조직(시안 Ops-Org-Parties · Ops-Org): 당사자 등록·지급 정보, 조직 정보, 확인 항목. */
 export function OpsOrg() {
   const me = useGet<Me>(["me"], "/me");
   const t = useGet<TenantDetail>(["tenant", me.data?.tenantId], `/tenants/${me.data?.tenantId ?? ""}`, { enabled: me.data !== undefined && me.data.scope !== "platform" });
@@ -225,13 +225,13 @@ export function OpsOrg() {
   const toggleAdd = () => setPanel((p) => (p?.kind === "add" ? null : { kind: "add" }));
   const toggleRow = (id: string) => setPanel((p) => (p?.kind === "detail" && p.partyId === id ? null : { kind: "detail", partyId: id }));
   return (
-    <OpsPage title={d?.name ?? "내 조직"} desc={`권리 테넌트 · ${d?.tenantType === "LABEL" ? "레이블" : d?.tenantType ?? ""} · ${d?.tenantId ?? ""} — 우리 당사자를 등록하고 지급 정보를 관리한다`}
+    <OpsPage title={d?.name ?? "내 조직"} desc={`권리 테넌트 · ${d?.tenantType === "LABEL" ? "레이블" : d?.tenantType ?? ""} · ${d?.tenantId ?? ""} — 당사자를 등록하고 지급 정보를 관리한다`}
       actions={d && <B tone={d.status === "ACTIVE" ? "ok" : "warn"}>{STATUS_KO[d.status] ?? d.status}{d.statusChangedAt ? ` · ${d.statusChangedAt.slice(5, 10)}` : ""}</B>}>
       <ErrorPanel error={t.error ?? mine.error} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
         <div style={{ flex: "2 1 640px", minWidth: 0 }}>
-          <TableCard title={["우리 당사자", <>{all.length}명 · <a href="#" role="button" style={LINK} onClick={(e) => { e.preventDefault(); toggleAdd(); }}>+ 당사자 등록</a></>]}
-            cols={["당사자", "유형", "쓰인 곳", "상태", ""]} count={parties.rows.length} minW={760} page={page} total={parties.total} onPage={setPage} empty="당사자가 없습니다." label="우리 당사자"
+          <TableCard title={["당사자", <>{all.length}명 · <a href="#" role="button" style={LINK} onClick={(e) => { e.preventDefault(); toggleAdd(); }}>+ 당사자 등록</a></>]}
+            cols={["당사자", "유형", "쓰인 곳", "상태", ""]} count={parties.rows.length} minW={760} page={page} total={parties.total} onPage={setPage} empty="당사자가 없습니다." label="당사자"
             foot="작가·레이블·소속사·멤버 모두 빅히트가 관리하는 당사자다. 행을 누르면 오른쪽에 상세(지급 정보)가 열린다.">
             {parties.rows.map((x) => (
               <tr key={x.partyId} onClick={() => toggleRow(x.partyId)} aria-selected={selected?.partyId === x.partyId} style={{ cursor: "pointer" }}>
@@ -261,7 +261,7 @@ export function OpsOrg() {
   );
 }
 
-/** 오른쪽 칸 · 우리 당사자 등록(시안 party_add): 빅히트가 관리하는 당사자로 등록한다(POST /parties, 테넌트는 로그인한 조직). */
+/** 오른쪽 칸 · 당사자 등록(시안 party_add): 빅히트가 관리하는 당사자로 등록한다(POST /parties, 테넌트는 로그인한 조직). */
 function PartyAddPanel({ taken, onClose, onDone }: { taken: Set<string>; onClose: () => void; onDone: (partyId: string) => void }) {
   const w = useWrite();
   const [type, setType] = useState("AUTHOR"), [name, setName] = useState(""), [country, setCountry] = useState("FOREIGN_INDIVIDUAL"), [email, setEmail] = useState("");
@@ -271,7 +271,7 @@ function PartyAddPanel({ taken, onClose, onDone }: { taken: Set<string>; onClose
       .then((ok) => { if (ok) onDone(partyId); });
   };
   return (
-    <SidePanel label="우리 당사자 등록" kicker="우리 당사자 등록" title="새 당사자" onClose={onClose}
+    <SidePanel label="당사자 등록" kicker="당사자 등록" title="새 당사자" onClose={onClose}
       actions={<><button type="button" className="p-btn" onClick={onClose}>취소</button><button type="button" className="p-btn primary" disabled={w.busy || name.trim() === ""} onClick={add}>등록</button></>}>
       <Field label="유형" hint="작가·멤버도 빅히트가 관리하는 당사자로 등록한다">
         <select className="p-select" aria-label="유형" value={type} onChange={(e) => setType(e.target.value)}>

@@ -226,7 +226,7 @@ test("a webhook for an unknown provider ref is kept unprocessed and applied once
   const e = env();
   const g = findGross(150_000n, plain);
   const id = await payRun(e, "pty_author_c", g);
-  // PSP가 결과를 먼저 알려 온다(우리 쪽 submit 결과 반영 전).
+  // PSP가 결과를 먼저 알려 온다(플랫폼 쪽 submit 결과 반영 전).
   await e.provider.submit({ instructionId: id, partyId: "pty_author_c", accountRef: "tok_pty_author_c", amountKrw: g }, `payout:${id}`);
   const hook = e.provider.webhook(`payout:${id}`);
   assert.deepEqual(await w.db.tx((tx) => recordWebhook(tx, clock, e.jobs, { ...hook, payload: {} })), { created: true });

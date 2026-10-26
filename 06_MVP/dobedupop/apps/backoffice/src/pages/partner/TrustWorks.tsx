@@ -15,7 +15,7 @@ export function TrustWorksPage() {
   const q = useGet<TrustWork[]>(["trust-works"], "/trust/works");
   return (
     <Section title="신탁 작품">
-      <p className="muted">신탁 연결이 활성인 작가의 작품만 보입니다. 작품 몫은 신탁 수령 위임으로 우리 당사자가 받고, 금액은 "명세서"에서 봅니다.</p>
+      <p className="muted">신탁 연결이 활성인 작가의 작품만 보입니다. 작품 몫은 신탁 수령 위임으로 이 조직 당사자가 받고, 금액은 "명세서"에서 봅니다.</p>
       <ErrorPanel error={q.error} />
       <DataTable<TrustWork> rows={q.data ?? []} empty="신탁 작품이 없습니다(활성 신탁 연결이 없거나, 그 작가의 작품이 아직 등록되지 않았습니다)." columns={[
         { key: "title", label: "작품", render: (w) => <><strong>{w.title}</strong><div className="muted small"><code>{w.workId}</code>{w.iswc && <> · ISWC {w.iswc}</>}</div></> },

@@ -111,8 +111,8 @@ test("the seed provisions one super admin (usr_admin) who holds every rights-ten
   assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM sod_rule WHERE enabled")).rows[0].n, 0);
 });
 
-// 우리 당사자 등록·지급 정보(2026-10-26, Butter 막힌 곳 5·6, 시안 Ops-Org-Parties): 포털에서 빅히트 관리 당사자로 등록(국가·구분·연락 이메일)하고,
-// 우리 당사자 표는 쓰인 곳과 지급 정보 유무(없으면 '지급 정보 없음')를 함께 읽는다.
+// 당사자 등록·지급 정보(2026-10-26, Butter 막힌 곳 5·6, 시안 Ops-Org-Parties): 포털에서 빅히트 관리 당사자로 등록(국가·구분·연락 이메일)하고,
+// 당사자 표는 쓰인 곳과 지급 정보 유무(없으면 '지급 정보 없음')를 함께 읽는다.
 test("the portal registers a BigHit-managed party with country class and contact email; the parties table shows usage and payout status", async () => {
   const post = await driver.call("portal", "usr_admin", "POST", "/parties", { partyId: "pty_jenna_andrews", partyType: "AUTHOR", displayName: "Jenna Andrews", countryClass: "FOREIGN_INDIVIDUAL", contactEmail: "jenna@example.com" });
   assert.equal(post.status, 201, JSON.stringify(post.body));

@@ -68,7 +68,7 @@ export function OpsControl() {
   );
 }
 
-/** 권리자 포털: 플랫폼이 우리 테넌트 데이터를 언제 무엇을 봤는지, break-glass를 언제 왜 열었는지(투명성). */
+/** 권리자 포털: 플랫폼이 이 테넌트 데이터를 언제 무엇을 봤는지, break-glass를 언제 왜 열었는지(투명성). */
 export function PortalTransparency() {
   const list = useGet<InspectionRow[]>(["inspections"], "/inspections");
   const bgs = useGet<BreakGlassRow[]>(["break-glass"], "/break-glass");
@@ -76,7 +76,7 @@ export function PortalTransparency() {
     <>
       <Section title="플랫폼 break-glass">
         <ErrorPanel error={bgs.error} />
-        <DataTable rows={bgs.data ?? []} empty="플랫폼이 우리 데이터에 쓰기 권한을 연 적이 없습니다." columns={bgColumns()} />
+        <DataTable rows={bgs.data ?? []} empty="플랫폼이 이 조직 데이터에 쓰기 권한을 연 적이 없습니다." columns={bgColumns()} />
       </Section>
       <Section title="플랫폼 열람 기록">
         <ErrorPanel error={list.error} />

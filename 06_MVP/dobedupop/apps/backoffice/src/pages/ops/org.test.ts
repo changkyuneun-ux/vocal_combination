@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { accountRefOf, usedIn } from "./Org.tsx";
 import { progressBlocker } from "../works/tabs/Policy.tsx";
 
-// 우리 당사자(시안 Ops-Org-Parties)·컴파일 조건(2026-10-26, Butter 막힌 곳 5·6·8).
-describe("우리 당사자", () => {
+// 당사자(시안 Ops-Org-Parties)·컴파일 조건(2026-10-26, Butter 막힌 곳 5·6·8).
+describe("당사자", () => {
   it("쓰인 곳: 곡 이름들, 곡 권리 없이 수령 위임만 있으면 '멤버 n 수령 위임'", () => {
     expect(usedIn({ partyId: "pty_a", partyType: "LABEL", displayName: "L", uses: [{ title: "Dynamite", edge: "CONTROLLED_BY", shareBps: 10000 }, { title: "Butter", edge: "CONTROLLED_BY", shareBps: 10000 }] })).toBe("Dynamite · Butter");
     expect(usedIn({ partyId: "pty_b", partyType: "AGENCY", displayName: "A", uses: [], mandates: 7 })).toBe("멤버 7 수령 위임");

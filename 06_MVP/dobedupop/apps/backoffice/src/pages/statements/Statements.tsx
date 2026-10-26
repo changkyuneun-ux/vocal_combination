@@ -61,7 +61,7 @@ function Result({ s, accounts, now, ledger = true }: { s: StatementData; account
 export function Statements() {
   const actor = useActor();
   // 권리자 포털: 자기 테넌트 파티의 명세만(원장 대조는 운영 화면에서 한다).
-  const portal = currentApp() !== "ops"; // 권리자 포털·참여 기관: 우리 당사자 명세만(원장 대조 없음)
+  const portal = currentApp() !== "ops"; // 권리자 포털·참여 기관: 이 조직 당사자 명세만(원장 대조 없음)
   const accounts = useAll<LedgerAccount>("ledger-accounts-all", "/ledger/accounts", { enabled: !portal });
   const mine = useGet<{ partyId: string; displayName: string }[]>(["my-parties"], "/my/parties", { enabled: portal });
   const clock = useClock();

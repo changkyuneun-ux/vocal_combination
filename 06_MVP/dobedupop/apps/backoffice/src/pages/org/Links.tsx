@@ -135,7 +135,7 @@ export function AssetMappings({ side }: { side: "RIGHTS" | "PARTICIPANT" | "PLAT
       ]} />
       {side === "PARTICIPANT" && (
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); void act(async () => { await api("POST", "/asset-mappings", f); setF({ externalId: "", vcId: "" }); }); }}>
-          <label className="field"><span>우리 상품 코드</span><input aria-label="상품 코드" value={f.externalId} onChange={(e) => setF({ ...f, externalId: e.target.value })} placeholder="SKU-0001" /></label>
+          <label className="field"><span>상품 코드</span><input aria-label="상품 코드" value={f.externalId} onChange={(e) => setF({ ...f, externalId: e.target.value })} placeholder="SKU-0001" /></label>
           <label className="field"><span>조합 id</span><input aria-label="조합 id" value={f.vcId} onChange={(e) => setF({ ...f, vcId: e.target.value })} placeholder="vc_bts_orig" /></label>
           <button type="submit" className="btn primary" disabled={f.externalId.trim() === "" || f.vcId.trim() === ""}>대응 제안</button>
         </form>
