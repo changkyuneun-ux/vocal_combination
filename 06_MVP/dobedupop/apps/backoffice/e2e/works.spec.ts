@@ -4,7 +4,7 @@ import { onboardBighit } from "./bighit.ts";
 
 /**
  * 빅히트 작품·곡 워크스페이스 화면 흐름(2부-B Task 9, 시안 Catalog·Song-*): 새 곡 마법사 → 원곡 권리(슬롯·파트) → 스템 → 수령 위임 계약 →
- * 분배 규칙·팩(표준 템플릿·미리보기) → 컴파일(IR 생성) → 원곡 권리가 조회만 → 승인 → 활성화는 차단 이유와 함께 막힌다.
+ * 분배 규칙·팩(표준 템플릿·미리보기) → 곡 진행 ①~④가 끝나지 않아 컴파일이 이유와 함께 막힌다(2026-10-26 컴파일 조건).
  * 개발 서버(로컬)에서 돈다 — 데모 스택을 다시 빌드하지 않도록 stack-* 대신 개발 DB를 쓴다. 빅히트 테넌트·계정은 Dynamite 온보딩 단계와 같은 API로 만든다.
  */
 async function actAs(page: Page, userId: string, path: string) {
@@ -12,7 +12,7 @@ async function actAs(page: Page, userId: string, path: string) {
   await page.goto(path);
 }
 
-test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약 → 팩·규칙 → 컴파일 → 승인, 활성화는 조건 미충족으로 막힌다", async ({ page, request }) => {
+test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약 → 팩·규칙, 곡 진행 ①~④ 전에는 컴파일이 이유와 함께 막힌다", async ({ page, request }) => {
   test.setTimeout(240_000);
   await resetAll(request);
   await onboardBighit(request);
@@ -105,26 +105,10 @@ test("빅히트: 새 곡 → 권리·슬롯·파트 → 스템 → 위임 계약
   await page.getByRole("button", { name: "텍스트로 보기" }).click();
   await expect(page.getByLabel("분배 규칙 MDRL")).not.toHaveValue("");
   await expect(page.getByLabel("미리보기 근사")).toContainText("정국 기여");
-  await page.getByRole("button", { name: "컴파일(IR 생성) → 승인으로" }).click();
-  await page.getByRole("alertdialog", { name: "컴파일 확인" }).getByRole("button", { name: "컴파일" }).click();
-  await expect(page.getByRole("heading", { name: /승인 흐름/ })).toBeVisible();
-
-  // IR 생성 뒤 원곡 권리는 조회만
-  await actAs(page, "usr_bh_rights", page.url().replace(/^https?:\/\/[^/]+/, "").replace(/release$/, "rights"));
-  await expect(page.getByLabel("IR 상태")).toContainText("IR 생성됨");
-  await expect(page.getByRole("button", { name: "파트 추가" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "+ 슬롯 추가" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "새 버전으로 바로잡기" })).toBeVisible();
-
-  // 승인(승인 담당) → 활성화는 막힌다(정합성 차단·테넌트 확인됨 상태)
-  const release = page.url().replace(/^https?:\/\/[^/]+/, "").replace(/rights$/, "release");
-  await actAs(page, "usr_bh_approver", release);
-  await page.getByRole("button", { name: "승인", exact: true }).click();
-  await expect(page.getByRole("button", { name: "활성화", exact: true })).toBeVisible();
-  await actAs(page, "usr_bh_activator", release);
-  await expect(page.getByRole("button", { name: "활성화", exact: true })).toBeDisabled();
-  await expect(page.getByRole("note")).toContainText("활성화할 수 없다");
-  await expect(page.getByRole("list", { name: "출시 조건" })).toContainText("테넌트 활성");
+  // 컴파일 조건(2026-10-26): 곡 진행 ①~④가 끝나지 않았으면 버튼이 꺼지고 이유가 보인다(작가 서명·멤버 확인 대기 → ③).
+  // 컴파일 → 승인 → 활성화 → 출시 전 과정은 butter.spec.ts가 본다.
+  await expect(page.getByRole("button", { name: "컴파일(IR 생성) → 승인으로" })).toBeDisabled();
+  await expect(page.getByRole("status", { name: "컴파일할 수 없는 이유" })).toHaveText("③ 권리 확정이 끝나지 않았다 — 곡 진행 ①~④가 끝나야 컴파일한다");
 
   expect(failed, failed.join("\n")).toEqual([]);
 });

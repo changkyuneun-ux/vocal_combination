@@ -1,5 +1,6 @@
+import { songProgress } from "../registry/progress.ts";
 import { promoteStagedAudio } from "../audio/service.ts";
-import type { Actor } from "../platform/actor.ts";
+import { withSystemScope, type Actor } from "../platform/actor.ts";
 import { assertOwnerTenantActive } from "../platform/tenants.ts";
 import { audit } from "../platform/audit.ts";
 import type { Clock } from "../platform/clock.ts";
@@ -53,12 +54,32 @@ export async function compileFromTemplate(
   return { ...out, templateId: t.templateId, templateVersion: t.version };
 }
 
+const STEP_NO = ["①", "②", "③", "④", "⑤"];
+/** 받침이 있으면 "이", 없으면 "가"(곡 진행 단계 이름 뒤). */
+const iga = (w: string): string => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 ? "이" : "가"; };
+/**
+ * 컴파일(IR 생성) 전 조건(2026-10-26, Butter 따라 해 보기 막힌 곳 8): 권리 테넌트의 곡은 곡 진행 ①~④가 모두 끝나야 한다.
+ * 화면은 같은 조건으로 컴파일 버튼을 끈다. 플랫폼 소유 시험·합성 곡(절차 도입 전)은 이 검사 밖이다.
+ */
+export async function assertProgressReady(tx: Tx, scopeId: string, now: string): Promise<void> {
+  const cls = (await withSystemScope(tx, async () => (await tx.query(
+    "SELECT t.org_class FROM facts_scope s JOIN tenant t ON t.tenant_id = s.owner_tenant_id WHERE s.facts_scope_id = $1", [scopeId])).rows[0]?.org_class)) as string | undefined;
+  if (cls !== "RIGHTS") return;
+  const p = await songProgress(tx, scopeId, now);
+  const open = p.steps.slice(0, 4).map((s, i) => ({ s, i })).filter(({ s }) => !s.done);
+  if (open.length > 0) {
+    throw new DomainError("PROGRESS_INCOMPLETE", 409, `${STEP_NO[open[0]!.i]} ${open[0]!.s.label}${iga(open[0]!.s.label)} 끝나지 않았다 — 곡 진행 ①~④가 끝나야 컴파일(IR 생성)한다`,
+      open.map(({ s, i }) => ({ code: "PROGRESS_INCOMPLETE", path: `$.progress.${s.key}`, message: `${STEP_NO[i]} ${s.label}: ${s.note}` })));
+  }
+}
+
 export async function compilePolicy(
   ctx: BridgeCtx, tx: Tx, clock: Clock, actor: Actor, input: { policyId: string; packId: string; sourceText: string; template?: { templateId: string; version: number } },
 ): Promise<PolicyVersionRef & { policyDigest: string; factsDigest: string; canonicalText: string }> {
   requirePermission(actor, "policy.edit");
   // 잠금 순서는 팩 → 범위(openDispute·rebind와 같다). 팩을 먼저 잡지 않으면 봉인의 범위 FOR UPDATE와 분쟁 개시의 팩 FOR UPDATE가 교착한다.
   const pack = await packRow(tx, input.packId, "SHARE");
+  await assertProgressReady(tx, pack.factsScopeId, clock.now());
   const knownAt = clock.now();
   const facts = await sealFacts(ctx, tx, pack.factsScopeId, knownAt);
   await promoteStagedAudio(tx, clock, pack.factsScopeId, knownAt); // 다시 고정할 때 대기 중인 오디오 새 버전을 쓴다(0047)

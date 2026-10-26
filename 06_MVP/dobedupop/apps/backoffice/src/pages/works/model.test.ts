@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultForm } from "../../api/policyForm.ts";
 import type { Claim, Mandate } from "../../api/types.ts";
 import type { SlotWithParts, StemRow } from "../../api/works.ts";
-import { groupContracts, memberProgress, previewLines, rightsBuckets, slotPartRows, slugId, stageBars, stemIdFor, stemMatrix, sungSeconds } from "./model.ts";
+import { groupContracts, memberProgress, previewLines, rightsBuckets, slotPartRows, slugId, songVoiceId, stageBars, stemIdFor, stemMatrix, sungSeconds } from "./model.ts";
 
 const claim = (claimId: string, edge: string, sourceId: string, targetId: string, shareBps: number, status = "VERIFIED"): Claim => ({
   claimId, version: 1, factsScopeId: "fsc_d", sourceId, edge, targetId, shareBps, performerRole: null, roleDetail: null, status,
@@ -108,6 +108,9 @@ describe("works model", () => {
     expect(slugId("wrk", "E2E Song")).toBe("wrk_e2e_song");
     expect(slugId("wrk", "E2E Song", new Set(["wrk_e2e_song"]))).toBe("wrk_e2e_song_2");
     expect(slugId("wrk", "봄날")).toBe("wrk_song");
+    // 보이스는 곡 단위(2026-10-26): 같은 멤버로 두 번째 곡을 만들어도 겹치지 않는다(코어 songVoiceIdFor와 같다).
+    expect(songVoiceId("fsc_butter", "pty_jimin")).toBe("voc_butter_jimin");
+    expect(songVoiceId("fsc_butter", "pty_jimin")).not.toBe(songVoiceId("fsc_dynamite", "pty_jimin"));
     expect(stemIdFor("slt_s05", 2, "pty_jin")).toBe("stm_s05_p2_jin");
   });
 });

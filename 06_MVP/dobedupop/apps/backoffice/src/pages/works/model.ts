@@ -128,6 +128,9 @@ export const mmss = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.rou
 export const pctText = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, "")}%`;
 
 /** id 자동 만들기: 제목 → 소문자 영숫자 밑줄. 한글 등만 있으면 "song". 이미 있으면 숫자 꼬리. */
+/** 곡 단위 보이스 id(코어 songVoiceIdFor와 같다): voc_<곡>_<멤버>. */
+export const songVoiceId = (scopeId: string, partyId: string): string => `voc_${scopeId.replace(/^fsc_/, "")}_${partyId.replace(/^pty_/, "")}`;
+
 export function slugId(prefix: string, title: string, taken: Set<string> = new Set()): string {
   const base = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "song";
   let id = `${prefix}_${base}`;

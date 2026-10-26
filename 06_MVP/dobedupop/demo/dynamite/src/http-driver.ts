@@ -40,6 +40,9 @@ export function httpDriver(core: string, opts: { drainTimeoutMs?: number; log?: 
       if (r.status === 409) return; // 이미 있다(다시 돌릴 때)
       if (r.status >= 300) throw new Error(`provision ${u.userId}: ${r.status} ${JSON.stringify(r.body)}`);
     },
+    async provisionSuperAdmin(a) {
+      await must(`super admin ${a.userId}`, json("POST", `${core}/dev/super-admin`, null, a));
+    },
     async providerSigned(contractId, partyId) {
       await must(`provider sign ${contractId}`, json("POST", `${core}/dev/esign/${contractId}/sign`, null, { partyId }));
     },

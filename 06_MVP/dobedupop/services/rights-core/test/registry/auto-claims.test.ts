@@ -26,19 +26,17 @@ async function http(method: InjectOptions["method"], url: string, payload: objec
   return r.json();
 }
 
-test("registering a stem with withClaims creates voice, ownership and performance claims and asks the member", async () => {
+test("registering a stem with withClaims records the performance claim on the member's voice in this song and asks the member", async () => {
+  // 보이스는 곡 단위(2026-10-26): 멤버 b는 이 곡(fsc_nova)에 보이스 vo_b를 이미 가졌으므로 새 보이스를 만들지 않고 그것을 쓴다.
+  // (보이스가 없는 곡에서 voc_<곡>_<멤버>를 만드는 경우는 song-voices.test.ts)
   await http("POST", "/stems", { stemId: "st_new", slotId: "slt_1", recordingId: "rcd_nova", performerPartyId: "pty_member_b", rightsBearing: true, withClaims: true }, editor);
-  assert.equal((await db.pool.query("SELECT facts_scope_id FROM voice WHERE voice_id = 'voc_member_b'")).rows[0]?.facts_scope_id, "fsc_nova");
-  const claims = (await db.pool.query(
-    "SELECT claim_id, edge, source_id, target_id, status FROM right_claim WHERE claim_id IN ('c_perf_st_new', 'c_own_voc_member_b') ORDER BY claim_id")).rows;
-  assert.deepEqual(claims.map((c) => [c.claim_id, c.edge, c.source_id, c.target_id, c.status]), [
-    ["c_own_voc_member_b", "OWNED_BY", "voc_member_b", "pty_member_b", "ASSERTED"],
-    ["c_perf_st_new", "PERFORMED_BY", "st_new", "voc_member_b", "ASSERTED"],
-  ]);
+  assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM voice WHERE facts_scope_id = 'fsc_nova' AND voice_id LIKE 'voc_%'")).rows[0].n, 0);
+  const claims = (await db.pool.query("SELECT claim_id, edge, source_id, target_id, status FROM right_claim WHERE claim_id = 'c_perf_st_new'")).rows;
+  assert.deepEqual(claims.map((c) => [c.claim_id, c.edge, c.source_id, c.target_id, c.status]), [["c_perf_st_new", "PERFORMED_BY", "st_new", "vo_b", "ASSERTED"]]);
   assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM confirmation_request WHERE record_id = 'c_perf_st_new'")).rows[0].n, 1);
-  // 같은 멤버의 두 번째 스템은 있는 보이스를 쓴다
+  // 같은 멤버의 두 번째 스템도 같은 보이스
   await http("POST", "/stems", { stemId: "st_new2", slotId: "slt_2", recordingId: "rcd_nova", performerPartyId: "pty_member_b", rightsBearing: true, withClaims: true }, editor);
-  assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM right_claim WHERE edge = 'OWNED_BY' AND source_id = 'voc_member_b'")).rows[0].n, 1);
+  assert.equal((await db.pool.query("SELECT target_id FROM right_claim WHERE claim_id = 'c_perf_st_new2'")).rows[0].target_id, "vo_b");
   // 권리 부담이 없는 스템은 주장을 만들지 않는다
   await http("POST", "/stems", { stemId: "st_mr2", slotId: "slt_mr", recordingId: "rcd_nova", rightsBearing: false, withClaims: true }, editor);
   assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM right_claim WHERE source_id = 'st_mr2'")).rows[0].n, 0);

@@ -34,8 +34,19 @@ function period(q: Record<string, unknown>): { from: string; to: string } {
 /** 권리자 포털 전용: 자기 테넌트 파티 목록과 명세(역할 없이, 소속 파티만 — RLS가 다른 테넌트 파티를 거른다). */
 export function portalRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/my/parties", async (req) => withActor(deps, req, async (tx, actor) => {
-    const rows = (await tx.query("SELECT party_id, party_type, display_name FROM party WHERE tenant_id = $1 ORDER BY party_id", [actor.tenantId])).rows;
-    return rows.map((r) => ({ partyId: r.party_id as string, partyType: r.party_type as string, displayName: r.display_name as string }));
+    // 우리 당사자(시안 Ops-Org-Parties): 국가·구분·연락 이메일과 지급 정보 유무(상태 배지 '지급 정보 없음')를 함께.
+    const rows = await withSystemScope(tx, async () => (await tx.query(
+      `SELECT p.party_id, p.party_type, p.display_name, p.country_class, p.contact_email, p.created_at,
+              EXISTS (SELECT 1 FROM party_payout_profile pp WHERE pp.party_id = p.party_id) AS has_payout,
+              -- 쓰인 곳: 곡마다 현재 권리(작가 지분·마스터 보유·실연)와 받은 수령 위임 수
+              COALESCE((SELECT json_agg(json_build_object('title', w.title, 'edge', c.edge, 'shareBps', c.share_bps) ORDER BY w.title, c.edge)
+                          FROM right_claim c JOIN facts_scope s ON s.facts_scope_id = c.facts_scope_id JOIN work w ON w.work_id = s.work_id
+                         WHERE c.target_id = p.party_id AND c.superseded_at IS NULL AND c.edge IN ('WRITTEN_BY','CONTROLLED_BY','OWNED_BY')), '[]') AS uses,
+              (SELECT count(DISTINCT m.from_party_id)::int FROM mandate m WHERE m.to_party_id = p.party_id AND m.superseded_at IS NULL) AS mandates
+         FROM party p WHERE p.tenant_id = $1 ORDER BY p.party_id`, [actor.tenantId])).rows); // 우리 테넌트 당사자만 — 지급 정보 유무는 RLS 밖에서 센다
+    return rows.map((r) => ({ partyId: r.party_id as string, partyType: r.party_type as string, displayName: r.display_name as string,
+      countryClass: (r.country_class ?? null) as string | null, contactEmail: (r.contact_email ?? null) as string | null, hasPayoutProfile: r.has_payout as boolean,
+      uses: r.uses as { title: string; edge: string; shareBps: number | null }[], mandates: r.mandates as number }));
   }));
   app.get<{ Params: { id: string } }>("/parties/:id/statements", async (req) => withActor(deps, req, async (tx) => {
     const { from, to } = period(req.query as Record<string, unknown>);

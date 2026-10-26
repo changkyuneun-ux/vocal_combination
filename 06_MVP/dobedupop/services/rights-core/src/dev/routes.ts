@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { DomainError } from "../platform/errors.ts";
 import { ensureDevUsers } from "./users.ts";
+import { ensureSuperAdmin } from "../platform/super-admin.ts";
 import { loadActor, createUser } from "../platform/actor.ts";
 import { JOB_NAMES, type JobName } from "../platform/jobs.ts";
 import { SONG, seedSyntheticSong } from "../scenario/synthetic-song.ts";
@@ -87,6 +88,14 @@ export function devRoutes(app: FastifyInstance, deps: Deps & { dev: DevDeps }): 
   const seedPayload = { packId: SONG.pack, factsScopeId: SONG.scope, policyId: "pol_nova_summer", policyText: SONG.policyText };
   /** 읽기 전용: 시드가 만들 식별자와 정책 원문만 돌려준다(아무것도 쓰지 않는다). */
   app.get("/dev/seed/synthetic-song", async () => seedPayload);
+
+  // 총괄(결정 RD6 — 직무 분리를 지금 적용하지 않음): 플랫폼 + 권리 테넌트 RIGHTS_ALL 한 계정. 시나리오 시드가 테넌트를 만든 뒤 부른다.
+  app.post<{ Body: { userId?: string; displayName?: string; tenantIds?: string[] } }>("/dev/super-admin", async (req, reply) => {
+    const b = req.body ?? {};
+    if (typeof b.userId !== "string" || !Array.isArray(b.tenantIds)) throw new DomainError("BAD_REQUEST", 400, "userId and tenantIds are required");
+    await deps.db.tx((tx) => ensureSuperAdmin(tx, clock, { userId: b.userId!, displayName: b.displayName ?? "총괄", tenantIds: b.tenantIds! }));
+    return reply.status(201).send({ userId: b.userId, tenantIds: b.tenantIds });
+  });
 
   app.post("/dev/seed/synthetic-song", async (_req, reply) => {
     await deps.db.tx(async (tx) => {

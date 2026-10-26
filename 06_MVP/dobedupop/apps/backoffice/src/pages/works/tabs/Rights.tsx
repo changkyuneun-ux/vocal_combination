@@ -95,7 +95,7 @@ function ShareBucket({ ctx, bucket, editable, sourceId, addLabel, partyTypes, ex
       await post("/claims", {
         claimId: d.claimId ?? `c_${isWork ? "work" : "master"}_${sourceId.replace(/^(wrk|rcd)_/, "")}_${d.partyId.replace(/^pty_/, "")}`,
         factsScopeId: ctx.scopeId, sourceId, edge: bucket.edge, targetId: d.partyId, shareBps: d.shareBps,
-        ...(isWork && { roleDetail: d.roleDetail }), status: own.has(d.partyId) ? "VERIFIED" : "ASSERTED", validFrom: new Date().toISOString(),
+        ...(isWork && { roleDetail: d.roleDetail }), status: own.has(d.partyId) ? "VERIFIED" : "ASSERTED", validFrom: ctx.now,
         ...(doc && { evidenceDocuments: [{ documentId: doc.documentId, version: doc.version }] }),
       });
     }
@@ -331,7 +331,7 @@ function LockedRights({ ctx }: { ctx: WsCtx }) {
   const start = (k: FixKind) => {
     const first = vocal[0];
     setFix({ kind: k, rows: draftsOf(k), part: first ? partKey(first.slotId, first.partNo) : "", member: first ? ownerOf(first.slotId, first.partNo) : "", voiceOwner: "",
-      from: new Date().toISOString().slice(0, 10), doc: "" });
+      from: ctx.now.slice(0, 10), doc: "" });
   };
   // 권리자 목록: 고른 유형으로 거른다(빅히트가 관리하는 당사자만).
   const holders = (k: FixKind) => (mine.data ?? []).filter((p) => (k === "work" ? p.partyType === "AUTHOR" : p.partyType === "LABEL"));

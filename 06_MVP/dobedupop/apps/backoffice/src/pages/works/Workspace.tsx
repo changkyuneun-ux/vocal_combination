@@ -1,4 +1,5 @@
 import { useGet } from "../../api/hooks.ts";
+import { useClock } from "../../api/clock.ts";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import type { ReadinessItem, WorkFacts, WorkOverview } from "../../api/works.ts";
@@ -57,6 +58,7 @@ export function Workspace() {
   const { work, ...o } = useWork(workId);
   const scopeId = work?.scopeId ?? null;
   const facts = useFacts(scopeId);
+  const clockNow = useClock().data?.now; // 화면의 "지금"은 서버 시계(데모·개발은 가상 시계)
   const ready = useReadiness(scopeId);
   const parties = useParties();
   const { can } = useMe();
@@ -68,7 +70,7 @@ export function Workspace() {
   const rec = f?.recordings[0];
   const ctx: WsCtx | null = f && scopeId ? {
     work, scopeId, facts: f, rows: slotPartRows(f.slots), names: parties.names, name: (p) => parties.names.get(p) ?? p, sealed, can,
-    recordingId: rec?.recordingId ?? null, members: membersOf(f, parties.names), now: new Date().toISOString(),
+    recordingId: rec?.recordingId ?? null, members: membersOf(f, parties.names), now: clockNow ?? new Date().toISOString(),
     irVersion: pp.policy?.latestVersion ?? 1,
   } : null;
   const body: Record<string, (c: WsCtx) => ReactNode> = {

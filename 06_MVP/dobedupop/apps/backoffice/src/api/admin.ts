@@ -58,6 +58,7 @@ export const CHECK_LABEL: Record<string, string> = {
 };
 
 export const ROLE_LABEL: Record<string, string> = {
+  RIGHTS_ALL: "총괄", PLATFORM_ALL: "총괄", PARTICIPANT_ALL: "총괄",
   TENANT_ADMIN: "조직 관리자", RIGHTS_EDITOR: "권리 편집", EDITOR: "정책 편집", WORK_APPROVER: "정책 승인", ACTIVATOR: "활성화", ISSUER: "발행",
   TRUST_OFFICER: "신탁 담당", PARTNER_INTEGRATION: "연동 담당",
   SPACE_OPS: "운영", SPACE_SETTLE: "정산", ONBOARDING: "온보딩", COMPLIANCE: "컴플라이언스", LEGAL: "법무", PERFORMER: "실연자", SYSTEM: "시스템",

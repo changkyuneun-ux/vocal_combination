@@ -37,13 +37,15 @@ const EDGE_ENDPOINTS: Record<ClaimEdge, readonly [EntityKind, EntityKind]> = {
 const NON_FACTS_PARTY = new Set(["FAN", "PLATFORM"]);
 
 /** tenantId를 생략하면 요청 범위의 테넌트(rc.tenant_id)에 소속된다. */
-export type PartyInput = { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string; tenantId?: string; legalId?: string; managementDocumentId?: string };
+export type PartyInput = { partyId: string; partyType: PartyType; displayName: string; isni?: string; ipiNo?: string; tenantId?: string; legalId?: string; managementDocumentId?: string;
+  /** 국가·구분(0049): FOREIGN_INDIVIDUAL | DOMESTIC_INDIVIDUAL | DOMESTIC_CORP */ countryClass?: string; /** 연락 이메일(전자서명 링크, 0049) */ contactEmail?: string };
 
 export async function registerParty(tx: Tx, clock: Clock, p: PartyInput): Promise<void> {
   await tx.query(
-    `INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at, tenant_id, legal_id, management_document_id)
-     VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, rc_tenant(), 'tnt_platform'),$8,$9)`,
-    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now(), p.tenantId ?? null, p.legalId ?? null, p.managementDocumentId ?? null]);
+    `INSERT INTO party (party_id, party_type, display_name, isni, ipi_no, created_at, tenant_id, legal_id, management_document_id, country_class, contact_email)
+     VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, rc_tenant(), 'tnt_platform'),$8,$9,$10,$11)`,
+    [p.partyId, p.partyType, p.displayName, p.isni ?? null, p.ipiNo ?? null, clock.now(), p.tenantId ?? null, p.legalId ?? null, p.managementDocumentId ?? null,
+      p.countryClass ?? null, p.contactEmail ?? null]);
 }
 
 /**
@@ -121,7 +123,21 @@ export async function registerStem(tx: Tx, clock: Clock, s: { stemId: string; sl
 }
 
 /** 실연자 보이스 id 규칙(결정 ID3): pty_ 접두어를 떼고 voc_를 붙인다(pty_jimin → voc_jimin, pb → voc_pb). */
+/** 옛 규칙(멤버마다 하나 — Dynamite 등 기존 곡). 새 곡은 songVoiceIdFor(곡 단위)를 쓴다. */
 export const voiceIdFor = (partyId: string): string => `voc_${partyId.replace(/^pty_/, "")}`;
+/** 곡 단위 보이스 id(2026-10-26): voc_<곡>_<멤버>. 같은 멤버로 두 번째 곡을 만들어도 겹치지 않는다. */
+export const songVoiceIdFor = (scopeId: string, partyId: string): string => `voc_${scopeId.replace(/^fsc_/, "")}_${partyId.replace(/^pty_/, "")}`;
+
+/**
+ * 이 곡에서 그 멤버의 보이스: 이 곡 범위의 보이스 중 그 멤버가 소유한(현재 소유 주장) 것이 있으면 그것(기존 곡의 voc_<멤버> 포함),
+ * 없으면 곡 단위 새 id(아직 없음). 소유 주장은 멤버가 확인해 쓴 새 버전일 수 있어 system 범위로 읽는다.
+ */
+export async function songVoiceFor(tx: Tx, scopeId: string, partyId: string): Promise<{ voiceId: string; exists: boolean }> {
+  const own = await withSystemScope(tx, async () => (await tx.query(
+    `SELECT c.source_id FROM right_claim c JOIN voice v ON v.voice_id = c.source_id
+      WHERE c.facts_scope_id = $1 AND v.facts_scope_id = $1 AND c.edge = 'OWNED_BY' AND c.target_id = $2 AND c.superseded_at IS NULL ORDER BY c.source_id LIMIT 1`, [scopeId, partyId])).rows[0]);
+  return own ? { voiceId: own.source_id as string, exists: true } : { voiceId: songVoiceIdFor(scopeId, partyId), exists: false };
+}
 
 export async function registerVoice(tx: Tx, clock: Clock, v: { voiceId: string; factsScopeId: string; kind: "HUMAN" | "AI" }): Promise<void> {
   const at = clock.now();

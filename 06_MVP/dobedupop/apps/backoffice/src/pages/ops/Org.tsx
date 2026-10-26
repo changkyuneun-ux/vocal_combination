@@ -11,7 +11,8 @@ import type { IssueRow, Paged } from "../../api/types.ts";
 import type { PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { formatKrw } from "../../format.ts";
-import { useParties } from "../works/data.tsx";
+import { useParties, useWrite } from "../works/data.tsx";
+import { Field, SidePanel } from "../works/tabs/Stems.tsx";
 import { useRecordText } from "./Confirmations.tsx";
 import { B, Card, Filters, GroupDetail, GroupedTable, Kv, Mono, Note, OpsPage, Stats, Sub, TableCard, useScopes, type WorkGroup } from "./common.tsx";
 
@@ -172,19 +173,78 @@ export function OpsStatements() {
 const CHECK_LABEL: Record<string, string> = { BUSINESS_ID: "사업자 확인", REPRESENTATIVE: "대표자", PLATFORM_AGREEMENT: "플랫폼 이용 계약", RIGHTS_EVIDENCE: "권리 보유 증빙" };
 const STATUS_KO: Record<string, string> = { APPLIED: "신청", VERIFIED: "확인됨", ACTIVE: "활성", SUSPENDED: "정지", TERMINATED: "해지" };
 
-/** 운영 관리 › 조직 › 내 조직(시안 Ops-Org). */
+/** 우리 당사자 한 줄(GET /my/parties): 국가·구분·연락 이메일, 지급 정보 유무, 쓰인 곳(곡마다 권리)과 받은 수령 위임 수. */
+export type OrgParty = PartyRow & { countryClass?: string | null; contactEmail?: string | null; hasPayoutProfile?: boolean; uses?: { title: string; edge: string; shareBps: number | null }[]; mandates?: number };
+/** 시안 link(): 굵기 600, 밑줄 없음. */
+const LINK = { fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" } as const;
+const PARTY_TYPE_KO: Record<string, string> = { LABEL: "레이블", AGENCY: "소속사", AUTHOR: "작가", MEMBER: "멤버(아티스트)" };
+const COUNTRY_KO: Record<string, string> = { FOREIGN_INDIVIDUAL: "해외 개인", DOMESTIC_INDIVIDUAL: "국내 개인", DOMESTIC_CORP: "국내 법인" };
+const TAX_OF_COUNTRY: Record<string, string> = { FOREIGN_INDIVIDUAL: "FOREIGN", DOMESTIC_INDIVIDUAL: "DOMESTIC_INDIVIDUAL", DOMESTIC_CORP: "DOMESTIC_CORP" };
+const pctOf = (bps: number | null) => `${Number(((bps ?? 0) / 100).toFixed(2))}%`;
+/** 표의 쓰인 곳: 곡 이름들, 곡 권리가 없고 수령 위임만 있으면 "멤버 n 수령 위임". */
+export const usedIn = (p: OrgParty): string => {
+  const titles = [...new Set((p.uses ?? []).map((u) => u.title))];
+  if (titles.length > 0) return titles.join(" · ");
+  return p.mandates ? `멤버 ${p.mandates} 수령 위임` : "—";
+};
+/** 상세의 쓰인 곳: "Butter · 작가 지분 14.28%". */
+const usedInDetail = (p: OrgParty): string => {
+  const parts = (p.uses ?? []).map((u) => `${u.title} · ${u.edge === "WRITTEN_BY" ? `작가 지분 ${pctOf(u.shareBps)}` : u.edge === "CONTROLLED_BY" ? `마스터 보유 ${pctOf(u.shareBps)}` : "실연"}`);
+  if (p.mandates) parts.push(`멤버 ${p.mandates} 수령 위임`);
+  return parts.length ? [...new Set(parts)].join(", ") : "—";
+};
+/** 당사자 id: 표시 이름의 영문·숫자로(pty_jenna_andrews), 못 만들면 시각으로. */
+function partyIdFor(name: string, taken: Set<string>): string {
+  const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || Date.now().toString(36);
+  let id = `pty_${base}`;
+  for (let k = 2; taken.has(id); k++) id = `pty_${base}_${k}`;
+  return id;
+}
+/** 지급 계좌는 끝 4자만 보관한다(시안 "은행 · 계좌번호(끝 4자만 보관)"): "국민 123-45-6789" → "국민 ****6789". */
+export function accountRefOf(input: string): string {
+  const digits = input.replace(/\D/g, "");
+  const bank = input.replace(/[\d\s·\-*]+$/, "").replace(/[·\s]+$/, "").trim();
+  return `${bank || "계좌"} ****${digits.slice(-4)}`;
+}
+
+/** 운영 관리 › 조직 › 내 조직(시안 Ops-Org-Parties · Ops-Org): 우리 당사자 등록·지급 정보, 조직 정보, 확인 항목. */
 export function OpsOrg() {
   const me = useGet<Me>(["me"], "/me");
   const t = useGet<TenantDetail>(["tenant", me.data?.tenantId], `/tenants/${me.data?.tenantId ?? ""}`, { enabled: me.data !== undefined && me.data.scope !== "platform" });
-  const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
+  const mine = useGet<OrgParty[]>(["parties", "mine"], "/my/parties");
+  const known = useParties(); // 새 당사자 id가 보이는 다른 당사자(멤버 등)와 겹치지 않게
   const [page, setPage] = useState(1);
+  // 오른쪽 칸은 한 번에 하나: 등록(add) 또는 고른 당사자 상세. 같은 것을 다시 누르면 닫는다.
+  const [panel, setPanel] = useState<{ kind: "add" } | { kind: "detail"; partyId: string } | null>(null);
   const d = t.data;
-  const parties = paginate(mine.data ?? [], page);
-  const role = (x: string) => (x === "LABEL" ? "녹음 권리 · 마스터 보유" : x === "AGENCY" ? "실연 수익 수령 위임" : x);
+  // 시안 순서: 레이블 → 소속사 → 작가 → 멤버, 같은 유형은 등록 이름순.
+  const ORDER = ["LABEL", "AGENCY", "AUTHOR", "MEMBER"];
+  const all = [...(mine.data ?? [])].sort((a, b) => (ORDER.indexOf(a.partyType) - ORDER.indexOf(b.partyType)) || a.displayName.localeCompare(b.displayName, "ko"));
+  const parties = paginate(all, page);
+  const selected = panel?.kind === "detail" ? all.find((p) => p.partyId === panel.partyId) : undefined;
+  const toggleAdd = () => setPanel((p) => (p?.kind === "add" ? null : { kind: "add" }));
+  const toggleRow = (id: string) => setPanel((p) => (p?.kind === "detail" && p.partyId === id ? null : { kind: "detail", partyId: id }));
   return (
-    <OpsPage title={d?.name ?? "내 조직"} desc={`권리 테넌트 · ${d?.tenantType === "LABEL" ? "레이블" : d?.tenantType ?? ""} · ${d?.tenantId ?? ""}`}
+    <OpsPage title={d?.name ?? "내 조직"} desc={`권리 테넌트 · ${d?.tenantType === "LABEL" ? "레이블" : d?.tenantType ?? ""} · ${d?.tenantId ?? ""} — 우리 당사자를 등록하고 지급 정보를 관리한다`}
       actions={d && <B tone={d.status === "ACTIVE" ? "ok" : "warn"}>{STATUS_KO[d.status] ?? d.status}{d.statusChangedAt ? ` · ${d.statusChangedAt.slice(5, 10)}` : ""}</B>}>
-      <ErrorPanel error={t.error} />
+      <ErrorPanel error={t.error ?? mine.error} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
+        <div style={{ flex: "2 1 640px", minWidth: 0 }}>
+          <TableCard title={["우리 당사자", <>{all.length}명 · <a href="#" role="button" style={LINK} onClick={(e) => { e.preventDefault(); toggleAdd(); }}>+ 당사자 등록</a></>]}
+            cols={["당사자", "유형", "쓰인 곳", "상태", ""]} count={parties.rows.length} minW={760} page={page} total={parties.total} onPage={setPage} empty="당사자가 없습니다." label="우리 당사자"
+            foot="작가·레이블·소속사·멤버 모두 빅히트가 관리하는 당사자다. 행을 누르면 오른쪽에 상세(지급 정보)가 열린다.">
+            {parties.rows.map((x) => (
+              <tr key={x.partyId} onClick={() => toggleRow(x.partyId)} aria-selected={selected?.partyId === x.partyId} style={{ cursor: "pointer" }}>
+                <td><strong>{x.displayName}</strong></td><td><B>{(PARTY_TYPE_KO[x.partyType] ?? x.partyType).replace("(아티스트)", "")}</B></td><td>{usedIn(x)}</td>
+                <td>{x.hasPayoutProfile ? <B tone="ok">등록됨</B> : <B tone="warn">지급 정보 없음</B>}</td>
+                <td><a href="#" style={LINK} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleRow(x.partyId); }}>상세</a></td>
+              </tr>
+            ))}
+          </TableCard>
+        </div>
+        {panel?.kind === "add" && <PartyAddPanel taken={new Set([...all, ...known.items].map((p) => p.partyId))} onClose={() => setPanel(null)} onDone={(id) => setPanel({ kind: "detail", partyId: id })} />}
+        {selected && <PartyPayPanel key={selected.partyId} party={selected} onClose={() => setPanel(null)} />}
+      </div>
       <Card title="조직 정보">
         <Kv pairs={[["이름", d?.name ?? "—"], ["구분", `권리 테넌트 · ${d?.tenantType === "LABEL" ? "레이블" : d?.tenantType ?? ""}`], ["사업자 번호", <Mono key="b">{d?.businessNo ?? "—"}</Mono>], ["국가", d?.country ?? "—"],
           ["상태", STATUS_KO[d?.status ?? ""] ?? d?.status ?? "—"], ["플랫폼 이용계약", d?.checks.some((c) => c.item === "PLATFORM_AGREEMENT") ? "확인됨" : "확인 전"]]} />
@@ -197,12 +257,62 @@ export function OpsOrg() {
           })}
         </TableCard>
       </Card>
-      <Card title="우리 당사자" hint="당사자 등록(E09)">
-        <TableCard cols={["당사자", "역할", "쓰인 곳"]} count={parties.rows.length} minW={600} page={page} total={parties.total} onPage={setPage} empty="당사자가 없습니다." label="우리 당사자">
-          {parties.rows.map((x) => <tr key={x.partyId}><td>{x.displayName}</td><td>{role(x.partyType)}</td><td><Mono>{x.partyId}</Mono></td></tr>)}
-        </TableCard>
-      </Card>
     </OpsPage>
+  );
+}
+
+/** 오른쪽 칸 · 우리 당사자 등록(시안 party_add): 빅히트가 관리하는 당사자로 등록한다(POST /parties, 테넌트는 로그인한 조직). */
+function PartyAddPanel({ taken, onClose, onDone }: { taken: Set<string>; onClose: () => void; onDone: (partyId: string) => void }) {
+  const w = useWrite();
+  const [type, setType] = useState("AUTHOR"), [name, setName] = useState(""), [country, setCountry] = useState("FOREIGN_INDIVIDUAL"), [email, setEmail] = useState("");
+  const add = () => {
+    const partyId = partyIdFor(name.trim(), taken);
+    void w.run(() => api("POST", "/parties", { partyId, partyType: type, displayName: name.trim(), countryClass: country, ...(email.trim() && { contactEmail: email.trim() }) }), `${name.trim()} 등록`)
+      .then((ok) => { if (ok) onDone(partyId); });
+  };
+  return (
+    <SidePanel label="우리 당사자 등록" kicker="우리 당사자 등록" title="새 당사자" onClose={onClose}
+      actions={<><button type="button" className="p-btn" onClick={onClose}>취소</button><button type="button" className="p-btn primary" disabled={w.busy || name.trim() === ""} onClick={add}>등록</button></>}>
+      <Field label="유형" hint="작가·멤버도 빅히트가 관리하는 당사자로 등록한다">
+        <select className="p-select" aria-label="유형" value={type} onChange={(e) => setType(e.target.value)}>
+          {["AUTHOR", "LABEL", "AGENCY", "MEMBER"].map((k) => <option key={k} value={k}>{PARTY_TYPE_KO[k]}</option>)}
+        </select>
+      </Field>
+      <Field label="표시 이름"><input className="p-input" aria-label="표시 이름" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+      <Field label="국가 · 구분" hint="세금(원천징수) 계산에 쓰인다">
+        <select className="p-select" aria-label="국가 · 구분" value={country} onChange={(e) => setCountry(e.target.value)}>
+          <option value="FOREIGN_INDIVIDUAL">해외 · 개인</option><option value="DOMESTIC_INDIVIDUAL">국내 · 개인</option><option value="DOMESTIC_CORP">국내 · 법인</option>
+        </select>
+      </Field>
+      <Field label="연락 이메일(전자서명 링크)" hint="계정이 없는 당사자는 이 주소로 서명 링크를 받는다">
+        <input className="p-input" type="email" aria-label="연락 이메일(전자서명 링크)" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <ErrorPanel error={w.err} />
+    </SidePanel>
+  );
+}
+
+/** 오른쪽 칸 · 당사자 상세 · 지급 정보(시안 pay_panel): 계좌(끝 4자만 보관)·세금을 저장한다(PUT /parties/:id/payout-profile, 결정 WD4). */
+function PartyPayPanel({ party, onClose }: { party: OrgParty; onClose: () => void }) {
+  const w = useWrite();
+  const [account, setAccount] = useState("");
+  const [tax, setTax] = useState(TAX_OF_COUNTRY[party.countryClass ?? ""] ?? (party.partyType === "AUTHOR" ? "FOREIGN" : "DOMESTIC_CORP"));
+  const typeText = `${(PARTY_TYPE_KO[party.partyType] ?? party.partyType).replace("(아티스트)", "")}${party.countryClass ? ` · ${COUNTRY_KO[party.countryClass]}` : ""}`;
+  const save = () => void w.run(() => api("PUT", `/parties/${encodeURIComponent(party.partyId)}/payout-profile`, { taxType: tax, payoutAccountRef: accountRefOf(account), kycVerified: true }), "지급 정보 저장")
+    .then((ok) => { if (ok) setAccount(""); });
+  return (
+    <SidePanel label="당사자 상세 · 지급 정보" kicker="당사자 상세 · 지급 정보" title={party.displayName} onClose={onClose}
+      actions={<><button type="button" className="p-btn" onClick={onClose}>취소</button><button type="button" className="p-btn primary" disabled={w.busy || account.replace(/\D/g, "").length < 4} onClick={save}>저장</button></>}>
+      <Kv pairs={[["유형", typeText], ["쓰인 곳", usedInDetail(party)], ["서명 링크", party.contactEmail ?? "—"]]} />
+      <Field label="지급 계좌"><input className="p-input" aria-label="지급 계좌" placeholder="은행 · 계좌번호(끝 4자만 보관)" value={account} onChange={(e) => setAccount(e.target.value)} /></Field>
+      <Field label="세금">
+        <select className="p-select" aria-label="세금" value={tax} onChange={(e) => setTax(e.target.value)}>
+          <option value="FOREIGN">해외 · 원천징수</option><option value="DOMESTIC_INDIVIDUAL">국내 · 원천징수</option><option value="DOMESTIC_CORP">사업자</option>
+        </select>
+      </Field>
+      <Note tone="warn">지급 정보는 빅히트가 등록하고, 플랫폼은 지급만 실행한다(WD4). 없으면 정합성 경고가 남는다.</Note>
+      <ErrorPanel error={w.err} />
+    </SidePanel>
   );
 }
 

@@ -69,6 +69,9 @@ export function PolicyTab({ ctx }: { ctx: WsCtx }) {
   const { pack, detail, policy, error } = usePackAndPolicy(ctx.scopeId);
   const latest = useGet<PolicyVersionDetail>(["policy-version", policy?.policyId, policy?.latestVersion], `/policies/${encodeURIComponent(policy?.policyId ?? "")}/versions/${policy?.latestVersion ?? 0}`, { enabled: !!policy });
   const w = useWrite();
+  // 컴파일 조건(2026-10-26): 곡 진행 ①~④가 끝나야 한다(코어도 같은 조건으로 409 PROGRESS_INCOMPLETE).
+  const progress = useGet<{ steps: { label: string; done: boolean }[] }>(["readiness", "progress", ctx.scopeId], `/scopes/${encodeURIComponent(ctx.scopeId)}/progress`);
+  const blocker = progressBlocker(progress.data?.steps);
   const slug = ctx.scopeId.replace(/^fsc_/, "");
   const [packForm, setPackForm] = useState({ code: `${slug.toUpperCase().replace(/_/g, "-").slice(0, 24)}-FAN`, title: `${ctx.work.title} 팬앱 전용 보컬 조합` });
   const [form, setForm] = useState<PolicyForm>(() => ({ ...defaultForm(""), events: ["PRIMARY", "TRAFFIC"] }));
@@ -173,8 +176,11 @@ export function PolicyTab({ ctx }: { ctx: WsCtx }) {
               ) : (
                 <div className="p-row" style={{ justifyContent: "flex-end" }}>
                   <button type="button" className="p-btn mid" disabled title="분배 규칙 초안 저장 API가 없다 — 컴파일하면 버전이 남는다">초안 저장</button>
-                  <button type="button" className="p-btn mid primary" disabled={!pack || !ctx.can("policy.edit") || t1 !== 10000 || t2 !== 10000} title={!pack ? "팩을 먼저 만든다" : !ctx.can("policy.edit") ? "분배 규칙 편집 권한이 필요하다" : t1 !== 10000 || t2 !== 10000 ? "단계마다 합계 100%여야 한다" : undefined} onClick={() => setConfirming(true)}>컴파일(IR 생성) → 승인으로</button>
+                  <button type="button" className="p-btn mid primary" disabled={blocker !== null || !pack || !ctx.can("policy.edit") || t1 !== 10000 || t2 !== 10000} title={blocker !== null ? blocker : !pack ? "팩을 먼저 만든다" : !ctx.can("policy.edit") ? "분배 규칙 편집 권한이 필요하다" : t1 !== 10000 || t2 !== 10000 ? "단계마다 합계 100%여야 한다" : undefined} onClick={() => setConfirming(true)}>컴파일(IR 생성) → 승인으로</button>
                 </div>
+              )}
+              {!confirming && blocker !== null && (
+                <div role="status" aria-label="컴파일할 수 없는 이유" style={{ fontSize: 12.5, color: "var(--p-warn)", textAlign: "right" }}>{blocker} — 곡 진행 ①~④가 끝나야 컴파일한다</div>
               )}
             </>}
           </div>
@@ -182,4 +188,14 @@ export function PolicyTab({ ctx }: { ctx: WsCtx }) {
       </div>
     </>
   );
+}
+
+const STEP_NO = ["①", "②", "③", "④"];
+/** 받침이 있으면 "이", 없으면 "가". */
+const iga = (w: string) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0 ? "이" : "가"; };
+/** 곡 진행 ①~④ 중 끝나지 않은 첫 단계: "③ 권리 확정이 끝나지 않았다". 다 끝났으면 null(진행을 아직 모르면 '불러오는 중'). */
+export function progressBlocker(steps: { label: string; done: boolean }[] | undefined): string | null {
+  if (steps === undefined) return "곡 진행을 불러오는 중";
+  const i = steps.slice(0, 4).findIndex((s) => !s.done);
+  return i < 0 ? null : `${STEP_NO[i]} ${steps[i]!.label}${iga(steps[i]!.label)} 끝나지 않았다`;
 }

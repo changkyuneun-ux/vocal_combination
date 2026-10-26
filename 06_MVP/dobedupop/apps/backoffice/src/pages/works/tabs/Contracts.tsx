@@ -11,7 +11,7 @@ import { paginate } from "../../../api/paged.ts";
 import { currentClaims } from "../model.ts";
 import { B, Mono, Note, TableCard } from "../../ops/common.tsx";
 import { Field, SidePanel } from "./Stems.tsx";
-import { useParties, useWrite } from "../data.tsx";
+import { useParties, useSongDocs, useWrite } from "../data.tsx";
 import type { WsCtx } from "../Workspace.tsx";
 
 const KIND_LABEL: Record<string, string> = { MASTER_CONTRACT: "녹음 계약서", PUBLISHING: "퍼블리싱 계약서", PLATFORM_CONTRACT: "플랫폼 계약", PERFORMER_CONSENT: "실연 동의서", MANDATE: "수령 위임" };
@@ -170,11 +170,21 @@ function UploadOriginal({ ctx, onClose }: { ctx: WsCtx; onClose: () => void }) {
 function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own: Set<string>; contracts: Contract[]; onDone: () => void; onClose: () => void }) {
   const templates = useGet<Template[]>(["contract-templates"], "/contract-templates");
   const parties = useParties();
-  // 권리 확인서(CLAIM_CONFIRM)는 계약서 불러오기에서 만든다.
-  const usable = usableTemplates(templates.data ?? []).filter((t) => t.recordKind !== "CLAIM_CONFIRM");
+  // 권리 확인서(레이블용·작가용)도 여기서 만든다(2026-10-26): 불러오기 없이 원곡 권리 값으로 채운다.
+  const usable = usableTemplates(templates.data ?? []);
+  const songDocs = useSongDocs(ctx.scopeId);
   const [tid, setTid] = useState("");
   const t = usable.find((x) => x.templateId === tid);
   const [form, setForm] = useState<Record<string, FormValue>>({});
+  const today = ctx.now.slice(0, 10);
+  const prefill = useConfirmPrefill(ctx, songDocs.data);
+  /** 템플릿을 고르면: 시작일은 오늘(시계), 끝은 1년 뒤. 권리 확인서는 원곡 권리 값(작가 지분 표·마스터 보유·녹음·근거 문서)으로 채운다. */
+  const pick = (id: string) => {
+    const nt = usable.find((x) => x.templateId === id);
+    const dates: Record<string, FormValue> = {};
+    for (const v of nt?.variables ?? []) if (v.type === "date") dates[v.name] = v.name === "validTo" ? oneYearAfter(today) : today;
+    setTid(id); setForm({ ...dates, ...(nt?.recordKind === "CLAIM_CONFIRM" ? prefill(nt.templateId) : {}) }); setPreview(null);
+  };
   const [who, setWho] = useState("pending");
   const [preview, setPreview] = useState<{ signers: string[]; records: Record<string, unknown>[]; html: string } | null>(null);
   const [err, setErr] = useState<ApiError | null>(null);
@@ -183,8 +193,13 @@ function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own
   const multi = t?.variables.some((v) => v.name === "performer" && v.type === "party") ?? false;
   const pending = ctx.members.filter((m) => !mandated.has(m.partyId));
   const performers = who === "pending" ? pending.map((m) => m.partyId) : who === "all" ? ctx.members.map((m) => m.partyId) : [who];
-  const answers = (p?: string) => toAnswers(t?.variables ?? [], multi ? { ...form, performer: p ?? performers[0] ?? "" } : form);
-  const ready = !!t && t.variables.every((v) => v.optional || (multi && v.name === "performer" ? performers.length > 0 : form[v.name] !== undefined && form[v.name] !== ""));
+  // 작가용 권리 확인서의 이용 범위 글·기간 글은 고른 값에서 만든다(직접 고치면 그 값).
+  const derived = t?.templateId === "tpl_claim_confirm_author" ? { usage: usageText(t, form), period: `${(form.validFrom as string) ?? ""} ~ ${(form.validTo as string) ?? ""}` } : {};
+  const filled = { ...derived, ...Object.fromEntries(Object.entries(form).filter(([, v]) => v !== "")) } as Record<string, FormValue | AuthorShare[]>;
+  const answers = (p?: string) => ({ ...toAnswers(t?.variables ?? [], (multi ? { ...filled, performer: p ?? performers[0] ?? "" } : filled) as Record<string, FormValue>),
+    ...(filled.authors !== undefined && { authors: filled.authors as unknown as string }) });
+  const ready = !!t && t.variables.every((v) => v.optional || (multi && v.name === "performer" ? performers.length > 0 : filled[v.name] !== undefined && filled[v.name] !== "" && !(Array.isArray(filled[v.name]) && (filled[v.name] as unknown[]).length === 0)));
+  const lateStart = t?.variables.some((v) => v.name === "validFrom") && typeof form.validFrom === "string" && form.validFrom > today;
   useEffect(() => {
     if (!ready) { setPreview(null); return; }
     const h = setTimeout(() => void api<{ signers: string[]; records: Record<string, unknown>[]; html: string }>("POST", "/contracts/preview", { templateId: tid, factsScopeId: ctx.scopeId, answers: answers() })
@@ -192,10 +207,13 @@ function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own
     return () => clearTimeout(h);
   }, [ready, tid, JSON.stringify(form), who]);
   const base = `ctr_${tid.replace(/^tpl_/, "")}_${ctx.scopeId.replace(/^fsc_/, "")}`;
+  // 상대 당사자를 계약 id에 붙인다(2026-10-26): 같은 곡에 작가마다 작품 이용허락을 보내도 겹치지 않는다.
+  const counterparty = t?.signerVars.map((n) => form[n]).find((x): x is string => typeof x === "string" && x.startsWith("pty_") && !own.has(x));
+  const single = counterparty ? `${base}_${counterparty.replace(/^pty_/, "")}` : base;
   const send = async () => {
     try {
       if (multi) for (const p of performers) await api("POST", "/contracts", { templateId: tid, factsScopeId: ctx.scopeId, answers: answers(p), contractId: `${base}_${p.replace(/^pty_/, "")}` });
-      else await api("POST", "/contracts", { templateId: tid, factsScopeId: ctx.scopeId, answers: answers(), contractId: base });
+      else await api("POST", "/contracts", { templateId: tid, factsScopeId: ctx.scopeId, answers: answers(), contractId: single });
       setNotice(`서명 요청 ${multi ? performers.length : 1}건을 보냈습니다`); setErr(null); setTid(""); setForm({}); onDone();
     } catch (e) { setErr(e as ApiError); }
   };
@@ -212,10 +230,17 @@ function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own
         <button type="button" className="p-btn" aria-label="닫기" style={{ width: 32, height: 32, padding: 0, fontSize: 18, lineHeight: 1, borderRadius: 8 }} onClick={onClose}>×</button>
       </div>
       <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
-        <label style={label}>템플릿<select className="p-select" aria-label="계약 종류" style={{ fontWeight: 400, padding: "8px 10px" }} value={tid} onChange={(e) => { setTid(e.target.value); setForm({}); setPreview(null); }}>
+        <label style={label}>템플릿<select className="p-select" aria-label="계약 종류" style={{ fontWeight: 400, padding: "8px 10px" }} value={tid} onChange={(e) => pick(e.target.value)}>
           <option value="">계약 종류 선택</option>{usable.map((x) => <option key={x.templateId} value={x.templateId}>{x.title} v{x.version}</option>)}
         </select></label>
-        {t?.variables.filter((v) => v.type !== "bps" && v.type !== "date").map((v) => (multi && v.name === "performer") ? (
+        {t?.variables.filter((v) => v.type !== "bps" && v.type !== "date" && !(v.optional && v.name === "importId")).map((v) => v.type === "shares" ? (
+          <div key={v.name} style={label}>{v.label}
+            <TableCard cols={["작가", "지분"]} count={((filled[v.name] as AuthorShare[] | undefined) ?? []).length} paged={false} minW={0} label={v.label} empty="원곡 권리에 작가 지분이 없다">
+              {((filled[v.name] as AuthorShare[] | undefined) ?? []).map((a) => <tr key={a.partyId}><td>{ctx.name(a.partyId)}</td><td><Mono>{Number((a.shareBps / 100).toFixed(2))}%</Mono></td></tr>)}
+            </TableCard>
+            <span style={{ fontSize: 12, fontWeight: 400, color: "var(--p-muted)" }}>원곡 권리의 작가 지분 그대로 — 바꾸려면 원곡 권리 탭에서</span>
+          </div>
+        ) : (multi && v.name === "performer") ? (
           <label key={v.name} style={label}>{v.label}<select className="p-select" aria-label={v.label} style={{ fontWeight: 400, padding: "8px 10px" }} value={who} onChange={(e) => setWho(e.target.value)}>
             {pending.length > 0 && <option value="pending">멤버 {pending.length}명{pending.length < ctx.members.length ? `(${ctx.members.filter((m) => mandated.has(m.partyId)).map((m) => m.name).join("·")} 제외)` : ""} — 한 사람씩 계약 {pending.length}건</option>}
             <option value="all">멤버 전원 {ctx.members.length}명 — 한 사람씩 계약 {ctx.members.length}건</option>
@@ -230,7 +255,7 @@ function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own
             {(v.options ?? []).map(([code, l]) => { const cur = (form[v.name] as string[] | undefined) ?? []; return <label key={code} style={{ marginRight: 10 }}><input type="checkbox" checked={cur.includes(code)} onChange={(e) => setForm({ ...form, [v.name]: e.target.checked ? [...cur, code] : cur.filter((x) => x !== code) })} /> {l}</label>; })}
           </fieldset>
         ) : (
-          <label key={v.name} style={label}>{v.label}<input className="p-input" aria-label={v.label} style={{ fontWeight: 400, padding: 8 }} value={(form[v.name] as string) ?? ""} onChange={(e) => setForm({ ...form, [v.name]: e.target.value })} /></label>
+          <label key={v.name} style={label}>{v.label}<input className="p-input" aria-label={v.label} style={{ fontWeight: 400, padding: 8 }} value={(form[v.name] as string) ?? (derived as Record<string, string>)[v.name] ?? ""} onChange={(e) => setForm({ ...form, [v.name]: e.target.value })} /></label>
         ))}
         {t && t.variables.some((v) => v.type === "bps" || v.type === "date") && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
@@ -240,14 +265,43 @@ function NewContract({ ctx, own, contracts, onDone, onClose }: { ctx: WsCtx; own
             ))}
           </div>
         )}
+        {lateStart && <div role="alert" style={{ fontSize: 12.5, color: "var(--p-warn)" }}>시작일이 오늘보다 늦으면 지금은 유효한 동의가 아니다</div>}
         {preview && <div className="p-kvbox" style={{ padding: "10px 12px", fontSize: 13 }} aria-label="미리보기">미리보기: 서명 순서 {preview.signers.join(" → ")} · 반영하면 {preview.records.length ? preview.records.map((r) => `${r.type}`).join(", ") + " 확정" : "문서만"}, 서명본은 원천 문서</div>}
         {err && <ErrorPanel error={err} />}
         {notice && <p className="p-sub" role="status" style={{ margin: 0 }}>{notice}</p>}
         <div className="p-row" style={{ justifyContent: "flex-end" }}>
-          <button type="button" className="p-btn mid" disabled={!t} onClick={() => { setTid(""); setForm({}); setPreview(null); }}>이전</button>
+          <button type="button" className="p-btn mid" disabled={!t} onClick={() => pick("")}>이전</button>
           <button type="button" className="p-btn mid primary" disabled={!preview || !ctx.can("contract.draft")} onClick={() => void send()}>{multi && performers.length > 1 ? `서명 요청 ${performers.length}건 보내기` : "서명 요청 보내기"}</button>
         </div>
       </div>
     </aside>
   );
+}
+
+type AuthorShare = { partyId: string; shareBps: number; roleDetail: string };
+const oneYearAfter = (d: string) => `${Number(d.slice(0, 4)) + 1}${d.slice(4)}`;
+/** 작가용 권리 확인서 이용 범위 글: "이용 행위 미리듣기·조합 생성, 지역 대한민국, 매체 팬앱, 공개 대상 팬 커뮤니티". */
+function usageText(t: Template, form: Record<string, FormValue>): string {
+  const part = (name: string, head: string) => {
+    const v = t.variables.find((x) => x.name === name);
+    const picked = ((form[name] as string[] | undefined) ?? []).map((c) => v?.options?.find(([k]) => k === c)?.[1] ?? c);
+    return picked.length ? `${head} ${picked.join("·")}` : "";
+  };
+  return [part("actions", "이용 행위"), part("territories", "지역"), part("media", "매체"), part("audience", "공개 대상")].filter(Boolean).join(", ");
+}
+/**
+ * 권리 확인서 기본값(불러오기 없이, 2026-10-26 Butter 막힌 곳 4): 원곡 권리의 작가 지분 표·마스터 보유·녹음과 이 곡의 원본 계약서(근거).
+ * 작가용은 작가 전원이 그 표에 서명하고, 레이블용은 마스터 보유자가 서명한다.
+ */
+function useConfirmPrefill(ctx: WsCtx, docs: DocumentRow[]) {
+  return (templateId: string): Record<string, FormValue> => {
+    const cur = currentClaims(ctx.facts.claims);
+    const rec = ctx.facts.recordings.find((r) => r.recordingId === ctx.recordingId) ?? ctx.facts.recordings[0];
+    const holder = cur.find((c) => c.edge === "CONTROLLED_BY")?.targetId ?? rec?.masterOwnerPartyId ?? "";
+    const subject = rec ? `작품 「${ctx.work.title}」, 녹음 ${rec.versionTitle}(${ctx.name(rec.masterOwnerPartyId)})` : `작품 「${ctx.work.title}」`;
+    const src = (kind: string) => { const d = docs.find((x) => x.kind === kind); return d ? `${d.title} v${d.version}(${d.documentId})` : ""; };
+    if (templateId === "tpl_claim_confirm_label") return { subject, holder, recording: rec?.recordingId ?? "", source: src("MASTER_CONTRACT") };
+    const authors: AuthorShare[] = cur.filter((c) => c.edge === "WRITTEN_BY").map((c) => ({ partyId: c.targetId, shareBps: c.shareBps ?? 0, roleDetail: c.roleDetail ?? "LYRICS_COMPOSITION" }));
+    return { subject, authors: authors as unknown as string, source: src("PUBLISHING") };
+  };
 }

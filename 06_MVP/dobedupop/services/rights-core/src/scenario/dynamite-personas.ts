@@ -19,6 +19,8 @@ export type Driver = {
   /** 쌓인 작업(정산·검증·원장·지급)이 끝날 때까지 기다린다. */
   drain(): Promise<void>;
   provisionUser(u: { userId: string; displayName: string; roles: string[]; tenantId: string; partyId?: string }): Promise<void>;
+  /** 총괄 계정(플랫폼 + 권리 테넌트 RIGHTS_ALL, 결정 RD6). 드라이버가 지원하면 온보딩 뒤 만든다. */
+  provisionSuperAdmin?(a: { userId: string; displayName: string; tenantIds: string[] }): Promise<void>;
   /** 전자서명 공급자의 "플랫폼 밖 당사자가 서명했다" 통지. */
   providerSigned(contractId: string, partyId: string): Promise<void>;
 };
@@ -83,6 +85,9 @@ export const STEPS: Step[] = [
         [P.approver, "빅히트 승인", "WORK_APPROVER"], [P.activator, "빅히트 활성화", "ACTIVATOR"]] as const) {
         await must(`invite ${userId}`, d.call("portal", P.admin, "POST", "/users", { userId, displayName: name, roles: [role] }), [201, 409]);
       }
+      // 총괄 usr_admin(플랫폼 + 빅히트 RIGHTS_ALL): 한 사람으로 새 곡부터 판매 중까지(결정 RD6 — 직무 분리를 지금 적용하지 않음).
+      // 조직 첫 관리자 발급(TENANT_HAS_ADMIN 규칙) 뒤에 만든다.
+      await d.provisionSuperAdmin?.({ userId: "usr_admin", displayName: "총괄", tenantIds: [TENANT] });
       // 참여 기관: 가상 신탁단체(활성, 수령 당사자 하나, 첫 관리자). 권리를 만들지 않고 연결로만 닿는다.
       await ops(P.onboard, "POST", "/tenants", { tenantId: DEMO_CMO.tenantId, tenantType: "CMO", name: DEMO_CMO.name, businessNo: "BRN-DEMO-CMO", country: "KR", representative: "대표 (가상)" });
       for (const item of ["BUSINESS_ID", "REPRESENTATIVE", "PLATFORM_AGREEMENT", "TRUST_LICENSE"]) await ops(P.onboard, "PUT", `/tenants/${DEMO_CMO.tenantId}/checks/${item}`, { checked: true, note: "데모: 서류 확인" });
@@ -119,7 +124,8 @@ export const STEPS: Step[] = [
       // 보컬 파트 × 멤버 7: 권리 주장 함께 만들기(결정 ID3) — 멤버의 첫 스템에서 보이스와 소유 주장, 스템마다 실연 주장(모두 확인 요청).
       for (const m of MEMBERS) {
         for (const p of VOCAL_PARTS) {
-          await portal(P.rights, "POST", "/stems", { stemId: stemId(p, m.key), slotId: p.slotId, partNo: p.partNo, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true, withClaims: true });
+          // 기존 곡 Dynamite는 옛 보이스 id(voc_<멤버>)를 그대로 쓴다 — 봉인된 IR digest가 바뀌지 않게(새 곡은 곡 단위 voc_<곡>_<멤버>).
+          await portal(P.rights, "POST", "/stems", { stemId: stemId(p, m.key), slotId: p.slotId, partNo: p.partNo, recordingId: RECORDING, performerPartyId: `pty_${m.key}`, rightsBearing: true, withClaims: true, voiceId: `voc_${m.key}` });
         }
       }
       for (const [id, title, kind, parties] of [[MASTER_DOC, "Dynamite 녹음 계약서", "MASTER_CONTRACT", ["pty_bighit_label"]], [PUBLISHING_DOC, "Dynamite 작품 퍼블리싱 계약서", "PUBLISHING", [...AUTHORS]]] as const) {

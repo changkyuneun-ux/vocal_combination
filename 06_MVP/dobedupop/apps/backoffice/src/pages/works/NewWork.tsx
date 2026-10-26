@@ -3,11 +3,12 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../../api/client.ts";
 import { useGet } from "../../api/hooks.ts";
+import { useClock } from "../../api/clock.ts";
 import { post } from "../../api/registry.ts";
 import { orgPartyIds, postRecording, uploadOriginal, type PartyRow } from "../../api/works.ts";
 import { ErrorPanel } from "../../components/ErrorPanel.tsx";
 import { B, Card, Kv, Note, TableCard } from "../ops/common.tsx";
-import { currentClaims, pctText, slugId } from "./model.ts";
+import { currentClaims, pctText, slugId, songVoiceId } from "./model.ts";
 import { useFacts, useOverview, useParties, useWrite } from "./data.tsx";
 
 const STEPS = ["곡·녹음 · 녹음 계약서", "원곡 권리 · 작품 계약서", "멤버 · 보이스·파트", "확인 · 확인 요청 보내기"] as const;
@@ -27,6 +28,8 @@ export function NewWork() {
   const parties = useParties();
   const mine = useGet<PartyRow[]>(["parties", "mine"], "/my/parties");
   const w = useWrite();
+  const clock = useClock();
+  const now = () => clock.data?.now ?? new Date().toISOString(); // 권리 시작 시각은 서버 시계(가상 시계)로
   const workId = params.get("work") ?? "";
   const work = overview.data?.find((x) => x.workId === workId);
   const facts = useFacts(work?.scopeId);
@@ -74,7 +77,7 @@ export function NewWork() {
     for (const a of authors) {
       await post("/claims", {
         claimId: `c_work_${workId.slice(4)}_${a.partyId.replace(/^pty_/, "")}`, factsScopeId: work!.scopeId, sourceId: workId, edge: "WRITTEN_BY", targetId: a.partyId,
-        shareBps: Math.round(Number(a.share) * 100), roleDetail: a.roleDetail, status: own.has(a.partyId) ? "VERIFIED" : "ASSERTED", validFrom: new Date().toISOString(),
+        shareBps: Math.round(Number(a.share) * 100), roleDetail: a.roleDetail, status: own.has(a.partyId) ? "VERIFIED" : "ASSERTED", validFrom: now(),
         ...(ev && { evidenceDocuments: ev }),
       });
     }
@@ -82,10 +85,12 @@ export function NewWork() {
   }, "작가 지분을 저장했습니다 — 다른 관리 주체에는 확인 요청이 갔습니다");
   const save3 = () => void w.run(async () => {
     for (const m of members) {
-      const voiceId = `voc_${m.replace(/^pty_/, "")}`;
+      // 보이스는 곡 단위(2026-10-26): 이 곡에서 그 멤버가 이미 소유한 보이스가 있으면 두고, 없으면 voc_<곡>_<멤버>를 만든다(다른 곡과 겹치지 않음).
+      if (claims.some((c) => c.edge === "OWNED_BY" && c.targetId === m)) continue;
+      const voiceId = songVoiceId(work!.scopeId!, m);
       if (!f?.voices.some((v) => v.voiceId === voiceId)) await post("/voices", { voiceId, factsScopeId: work!.scopeId, kind: "HUMAN" });
-      if (!claims.some((c) => c.edge === "OWNED_BY" && c.sourceId === voiceId)) {
-        await post("/claims", { claimId: `c_own_${voiceId}`, factsScopeId: work!.scopeId, sourceId: voiceId, edge: "OWNED_BY", targetId: m, shareBps: 10000, status: "ASSERTED", validFrom: new Date().toISOString() });
+      {
+        await post("/claims", { claimId: `c_own_${voiceId}`, factsScopeId: work!.scopeId, sourceId: voiceId, edge: "OWNED_BY", targetId: m, shareBps: 10000, status: "ASSERTED", validFrom: now() });
       }
     }
     go(4);

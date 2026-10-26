@@ -141,9 +141,13 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   /** 실연: 실연자의 범위 보이스(없으면 보이스 + 소유 주장)와 스템 → 보이스 실연 주장. 둘 다 ASSERTED(본인 확인 요청). */
   const recordPerformerClaims = async (tx: any, actor: Actor, b: any) => {
     const scopeId = await scopeOfWork(tx, (await tx.query("SELECT work_id FROM recording_version WHERE recording_id = $1", [b.recordingId])).rows[0].work_id);
-    const voiceId = reg.voiceIdFor(b.performerPartyId);
+    // 보이스는 곡 단위(2026-10-26): 이 곡에서 그 멤버가 소유한 보이스가 있으면 그것, 없으면 voc_<곡>_<멤버>를 만든다.
+    // 기존 곡(Dynamite)처럼 보이스 id를 정해 두려면 voiceId를 준다.
+    const found = typeof b.voiceId === "string" ? { voiceId: b.voiceId as string, exists: (await tx.query("SELECT 1 FROM voice WHERE voice_id = $1", [b.voiceId])).rows.length > 0 }
+      : await reg.songVoiceFor(tx, scopeId, b.performerPartyId);
+    const voiceId = found.voiceId;
     const validFrom = deps.clock.now();
-    if ((await tx.query("SELECT 1 FROM voice WHERE voice_id = $1", [voiceId])).rows.length === 0) {
+    if (!found.exists) {
       await reg.registerVoice(tx, deps.clock, { voiceId, factsScopeId: scopeId, kind: "HUMAN" });
       const own = { claimId: `c_own_${voiceId}`, factsScopeId: scopeId, sourceId: voiceId, edge: "OWNED_BY", targetId: b.performerPartyId, shareBps: 10000, status: "ASSERTED", validFrom };
       await recordWithConfirmation(tx, actor, "CLAIM", own, () => reg.recordClaim(tx, deps.clock, own as reg.ClaimDraft));

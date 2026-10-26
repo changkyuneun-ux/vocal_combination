@@ -12,6 +12,8 @@ export async function onboardBighit(request: APIRequestContext): Promise<void> {
   for (const [userId, role] of [["usr_bh_rights", "RIGHTS_EDITOR"], ["usr_bh_policy", "EDITOR"], ["usr_bh_approver", "WORK_APPROVER"], ["usr_bh_activator", "ACTIVATOR"]] as const) {
     await ok(request, "usr_bh_admin", "POST", "/portal/users", { userId, displayName: userId, roles: [role] });
   }
+  // 총괄 usr_admin(플랫폼 + 빅히트 RIGHTS_ALL, 결정 RD6): 포털 기본 사용자.
+  await ok(request, null, "POST", "/dev/super-admin", { userId: "usr_admin", displayName: "총괄", tenantIds: ["tnt_bighit"] });
   for (const [partyId, name] of [["pty_jungkook", "정국"], ["pty_jimin", "지민"]] as const) {
     await ok(request, "usr_rights", "POST", "/parties", { partyId, partyType: "MEMBER", displayName: name, tenantId: "tnt_platform_default" });
   }

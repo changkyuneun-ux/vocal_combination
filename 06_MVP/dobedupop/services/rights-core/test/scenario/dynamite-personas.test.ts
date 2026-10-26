@@ -17,6 +17,7 @@ import { jobHandlers } from "../../src/settlement/handlers.ts";
 import { payoutJobHandlers } from "../../src/payout/handlers.ts";
 import { fakeProvider } from "../../src/payout/fake-provider.ts";
 import { runDynamitePersonas, type Driver } from "../../src/scenario/dynamite-personas.ts";
+import { ensureSuperAdmin } from "../../src/platform/super-admin.ts";
 
 // Dynamite를 페르소나별 채널 API로 끝까지(MVP 점검 2026-10-16): 빅히트 테넌트 → 멤버 → 운영 → 가상 팬 → 정산·지급·명세.
 const { db, drop } = await freshDb();
@@ -44,6 +45,7 @@ const driver: Driver = {
     while ((await jobs.drain(handlers)) > 0) { /* 처리기가 새로 넣은 작업까지 */ }
   },
   provisionUser: (u) => db.tx((tx) => createUser(tx, clock, { ...u, roles: u.roles as Role[] })),
+  provisionSuperAdmin: (a) => db.tx((tx) => ensureSuperAdmin(tx, clock, a)),
   providerSigned: (id, party) => db.tx((tx) => withSystemScope(tx, () => providerSigned(tx, clock, devSignatureProvider, id, party))),
 };
 
@@ -95,4 +97,36 @@ test("Dynamite end to end by persona: BigHit tenant, members, operators and fans
   // 격리: 다른 멤버의 명세는 볼 수 없고, 멤버는 운영·포털 채널에 들어갈 수 없다.
   assert.equal((await driver.call("portal", "usr_member_jungkook", "GET", "/my/parties")).status, 403);
   assert.equal((await driver.call("ops", "usr_bh_rights", "GET", "/batches")).status, 403);
+});
+
+// 총괄 한 사람(2026-10-26, Butter 막힌 곳 9 · 결정 RD1·RD6): 시드가 usr_admin(플랫폼 + 빅히트 RIGHTS_ALL)을 만들고, 직무 분리 규칙은 모두 꺼져 있다.
+// 포털에서 usr_admin은 빅히트 소속으로 들어오고 권리 편집·계약 서명·정책 편집·승인·활성화·당사자 등록·지급 정보를 한 계정으로 한다.
+test("the seed provisions one super admin (usr_admin) who holds every rights-tenant duty; separation of duties is off", async () => {
+  const me = (await driver.call("portal", "usr_admin", "GET", "/me")).body as { userId: string; tenantId: string; roles: string[]; permissions: string[] };
+  assert.equal(me.tenantId, "tnt_bighit");
+  assert.deepEqual(me.roles, ["RIGHTS_ALL"]);
+  for (const p of ["rights.edit", "contract.draft", "contract.sign_org", "policy.edit", "policy.approve", "policy.activate", "payout.profile_own", "account.manage"]) {
+    assert.ok(me.permissions.includes(p), `usr_admin lacks ${p}`);
+  }
+  assert.equal((await db.pool.query("SELECT count(*)::int AS n FROM sod_rule WHERE enabled")).rows[0].n, 0);
+});
+
+// 우리 당사자 등록·지급 정보(2026-10-26, Butter 막힌 곳 5·6, 시안 Ops-Org-Parties): 포털에서 빅히트 관리 당사자로 등록(국가·구분·연락 이메일)하고,
+// 우리 당사자 표는 쓰인 곳과 지급 정보 유무(없으면 '지급 정보 없음')를 함께 읽는다.
+test("the portal registers a BigHit-managed party with country class and contact email; the parties table shows usage and payout status", async () => {
+  const post = await driver.call("portal", "usr_admin", "POST", "/parties", { partyId: "pty_jenna_andrews", partyType: "AUTHOR", displayName: "Jenna Andrews", countryClass: "FOREIGN_INDIVIDUAL", contactEmail: "jenna@example.com" });
+  assert.equal(post.status, 201, JSON.stringify(post.body));
+  assert.ok((await driver.call("portal", "usr_admin", "POST", "/parties", { partyId: "pty_bad_mail", partyType: "AUTHOR", displayName: "x", contactEmail: "not-an-email" })).status >= 400);
+  type Mine = { partyId: string; countryClass: string | null; contactEmail: string | null; hasPayoutProfile: boolean; uses: { title: string; edge: string; shareBps: number }[]; mandates: number };
+  const mine = async () => (await driver.call("portal", "usr_admin", "GET", "/my/parties")).body as Mine[];
+  const j = (await mine()).find((p) => p.partyId === "pty_jenna_andrews")!;
+  assert.deepEqual([j.countryClass, j.contactEmail, j.hasPayoutProfile, j.uses, j.mandates], ["FOREIGN_INDIVIDUAL", "jenna@example.com", false, [], 0]);
+  assert.equal((await db.pool.query("SELECT tenant_id FROM party WHERE party_id = 'pty_jenna_andrews'")).rows[0].tenant_id, "tnt_bighit");
+  // 기존 당사자: 작가는 Dynamite 작가 지분, 소속사는 멤버 7 수령 위임
+  const all = await mine();
+  assert.deepEqual(all.find((p) => p.partyId === "pty_david_stewart")!.uses.map((u) => [u.title, u.edge]), [["Dynamite", "WRITTEN_BY"]]);
+  assert.equal(all.find((p) => p.partyId === "pty_bighit_agency")!.mandates, 7);
+  const put = await driver.call("portal", "usr_admin", "PUT", "/parties/pty_jenna_andrews/payout-profile", { taxType: "FOREIGN", payoutAccountRef: "Chase ****1234", kycVerified: true });
+  assert.equal(put.status, 200, JSON.stringify(put.body));
+  assert.equal((await mine()).find((p) => p.partyId === "pty_jenna_andrews")!.hasPayoutProfile, true);
 });
