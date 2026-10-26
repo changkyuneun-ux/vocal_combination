@@ -130,3 +130,17 @@ test("the portal registers a BigHit-managed party with country class and contact
   assert.equal(put.status, 200, JSON.stringify(put.body));
   assert.equal((await mine()).find((p) => p.partyId === "pty_jenna_andrews")!.hasPayoutProfile, true);
 });
+
+// 실연자 · 본인 관리(PT2·PT3·PT5): 포털은 실연자를 조회만 한다 — 이 테넌트 곡에 오른 멤버, 확인·동의 상태와 수령 위임처. 지급 정보는 나오지 않는다.
+test("the portal lists performers on its songs read-only (no payout data) and refuses to register a performer", async () => {
+  const r = (await driver.call("portal", "usr_admin", "GET", "/my/performers?page=1&size=10")).body as { items: { partyId: string; kind: string; songs: { title: string }[]; status: { label: string }; receiver: string }[]; page: number; size: number; total: number };
+  assert.deepEqual([r.page, r.size, r.total], [1, 10, 7]);
+  assert.ok(r.items.every((p) => p.kind === "멤버" && p.songs.map((s) => s.title).join() === "Dynamite" && p.status.label === "확인·동의 완료" && p.receiver === "빅히트 뮤직 매니지먼트(소속사)"), JSON.stringify(r.items[0]));
+  await driver.call("ops", "usr_accounts", "PUT", "/parties/pty_jimin/payout-profile", { taxType: "DOMESTIC_INDIVIDUAL", payoutAccountRef: "tok_jimin_secret", kycVerified: true });
+  const text = JSON.stringify((await driver.call("portal", "usr_admin", "GET", "/my/performers")).body);
+  for (const leak of ["tok_jimin_secret", "DOMESTIC_INDIVIDUAL", "payout", "tax", "account", "contact"]) assert.ok(!text.includes(leak), `leaked ${leak}`);
+  for (const partyType of ["MEMBER", "SESSION", "ARTIST"]) {
+    const x = await driver.call("portal", "usr_admin", "POST", "/parties", { partyId: `pty_new_${partyType.toLowerCase()}`, partyType, displayName: "x" });
+    assert.deepEqual([x.status, (x.body as { code: string }).code], [400, "PERFORMER_SELF_MANAGED"]);
+  }
+});

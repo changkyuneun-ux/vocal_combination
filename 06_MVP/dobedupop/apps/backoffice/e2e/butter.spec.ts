@@ -69,7 +69,7 @@ test("Butter 새 곡 → 판매 중: 총괄 한 계정, 포털 화면만으로",
     await p.getByRole("button", { name: "등록", exact: true }).click();
     const detail = page.getByRole("complementary", { name: "당사자 상세 · 지급 정보" });
     await expect(detail.getByRole("heading", { name })).toBeVisible();
-    await expect(page.getByRole("table", { name: "당사자", exact: true }).getByRole("row", { name: new RegExp(name.replace(/[()]/g, "\\$&")) })).toContainText("지급 정보 없음");
+    await expect(page.getByRole("table", { name: "관리 당사자" }).getByRole("row", { name: new RegExp(name.replace(/[()]/g, "\\$&")) })).toContainText("지급 정보 없음");
   }
   const mine = await get<{ partyId: string; displayName: string }[]>("/my/parties");
   for (const [name] of AUTHORS) authorIds.push(mine.find((x) => x.displayName === name)!.partyId);
@@ -268,14 +268,15 @@ test("Butter 새 곡 → 판매 중: 총괄 한 계정, 포털 화면만으로",
 
   // 9. 작가 지급 정보: 내 조직 › 당사자 › 행 → 지급 계좌·세금 → 저장
   await page.goto("/portal/");
-  const partiesTable = page.getByRole("table", { name: "당사자", exact: true });
+  const partiesTable = page.getByRole("table", { name: "관리 당사자" });
   /** 표는 10행씩 쪽을 나눈다 — 그 작가가 있는 쪽으로 넘긴다. */
   const rowOf = async (name: string) => {
     const r = partiesTable.getByRole("row", { name: new RegExp(name.replace(/[()]/g, "\\$&")) });
     await expect(partiesTable.getByRole("row").nth(1)).toBeVisible();
     for (let k = 0; k < 3 && await r.count() === 0; k++) {
-      const next = page.getByRole("button", { name: "다음 쪽" });
-      await (await next.isEnabled() ? next : page.getByRole("button", { name: "1", exact: true })).click();
+      const card = page.locator("section").filter({ has: partiesTable }); // 관리 당사자 표의 쪽 넘기기(실연자 표에도 있다)
+      const next = card.getByRole("button", { name: "다음 쪽" });
+      await (await next.isEnabled() ? next : card.getByRole("button", { name: "1", exact: true })).click();
     }
     return r;
   };
@@ -289,6 +290,14 @@ test("Butter 새 곡 → 판매 중: 총괄 한 계정, 포털 화면만으로",
     await expect(await rowOf(name)).toContainText("등록됨");
     await d.getByRole("button", { name: "닫기" }).click();
   }
+  // 실연자 · 본인 관리(PT2·PT5): 멤버 7명이 두 곡 참여·확인·동의 완료·소속사 수령으로 조회만 된다(행을 눌러도 칸이 열리지 않음).
+  const perfTable = page.getByRole("table", { name: "실연자 · 본인 관리" });
+  await expect(perfTable.getByRole("row")).toHaveCount(MEMBERS.length + 1);
+  await expect(perfTable.getByRole("row", { name: /정국/ })).toContainText("Dynamite · Butter");
+  await expect(perfTable.getByRole("row", { name: /정국/ })).toContainText("확인·동의 완료");
+  await expect(perfTable.getByRole("row", { name: /정국/ })).toContainText("빅히트 뮤직 매니지먼트");
+  await perfTable.getByRole("row", { name: /정국/ }).click();
+  await expect(page.getByRole("complementary")).toHaveCount(0);
   await shot("09-payout");
   await rec("9 작가 지급 정보", "운영 관리 › 조직 › 내 조직 › 당사자 › 행", "지급 계좌(끝 4자만 보관)·세금 → 저장 ×7", "작가 7명 '등록됨'");
 

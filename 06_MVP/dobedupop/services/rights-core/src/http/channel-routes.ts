@@ -17,6 +17,8 @@ import { withActor, type Deps } from "./server.ts";
 import { performerConsentOriginal } from "../contracts/service.ts";
 import { signerRoutes } from "../contracts/routes.ts";
 import { withPermissions } from "../platform/permissions.ts";
+import { tenantPerformers } from "../registry/performers.ts";
+import { parsePageNo, slicePageNo } from "../platform/paging.ts";
 
 /** 행위자 공통 정보(모든 채널의 /me). */
 function me(actor: Actor) {
@@ -39,7 +41,7 @@ export function portalRoutes(app: FastifyInstance, deps: Deps): void {
       `SELECT p.party_id, p.party_type, p.display_name, p.country_class, p.contact_email, p.created_at,
               EXISTS (SELECT 1 FROM party_payout_profile pp WHERE pp.party_id = p.party_id) AS has_payout,
               -- 쓰인 곳: 곡마다 현재 권리(작가 지분·마스터 보유·실연)와 받은 수령 위임 수
-              COALESCE((SELECT json_agg(json_build_object('title', w.title, 'edge', c.edge, 'shareBps', c.share_bps) ORDER BY w.title, c.edge)
+              COALESCE((SELECT json_agg(json_build_object('title', w.title, 'edge', c.edge, 'shareBps', c.share_bps) ORDER BY s.created_at, w.title, c.edge)
                           FROM right_claim c JOIN facts_scope s ON s.facts_scope_id = c.facts_scope_id JOIN work w ON w.work_id = s.work_id
                          WHERE c.target_id = p.party_id AND c.superseded_at IS NULL AND c.edge IN ('WRITTEN_BY','CONTROLLED_BY','OWNED_BY')), '[]') AS uses,
               (SELECT count(DISTINCT m.from_party_id)::int FROM mandate m WHERE m.to_party_id = p.party_id AND m.superseded_at IS NULL) AS mandates
@@ -47,6 +49,11 @@ export function portalRoutes(app: FastifyInstance, deps: Deps): void {
     return rows.map((r) => ({ partyId: r.party_id as string, partyType: r.party_type as string, displayName: r.display_name as string,
       countryClass: (r.country_class ?? null) as string | null, contactEmail: (r.contact_email ?? null) as string | null, hasPayoutProfile: r.has_payout as boolean,
       uses: r.uses as { title: string; edge: string; shareBps: number | null }[], mandates: r.mandates as number }));
+  }));
+  /** 실연자 · 본인 관리(PT2·PT5): 이 테넌트 곡에 오른 실연자 조회(쪽 번호 응답). 지급 정보·계좌·세금·연락처는 돌려주지 않는다. */
+  app.get("/my/performers", async (req) => withActor(deps, req, async (tx, actor) => {
+    const q = req.query as Record<string, unknown>;
+    return slicePageNo(await tenantPerformers(tx, actor.tenantId, deps.clock.now()), parsePageNo({ page: "1", ...q })!);
   }));
   app.get<{ Params: { id: string } }>("/parties/:id/statements", async (req) => withActor(deps, req, async (tx) => {
     const { from, to } = period(req.query as Record<string, unknown>);

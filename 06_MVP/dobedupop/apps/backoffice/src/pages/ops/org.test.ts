@@ -4,9 +4,11 @@ import { progressBlocker } from "../works/tabs/Policy.tsx";
 
 // 당사자(시안 Ops-Org-Parties)·컴파일 조건(2026-10-26, Butter 막힌 곳 5·6·8).
 describe("당사자", () => {
-  it("쓰인 곳: 곡 이름들, 곡 권리 없이 수령 위임만 있으면 '멤버 n 수령 위임'", () => {
-    expect(usedIn({ partyId: "pty_a", partyType: "LABEL", displayName: "L", uses: [{ title: "Dynamite", edge: "CONTROLLED_BY", shareBps: 10000 }, { title: "Butter", edge: "CONTROLLED_BY", shareBps: 10000 }] })).toBe("Dynamite · Butter");
-    expect(usedIn({ partyId: "pty_b", partyType: "AGENCY", displayName: "A", uses: [], mandates: 7 })).toBe("멤버 7 수령 위임");
+  it("쓰인 곳: 같은 권리끼리 곡을 묶고, 수령 위임만 있으면 '멤버 n 실연 몫 수령 위임'(시안)", () => {
+    expect(usedIn({ partyId: "pty_a", partyType: "LABEL", displayName: "L", uses: [{ title: "Dynamite", edge: "CONTROLLED_BY", shareBps: 10000 }, { title: "Butter", edge: "CONTROLLED_BY", shareBps: 10000 }] })).toBe("Dynamite · Butter — 마스터 보유");
+    expect(usedIn({ partyId: "pty_d", partyType: "AUTHOR", displayName: "D", uses: [{ title: "Dynamite", edge: "WRITTEN_BY", shareBps: 5000 }] })).toBe("Dynamite — 작가 지분 50%");
+    expect(usedIn({ partyId: "pty_j", partyType: "AUTHOR", displayName: "J", uses: [{ title: "Butter", edge: "WRITTEN_BY", shareBps: 1428 }] })).toBe("Butter — 작가 지분 14.28%");
+    expect(usedIn({ partyId: "pty_b", partyType: "AGENCY", displayName: "A", uses: [], mandates: 7 })).toBe("멤버 7 실연 몫 수령 위임");
     expect(usedIn({ partyId: "pty_c", partyType: "AUTHOR", displayName: "J", uses: [] })).toBe("—");
   });
   it("지급 계좌는 끝 4자만 보관한다", () => {

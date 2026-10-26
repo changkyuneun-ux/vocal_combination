@@ -23,6 +23,8 @@ import { assertMayRecordVerified, confirmRequest, counterpartyOf, declineRequest
 import { hasPermission, requirePermission } from "../platform/permissions.ts";
 import { deleteCatalogRow, updateCatalogRow, type CatalogKind } from "./catalog.ts";
 
+const PERFORMER_TYPES = ["MEMBER", "SESSION", "ARTIST"];
+
 export function registryRoutes(app: FastifyInstance, deps: Deps): void {
   /** 기록이 속한 곡을 다시 검사한다(조항 연결 뒤). */
   const revalidateRecord = async (tx: any, type: string, id: string) => {
@@ -42,6 +44,10 @@ export function registryRoutes(app: FastifyInstance, deps: Deps): void {
         if (actor.scope === "platform" && path === "/parties") requirePermission(actor, "party.register_platform");
         else requirePermission(actor, "rights.edit");
         const body = req.body as Record<string, unknown>;
+        // 실연자(멤버·세션·솔로 아티스트)는 본인이 관리한다(PT1·PT3): 권리자 포털은 등록하지 않는다. 시드·시나리오(운영 채널)는 그대로.
+        if (path === "/parties" && req.channel === "portal" && PERFORMER_TYPES.includes(body?.partyType as string)) {
+          throw new DomainError("PERFORMER_SELF_MANAGED", 400, "performers (MEMBER, SESSION, ARTIST) manage themselves; the rights portal registers only labels, agencies, authors and publishers");
+        }
         const missing = required.filter((k) => body?.[k] === undefined);
         if (missing.length > 0) throw new DomainError("BAD_REQUEST", 400, `missing required fields: ${missing.join(", ")}`);
         return fn(tx, body as B, actor);

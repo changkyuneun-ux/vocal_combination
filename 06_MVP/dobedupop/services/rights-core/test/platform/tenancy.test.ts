@@ -77,9 +77,9 @@ test("writes under another tenant's rows are refused by RLS (403 TENANT_FORBIDDE
 });
 
 test("parties join the caller's tenant; only the platform registers parties for another tenant", async () => {
-  await json("POST", "/parties", "usr_a", 201, { partyId: "pty_a_artist", partyType: "ARTIST", displayName: "artist" });
+  await json("POST", "/parties", "usr_a", 201, { partyId: "pty_a_publisher", partyType: "PUBLISHER", displayName: "publisher" });
   const tenantOf = async (id: string) => (await w.db.pool.query("SELECT tenant_id FROM party WHERE party_id = $1", [id])).rows[0].tenant_id;
-  assert.equal(await tenantOf("pty_a_artist"), "tnt_lbl_a");
+  assert.equal(await tenantOf("pty_a_publisher"), "tnt_lbl_a");
   assert.equal((await json("POST", "/parties", "usr_b", 403, { partyId: "pty_x", partyType: "AUTHOR", displayName: "x", tenantId: "tnt_lbl_a" })).code, "TENANT_FORBIDDEN");
   await json("POST", "/parties", "usr_rights", 201, { partyId: "pty_b_author", partyType: "AUTHOR", displayName: "x", tenantId: "tnt_lbl_b" });
   assert.equal(await tenantOf("pty_b_author"), "tnt_lbl_b");
