@@ -830,4 +830,34 @@ ws_page("Song-Contracts-Upload.dc.html", "Dynamite — 원본 계약서 올리�
          + '<div style="flex: 1 1 360px; max-width: 440px; min-width: 0">' + up_panel + '</div></div>'],
         READY_IMPORT, height=1100)
 
+
+# ── 조직 › 내 조직: 우리 당사자 등록과 지급 정보(2026-10-26) ──
+party_rows = [["빅히트 뮤직 — 레이블", badge("레이블", "gray"), "Dynamite · Butter", badge("등록됨", "ok"), link("상세")],
+              ["빅히트 뮤직 매니지먼트", badge("소속사", "gray"), "멤버 7 수령 위임", badge("등록됨", "ok"), link("상세")],
+              ["David Stewart", badge("작가", "gray"), "Dynamite", badge("등록됨", "ok"), link("상세")],
+              ["Jenna Andrews", badge("작가", "gray"), "Butter", badge("지급 정보 없음", "warn"), link("상세")]]
+party_add = side_panel("우리 당사자 등록", "새 당사자",
+    field("유형", f'<select style="{SELECT}"><option>작가</option><option>레이블</option><option>소속사</option><option>멤버(아티스트)</option></select>', "작가·멤버도 빅히트가 관리하는 당사자로 등록한다")
+    + field("표시 이름", f'<input value="Jenna Andrews" style="{SELECT}">')
+    + field("국가 · 구분", f'<select style="{SELECT}"><option>해외 · 개인</option><option>국내 · 개인</option><option>국내 · 법인</option></select>', "세금(원천징수) 계산에 쓰인다")
+    + field("연락 이메일(전자서명 링크)", f'<input value="jenna@example.com" style="{SELECT}">', "계정이 없는 당사자는 이 주소로 서명 링크를 받는다"),
+    button("취소") + button("등록", primary=True))
+pay_panel = side_panel("당사자 상세 · 지급 정보", "Jenna Andrews",
+    kv([("유형", "작가 · 해외 개인"), ("쓰인 곳", "Butter · 작가 지분 14.28%"), ("서명 링크", "jenna@example.com")])
+    + field("지급 계좌", f'<input placeholder="은행 · 계좌번호(끝 4자만 보관)" style="{SELECT}">')
+    + field("세금", f'<select style="{SELECT}"><option>해외 · 원천징수</option><option>국내 · 원천징수</option><option>사업자</option></select>')
+    + note("지급 정보는 빅히트가 등록하고, 플랫폼은 지급만 실행한다(WD4). 없으면 정합성 경고가 남는다.", "warn"),
+    button("취소") + button("저장", primary=True))
+page("Ops-Org-Parties.dc.html", "운영 관리 — 내 조직 › 우리 당사자", "op-org", "2026-05-01 09:00", [], "빅히트 뮤직",
+     "권리 테넌트 · 레이블 · tnt_bighit — 우리 당사자를 등록하고 지급 정보를 관리한다",
+     [badge("활성 · 01-20", "ok")],
+     ['<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">'
+      + '<div style="flex: 2 1 640px; min-width: 0">'
+      + table(["당사자", "유형", "쓰인 곳", "상태", ""], party_rows,
+              foot="작가·레이블·소속사·멤버 모두 빅히트가 관리하는 당사자다. 행을 누르면 오른쪽에 상세(지급 정보)가 열린다.",
+              title=("우리 당사자", "4명 · " + link("+ 당사자 등록")), min_w=760)
+      + '</div><div style="flex: 1 1 360px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 18px">'
+      + party_add + pay_panel + '</div></div>'],
+     height=1150)
+
 print("ok")

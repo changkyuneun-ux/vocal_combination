@@ -416,6 +416,15 @@
       "title": "문서·계약 › + 원본 계약서 올리기(오른쪽 칸, 토글)",
       "expand": "fill",
       "is_interactive": true
+    },
+    "Ops-Org-Parties.dc.html": {
+      "x": 6080,
+      "y": 17950,
+      "w": 1440,
+      "h": 1150,
+      "title": "운영 관리 › 내 조직 › 우리 당사자 — 등록·지급 정보(오른쪽 칸, 한 번에 하나)",
+      "expand": "fill",
+      "is_interactive": true
     }
   },
   "createdOnFiles": {
@@ -636,7 +645,8 @@
     "Song-Locked-Fix.dc.html",
     "Song-Locked-FixPerf.dc.html",
     "Song-Stems-Panel.dc.html",
-    "Song-Contracts-Upload.dc.html"
+    "Song-Contracts-Upload.dc.html",
+    "Ops-Org-Parties.dc.html"
   ],
   "pages": [],
   "title": "dobedupop 총괄 콘솔 UI 구조 시안"
