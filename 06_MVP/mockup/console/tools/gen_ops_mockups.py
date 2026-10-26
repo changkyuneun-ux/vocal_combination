@@ -411,7 +411,7 @@ page("Ops-Org.dc.html", "운영 관리 — 내 조직", "op-org", "2026-01-20 09
            [["사업자 확인", "사업자 확인서", badge("확인됨", "ok")], ["대표자", "대표자 확인서", badge("확인됨", "ok")],
             ["플랫폼 이용 계약", "플랫폼 이용계약 v1 서명본", badge("확인됨", "ok")], ["권리 보유 증빙", "Dynamite 녹음 계약서 v1", badge("확인됨", "ok")]], min_w=600, paged=False),
            hint="플랫폼이 확인한다. 빅히트는 조회만"),
-      card("우리 당사자", table(["당사자", "역할", "쓰인 곳"],
+      card("당사자", table(["당사자", "역할", "쓰인 곳"],
            [["빅히트 뮤직(레이블)", "녹음 권리 · 마스터 보유", "Dynamite · 푸른 계절"], ["빅히트 뮤직 매니지먼트(소속사)", "실연 수익 수령 위임", "멤버 7 · 블루노트 · 하람"]], min_w=600),
            hint="당사자 등록(E09)")], height=1100)
 
@@ -831,13 +831,21 @@ ws_page("Song-Contracts-Upload.dc.html", "Dynamite — 원본 계약서 올리�
         READY_IMPORT, height=1100)
 
 
-# ── 조직 › 내 조직: 우리 당사자 등록과 지급 정보(2026-10-26) ──
-party_rows = [["빅히트 뮤직 — 레이블", badge("레이블", "gray"), "Dynamite · Butter", badge("등록됨", "ok"), link("상세")],
-              ["빅히트 뮤직 매니지먼트", badge("소속사", "gray"), "멤버 7 수령 위임", badge("등록됨", "ok"), link("상세")],
-              ["David Stewart", badge("작가", "gray"), "Dynamite", badge("등록됨", "ok"), link("상세")],
-              ["Jenna Andrews", badge("작가", "gray"), "Butter", badge("지급 정보 없음", "warn"), link("상세")]]
-party_add = side_panel("우리 당사자 등록", "새 당사자",
-    field("유형", f'<select style="{SELECT}"><option>작가</option><option>레이블</option><option>소속사</option><option>멤버(아티스트)</option></select>', "작가·멤버도 빅히트가 관리하는 당사자로 등록한다")
+# ── 조직 › 내 조직: 관리 당사자(등록·지급 정보)와 실연자(본인 관리, 조회만) (2026-10-26, 권리자 유형 PT1~PT6) ──
+party_rows = [["빅히트 뮤직 — 레이블", badge("레이블", "gray"), "Dynamite · Butter — 마스터 보유", badge("등록됨", "ok"), link("상세")],
+              ["빅히트 뮤직 매니지먼트", badge("소속사", "gray"), "멤버 7 실연 몫 수령 위임", badge("등록됨", "ok"), link("상세")],
+              ["David Stewart", badge("작가", "gray"), "Dynamite — 작가 지분 50%", badge("등록됨", "ok"), link("상세")],
+              ["Jenna Andrews", badge("작가", "gray"), "Butter — 작가 지분 14.28%", badge("지급 정보 없음", "warn"), link("상세")]]
+performer_rows = [["정국", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["지민", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["RM", badge("멤버", "gray"), "Dynamite · Butter", badge("Butter 동의 대기", "warn"), "빅히트 뮤직 매니지먼트"],
+                  ["진", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["슈가", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["제이홉", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["뷔", badge("멤버", "gray"), "Dynamite · Butter", badge("확인·동의 완료", "ok"), "빅히트 뮤직 매니지먼트"],
+                  ["코러스 세션 A", badge("세션", "gray"), "Butter", badge("초대 보냄 · 미확인", "warn"), "본인"]]
+party_add = side_panel("당사자 등록", "새 당사자",
+    field("유형", f'<select style="{SELECT}"><option>작가</option><option>출판사</option><option>레이블</option><option>소속사</option></select>', "빅히트가 관리하는 당사자만 등록한다. 실연자(멤버·세션)는 본인이 관리한다")
     + field("표시 이름", f'<input value="Jenna Andrews" style="{SELECT}">')
     + field("국가 · 구분", f'<select style="{SELECT}"><option>해외 · 개인</option><option>국내 · 개인</option><option>국내 · 법인</option></select>', "세금(원천징수) 계산에 쓰인다")
     + field("연락 이메일(전자서명 링크)", f'<input value="jenna@example.com" style="{SELECT}">', "계정이 없는 당사자는 이 주소로 서명 링크를 받는다"),
@@ -848,16 +856,19 @@ pay_panel = side_panel("당사자 상세 · 지급 정보", "Jenna Andrews",
     + field("세금", f'<select style="{SELECT}"><option>해외 · 원천징수</option><option>국내 · 원천징수</option><option>사업자</option></select>')
     + note("지급 정보는 빅히트가 등록하고, 플랫폼은 지급만 실행한다(WD4). 없으면 정합성 경고가 남는다.", "warn"),
     button("취소") + button("저장", primary=True))
-page("Ops-Org-Parties.dc.html", "운영 관리 — 내 조직 › 우리 당사자", "op-org", "2026-05-01 09:00", [], "빅히트 뮤직",
-     "권리 테넌트 · 레이블 · tnt_bighit — 우리 당사자를 등록하고 지급 정보를 관리한다",
+page("Ops-Org-Parties.dc.html", "운영 관리 — 내 조직 › 당사자", "op-org", "2026-05-01 09:00", [], "빅히트 뮤직",
+     "권리 테넌트 · 레이블 · tnt_bighit — 관리 당사자를 등록하고 지급 정보를 관리한다. 실연자는 조회만 한다",
      [badge("활성 · 01-20", "ok")],
      ['<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">'
-      + '<div style="flex: 2 1 640px; min-width: 0">'
+      + '<div style="flex: 2 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 18px">'
       + table(["당사자", "유형", "쓰인 곳", "상태", ""], party_rows,
-              foot="작가·레이블·소속사·멤버 모두 빅히트가 관리하는 당사자다. 행을 누르면 오른쪽에 상세(지급 정보)가 열린다.",
-              title=("우리 당사자", "4명 · " + link("+ 당사자 등록")), min_w=760)
+              foot="레이블·소속사·작가·출판사 — 빅히트가 등록하고 지급 정보를 넣는다. 행을 누르면 오른쪽에 상세(지급 정보)가 열린다.",
+              title=("관리 당사자", "4명 · " + link("+ 당사자 등록")), min_w=760)
+      + table(["실연자", "구분", "참여 곡", "확인·동의", "실연 몫 받는 쪽"], performer_rows,
+              foot="실연자는 본인이 관리한다(개인 계정). 빅히트는 곡 화면에서 참여자로 지정·초대하고, 확인·동의·지급 정보는 본인이 실연자 앱에서 한다. 여기서는 조회만 한다.",
+              title=("실연자 · 본인 관리", "8명 · 조회만"), min_w=760)
       + '</div><div style="flex: 1 1 360px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 18px">'
       + party_add + pay_panel + '</div></div>'],
-     height=1150)
+     height=1650)
 
 print("ok")
